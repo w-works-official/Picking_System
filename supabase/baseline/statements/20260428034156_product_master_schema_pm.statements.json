@@ -1,0 +1,13 @@
+{
+  "warning": "HISTORICAL LIVE LEDGER ARCHIVE. NOT A MIGRATION. NEVER AUTO-APPLY. Original statement indexes retained; top-level data writes withheld. No schema equivalence with repository source asserted.",
+  "project_id": "vgxocngpykhlkosiaeew",
+  "version": "20260428034156",
+  "name": "product_master_schema_pm",
+  "statements": [
+    {
+      "index": 0,
+      "text": "\n-- 1. 셀피아 상품 마스터\nCREATE TABLE IF NOT EXISTS pm_products (\n    sellpia_code   VARCHAR(20)  PRIMARY KEY,\n    product_id     INTEGER      NOT NULL,\n    option_seq     INTEGER      NOT NULL,\n    product_name   TEXT,\n    option_name    TEXT,\n    supplier       TEXT,\n    created_at     TIMESTAMPTZ  DEFAULT NOW()\n);\nCREATE INDEX IF NOT EXISTS idx_pm_products_product_id ON pm_products(product_id);\n\n-- 2. 메이크샵\nCREATE TABLE IF NOT EXISTS pm_makeshop (\n    id             SERIAL       PRIMARY KEY,\n    sellpia_code   VARCHAR(20)  REFERENCES pm_products(sellpia_code),\n    makeshop_code  VARCHAR(50),\n    product_name   TEXT,\n    option_name    TEXT,\n    price          INTEGER,\n    option_price   INTEGER\n);\nCREATE INDEX IF NOT EXISTS idx_pm_makeshop_sellpia ON pm_makeshop(sellpia_code);\nCREATE INDEX IF NOT EXISTS idx_pm_makeshop_code ON pm_makeshop(makeshop_code);\n\n-- 3. 스마트스토어 (매칭 성공)\nCREATE TABLE IF NOT EXISTS pm_smartstore (\n    id             SERIAL       PRIMARY KEY,\n    sellpia_code   VARCHAR(20)  REFERENCES pm_products(sellpia_code),\n    product_no     BIGINT,\n    option_no      BIGINT,\n    option_code    VARCHAR(50),\n    ss_option_name TEXT,\n    price          INTEGER,\n    discount_price INTEGER\n);\nCREATE INDEX IF NOT EXISTS idx_pm_smartstore_sellpia ON pm_smartstore(sellpia_code);\nCREATE INDEX IF NOT EXISTS idx_pm_smartstore_product_no ON pm_smartstore(product_no);\nCREATE INDEX IF NOT EXISTS idx_pm_smartstore_option_code ON pm_smartstore(option_code);\n\n-- 4. 스마트스토어 미매칭\nCREATE TABLE IF NOT EXISTS pm_smartstore_unmatched (\n    id             SERIAL       PRIMARY KEY,\n    ss_own_code    VARCHAR(20),\n    sellpia_code   VARCHAR(20),\n    product_no     BIGINT,\n    option_no      BIGINT,\n    option_code    VARCHAR(50),\n    ss_option_name TEXT,\n    reason         TEXT,\n    created_at     TIMESTAMPTZ  DEFAULT NOW()\n);\n"
+    }
+  ]
+}
+

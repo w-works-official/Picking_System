@@ -1,0 +1,413 @@
+{
+  "format_version": 1,
+  "captured_on": "2026-10-05",
+  "project_id": "vgxocngpykhlkosiaeew",
+  "read_only_provenance": "Supabase connector list_migrations and read-only SELECT version,name,cardinality(statements),SHA256(statement sequence) FROM supabase_migrations.schema_migrations. Missing-by-name statement texts retrieved using SELECT only. No application row tables queried.",
+  "hash_definition": "SHA-256 UTF-8 array_to_string(statements, LF). Hash refers to complete original live statement sequence, not JSON archive file bytes.",
+  "warning": "NOT A REPLAY BASELINE. Do not apply archived statements or repair ledger based on timestamp/name correspondence. No live schema change authorized.",
+  "live_migration_count": 27,
+  "company_owned_sql_count_at_split": 20,
+  "missing_by_name_at_split": 7,
+  "repo_only_by_name": [],
+  "duplicate_local_versions": [],
+  "migrations": [
+    {
+      "version": "20260428034156",
+      "name": "product_master_schema_pm",
+      "statement_count": 1,
+      "body_sha256": "4a243349e6de447c3fbd3badef77c55b02624d312d8bb20e1fd48959cbf1118e",
+      "repo_sources": [],
+      "repo_source_equivalence": "NO_COMPANY_SOURCE_BY_NAME",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": {
+        "version": "20260428034156",
+        "name": "product_master_schema_pm",
+        "file": "supabase/baseline/statements/20260428034156_product_master_schema_pm.statements.json",
+        "original_statement_count": 1,
+        "retained_statement_count": 1,
+        "omitted_statement_indexes": [],
+        "status": "LIVE_LEDGER_ARCHIVED_NOT_RUNNABLE"
+      }
+    },
+    {
+      "version": "20260622083543",
+      "name": "add_sellpia_amount_fields",
+      "statement_count": 1,
+      "body_sha256": "cf4bcfb07e836f2d15bb6408625ce9d5f13269389a1bdfbe3b7f5792c18178a4",
+      "repo_sources": [],
+      "repo_source_equivalence": "NO_COMPANY_SOURCE_BY_NAME",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": {
+        "version": "20260622083543",
+        "name": "add_sellpia_amount_fields",
+        "file": "supabase/baseline/statements/20260622083543_add_sellpia_amount_fields.statements.json",
+        "original_statement_count": 1,
+        "retained_statement_count": 1,
+        "omitted_statement_indexes": [],
+        "status": "LIVE_LEDGER_ARCHIVED_NOT_RUNNABLE"
+      }
+    },
+    {
+      "version": "20260625031740",
+      "name": "use_item_no_for_picking_shortage_identity",
+      "statement_count": 1,
+      "body_sha256": "b437932e4d810ad3de55fcf4a49426f1faa7211f42202eb83436997db3e8bae5",
+      "repo_sources": [],
+      "repo_source_equivalence": "NO_COMPANY_SOURCE_BY_NAME",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": {
+        "version": "20260625031740",
+        "name": "use_item_no_for_picking_shortage_identity",
+        "file": null,
+        "original_statement_count": 1,
+        "retained_statement_count": 0,
+        "omitted_statement_indexes": [
+          0
+        ],
+        "status": "NEEDS_REVIEW_DML_BODY_WITHHELD"
+      }
+    },
+    {
+      "version": "20260630123745",
+      "name": "create_workflow_events_staging",
+      "statement_count": 1,
+      "body_sha256": "2b7c1035fc582d48d24b376c3968673d0fdeeed0cf1889dc737e4c42c65cc276",
+      "repo_sources": [],
+      "repo_source_equivalence": "NO_COMPANY_SOURCE_BY_NAME",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": {
+        "version": "20260630123745",
+        "name": "create_workflow_events_staging",
+        "file": "supabase/baseline/statements/20260630123745_create_workflow_events_staging.statements.json",
+        "original_statement_count": 1,
+        "retained_statement_count": 1,
+        "omitted_statement_indexes": [],
+        "status": "LIVE_LEDGER_ARCHIVED_NOT_RUNNABLE"
+      }
+    },
+    {
+      "version": "20260630124050",
+      "name": "harden_workflow_events_staging_grants",
+      "statement_count": 1,
+      "body_sha256": "e3a7b83f1b835bda3d640853afada886913acc6914356cdd17ba773dcb5b0702",
+      "repo_sources": [],
+      "repo_source_equivalence": "NO_COMPANY_SOURCE_BY_NAME",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": {
+        "version": "20260630124050",
+        "name": "harden_workflow_events_staging_grants",
+        "file": "supabase/baseline/statements/20260630124050_harden_workflow_events_staging_grants.statements.json",
+        "original_statement_count": 1,
+        "retained_statement_count": 1,
+        "omitted_statement_indexes": [],
+        "status": "LIVE_LEDGER_ARCHIVED_NOT_RUNNABLE"
+      }
+    },
+    {
+      "version": "20260727044134",
+      "name": "create_shared_receiving_label_storage",
+      "statement_count": 1,
+      "body_sha256": "c91067599472422f38ba6b60761756488285d94f82a5dc347f80844a5a7c22ca",
+      "repo_sources": [],
+      "repo_source_equivalence": "NO_COMPANY_SOURCE_BY_NAME",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": {
+        "version": "20260727044134",
+        "name": "create_shared_receiving_label_storage",
+        "file": null,
+        "original_statement_count": 1,
+        "retained_statement_count": 0,
+        "omitted_statement_indexes": [
+          0
+        ],
+        "status": "NEEDS_REVIEW_DML_BODY_WITHHELD"
+      }
+    },
+    {
+      "version": "20260728011750",
+      "name": "create_cs_cases",
+      "statement_count": 1,
+      "body_sha256": "1a2cd1a644f07ffa10934706ef1fb01db23d7b2c62493d37cd71c0e4af844a35",
+      "repo_sources": [
+        "supabase/migrations/20260728090000_create_cs_cases.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260728015122",
+      "name": "allow_auto_cs_case_insert",
+      "statement_count": 1,
+      "body_sha256": "3a633dfd1494ad36c40275c3b0a3d639d0080c8da9d640804094a653420d10a4",
+      "repo_sources": [
+        "supabase/migrations/20260728100000_allow_auto_cs_case_insert.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260728020752",
+      "name": "add_cs_alimtalk_template",
+      "statement_count": 1,
+      "body_sha256": "1c5289b397d35439d2b776dd7c9f9c8232aed2bc20753b2adcef66012b429a43",
+      "repo_sources": [
+        "supabase/migrations/20260728110000_add_cs_alimtalk_template.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260728040428",
+      "name": "create_alimtalk_send_history",
+      "statement_count": 1,
+      "body_sha256": "f584f1386d274fe9ae1fac844ec6fac066a6583b0139196f556036cf75812503",
+      "repo_sources": [
+        "supabase/migrations/20260728130000_create_alimtalk_send_history.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260728043000",
+      "name": "add_cs_sellpia_date_sync",
+      "statement_count": 1,
+      "body_sha256": "eee2b87e4591695c18720330a11f91f502d0b97e097df5ed26706610d835bf2c",
+      "repo_sources": [
+        "supabase/migrations/20260728142000_add_cs_sellpia_date_sync.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260728064031",
+      "name": "change_orders_outbound_scheduled_date_to_text",
+      "statement_count": 1,
+      "body_sha256": "c00d1b2e0beeeedf576a7dc90736e5a80c8d1fc6eb958ab5e803ecadd8216ee1",
+      "repo_sources": [],
+      "repo_source_equivalence": "NO_COMPANY_SOURCE_BY_NAME",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": {
+        "version": "20260728064031",
+        "name": "change_orders_outbound_scheduled_date_to_text",
+        "file": "supabase/baseline/statements/20260728064031_change_orders_outbound_scheduled_date_to_text.statements.json",
+        "original_statement_count": 1,
+        "retained_statement_count": 1,
+        "omitted_statement_indexes": [],
+        "status": "LIVE_LEDGER_ARCHIVED_NOT_RUNNABLE"
+      }
+    },
+    {
+      "version": "20260731023604",
+      "name": "allow_workflow_cancel_reopened",
+      "statement_count": 1,
+      "body_sha256": "cc49a12d6f338bc5b058e546ef2cb236301c31d741012e7c3acac7a91341a45a",
+      "repo_sources": [
+        "supabase/migrations/20260731024500_allow_workflow_cancel_reopened.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260811140611",
+      "name": "create_shipment_groups",
+      "statement_count": 1,
+      "body_sha256": "a6bb5d55d4f645c3ff38c30ab6b5a917158b3ca52c74ff8101faa15d3f93fdb2",
+      "repo_sources": [
+        "supabase/migrations/20260811140611_create_shipment_groups.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260820031234",
+      "name": "create_system_v3_inventory_activity_cache",
+      "statement_count": 1,
+      "body_sha256": "697e056d0d9c6552427abdd0ffdda3896440a555d212393f7fb86a96e95fe349",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20260820133000_create_system_v3_inventory_activity_cache.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260820032113",
+      "name": "privatize_system_v3_inventory_activity_cache",
+      "statement_count": 1,
+      "body_sha256": "6fb41f400eb9f59a28f867411c48a7ce890464be6e34adc5e27c0d213c5e73cb",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20260820140000_privatize_system_v3_inventory_activity_cache.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260907081841",
+      "name": "include_shortage_repick_in_inventory_counts",
+      "statement_count": 1,
+      "body_sha256": "1c0a142ce7e97eaa7931c540fa0ed5b64204dcdb74df1da74de12b9972cd9bc0",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20260907113000_include_shortage_repick_in_inventory_counts.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260908073151",
+      "name": "picking_sellpia_receipt_time_v1",
+      "statement_count": 1,
+      "body_sha256": "c445c41405f896481ca12bba1e5a7d0d530b004074e236cb0d610ddbdfce14e8",
+      "repo_sources": [
+        "supabase/migrations/20260908072827_picking_sellpia_receipt_time_v1.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260914024923",
+      "name": "exclude_orphan_picking_from_inventory_counts",
+      "statement_count": 1,
+      "body_sha256": "8694d991f4ee55855e5a1a6d974f895c26fc27b4b98276112a8e5ff1b227dd51",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20260914093000_exclude_orphan_picking_from_inventory_counts.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260914025703",
+      "name": "optimize_inventory_count_export_rpc",
+      "statement_count": 1,
+      "body_sha256": "6db32ef1ca0cba152f4c5ce91e34ff9e910e2dc7270b669f87ead2bdfd661c03",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20260914100000_optimize_inventory_count_export_rpc.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260923041239",
+      "name": "add_sellpia_ordered_at_columns",
+      "statement_count": 1,
+      "body_sha256": "e657507416ba265b5662a86057a5765acd6d6743295f85686b8a63a2c7356c47",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20260923093000_add_sellpia_ordered_at_columns.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260929060114",
+      "name": "alimtalk_exclusion",
+      "statement_count": 1,
+      "body_sha256": "a5e39cde191f2658a17d58a1079a1bcd73dde8bb3f47dc6a5c8cb71bd89d4bbe",
+      "repo_sources": [
+        "supabase/migrations/20260929060114_alimtalk_exclusion.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260929060615",
+      "name": "allow_alimtalk_exclusion_override_insert",
+      "statement_count": 1,
+      "body_sha256": "d97dd7b6be3ced951a0407762bea7d5a7c2c1969f20fa72a08b1609ce56dafe9",
+      "repo_sources": [
+        "supabase/migrations/20260929060615_allow_alimtalk_exclusion_override_insert.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20260929060819",
+      "name": "cleanup_alimtalk_exclusion_deploy_qa",
+      "statement_count": 1,
+      "body_sha256": "ba3778b1febaf9469ab10b0b6afde6a18bb41e3b3fc40cad3d094708278046d3",
+      "repo_sources": [
+        "supabase/migrations/20260929060819_cleanup_alimtalk_exclusion_deploy_qa.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20261001041044",
+      "name": "order_item_operations_foundation",
+      "statement_count": 1,
+      "body_sha256": "9b655c05c02c9f1a81a377215c1393eb510a871a296084ce036601ee06a31445",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20261001093000_order_item_operations_foundation.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20261001041906",
+      "name": "fix_order_item_operations_trigger_search_path",
+      "statement_count": 1,
+      "body_sha256": "58a1af84a0d4c1959564f40f489a503a053bb358bc70404d9e7f9150aecd2cd2",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20261001131748_fix_order_item_operations_trigger_search_path.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    },
+    {
+      "version": "20261001053623",
+      "name": "sku_inbound_schedules",
+      "statement_count": 1,
+      "body_sha256": "a5cd0e333a57e54cd9b2c6503b4c8379e8beacd89a9bb73c3f9bc6e342d572d0",
+      "repo_sources": [
+        "supabase/pr_system_migrations/20261001140506_sku_inbound_schedules.sql"
+      ],
+      "repo_source_equivalence": "NAME_MATCH_ONLY_BODY_EQUIVALENCE_UNPROVEN",
+      "recovery_candidates": [],
+      "recovery_source_equivalence": "NO_FILENAME_SOURCE_LOCATED",
+      "archive": null
+    }
+  ]
+}
+

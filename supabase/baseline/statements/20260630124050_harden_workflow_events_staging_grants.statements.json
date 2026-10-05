@@ -1,0 +1,13 @@
+{
+  "warning": "HISTORICAL LIVE LEDGER ARCHIVE. NOT A MIGRATION. NEVER AUTO-APPLY. Original statement indexes retained; top-level data writes withheld. No schema equivalence with repository source asserted.",
+  "project_id": "vgxocngpykhlkosiaeew",
+  "version": "20260630124050",
+  "name": "harden_workflow_events_staging_grants",
+  "statements": [
+    {
+      "index": 0,
+      "text": "revoke all privileges on table public.workflow_item_events from anon, authenticated;\nrevoke all privileges on table public.workflow_invoice_events from anon, authenticated;\nrevoke all privileges on table public.sellpia_sync_queue from anon, authenticated;\n\ngrant select, insert, update on public.workflow_item_events to anon, authenticated;\ngrant select, insert, update on public.workflow_invoice_events to anon, authenticated;\ngrant select, insert, update on public.sellpia_sync_queue to anon, authenticated;\n\nrevoke all privileges on sequence public.workflow_item_events_id_seq from anon, authenticated;\nrevoke all privileges on sequence public.workflow_invoice_events_id_seq from anon, authenticated;\nrevoke all privileges on sequence public.sellpia_sync_queue_id_seq from anon, authenticated;\n\ngrant usage, select on sequence public.workflow_item_events_id_seq to anon, authenticated;\ngrant usage, select on sequence public.workflow_invoice_events_id_seq to anon, authenticated;\ngrant usage, select on sequence public.sellpia_sync_queue_id_seq to anon, authenticated;"
+    }
+  ]
+}
+

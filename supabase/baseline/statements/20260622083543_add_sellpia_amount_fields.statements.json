@@ -1,0 +1,13 @@
+{
+  "warning": "HISTORICAL LIVE LEDGER ARCHIVE. NOT A MIGRATION. NEVER AUTO-APPLY. Original statement indexes retained; top-level data writes withheld. No schema equivalence with repository source asserted.",
+  "project_id": "vgxocngpykhlkosiaeew",
+  "version": "20260622083543",
+  "name": "add_sellpia_amount_fields",
+  "statements": [
+    {
+      "index": 0,
+      "text": "alter table public.orders\n  add column if not exists sellpia_order_total_amount numeric(14,2),\n  add column if not exists sellpia_order_total_amount_raw text;\n\nalter table public.order_items\n  add column if not exists sellpia_item_sales_amount numeric(14,2),\n  add column if not exists sellpia_item_sales_amount_raw text;"
+    }
+  ]
+}
+

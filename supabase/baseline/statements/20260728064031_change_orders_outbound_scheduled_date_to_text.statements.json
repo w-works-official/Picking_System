@@ -1,0 +1,13 @@
+{
+  "warning": "HISTORICAL LIVE LEDGER ARCHIVE. NOT A MIGRATION. NEVER AUTO-APPLY. Original statement indexes retained; top-level data writes withheld. No schema equivalence with repository source asserted.",
+  "project_id": "vgxocngpykhlkosiaeew",
+  "version": "20260728064031",
+  "name": "change_orders_outbound_scheduled_date_to_text",
+  "statements": [
+    {
+      "index": 0,
+      "text": "alter table public.orders\n  alter column sellpia_outbound_scheduled_date type text\n  using sellpia_outbound_scheduled_date::text;"
+    }
+  ]
+}
+

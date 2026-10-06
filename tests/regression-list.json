@@ -2,6 +2,8 @@
   "alimtalkExactDay.mock.test.mjs",
   "alimtalkRepeatExportSource.mock.test.mjs",
   "alimtalkSendAdapter.mock.test.mjs",
+  "barcodeScan.mock.test.mjs",
+  "barcodeScanUi.contract.test.mjs",
   "businessDays.mock.test.mjs",
   "csCancellationMemoSave.mock.test.mjs",
   "csCase1A.mock.test.mjs",

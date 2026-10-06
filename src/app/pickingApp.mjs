@@ -35,6 +35,11 @@ import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
 import {
+  BARCODE_SCAN_SETTLE_MS,
+  canonicalInvoiceScan,
+  isDuplicateInvoiceScan,
+} from "../domain/barcodeScan.mjs?v=20261006-scan-buffer1";
+import {
   combineInvoicesBySharedInvoice,
   sourceOrderGroupNo,
 } from "../domain/shipmentGroups.mjs?v=20260811-auto-combined2";
@@ -145,6 +150,7 @@ const csCases = createCsCaseAdapter(db);
 const orderItemOperations = createOrderItemOperationsAdapter(db);
 const skuInboundSchedules = createSkuInboundSchedulesAdapter(db);
 const alimtalkSends = createAlimtalkSendAdapter(db);
+const invoiceScanStates = new WeakMap();
 
 function todayDateString() {
   const date = new Date();
@@ -456,6 +462,61 @@ function numberFromCell(value) {
 
 function onlyDigits(value) {
   return String(value || "").replace(/\D/g, "");
+}
+
+function invoiceScanState(input) {
+  let scanState = invoiceScanStates.get(input);
+  if (!scanState) {
+    scanState = { timer: 0, lastCode: "", lastProcessedAt: 0 };
+    invoiceScanStates.set(input, scanState);
+  }
+  return scanState;
+}
+
+function knownInvoiceNumbers() {
+  return sortedAllInvoices().map((invoice) => invoice.invoiceNo).filter(Boolean);
+}
+
+function canonicalInvoiceInput(value) {
+  return canonicalInvoiceScan(value, knownInvoiceNumbers());
+}
+
+function scheduleInvoiceScan(input, onSettled, { dedupe = false } = {}) {
+  const scanState = invoiceScanState(input);
+  clearTimeout(scanState.timer);
+  const code = canonicalInvoiceInput(input.value);
+  if (!code) return false;
+  scanState.timer = window.setTimeout(() => {
+    const settledCode = canonicalInvoiceInput(input.value);
+    if (!settledCode) return;
+    const now = Date.now();
+    const duplicate = dedupe && isDuplicateInvoiceScan({
+      code: settledCode,
+      lastCode: scanState.lastCode,
+      lastProcessedAt: scanState.lastProcessedAt,
+      now,
+    });
+    if (!duplicate) {
+      scanState.lastCode = settledCode;
+      scanState.lastProcessedAt = now;
+    }
+    onSettled(settledCode, { duplicate });
+  }, BARCODE_SCAN_SETTLE_MS);
+  return true;
+}
+
+function commitInvoiceScan(input, onCommit) {
+  const scanState = invoiceScanState(input);
+  clearTimeout(scanState.timer);
+  const code = canonicalInvoiceInput(input.value);
+  if (!code) return false;
+  input.value = code;
+  const now = Date.now();
+  if (isDuplicateInvoiceScan({ code, lastCode: scanState.lastCode, lastProcessedAt: scanState.lastProcessedAt, now })) return true;
+  scanState.lastCode = code;
+  scanState.lastProcessedAt = now;
+  onCommit(code);
+  return true;
 }
 
 function toast(message) {
@@ -2781,6 +2842,11 @@ function ensureOrderListModal() {
   modal.querySelector("#order-list-modal-search")?.addEventListener("input", (event) => {
     state.orderListModal.search = event.target.value;
     renderOrderListModal();
+    scheduleInvoiceScan(event.target, (code) => {
+      event.target.value = code;
+      state.orderListModal.search = code;
+      renderOrderListModal();
+    });
   });
   return modal;
 }
@@ -8063,6 +8129,15 @@ function ensureCsWorkLogModal() {
     <div class="order-list-modal-foot" id="cs-work-log-foot">검색어를 입력해 주세요.</div>
   </div>`;
   document.body.appendChild(modal);
+  const runSearch = () => {
+    const input = modal.querySelector("#cs-work-log-search");
+    if (input && commitInvoiceScan(input, (code) => {
+      state.csWorkLogModal.search = code;
+      loadCsWorkLog().catch(showError);
+    })) return;
+    if (input) state.csWorkLogModal.search = input.value;
+    loadCsWorkLog().catch(showError);
+  };
   modal.addEventListener("click", (event) => {
     const action = event.target.closest("[data-cs-work-log-action]")?.dataset.csWorkLogAction;
     if (action === "back-to-list") {
@@ -8073,7 +8148,7 @@ function ensureCsWorkLogModal() {
       closeCsWorkLogModal();
       return;
     }
-    if (action === "search") loadCsWorkLog().catch(showError);
+    if (action === "search") runSearch();
     const filter = event.target.closest("[data-cs-work-log-filter]")?.dataset.csWorkLogFilter;
     if (!filter) return;
     state.csWorkLogModal.filter = filter;
@@ -8082,9 +8157,15 @@ function ensureCsWorkLogModal() {
   modal.querySelector("#cs-work-log-search")?.addEventListener("input", (event) => {
     state.csWorkLogModal.search = event.target.value;
     state.csWorkLogModal.loaded = false;
+    scheduleInvoiceScan(event.target, (code) => {
+      event.target.value = code;
+      state.csWorkLogModal.search = code;
+    });
   });
   modal.querySelector("#cs-work-log-search")?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") loadCsWorkLog().catch(showError);
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    runSearch();
   });
   return modal;
 }
@@ -10520,10 +10601,14 @@ function bindEvents() {
   els.searchInput.addEventListener("input", () => {
     state.searchText = els.searchInput.value;
     render();
-    const digits = onlyDigits(state.searchText);
-    if (digits.length >= 13 && findInvoiceByInvoiceNo(digits)) {
-      jumpToInvoiceNo(digits);
-    }
+    scheduleInvoiceScan(els.searchInput, (code, { duplicate }) => {
+      if (duplicate) {
+        resetSearchAndFilterForJump();
+        renderPickingSurfaces();
+        return;
+      }
+      jumpToInvoiceNo(code);
+    }, { dedupe: true });
   });
   els.filterBar.addEventListener("click", (event) => {
     const button = event.target.closest("[data-filter]");
@@ -10551,14 +10636,15 @@ function bindEvents() {
     state.inspectionSearchText = els.inspectionSearchInput.value;
     state.selectedInspectionGroup = "";
     renderInspectionPanels();
-    const digits = onlyDigits(state.inspectionSearchText);
-    if (digits.length >= 13) {
-      const row = inspectionSourceInvoices().find((invoice) => onlyDigits(invoice.invoiceNo).includes(digits));
+    scheduleInvoiceScan(els.inspectionSearchInput, (code) => {
+      els.inspectionSearchInput.value = code;
+      state.inspectionSearchText = code;
+      const row = inspectionSourceInvoices().find((invoice) => onlyDigits(invoice.invoiceNo) === code);
       if (row) {
         state.selectedInspectionGroup = row.orderGroupNo;
-        renderInspectionPanels();
       }
-    }
+      renderInspectionPanels();
+    }, { dedupe: true });
   });
   els.csDateTabs?.addEventListener("click", (event) => {
     const alimtalkAction = event.target.closest("[data-cs-alimtalk-action]");
@@ -10621,6 +10707,12 @@ function bindEvents() {
     state.csSearchText = els.csSearchInput.value;
     state.selectedCsKey = "";
     renderCsPanels();
+    scheduleInvoiceScan(els.csSearchInput, (code) => {
+      els.csSearchInput.value = code;
+      state.csSearchText = code;
+      state.selectedCsKey = "";
+      renderCsPanels();
+    });
   });
   els.csListBody?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-cs-key]");
@@ -10894,7 +10986,16 @@ function bindEvents() {
   });
   els.jumpGroupBtn?.addEventListener("click", () => jumpToGroup(els.jumpGroupInput.value));
   els.jumpSeqBtn?.addEventListener("click", () => jumpToSequence(els.jumpSeqInput.value));
-  els.jumpInvoiceBtn?.addEventListener("click", () => jumpToInvoiceNo(els.jumpInvoiceInput.value));
+  const jumpFromInvoiceInput = () => {
+    if (commitInvoiceScan(els.jumpInvoiceInput, (code) => jumpToInvoiceNo(code))) return;
+    jumpToInvoiceNo(els.jumpInvoiceInput.value);
+  };
+  els.jumpInvoiceBtn?.addEventListener("click", jumpFromInvoiceInput);
+  els.jumpInvoiceInput?.addEventListener("input", () => {
+    scheduleInvoiceScan(els.jumpInvoiceInput, (code) => {
+      els.jumpInvoiceInput.value = code;
+    });
+  });
   els.jumpGroupInput?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") jumpToGroup(els.jumpGroupInput.value);
   });
@@ -10902,7 +11003,9 @@ function bindEvents() {
     if (event.key === "Enter") jumpToSequence(els.jumpSeqInput.value);
   });
   els.jumpInvoiceInput?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") jumpToInvoiceNo(els.jumpInvoiceInput.value);
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    jumpFromInvoiceInput();
   });
   els.orderList.addEventListener("click", (event) => onOrderListClick(event).catch(showError));
   els.orderList.addEventListener("click", onDrawerKeypadOpen);
@@ -10951,6 +11054,13 @@ function bindEvents() {
     state.selectedShortageKey = "";
     renderShortagePanels();
     renderSideShortcuts();
+    scheduleInvoiceScan(els.shortageSearchInput, (code) => {
+      els.shortageSearchInput.value = code;
+      state.shortageSearchText = code;
+      state.selectedShortageKey = "";
+      renderShortagePanels();
+      renderSideShortcuts();
+    });
   });
   els.shortageReceivingFile?.addEventListener("change", (event) => {
     const file = event.target.files?.[0];

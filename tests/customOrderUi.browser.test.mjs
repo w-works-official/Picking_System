@@ -104,7 +104,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       window.__supabaseCalls = [];
       const base = { custom_required_at: "2026-09-28T03:00:00Z", custom_ordered_on: null, custom_received_on: null, custom_cancelled_at: null, inbound_expected_date: null, inbound_expected_source: null, internal_memo: null };
       window.__tables = {
-        orders: [{ ord_no: "O-P", receipt_date: "2026-10-01", sort_order: 1, receiver: "테스트", seller: "스마트스토어" }],
+        orders: [{ ord_no: "O-P", inv_no: "6890123456789", receipt_date: "2026-10-01", sort_order: 1, receiver: "테스트", seller: "스마트스토어" }],
         order_item_operations: [
           { ...base, operation_id: "op-before", ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "1_R-1", sellpia_product_code_snapshot: "OLD", product_name_snapshot: "예전 상품", supplier_cell_raw_snapshot: "예전 매입처" },
           { ...base, operation_id: "op-missing", ord_no: "O-M", sellpia_order_item_no: "R-M", item_no: "1_R-M", custom_ordered_on: "2026-09-29", inbound_expected_date: "2026-10-05", inbound_expected_source: "sku_schedule", sellpia_product_code_snapshot: "SNAP", own_code_snapshot: "SNAP-OWN", product_name_snapshot: "스냅 상품", product_option_snapshot: "스냅 옵션", supplier_cell_raw_snapshot: "0-스냅매입처 [ 9 ]" },
@@ -204,6 +204,15 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
     });
     throw error;
   }
+  await page.fill("#search-input", "테스트");
+  assert.equal(await page.locator("#search-input").inputValue(), "테스트", "normal keyboard search must remain immediate");
+  await page.fill("#search-input", "6890123456789".repeat(3));
+  await page.waitForFunction(() => document.getElementById("search-input")?.value === "");
+  assert.equal(await page.locator('.picking-item-card[data-order-group="O-P"]').count(), 1, "a repeated scanner payload must resolve to the matching invoice once");
+  await page.fill("#search-input", "6890123456789");
+  await page.waitForFunction(() => document.getElementById("search-input")?.value === "");
+  await page.fill("#jump-invoice-input", "6890123456789".repeat(2));
+  await page.waitForFunction(() => document.getElementById("jump-invoice-input")?.value === "6890123456789");
   const before = await page.evaluate(() => window.__supabaseCalls.filter((entry) => entry.table === "order_item_operations" && entry.method === "not").length);
   assert.equal(before, 0, "custom-order workspace query must not run before the tab opens");
 

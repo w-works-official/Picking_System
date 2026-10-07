@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
+import "../src/auth/pickingAuth.js";
+import "../tools/picking-tool-auth.js";
 
 const root = new URL("..", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
@@ -27,10 +29,11 @@ assert.match(scraper, /document\.getElementById\("sp-order-datetime"\)\.onclick/
 const scripts = [...scraper.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
 const elements = new Map();
 const getElementById = (id) => {
-  if (!elements.has(id)) elements.set(id, { href: "", textContent: "" });
+  if (!elements.has(id)) elements.set(id, { href: "", textContent: "", removeAttribute(name) { delete this[name]; } });
   return elements.get(id);
 };
 const context = vm.createContext({
+  securePickingBookmarklet: globalThis.securePickingBookmarklet,
   console: { error() {}, warn() {}, log() {} },
   document: { getElementById },
 });

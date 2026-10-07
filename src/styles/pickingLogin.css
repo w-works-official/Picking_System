@@ -1,0 +1,11 @@
+[hidden] { display: none !important; }
+.picking-login-gate { min-height: 100svh; display: grid; place-items: center; padding: 1.25rem; background: #f3f6fb; color: #111827; }
+.picking-login-card { width: 100%; max-width: 26rem; padding: 2rem; border: 1px solid #cbd5e1; border-radius: .75rem; background: #fff; }
+.picking-login-card h1 { margin: 0 0 .5rem; font-size: 1.3rem; }
+.picking-login-card p { color: #64748b; font-size: .85rem; line-height: 1.7; }
+.picking-login-card label { display: block; margin-top: 1rem; font-size: .85rem; font-weight: 700; }
+.picking-login-card input { display: block; width: 100%; margin-top: .4rem; padding: .65rem .75rem; border: 1px solid #cbd5e1; border-radius: .4rem; font: inherit; }
+.picking-login-card button { width: 100%; margin-top: .5rem; padding: .75rem; background: #2563eb; color: #fff; border: 0; border-radius: .4rem; font: inherit; font-weight: 700; cursor: pointer; }
+.picking-login-card button:disabled { opacity: .6; cursor: wait; }
+.picking-login-card #picking-login-status { min-height: 1.5rem; color: #b91c1c; }
+.picking-login-card :focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }

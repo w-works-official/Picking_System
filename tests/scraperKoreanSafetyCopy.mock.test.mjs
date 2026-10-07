@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import "../src/auth/pickingAuth.js";
+import "../tools/picking-tool-auth.js";
 
 const html = readFileSync(
   new URL("../tools/sellpia_scraper.html", import.meta.url),
@@ -10,10 +12,11 @@ const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
   (match) => match[1],
 );
 const elements = {
-  "bookmarklet-link": { href: "" },
+  "bookmarklet-link": { href: "", removeAttribute(name) { delete this[name]; } },
   "code-display": { textContent: "" },
 };
 const context = vm.createContext({
+  securePickingBookmarklet: globalThis.securePickingBookmarklet,
   document: { getElementById: (id) => elements[id] },
   console,
   encodeURIComponent,

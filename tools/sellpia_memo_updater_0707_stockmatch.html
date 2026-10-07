@@ -2225,6 +2225,7 @@
     }
 
     async function setPopupValues(root, rowResult, testMode) {
+      if (!testMode) await toolAuth.check();
       if (testMode) {
         return { ...rowResult, dbSync: rowResult.dbSync || (rowResult.managementOrderItemNo ? 'NO_CHANGE' : 'SKIP_NO_ITEM_MATCH'), log: '테스트(TEST): ' + rowResult.invNo + ' / ' + testLogSummary(rowResult) };
       }
@@ -2377,6 +2378,7 @@
     }
 
     async function inspectTask(task, options) {
+      await toolAuth.check();
       const addTaskResult = result => addResult(applyHoldCsvMeta(result, task));
       const addTaskPerfResult = (result, perf) => addResult(withPerf(applyHoldCsvMeta(result, task), perf));
       if (task.skip) {
@@ -3227,8 +3229,10 @@
 })();
 </script>
 
+<script src="../src/auth/pickingAuth.js?v=20261007-login1"></script>
+<script src="picking-tool-auth.js?v=20261007-login1"></script>
 <script>
-const SRC = document.getElementById('bookmarklet-source').textContent.trim();
+const SRC = securePickingBookmarklet(document.getElementById('bookmarklet-source').textContent.trim());
 document.getElementById('code-display').textContent = SRC;
 document.getElementById('bookmarklet-link').href = 'javascript:' + encodeURIComponent(SRC);
 document.getElementById('copy-btn').addEventListener('click', async function() {

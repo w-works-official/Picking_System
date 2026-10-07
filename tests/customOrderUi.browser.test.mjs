@@ -57,6 +57,20 @@ page.on("console", (message) => {
 });
 page.on("requestfailed", (request) => failedRequests.push({ url: request.url(), error: request.failure()?.errorText }));
 await page.addInitScript(() => {
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input, options = {}) => {
+    const url = String(typeof input === "string" ? input : input.url);
+    if (url.includes("/rpc/picking_")) {
+      const body = JSON.parse(options.body || "{}");
+      if (url.endsWith("/picking_login_v1") && body.p_password !== "fixture-only") {
+        return new Response(JSON.stringify({ authenticated: false, error_code: "invalid_credentials" }));
+      }
+      return new Response(JSON.stringify({
+        authenticated: true, logged_out: true, session_token: "a".repeat(64), expires_at: "2030-01-01T00:00:00Z",
+      }));
+    }
+    return originalFetch(input, options);
+  };
   window.__xlsxUploadMatrix = [
     ["셀피아 SKU", "입고예정일", "자사코드"],
     ["UPLOADED-SKU", "2026-10-18", "UPLOADED-OWN"],
@@ -182,6 +196,16 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
 });
 
   await page.goto(`http://127.0.0.1:${port}/index.html?write=1`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#picking-login-form");
+  assert.equal(await page.locator("#app").isVisible(), false);
+  assert.equal(await page.evaluate(() => window.__supabaseCalls.length), 0, "no dataset request before login");
+  await page.locator('[name="username"]').fill("demo");
+  await page.locator('[name="password"]').fill("wrong");
+  await page.locator('#picking-login-form [type="submit"]').click();
+  await page.waitForFunction(() => document.getElementById("picking-login-status").textContent.includes("비밀번호"));
+  assert.equal(await page.locator("#app").isVisible(), false);
+  await page.locator('[name="password"]').fill("fixture-only");
+  await page.locator('#picking-login-form [type="submit"]').click();
   await page.waitForSelector('[data-app-tab="custom-orders"]');
   try {
     await page.waitForSelector('.picking-item-card[data-order-group="O-P"]', { timeout: 10000 });

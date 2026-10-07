@@ -1,4 +1,5 @@
 [
+  "pickingAuth.mock.test.mjs",
   "alimtalkExactDay.mock.test.mjs",
   "alimtalkRepeatExportSource.mock.test.mjs",
   "alimtalkSendAdapter.mock.test.mjs",

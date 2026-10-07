@@ -15,7 +15,7 @@ const [scraper, adapter, app] = await Promise.all([
 
 assert.match(scraper, /id="sp-order-datetime"/);
 assert.match(scraper, /주문일시만 보강/);
-assert.match(scraper, /0923 주문일 보강 패치/);
+assert.match(scraper, /1007DB인증교체/);
 assert.match(scraper, /function enrichOrderDateTimes/);
 assert.doesNotMatch(scraper, /loadCurrentSellpiaRowsForOrderDateTime/);
 assert.match(scraper, /rows=await loadCurrentSellpiaRows\(targetDate,session,invFilter\)/);
@@ -53,7 +53,7 @@ assert.match(generated, /btn\.click\(\);await sleep\(1500\)/);
 assert.match(generated, /currentRows\.every\(function\(row\)/);
 assert.match(generated, /assertSellpiaReceiptDateInRange\(rows,targetDate,endDate\)/);
 assert.match(generated, /document\.getElementById\("sp-order-datetime"\)\.onclick/);
-assert.match(generated, /0923 주문일 보강 패치/);
+assert.match(generated, /1007DB인증교체/);
 
 const loaderStart = generated.indexOf("async function loadCurrentSellpiaRows(");
 const loaderEnd = generated.indexOf("async function runInvoiceRefresh(", loaderStart);

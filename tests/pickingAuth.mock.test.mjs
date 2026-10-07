@@ -101,3 +101,18 @@ test("gate and tool authentication are wired in actual runtime entry points", as
   assert.match(updater,/securePickingBookmarklet\(document/);
   assert.match(updater,/async function setPopupValues[^]*?if \(!testMode\) await toolAuth\.check\(\)/);
 });
+
+test("replacement tool pages, bookmark names and execution popups show 1007DB인증교체", async () => {
+  for (const file of ["sellpia_scraper.html", "sellpia_memo_updater_0707_stockmatch.html"]) {
+    const html = await readFile(new globalThis.URL("../tools/" + file, import.meta.url), "utf8");
+    assert.match(html, /<title>1007DB인증교체<\/title>/);
+    assert.match(html, /<h1>1007DB인증교체<\/h1>/);
+    assert.match(html, /id="bookmarklet-link"[^>]*>1007DB인증교체<\/a>/);
+    if (file === "sellpia_scraper.html") {
+      assert.match(html, /\['🔄 0716_주문메모 오후 수정본', '1007DB인증교체'\]/);
+    } else {
+      assert.match(html, /font-weight:900;margin-bottom:4px">1007DB인증교체<\/div>/);
+      assert.doesNotMatch(html, /0812-합배송오류수정|0827-합배송주문메모오류수정/);
+    }
+  }
+});

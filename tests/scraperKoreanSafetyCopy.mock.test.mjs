@@ -29,7 +29,10 @@ assert.doesNotThrow(
   () => new vm.Script(bookmarklet),
   "the assembled bookmarklet must remain valid JavaScript",
 );
-assert.match(bookmarklet, /0923 주문일 보강 패치/);
+assert.match(bookmarklet, /1007DB인증교체/);
+assert.match(html, /<title>1007DB인증교체<\/title>/);
+assert.match(html, /<h1>1007DB인증교체<\/h1>/);
+assert.match(html, /id="bookmarklet-link"[^>]*>1007DB인증교체<\/a>/);
 assert.match(
   bookmarklet,
   /전체 모드에서는 선택 기간의 기존 주문·상품 스크랩 데이터가/,

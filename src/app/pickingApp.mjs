@@ -6,7 +6,7 @@ import {
   findOperationForCurrentItem,
   orderItemIdentity,
   resolveEffectiveInboundExpectedDate,
-} from "../adapters/orderItemOperationsAdapter.mjs?v=20261008-arbitrary-field1";
+} from "../adapters/orderItemOperationsAdapter.mjs?v=20261008-arbitrary-field2";
 import {
   CUSTOM_ORDER_STATUS_LABEL,
   addCalendarDays,
@@ -20,7 +20,7 @@ import {
   filterInboundExpectedRows,
   sortCustomOrderRows,
   sortInboundExpectedRows,
-} from "../domain/customOrder.mjs?v=20261008-vendor-slip1";
+} from "../domain/customOrder.mjs?v=20261008-vendor-slip2";
 import { createSkuInboundSchedulesAdapter } from "../adapters/skuInboundSchedulesAdapter.mjs?v=20261001-sku-schedule1";
 import {
   SKU_INBOUND_SCHEDULE_HEADERS,

@@ -4,7 +4,7 @@ import {
   orderItemIdentity,
   resolveEffectiveInboundExpectedDate,
   resolveOperationDisplayFields,
-} from "../adapters/orderItemOperationsAdapter.mjs?v=20261008-arbitrary-field1";
+} from "../adapters/orderItemOperationsAdapter.mjs?v=20261008-arbitrary-field2";
 import {
   buildSkuInboundScheduleMap,
   findSkuInboundSchedule,

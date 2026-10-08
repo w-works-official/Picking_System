@@ -96,9 +96,11 @@ assert.equal(
   "  effective alias  ",
 );
 assert.deepEqual(missingSnapshotBackfill(operation, current), {}, "existing arbitrary snapshot must never be replaced by backfill");
-assert.deepEqual(missingSnapshotBackfill({ ...operation, arbitrary_field_raw_snapshot: " \t" }, current), {
-  arbitrary_field_raw_snapshot: "  VENDOR\t001 /  A  \n",
-}, "explicit missing-only backfill must preserve the new raw field");
+assert.deepEqual(missingSnapshotBackfill({ ...operation, arbitrary_field_raw_snapshot: " \t" }, current), {},
+  "explicit backfill must exclude the insert-only arbitrary snapshot field");
+assert.deepEqual(missingSnapshotBackfill({ ...operation, product_name_snapshot: null, arbitrary_field_raw_snapshot: null }, current), {
+  product_name_snapshot: "상품 1",
+}, "existing snapshot fields must remain backfillable without including an unsupported column");
 
 assert.deepEqual(resolveEffectiveInboundExpectedDate({ operation, currentItem: current }), {
   date: "2026-10-12",
@@ -156,6 +158,7 @@ function createMemoryDb(seed = []) {
   let nextId = rows.length + 1;
   const db = {
     rows,
+    updatePayloads: [],
     from(table) {
       assert.equal(table, "order_item_operations");
       const state = { filter: null, mode: "select", payload: null };
@@ -165,7 +168,7 @@ function createMemoryDb(seed = []) {
         range() { return query; },
         eq(name, value) { state.filter = [name, value]; return query; },
         insert(payload) { state.mode = "insert"; state.payload = structuredClone(payload); return query; },
-        update(payload) { state.mode = "update"; state.payload = structuredClone(payload); return query; },
+        update(payload) { state.mode = "update"; state.payload = structuredClone(payload); db.updatePayloads.push(state.payload); return query; },
         then(resolve) {
           let result;
           if (state.mode === "insert") {
@@ -232,16 +235,21 @@ assert.equal(
   "manual clear must survive a repository reload and continue suppressing the legacy date",
 );
 
-const missingSnapshotDb = createMemoryDb([{ ...operation, arbitrary_field_raw_snapshot: null }]);
+const missingSnapshotDb = createMemoryDb([{ ...operation, product_name_snapshot: null, arbitrary_field_raw_snapshot: null }]);
 const missingSnapshotAdapter = createOrderItemOperationsAdapter(missingSnapshotDb);
 const ordinaryMissingUpdate = await missingSnapshotAdapter.upsertOperationForCurrentOrderItem(current, { internal_memo: "ordinary edit" });
 assert.equal(ordinaryMissingUpdate.arbitrary_field_raw_snapshot, null, "ordinary updates must not silently backfill missing snapshots");
+assert.equal(ordinaryMissingUpdate.product_name_snapshot, null);
 const explicitBackfill = await missingSnapshotAdapter.backfillMissingSnapshots(ordinaryMissingUpdate, [current]);
 assert.equal(explicitBackfill.updated, true);
-assert.equal(explicitBackfill.operation.arbitrary_field_raw_snapshot, "  VENDOR\t001 /  A  \n");
+assert.equal(explicitBackfill.operation.product_name_snapshot, "상품 1", "explicit backfill must continue to fill permitted existing snapshot columns");
+assert.equal(explicitBackfill.operation.arbitrary_field_raw_snapshot, null);
+assert.equal(missingSnapshotDb.updatePayloads.some((payload) => Object.hasOwn(payload, "arbitrary_field_raw_snapshot")), false,
+  "ordinary updates and explicit backfill must not send the new insert-only column in an UPDATE patch");
 const preservedBackfill = await missingSnapshotAdapter.backfillMissingSnapshots(explicitBackfill.operation, [changedSource]);
 assert.equal(preservedBackfill.updated, false);
-assert.equal(preservedBackfill.operation.arbitrary_field_raw_snapshot, "  VENDOR\t001 /  A  \n");
+assert.equal(preservedBackfill.operation.product_name_snapshot, "상품 1");
+assert.equal(preservedBackfill.operation.arbitrary_field_raw_snapshot, null);
 
 const operationWithoutSnapshotField = { ...operation };
 delete operationWithoutSnapshotField.arbitrary_field_raw_snapshot;

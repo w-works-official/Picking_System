@@ -10,13 +10,14 @@ const MUTABLE_OPERATION_FIELDS = new Set([
   "internal_memo",
 ]);
 
+// Backfill is limited to snapshot columns with existing UPDATE privileges.
+// arbitrary_field_raw_snapshot is insert-only under the current permission boundary.
 const SNAPSHOT_FIELDS = Object.freeze([
   "sellpia_product_code_snapshot",
   "own_code_snapshot",
   "product_name_snapshot",
   "product_option_snapshot",
   "supplier_cell_raw_snapshot",
-  "arbitrary_field_raw_snapshot",
 ]);
 
 function text(value) {

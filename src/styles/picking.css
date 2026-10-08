@@ -357,11 +357,245 @@
 
 .custom-orders-list {
   display: grid;
+  grid-row: 6;
+  grid-auto-rows: max-content;
   align-content: start;
   min-height: 0;
   gap: 8px;
   padding: 8px 12px 16px;
   overflow: auto;
+}
+
+.custom-orders-summary {
+  grid-row: 5;
+}
+
+.custom-orders-toolbar[data-custom-orders-toolbar="workflow"] {
+  grid-template-columns: minmax(6rem, .7fr) minmax(10rem, 1.2fr) minmax(7rem, .8fr) minmax(16rem, 1.5fr) minmax(9rem, 1fr) minmax(12rem, 1.4fr);
+}
+
+.custom-order-row.custom-order-slip-card {
+  grid-template-columns: minmax(30rem, 1.25fr) minmax(22rem, 1fr);
+  grid-auto-rows: max-content;
+  align-self: start;
+  min-width: 52rem;
+}
+
+.custom-order-slip-card .custom-order-row-primary {
+  grid-template-columns: 9rem minmax(0, 1fr) minmax(4rem, auto);
+  align-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: .875rem;
+}
+
+.custom-order-slip-card .custom-order-product-photo {
+  width: 9rem;
+  height: 9rem;
+  min-width: 9rem;
+  background: #fff;
+}
+
+.custom-order-slip-card .custom-order-row-primary-copy {
+  gap: .5rem;
+}
+
+.custom-order-slip-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .375rem .75rem;
+}
+
+.custom-order-slip-card .custom-order-supplier {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.custom-order-slip-facts {
+  display: grid;
+  gap: .375rem;
+  margin: 0;
+}
+
+.custom-order-slip-facts > div {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: .5rem;
+}
+
+.custom-order-slip-facts dt {
+  color: #64748b;
+  font-size: .8125rem;
+  font-weight: 700;
+}
+
+.custom-order-slip-facts dd {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  line-height: 1.4;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.custom-order-slip-card .is-unavailable {
+  color: #64748b;
+  font-size: .875rem;
+}
+
+.custom-order-slip-card .custom-order-product b,
+.custom-order-slip-card .custom-order-identity span {
+  overflow: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.custom-order-slip-card .custom-order-product b {
+  color: #64748b;
+  font-size: .8125rem;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.custom-order-slip-quantity {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  align-self: stretch;
+  gap: .375rem;
+  padding: .5rem .75rem;
+  border-left: 1px solid #e5edf7;
+  color: #334155;
+  font-size: .8125rem;
+}
+
+.custom-order-slip-quantity strong {
+  color: #0f172a;
+  font-size: 1.75rem;
+  white-space: nowrap;
+}
+
+.custom-order-slip-quantity strong small {
+  padding-left: .25rem;
+  font-size: 1rem;
+}
+
+.custom-order-slip-quantity.is-unavailable strong {
+  color: #64748b;
+  font-size: .875rem;
+}
+
+.custom-order-slip-management {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-rows: auto 1fr auto;
+  min-width: 0;
+  border-left: 1px solid #dbe3ef;
+  background: #f8fafc;
+}
+
+.custom-order-slip-management-heading {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .375rem .75rem;
+  padding: .5rem .875rem;
+  border-bottom: 1px solid #e5edf7;
+}
+
+.custom-order-slip-card .custom-order-row-workflow,
+.custom-order-slip-card .custom-order-row-side {
+  padding: .625rem .875rem;
+  gap: .375rem;
+  align-content: start;
+}
+
+.custom-order-slip-card .custom-order-row-side {
+  grid-column: auto;
+  border-top: 0;
+}
+
+.custom-order-slip-card .custom-order-row-dates {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.custom-order-slip-card .custom-order-row-dates label,
+.custom-order-slip-card .custom-order-row-memo label {
+  min-width: 0;
+  font-size: .75rem;
+}
+
+.custom-order-slip-card .custom-order-row-dates label {
+  display: grid;
+  align-content: start;
+  gap: .25rem;
+}
+
+.custom-order-slip-card input {
+  width: 100%;
+  min-width: 0;
+}
+
+.custom-order-slip-card .custom-order-section-title,
+.custom-order-slip-card input,
+.custom-order-slip-card .custom-order-row-side .btn {
+  font-size: .8125rem;
+}
+
+.custom-order-slip-source {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: .375rem .875rem;
+  border-top: 1px solid #e5edf7;
+  color: #64748b;
+  font-size: .75rem;
+  background: #fff;
+}
+
+.custom-order-slip-source summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.custom-order-slip-source .custom-order-identity {
+  padding-top: .375rem;
+  font-size: .75rem;
+}
+
+@media (max-width: 1500px) {
+  .custom-orders-toolbar[data-custom-orders-toolbar="workflow"] {
+    grid-template-columns: minmax(6rem, .7fr) minmax(10rem, 1fr) minmax(7rem, .8fr) minmax(16rem, 1.5fr);
+  }
+
+  .custom-orders-toolbar[data-custom-orders-toolbar="workflow"] > .search {
+    grid-column: 2 / -1;
+  }
+
+  .custom-order-slip-management {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+  }
+
+  .custom-order-slip-card .custom-order-slip-management .custom-order-row-side {
+    border-top: 1px solid #e5edf7;
+    border-left: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .custom-orders-toolbar[data-custom-orders-toolbar="workflow"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .custom-orders-toolbar[data-custom-orders-toolbar="workflow"] > .search {
+    grid-column: 1 / -1;
+  }
+
 }
 
 .custom-order-row {

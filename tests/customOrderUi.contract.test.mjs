@@ -11,6 +11,12 @@ for (const tab of ["dashboard", "picking", "shortage", "inspection", "cs", "cust
 assert.match(html, /id="custom-orders-panel"/);
 assert.match(html, /id="custom-orders-status"/);
 assert.match(html, /id="custom-orders-supplier"/);
+assert.match(html, /id="custom-orders-sort"/);
+const workflowSort = html.match(/<select id="custom-orders-sort">([\s\S]*?)<\/select>/)?.[1];
+assert.ok(workflowSort, "custom-order workflow must expose a sort selector");
+for (const order of ["supplier_asc", "supplier_desc", "required_desc"]) {
+  assert.match(workflowSort, new RegExp(`value="${order}"`), `workflow sort must support ${order}`);
+}
 assert.match(html, /id="custom-orders-date-criterion"/);
 assert.match(html, /id="custom-orders-date-from"/);
 assert.match(html, /id="custom-orders-date-to"/);
@@ -50,6 +56,36 @@ assert.match(app, /internal_memo: memo \|\| null/);
 assert.match(app, /data-custom-order-action="ordered-today"/);
 assert.match(app, /addCalendarDays\(orderedOn, 14\)/);
 assert.match(app, /class="custom-order-product-photo"/);
+const customOrderRenderer = app.slice(app.indexOf("function renderCustomOrderRow"), app.indexOf("function inboundRowIdentity"));
+assert.match(customOrderRenderer, /custom-order-row custom-order-slip-card/);
+assert.match(customOrderRenderer, /class="custom-order-slip-facts"/);
+assert.match(customOrderRenderer, /class="custom-order-slip-quantity(?:\s|")/);
+assert.match(customOrderRenderer, /class="custom-order-slip-management"/);
+assert.match(customOrderRenderer, /class="custom-order-slip-management-heading"/);
+const primarySlipSource = customOrderRenderer.slice(
+  customOrderRenderer.indexOf('<div class="custom-order-row-primary '),
+  customOrderRenderer.indexOf('<div class="custom-order-slip-management">'),
+);
+assert.match(primarySlipSource, /custom-order-product-photo/);
+assert.match(primarySlipSource, /custom-order-supplier/);
+assert.match(primarySlipSource, /custom-order-slip-facts/);
+assert.match(primarySlipSource, /custom-order-slip-quantity/);
+assert.doesNotMatch(primarySlipSource, /custom-order-status|workflow-row-badge|custom-order-slip-source|data-custom-order-field|data-custom-order-action/, "the left capture area must contain only supplier order-slip content");
+assert.match(customOrderRenderer, /옵션/);
+assert.match(customOrderRenderer, /바길이/);
+assert.match(customOrderRenderer, /업체상품코드/);
+assert.match(customOrderRenderer, /미수집/, "supplier product codes must not be invented from a different code");
+const vendorCodeSource = primarySlipSource.match(/<div><dt>업체상품코드<\/dt>([\s\S]*?)<\/dd><\/div>/)?.[1];
+assert.ok(vendorCodeSource, "the capture area must expose a vendor-code field");
+assert.match(vendorCodeSource, /display\.arbitraryFieldRaw/, "vendor codes must use the dedicated raw Sellpia arbitrary field");
+assert.match(vendorCodeSource, /escapeHtml\(display\.arbitraryFieldRaw \|\| "미수집"\)/, "raw vendor-code text must be escaped before rendering");
+assert.match(vendorCodeSource, /is-unavailable/, "missing vendor codes must retain their unavailable styling");
+assert.match(vendorCodeSource, /title="셀피아 임의필드 원문"/, "the vendor-code source must be identified accurately");
+assert.doesNotMatch(vendorCodeSource, /display\.(?:ownCode|sellpiaProductCode)/, "own codes and Sellpia SKUs must never be substituted for missing vendor codes");
+assert.match(customOrderRenderer, /slip\.quantity === null \? "확인 필요"/, "missing source quantities must remain visibly unknown");
+assert.match(app, /customOrderSlipDetails/);
+assert.match(app, /sortCustomOrderRows/);
+assert.match(app, /sort: "supplier_asc"/, "workflow sort must initially group suppliers in ascending order");
 assert.match(app, /엑셀 열:[\s\S]*셀피아 SKU \| 입고예정일\(YYYY-MM-DD\) \| 자사코드\(선택\)/);
 assert.match(app, /1000-1 \| 2026-10-08 \| GPA-14-19_5/);
 assert.match(app, /data-custom-order-action="received-today"/);
@@ -68,6 +104,12 @@ assert.match(app, /SKU_INBOUND_SCHEDULE_HEADERS/);
 assert.doesNotMatch(app, /from\("order_item_operations"\)\.delete/, "UI must never delete operation rows");
 assert.match(css, /\.custom-orders-toolbar/);
 assert.match(css, /\.custom-order-row/);
+assert.match(css, /\.custom-order-slip-card/);
+assert.match(css, /\.custom-order-slip-facts/);
+assert.match(css, /\.custom-order-slip-management/);
+assert.match(css, /(?:#custom-orders-list|\.custom-orders-list)\s*\{[^}]*grid-row:\s*6\s*;/, "workflow list must occupy the final panel grid row");
+assert.match(css, /\.custom-order-product-photo\s*\{[^}]*width:\s*9rem\s*;/);
+assert.match(css, /\.custom-order-product-photo img\s*\{[^}]*object-fit:\s*contain\s*;/);
 assert.match(css, /\.custom-orders-subtabs/);
 assert.match(css, /\.inbound-expected-row/);
 assert.match(css, /\.picking-custom-order/);

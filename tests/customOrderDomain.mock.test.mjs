@@ -6,11 +6,13 @@ import {
   buildInboundExpectedRows,
   canClearCustomRequired,
   customOrderDate,
+  customOrderSlipDetails,
   customOrderStatus,
   customOrderSuppliers,
   filterCustomOrderRows,
   filterInboundExpectedRows,
   sortInboundExpectedRows,
+  sortCustomOrderRows,
 } from "../src/domain/customOrder.mjs";
 
 const base = {
@@ -42,12 +44,12 @@ for (const patch of [
 const currentItems = [
   {
     ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "1_R-1",
-    p_code: "SAME-SKU", p_dpcode: "OWN-1", p_name: "현재 상품 1", p_option: "실버",
+    p_code: "SAME-SKU", p_dpcode: "OWN-1", p_name: "현재 상품 1", p_option: "실버", qty: 2,
     sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_outbound_confirmed_date: "2026-10-04",
   },
   {
     ord_no: "O-1", sellpia_order_item_no: "R-2", item_no: "2_R-2",
-    p_code: "SAME-SKU", p_dpcode: "OWN-2", p_name: "현재 상품 2", p_option: "골드",
+    p_code: "SAME-SKU", p_dpcode: "OWN-2", p_name: "현재 상품 2", p_option: "골드", o_amount: "3",
     sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]",
   },
 ];
@@ -118,6 +120,90 @@ assert.deepEqual(filterCustomOrderRows(rows, { dateCriterion: "ordered", dateFro
 assert.equal(customOrderDate(missing, "inbound"), "2026-10-05");
 assert.equal(customOrderDate({ operation: { custom_required_at: "2026-10-01T16:00:00Z" } }, "required"), "2026-10-02", "registration filters must use the local business date");
 assert.deepEqual(customOrderSuppliers(rows), ["0-베니스톤 [ 28 ]", "0-세븐피어싱 [ 1 ]", "0-스냅매입처 [ 9 ]"]);
+
+const sortRows = Object.freeze([
+  ["bar2-0", "나2 매입처", "2026-10-04T03:00:00Z"],
+  ["blank-new", "  ", "2026-10-08T03:00:00Z"],
+  ["bar10", "나10 매입처", "2026-10-07T03:00:00Z"],
+  ["bar2-b", "나2 매입처", "2026-10-04T04:00:00Z"],
+  ["blank-old", undefined, "2026-09-29T03:00:00Z"],
+  ["first", "가 매입처", "2026-10-06T03:00:00Z"],
+  ["bar2-undated", "나2 매입처", "invalid"],
+  ["bar2-a", "나2 매입처", "2026-10-04T04:00:00Z"],
+].map(([operationId, supplier, requiredAt]) => Object.freeze({
+  operation: Object.freeze({ operation_id: operationId, custom_required_at: requiredAt }),
+  display: Object.freeze({ supplierCellRaw: supplier, sellpiaProductCode: "SAME-SKU" }),
+})));
+const originalSortIds = sortRows.map((row) => row.operation.operation_id);
+const supplierAscIds = ["first", "bar2-a", "bar2-b", "bar2-0", "bar2-undated", "bar10", "blank-new", "blank-old"];
+assert.deepEqual(sortCustomOrderRows(sortRows).map((row) => row.operation.operation_id), supplierAscIds);
+assert.deepEqual(sortCustomOrderRows(sortRows, "supplier_asc").map((row) => row.operation.operation_id), supplierAscIds);
+assert.deepEqual(sortCustomOrderRows(sortRows, "supplier_desc").map((row) => row.operation.operation_id), ["bar10", "bar2-a", "bar2-b", "bar2-0", "bar2-undated", "first", "blank-new", "blank-old"], "supplier descending must retain missing suppliers last and registration ties descending");
+assert.deepEqual(sortCustomOrderRows(sortRows, "required_desc").map((row) => row.operation.operation_id), ["blank-new", "bar10", "first", "bar2-a", "bar2-b", "bar2-0", "blank-old", "bar2-undated"], "registration order must compare the full timestamp and use operation ID for ties");
+assert.deepEqual(sortRows.map((row) => row.operation.operation_id), originalSortIds, "sorting must not mutate the input order");
+assert.notEqual(sortCustomOrderRows(sortRows), sortRows);
+assert.equal(sortCustomOrderRows(sortRows).length, sortRows.length, "same-SKU items must not be grouped");
+assert.ok(sortCustomOrderRows(sortRows).every((row) => sortRows.includes(row)), "sorting must preserve the original row objects");
+assert.deepEqual(sortCustomOrderRows([]), []);
+
+assert.equal(customOrderSlipDetails(first).quantity, 2);
+assert.equal(customOrderSlipDetails(sibling).quantity, 3, "same-SKU siblings must keep independent current quantities");
+assert.equal(customOrderSlipDetails(missing).quantity, null, "a source-missing row has no invented quantity");
+for (const [currentItem, expected] of [
+  [{ qty: 0, o_amount: 99, quantity: 88 }, 0],
+  [{ qty: "0" }, 0],
+  [{ qty: "2", o_amount: 3, quantity: 4 }, 2],
+  [{ qty: null, o_amount: "3", quantity: 4 }, 3],
+  [{ qty: "", o_amount: null, quantity: " 4 " }, 4],
+  [{ quantity: 0 }, 0],
+  [{}, null],
+  [null, null],
+  [{ qty: "invalid", o_amount: 3 }, null],
+  [{ o_amount: "invalid", quantity: 3 }, null],
+  [{ qty: -1 }, null],
+  [{ qty: 1.5 }, null],
+  [{ qty: Infinity }, null],
+  [{ qty: NaN }, null],
+  [{ qty: true }, null],
+  [{ qty: [] }, null],
+]) assert.equal(customOrderSlipDetails({ currentItem }).quantity, expected);
+assert.equal(customOrderSlipDetails({ operation: { quantity_snapshot: 10, qty: 10 } }).quantity, null, "quantities must come from the matched current item only");
+
+const barChangeLabel = "바길이 변경(주문제작/취소불가):";
+for (const [option, optionName, barLength] of [
+  [`로즈골드/S[GPA-1-093],${barChangeLabel}4mm바`, "로즈골드/S[GPA-1-093]", "4mm"],
+  [`골드[GPA-1-141],${barChangeLabel}8mm바`, "골드[GPA-1-141]", "8mm"],
+  [`골드/6mm바[GPA-3-191],${barChangeLabel}4mm바`, "골드[GPA-3-191]", "4mm"],
+  [`크리스탈/3mm[GPA-1-101],${barChangeLabel}4mm바`, "크리스탈/3mm[GPA-1-101]", "4mm"],
+  [`골드/6mm바[GPA-3-191],${barChangeLabel}4mm바,크리스탈/3mm`, "골드[GPA-3-191],크리스탈/3mm", "4mm"],
+  ["골드/6mm바[GPA-3-191]", "골드[GPA-3-191]", "6mm"],
+  ["6.5mm바", "", "6.5mm"],
+  ["실버 / 8mm바", "실버", "8mm"],
+  ["크리스탈/3mm[GPA-1-101]", "크리스탈/3mm[GPA-1-101]", ""],
+  ["골드 / 6mm 큐빅", "골드 / 6mm 큐빅", ""],
+  ["실버 / 바 길이 8mm", "실버 / 바 길이 8mm", ""],
+  ["골드,바길이 변경:4mm바", "골드", "4mm"],
+  ["골드/6mm바[GPA-3-191],바 길이 변경 : 4 mm 바", "골드[GPA-3-191]", "4mm"],
+  ["골드,바길이 변경(임의 안내):4mm바", "골드,바길이 변경(임의 안내):4mm바", ""],
+  [`골드,${barChangeLabel}4mm`, `골드,${barChangeLabel}4mm`, ""],
+  ["미니6mm바[3mm]", "미니6mm바[3mm]", ""],
+  ["6mm바 포함", "6mm바 포함", ""],
+  ["골드/6mm바/8mm바", "골드/6mm바/8mm바", ""],
+  [`골드,${barChangeLabel}4mm바,${barChangeLabel}8mm바`, `골드,${barChangeLabel}4mm바,${barChangeLabel}8mm바`, ""],
+]) {
+  const slipRow = Object.freeze({
+    display: Object.freeze({ productOption: option }),
+    currentItem: Object.freeze({ qty: 2 }),
+    operation: Object.freeze({ internal_memo: "8바로 제작" }),
+  });
+  assert.deepEqual(customOrderSlipDetails(slipRow), { optionName, barLength, quantity: 2 }, option);
+  assert.equal(slipRow.display.productOption, option, "slip preparation must not mutate the original option");
+}
+assert.deepEqual(customOrderSlipDetails({
+  display: { productOption: "14K 옵션 기본 no ball 설명 참고: 크리스탈/M" },
+  operation: { internal_memo: "8바" },
+}), { optionName: "14K 옵션 기본 no ball 설명 참고: 크리스탈/M", barLength: "", quantity: null }, "memo text must not invent a bar length");
+assert.deepEqual(customOrderSlipDetails(), { optionName: "", barLength: "", quantity: null });
 
 const restored = buildCustomOrderRows({
   operations: [operations.find((row) => row.operation_id === "missing")],

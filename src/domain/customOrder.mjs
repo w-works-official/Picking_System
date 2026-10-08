@@ -4,7 +4,7 @@ import {
   orderItemIdentity,
   resolveEffectiveInboundExpectedDate,
   resolveOperationDisplayFields,
-} from "../adapters/orderItemOperationsAdapter.mjs";
+} from "../adapters/orderItemOperationsAdapter.mjs?v=20261008-arbitrary-field1";
 import {
   buildSkuInboundScheduleMap,
   findSkuInboundSchedule,
@@ -165,6 +165,73 @@ export function customOrderDate(row, criterion) {
   if (criterion === "inbound") return datePart(row?.inbound?.date);
   if (criterion === "received") return datePart(operation.custom_received_on);
   return datePart(operation.custom_required_at);
+}
+
+function customOrderRegistrationOrder(left, right) {
+  const leftTime = Date.parse(text(left?.operation?.custom_required_at));
+  const rightTime = Date.parse(text(right?.operation?.custom_required_at));
+  const leftMissing = !Number.isFinite(leftTime);
+  const rightMissing = !Number.isFinite(rightTime);
+  if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+  if (!leftMissing && leftTime !== rightTime) return rightTime - leftTime;
+  const leftId = text(left?.operation?.operation_id);
+  const rightId = text(right?.operation?.operation_id);
+  return leftId < rightId ? -1 : leftId > rightId ? 1 : 0;
+}
+
+export function sortCustomOrderRows(rows = [], order = "supplier_asc") {
+  const mode = text(order).toLowerCase();
+  const supplierCollator = new Intl.Collator("ko", { numeric: true });
+  return [...rows].sort((left, right) => {
+    if (mode === "required_desc") return customOrderRegistrationOrder(left, right);
+    const leftSupplier = text(left?.display?.supplierCellRaw);
+    const rightSupplier = text(right?.display?.supplierCellRaw);
+    if (Boolean(leftSupplier) !== Boolean(rightSupplier)) return leftSupplier ? -1 : 1;
+    const supplierOrder = supplierCollator.compare(leftSupplier, rightSupplier);
+    return (mode === "supplier_desc" ? -supplierOrder : supplierOrder)
+      || customOrderRegistrationOrder(left, right);
+  });
+}
+
+function customOrderQuantity(currentItem) {
+  for (const value of [currentItem?.qty, currentItem?.o_amount, currentItem?.quantity]) {
+    if (value == null || (typeof value === "string" && !value.trim())) continue;
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    const quantity = Number(value);
+    return Number.isFinite(quantity) && Number.isInteger(quantity) && quantity >= 0
+      ? quantity === 0 ? 0 : quantity
+      : null;
+  }
+  return null;
+}
+
+function trimRemovedOptionSeparators(value) {
+  return value.replace(/^[\s,;/|]+|[\s,;/|]+$/g, "").trim();
+}
+
+export function customOrderSlipDetails(row) {
+  let optionName = text(row?.display?.productOption);
+  let barLength = "";
+  // The known parenthetical contains a slash; recognize it as part of the label.
+  const changeSegment = /(^|[,;/|\r\n])[ \t]*바[ \t]*길이[ \t]*변경[ \t]*(?:\([ \t]*주문제작[ \t]*\/[ \t]*취소불가[ \t]*\)[ \t]*)?:[ \t]*(\d+(?:\.\d+)?)[ \t]*mm[ \t]*바(?=(?:[ \t]*\[[^\]\r\n]*\])*[ \t]*(?:$|[,;/|\r\n]))/gi;
+  const changes = [...optionName.matchAll(changeSegment)];
+  const changedLengths = new Set(changes.map((match) => match[2]));
+  if (changedLengths.size === 1) {
+    barLength = `${changes[0][2]}mm`;
+    optionName = trimRemovedOptionSeparators(optionName.replace(changeSegment, ""));
+  }
+
+  // Only an entire Xmm바 component is a bar; generic mm sizes and bracket codes stay intact.
+  const barSegment = /(^|[,;/|\r\n])[ \t]*(\d+(?:\.\d+)?)[ \t]*mm[ \t]*바(?=(?:[ \t]*\[[^\]\r\n]*\])*[ \t]*(?:$|[,;/|\r\n]))/gi;
+  const bars = [...optionName.matchAll(barSegment)];
+  if (bars.length === 1 && changes.length === 0) {
+    barLength = `${bars[0][2]}mm`;
+    optionName = trimRemovedOptionSeparators(optionName.replace(barSegment, ""));
+  } else if (bars.length === 1 && barLength) {
+    optionName = trimRemovedOptionSeparators(optionName.replace(barSegment, ""));
+  }
+
+  return { optionName, barLength, quantity: customOrderQuantity(row?.currentItem) };
 }
 
 export function customOrderSearchText(row) {

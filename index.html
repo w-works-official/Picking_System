@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/system-v3-icon.svg">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
-  <link rel="stylesheet" href="src/styles/picking.css?v=20261001-custom-order-ui2">
+  <link rel="stylesheet" href="src/styles/picking.css?v=20261008-vendor-slip1">
     <link rel="stylesheet" href="src/styles/pickingLogin.css?v=20261007-login1">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   </head>
@@ -376,6 +376,13 @@
                   <input id="custom-orders-date-to" type="date" aria-label="주문제작 종료일">
                 </span>
               </label>
+              <label>정렬
+                <select id="custom-orders-sort">
+                  <option value="supplier_asc">업체 오름차순</option>
+                  <option value="supplier_desc">업체 내림차순</option>
+                  <option value="required_desc">등록일 최신순</option>
+                </select>
+              </label>
               <input id="custom-orders-search" class="search" aria-label="주문제작 검색" placeholder="주문번호 / SKU / 상품 / 매입처 / 메모">
           </div>
           <div class="custom-orders-toolbar" data-custom-orders-toolbar="inbound" aria-label="입고예정일 필터" hidden>
@@ -503,7 +510,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="src/auth/pickingAuth.js?v=20261007-login1"></script>
-    <script type="module" src="src/app/pickingBootstrap.mjs?v=20261007-login1"></script>
+    <script type="module" src="src/app/pickingBootstrap.mjs?v=20261008-vendor-slip1"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {

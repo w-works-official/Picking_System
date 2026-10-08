@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const maliciousVendorRaw = '<img src=x onerror="window.__vendorRawExecuted=true"> & VENDOR';
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -120,8 +121,8 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       window.__tables = {
         orders: [{ ord_no: "O-P", inv_no: "6890123456789", receipt_date: "2026-10-01", sort_order: 1, receiver: "테스트", seller: "스마트스토어" }],
         order_item_operations: [
-          { ...base, operation_id: "op-before", ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "1_R-1", sellpia_product_code_snapshot: "OLD", product_name_snapshot: "예전 상품", supplier_cell_raw_snapshot: "예전 매입처" },
-          { ...base, operation_id: "op-missing", ord_no: "O-M", sellpia_order_item_no: "R-M", item_no: "1_R-M", custom_ordered_on: "2026-09-29", inbound_expected_date: "2026-10-05", inbound_expected_source: "sku_schedule", sellpia_product_code_snapshot: "SNAP", own_code_snapshot: "SNAP-OWN", product_name_snapshot: "스냅 상품", product_option_snapshot: "스냅 옵션", supplier_cell_raw_snapshot: "0-스냅매입처 [ 9 ]" },
+          { ...base, operation_id: "op-before", ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "1_R-1", sellpia_product_code_snapshot: "OLD", arbitrary_field_raw_snapshot: "OLD-VENDOR-SNAPSHOT", product_name_snapshot: "예전 상품", supplier_cell_raw_snapshot: "예전 매입처" },
+          { ...base, operation_id: "op-missing", ord_no: "O-M", sellpia_order_item_no: "R-M", item_no: "1_R-M", custom_ordered_on: "2026-09-29", inbound_expected_date: "2026-10-05", inbound_expected_source: "sku_schedule", sellpia_product_code_snapshot: "SNAP", own_code_snapshot: "SNAP-OWN", arbitrary_field_raw_snapshot: "SNAP-VENDOR-TEST", product_name_snapshot: "스냅 상품", product_option_snapshot: "스냅 옵션", supplier_cell_raw_snapshot: "0-스냅매입처 [ 9 ]" },
           { ...base, operation_id: "op-manual-clear", ord_no: "O-2", sellpia_order_item_no: "R-2", item_no: "1_R-2", custom_ordered_on: "2026-09-30", inbound_expected_source: "manual", inbound_expected_date: null },
           { ...base, operation_id: "op-legacy", ord_no: "O-3", sellpia_order_item_no: "R-3", item_no: "1_R-3", custom_ordered_on: "2026-09-30" },
           { ...base, operation_id: "op-received", ord_no: "O-4", sellpia_order_item_no: "R-4", item_no: "1_R-4", custom_received_on: "2026-10-01" },
@@ -129,9 +130,9 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
         ],
         order_items: [
           { ord_no: "O-P", sellpia_order_item_no: "R-P", item_no: "1_R-P", sort_order: 1, p_code: "PICK-SKU", p_dpcode: "PICK-OWN", p_name: "피킹 주문제작 상품", p_option: "테스트 옵션", p_location: "A-1", qty: 1 },
-          { ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "9_R-1", p_code: "SAME-SKU", p_dpcode: "OWN-1", p_name: "현재 상품 1", p_option: "실버", sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]" },
-          { ord_no: "O-2", sellpia_order_item_no: "R-2", item_no: "1_R-2", p_code: "SAME-SKU", p_dpcode: "OWN-2", p_name: "현재 상품 2", p_option: "골드", sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]", sellpia_outbound_confirmed_date: "2026-10-08" },
-          { ord_no: "O-3", sellpia_order_item_no: "R-3", item_no: "1_R-3", p_code: "LEGACY", p_dpcode: "OWN-3", p_name: "레거시 상품", sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_outbound_confirmed_date: "2026-10-09" },
+          { ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "9_R-1", p_code: "SAME-SKU", p_dpcode: "OWN-1", p_name: "현재 상품 1", p_option: "실버/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):8mm바", qty: 0, o_amount: 99, sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_arbitrary_field_raw: "001-VENDOR-TEST" },
+          { ord_no: "O-2", sellpia_order_item_no: "R-2", item_no: "1_R-2", p_code: "SAME-SKU", p_dpcode: "OWN-2", p_name: "현재 상품 2", p_option: "골드 / 6mm 큐빅", o_amount: "3", sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]", sellpia_outbound_confirmed_date: "2026-10-08" },
+          { ord_no: "O-3", sellpia_order_item_no: "R-3", item_no: "1_R-3", p_code: "LEGACY", p_dpcode: "OWN-3", p_name: "레거시 상품", p_option: "반지 8호", sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_arbitrary_field_raw: ${JSON.stringify(maliciousVendorRaw)}, sellpia_outbound_confirmed_date: "2026-10-09" },
           { ord_no: "O-LONLY", sellpia_order_item_no: "R-LONLY", item_no: "1_R-LONLY", p_code: "LEGACY-ONLY", p_dpcode: "OWN-LONLY", p_name: "operation 없는 셀피아 일정", sellpia_supplier_cell_raw: "0-신규매입처 [ 7 ]", sellpia_outbound_confirmed_date: "2026-10-11" }
         ],
         sku_inbound_schedules: [
@@ -271,6 +272,10 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.equal(await page.locator("#custom-orders-panel").isVisible(), true);
   assert.equal(await page.locator("#picking-panel").isVisible(), false);
   assert.equal(await page.locator("#custom-orders-status").inputValue(), "active");
+  assert.equal(await page.locator("#custom-orders-sort").inputValue(), "supplier_asc");
+  assert.deepEqual(await page.locator("#custom-orders-sort option").evaluateAll((nodes) => nodes.map((node) => node.value)), [
+    "supplier_asc", "supplier_desc", "required_desc",
+  ]);
   const layout = await page.evaluate(() => {
     const panel = document.getElementById("custom-orders-panel");
     const toolbar = document.querySelector(".custom-orders-toolbar");
@@ -278,22 +283,159 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
     const firstRow = document.querySelector(".custom-order-row");
     return {
       panelRows: getComputedStyle(panel).gridTemplateRows.split(" ").length,
+      listGridRow: getComputedStyle(document.getElementById("custom-orders-list")).gridRowStart,
       toolbarHeight: toolbar.getBoundingClientRect().height,
       statusHeight: status.getBoundingClientRect().height,
       gapToFirstRow: firstRow.getBoundingClientRect().top - toolbar.getBoundingClientRect().bottom,
     };
   });
   assert.equal(layout.panelRows, 6, "custom-order panel must allocate header/tabs/filters/SKU-manager/summary/list rows");
+  assert.equal(layout.listGridRow, "6", "workflow list must explicitly occupy the final panel row");
   assert.ok(layout.toolbarHeight >= 48 && layout.toolbarHeight <= 60, `toolbar must match existing panel density (${layout.toolbarHeight}px)`);
   assert.equal(layout.statusHeight, 32, `filter controls must match the existing 32px form-control height (${layout.statusHeight}px)`);
   assert.ok(layout.gapToFirstRow < 70, `list must start directly below its summary (${layout.gapToFirstRow}px)`);
   assert.match(await page.locator("#custom-orders-count").textContent(), /^5건 \/ 전체 7건$/);
   assert.equal(await page.locator(".custom-order-row").count(), 5);
+  assert.equal(await page.locator(".custom-order-slip-card").count(), 5, "workflow rows must use the new order-slip layout");
   assert.equal(await page.locator(".custom-order-row .workflow-row-badge.danger").count(), 1);
   assert.match(await page.locator('[data-operation-id="op-missing"]').textContent(), /스냅 상품/);
   assert.match(await page.locator('[data-operation-id="op-manual-clear"]').textContent(), /수동 · 삭제됨/);
   assert.match(await page.locator('[data-operation-id="op-legacy"]').textContent(), /셀피아/);
   assert.equal(await page.locator('[data-operation-id="op-before"] .custom-order-product-photo img').count(), 1, "custom-order workflow must show the product photo");
+
+  const slipFacts = async (operationId) => page.locator(`[data-operation-id="${operationId}"] .custom-order-slip-facts`).evaluate((node) => (
+    Object.fromEntries([...node.children].map((fact) => [fact.querySelector("dt").textContent.trim(), fact.querySelector("dd").textContent.trim()]))
+  ));
+  assert.deepEqual(await slipFacts("op-before"), { 업체상품코드: "001-VENDOR-TEST", 옵션: "실버[GPA-3-191]", 바길이: "8mm" }, "current raw vendor codes must override stale snapshots and preserve leading zeroes");
+  assert.deepEqual(await slipFacts("op-missing"), { 업체상품코드: "SNAP-VENDOR-TEST", 옵션: "스냅 옵션", 바길이: "확인 필요" }, "a missing source row must retain its vendor-code snapshot");
+  assert.deepEqual(await slipFacts("op-manual-clear"), { 업체상품코드: "미수집", 옵션: "골드 / 6mm 큐빅", 바길이: "확인 필요" });
+  assert.deepEqual(await slipFacts("op-legacy"), { 업체상품코드: maliciousVendorRaw, 옵션: "반지 8호", 바길이: "확인 필요" });
+  const vendorCodeFact = (operationId) => page.locator(`[data-operation-id="${operationId}"] .custom-order-slip-facts div`).filter({ has: page.locator("dt", { hasText: "업체상품코드" }) }).locator("dd");
+  assert.equal(await vendorCodeFact("op-before").getAttribute("title"), "셀피아 임의필드 원문");
+  assert.equal(await vendorCodeFact("op-before").evaluate((node) => node.classList.contains("is-unavailable")), false);
+  assert.equal(await vendorCodeFact("op-missing").evaluate((node) => node.classList.contains("is-unavailable")), false);
+  assert.equal(await vendorCodeFact("op-manual-clear").evaluate((node) => node.classList.contains("is-unavailable")), true);
+  assert.notEqual((await slipFacts("op-manual-clear")).업체상품코드, "OWN-2", "an own code must never be inferred as the vendor code");
+  assert.equal(await vendorCodeFact("op-legacy").locator("*").count(), 0, "raw vendor text containing markup must not create HTML elements");
+  assert.equal(await page.evaluate(() => window.__vendorRawExecuted), undefined, "raw vendor text must never execute an event handler");
+  assert.equal(await page.locator('[data-operation-id="op-before"] .custom-order-slip-quantity strong').textContent(), "0개", "a real zero quantity must not fall through to another source field or default to one");
+  assert.equal(await page.locator('[data-operation-id="op-manual-clear"] .custom-order-slip-quantity strong').textContent(), "3개", "legacy o_amount quantities must remain visible");
+  for (const operationId of ["op-missing", "op-legacy"]) {
+    assert.match(await page.locator(`[data-operation-id="${operationId}"] .custom-order-slip-quantity`).textContent(), /수량\s+확인 필요/);
+  }
+  assert.equal(await page.locator(".custom-order-slip-facts dd.is-unavailable").filter({ hasText: "미수집" }).count(), 2, "only missing raw vendor codes must stay visibly uncollected");
+  assert.equal(await page.locator('[data-operation-id="op-before"] .custom-order-slip-management [data-custom-order-field]').count(), 4, "management must retain three editable dates and its memo");
+  assert.equal(await page.locator('[data-operation-id="op-before"] .custom-order-slip-management [data-custom-order-action]').count(), 3, "management must retain the workflow actions");
+  for (const card of await page.locator(".custom-order-slip-card").all()) {
+    const primary = card.locator(".custom-order-row-primary");
+    const management = card.locator(".custom-order-slip-management");
+    assert.equal(await primary.locator(".custom-order-product-photo, .custom-order-supplier, .custom-order-slip-facts, .custom-order-slip-quantity").count(), 4, "the left capture area must retain the photo, supplier, order facts and quantity");
+    assert.equal(await primary.locator("input, button, .custom-order-status, .workflow-row-badge, .custom-order-slip-source, .custom-order-row-dates, .custom-order-row-memo").count(), 0, "the left capture area must exclude internal dates, memo, actions, status and source warnings");
+    assert.equal(await management.locator(".custom-order-slip-management-heading .custom-order-status").count(), 1, "workflow status must be inside the right management heading");
+    assert.equal(await management.locator(".custom-order-row-dates, .custom-order-row-memo, .custom-order-row-actions, .custom-order-slip-source").count(), 4, "the right management area must retain dates, memo, actions and source details");
+  }
+  assert.equal(await page.locator(".custom-order-slip-management-heading .workflow-row-badge.danger").count(), 1, "a missing source warning must stay on the internal management side");
+
+  const readSupplierOrder = () => page.locator(".custom-order-slip-card .custom-order-supplier").allTextContents();
+  const ascendingSuppliers = ["0-베니스톤 [ 28 ]", "0-베니스톤 [ 28 ]", "0-세븐피어싱 [ 1 ]", "0-스냅매입처 [ 9 ]", "매입처 미확인"];
+  assert.deepEqual(await readSupplierOrder(), ascendingSuppliers, "the default workflow list must group suppliers alphabetically and keep missing suppliers last");
+  await page.selectOption("#custom-orders-sort", "supplier_desc");
+  assert.deepEqual(await readSupplierOrder(), ["0-스냅매입처 [ 9 ]", "0-세븐피어싱 [ 1 ]", "0-베니스톤 [ 28 ]", "0-베니스톤 [ 28 ]", "매입처 미확인"], "descending supplier sorting must also keep missing suppliers last");
+  await page.selectOption("#custom-orders-sort", "required_desc");
+  const pickingOperationId = await page.evaluate(() => window.__tables.order_item_operations.find((row) => row.ord_no === "O-P").operation_id);
+  assert.equal(await page.locator(".custom-order-slip-card").first().getAttribute("data-operation-id"), pickingOperationId, "registration-date sorting must place the newly registered order first");
+  await page.selectOption("#custom-orders-sort", "supplier_asc");
+  assert.deepEqual(await readSupplierOrder(), ascendingSuppliers, "returning to supplier sorting must restore the default order");
+
+  const originalOption = "실버/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):8mm바";
+  const sourceDetails = page.locator('[data-operation-id="op-before"] .custom-order-slip-source');
+  assert.equal(await sourceDetails.getAttribute("open"), null);
+  assert.match(await sourceDetails.locator("summary").textContent(), /SAME-SKU.*OWN-1/);
+  await sourceDetails.locator("summary").click();
+  assert.ok((await sourceDetails.textContent()).includes(originalOption), "the source detail must preserve the complete original option");
+
+  for (const viewport of [{ width: 1920, height: 1000 }, { width: 1240, height: 1100 }]) {
+    await page.setViewportSize(viewport);
+    const cardLayout = await page.evaluate(() => {
+      const panel = document.getElementById("custom-orders-panel");
+      const list = document.getElementById("custom-orders-list");
+      const summary = document.querySelector(".custom-orders-summary");
+      const cards = [...list.querySelectorAll(".custom-order-slip-card")];
+      const first = cards[0];
+      const primary = first.querySelector(".custom-order-row-primary");
+      const photo = first.querySelector(".custom-order-product-photo");
+      const management = first.querySelector(".custom-order-slip-management");
+      return {
+        panelRows: getComputedStyle(panel).gridTemplateRows.split(" ").length,
+        listGridRow: getComputedStyle(list).gridRowStart,
+        listBottom: list.getBoundingClientRect().bottom,
+        panelBottom: panel.getBoundingClientRect().bottom,
+        gapFromSummary: first.getBoundingClientRect().top - summary.getBoundingClientRect().bottom,
+        firstWidth: first.clientWidth,
+        primaryWidth: primary.getBoundingClientRect().width,
+        managementWidth: management.getBoundingClientRect().width,
+        primaryTop: primary.getBoundingClientRect().top,
+        primaryRight: primary.getBoundingClientRect().right,
+        managementTop: management.getBoundingClientRect().top,
+        managementLeft: management.getBoundingClientRect().left,
+        photoWidth: photo.getBoundingClientRect().width,
+        photoHeight: photo.getBoundingClientRect().height,
+        photoFit: getComputedStyle(photo.querySelector("img")).objectFit,
+        cards: cards.map((card) => {
+          const bounds = card.getBoundingClientRect();
+          const slip = card.querySelector(".custom-order-row-primary").getBoundingClientRect();
+          const controls = card.querySelector(".custom-order-slip-management").getBoundingClientRect();
+          const quantity = card.querySelector(".custom-order-slip-quantity").getBoundingClientRect();
+          const image = card.querySelector(".custom-order-product-photo").getBoundingClientRect();
+          return {
+            operationId: card.dataset.operationId,
+            clippedWidth: card.scrollWidth - card.clientWidth,
+            clippedHeight: card.scrollHeight - card.clientHeight,
+            primaryRight: slip.right,
+            alignedTop: Math.abs(slip.top - controls.top) <= 1,
+            separatedHorizontally: slip.right <= controls.left + 1,
+            quantityInsideSlip: quantity.left >= slip.left && quantity.right <= slip.right + 1 && quantity.top >= slip.top && quantity.bottom <= slip.bottom + 1,
+            quantityBesidePhoto: quantity.left >= image.right && quantity.top < image.bottom,
+            controlsOutside: [...card.querySelectorAll("input, button, summary")].some((control) => {
+              const box = control.getBoundingClientRect();
+              return box.width && (box.left < bounds.left || box.right > bounds.right + 1 || box.top < bounds.top || box.bottom > bounds.bottom + 1);
+            }),
+          };
+        }),
+      };
+    });
+    const screen = `${viewport.width}x${viewport.height}`;
+    assert.equal(cardLayout.panelRows, 6, `${screen}: panel must retain its six tracks`);
+    assert.equal(cardLayout.listGridRow, "6", `${screen}: list must stay in the final grid row`);
+    assert.ok(cardLayout.listBottom <= cardLayout.panelBottom + 1 && cardLayout.listBottom <= viewport.height, `${screen}: the list must end inside the visible panel`);
+    assert.ok(cardLayout.gapFromSummary >= 0 && cardLayout.gapFromSummary < 24, `${screen}: cards must start immediately below the summary`);
+    assert.ok(cardLayout.primaryWidth > cardLayout.managementWidth && cardLayout.primaryWidth < cardLayout.firstWidth, `${screen}: the left capture area must be the larger of two card columns`);
+    assert.ok(Math.abs(cardLayout.primaryTop - cardLayout.managementTop) <= 1, `${screen}: the capture area and management area must start at the same height`);
+    assert.ok(cardLayout.primaryRight <= cardLayout.managementLeft + 1, `${screen}: management controls must sit to the right of the order slip`);
+    assert.equal(cardLayout.photoWidth, 144, `${screen}: workflow product photos must remain 9rem wide`);
+    assert.equal(cardLayout.photoHeight, 144, `${screen}: workflow product photos must remain square`);
+    assert.equal(cardLayout.photoFit, "contain", `${screen}: photos must preserve the full product image`);
+    for (const card of cardLayout.cards) {
+      assert.ok(card.clippedWidth <= 1, `${screen}: ${card.operationId} must not clip horizontal content (${card.clippedWidth}px)`);
+      assert.ok(card.clippedHeight <= 1, `${screen}: ${card.operationId} must size itself to all content (${card.clippedHeight}px)`);
+      assert.equal(card.alignedTop, true, `${screen}: ${card.operationId} must preserve a side-by-side split`);
+      assert.equal(card.separatedHorizontally, true, `${screen}: ${card.operationId} management must remain right of its capture area`);
+      assert.ok(Math.abs(card.primaryRight - cardLayout.primaryRight) <= 1, `${screen}: ${card.operationId} must share a straight capture boundary with the other cards`);
+      assert.equal(card.quantityInsideSlip, true, `${screen}: ${card.operationId} quantity must fit completely inside the capture area`);
+      assert.equal(card.quantityBesidePhoto, true, `${screen}: ${card.operationId} quantity must stay beside its photo without wrapping below it`);
+      assert.equal(card.controlsOutside, false, `${screen}: ${card.operationId} controls must remain inside its card`);
+    }
+    const scrolledEnd = await page.locator("#custom-orders-list").evaluate((list) => {
+      list.scrollTop = list.scrollHeight;
+      const last = list.querySelector(".custom-order-slip-card:last-child");
+      return { lastBottom: last.getBoundingClientRect().bottom, listBottom: list.getBoundingClientRect().bottom, scrollTop: list.scrollTop };
+    });
+    assert.ok(scrolledEnd.scrollTop > 0, `${screen}: the test must exercise scrolling through multiple full-height cards`);
+    assert.ok(scrolledEnd.lastBottom <= scrolledEnd.listBottom, `${screen}: the last card bottom must be reachable by scrolling`);
+    await page.locator("#custom-orders-list").evaluate((list) => { list.scrollTop = 0; });
+  }
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await sourceDetails.locator("summary").click();
 
   const statusColors = {};
   for (const [filter, key] of [["before_order", "before"], ["received", "received"]]) {
@@ -313,6 +455,12 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   await page.fill("#custom-orders-search", "OWN-2");
   assert.equal(await page.locator('.custom-order-row[data-operation-id="op-manual-clear"]').count(), 1);
   await page.fill("#custom-orders-search", "");
+  await page.fill("#custom-orders-date-from", "2026-10-01");
+  await page.fill("#custom-orders-date-to", "2026-10-01");
+  assert.equal(await page.locator(".custom-order-slip-card").count(), 1, "workflow date filtering must keep working with supplier sorting enabled");
+  assert.equal(await page.locator(".custom-order-slip-card").first().getAttribute("data-operation-id"), pickingOperationId);
+  await page.fill("#custom-orders-date-from", "");
+  await page.fill("#custom-orders-date-to", "");
 
   await page.locator('[data-operation-id="op-before"] [data-custom-order-action="ordered-today"]').click();
   await page.waitForFunction(() => {
@@ -353,6 +501,8 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.equal(await page.locator("#custom-orders-sku-schedule-panel").isVisible(), true);
   assert.match(await page.locator("#custom-orders-sku-count").textContent(), /1개 SKU/);
   assert.equal(await page.locator(".inbound-expected-row").count(), 5);
+  assert.equal(await page.locator(".custom-order-slip-card").count(), 0, "the inbound view must retain its existing row layout");
+  assert.equal(await page.locator("#custom-orders-sort").isVisible(), false, "workflow sorting must not appear in the inbound view");
   assert.match(await page.locator('[data-inbound-row-key="O-2::R-2"]').textContent(), /명시적 삭제/);
   assert.match(await page.locator('[data-inbound-row-key="O-M::R-M"]').textContent(), /원천 주문행 없음/);
   assert.match(await page.locator('[data-inbound-row-key="O-LONLY::R-LONLY"]').textContent(), /SKU 일정/);

@@ -24,6 +24,8 @@ function sellpiaOutboundScheduledHistory(row){var value=readSellpiaField(row,['\
 function normalizeSellpiaOutboundConfirmedDate(value){var text=String(value==null?'':value).trim(),match=text.match(/^(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);if(!match)return null;return match[1]+'-'+String(Number(match[2])).padStart(2,'0')+'-'+String(Number(match[3])).padStart(2,'0');}
 function sellpiaOutboundConfirmedDate(row){return normalizeSellpiaOutboundConfirmedDate(readSellpiaField(row,['\uCD9C\uACE0\uD655\uC815\uC77C'],['c_delirsvout_date','delirsvout_date']));}
 function sellpiaSupplierCellRaw(row){var value=readSellpiaField(row,['\uB9E4\uC785\uCC98\uBA85','\uB9E4\uC785\uCC98/\uC140'],['c_in_provider_name','in_provider_name']),text=String(value==null?'':value).trim();return text||null;}
+function getSellpiaArbitraryFieldColumn(){try{var cols=window.grid&&window.grid.getColumns?window.grid.getColumns():[],matches=[];for(var i=0;i<cols.length;i++){var column=cols[i]||{};if(cleanSellpiaHeaderLabel(column.name||column.title||'')==='\uC784\uC758\uD544\uB4DC')matches.push(column);}return matches.length===1?(matches[0].field||matches[0].id||''):'';}catch(error){return '';}}
+function sellpiaArbitraryFieldRaw(row){try{var field=getSellpiaArbitraryFieldColumn();if(!field||!row||!Object.prototype.hasOwnProperty.call(row,field))return null;var value=row[field];return value==null?null:String(value);}catch(error){return null;}}
 `;
     const originalReceiptHelpers = String.raw`
 function normalizeOrderReceiptDate(value){var text=String(value==null?'':value).trim(),match=text.match(/^(\d{4}-\d{2}-\d{2})/);return match?match[1]:'';}
@@ -48,7 +50,7 @@ async function enrichOrderDateTimes(targetDate,session,invFilter){session=sessio
     }
     let patched = SRC
       .replace("function hasOrderMemoOverride", outboundDateHelpers + originalReceiptHelpers + orderDateTimeEnrichmentHelpers + "function hasOrderMemoOverride")
-      .replace(itemRawMemoHook, itemRawMemoHook + 'sellpia_outbound_confirmed_date:sellpiaOutboundConfirmedDate(it),sellpia_supplier_cell_raw:sellpiaSupplierCellRaw(it),')
+      .replace(itemRawMemoHook, itemRawMemoHook + 'sellpia_outbound_confirmed_date:sellpiaOutboundConfirmedDate(it),sellpia_supplier_cell_raw:sellpiaSupplierCellRaw(it),sellpia_arbitrary_field_raw:sellpiaArbitraryFieldRaw(it),')
       .replace(orderDateHook, orderDateHook + 'sellpia_outbound_scheduled_date:sellpiaOutboundScheduledHistory(it),')
       .replace(orderDateMergeHook, orderDateMergeHook + "var scheduledHistory=sellpiaOutboundScheduledHistory(it);if(scheduledHistory&&!existingOrder.sellpia_outbound_scheduled_date)existingOrder.sellpia_outbound_scheduled_date=scheduledHistory;else if(scheduledHistory&&existingOrder.sellpia_outbound_scheduled_date&&scheduledHistory!==existingOrder.sellpia_outbound_scheduled_date)addLog('주의: 출고예정일 이력 불일치 주문 '+ordNo+': '+existingOrder.sellpia_outbound_scheduled_date+' / '+scheduledHistory);")
       .replace(orderRowsHook, 'var orderRows=Array.from(ordersMap.values());  var scrapedOrdNos=orderRows.map(function(r){return r.ord_no;});  var originalReceiptStats=applyExistingOrderReceiptBaselines(orderRows,await loadExistingOrderReceiptBaselines(scrapedOrdNos));  addLog("최초 접수일 기준: 기존 "+originalReceiptStats.loaded+"건 / 유지 "+originalReceiptStats.preserved+"건 / 재동기화 감지 "+originalReceiptStats.resynced+"건");  var invoiceRows=')

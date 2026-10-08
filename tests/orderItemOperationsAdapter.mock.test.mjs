@@ -3,6 +3,7 @@ import {
   createOrderItemOperationsAdapter,
   findCurrentSourceForOperation,
   findOperationForCurrentItem,
+  missingSnapshotBackfill,
   resolveEffectiveInboundExpectedDate,
   resolveOperationDisplayFields,
   snapshotFromCurrentOrderItem,
@@ -17,6 +18,7 @@ const current = {
   p_name: "상품 1",
   p_option: "옵션 A",
   sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]",
+  sellpia_arbitrary_field_raw: "  VENDOR\t001 /  A  \n",
   sellpia_outbound_confirmed_date: "2026-10-09",
 };
 
@@ -30,6 +32,7 @@ const operation = {
   product_name_snapshot: "예전 상품",
   product_option_snapshot: "예전 옵션",
   supplier_cell_raw_snapshot: "예전 매입처",
+  arbitrary_field_raw_snapshot: "  OLD-VENDOR  ",
   inbound_expected_date: "2026-10-12",
   inbound_expected_source: "manual",
 };
@@ -40,7 +43,16 @@ assert.deepEqual(snapshotFromCurrentOrderItem(current), {
   product_name_snapshot: "상품 1",
   product_option_snapshot: "옵션 A",
   supplier_cell_raw_snapshot: "0-세븐피어싱 [ 1 ]",
+  arbitrary_field_raw_snapshot: "  VENDOR\t001 /  A  \n",
 });
+
+assert.equal(snapshotFromCurrentOrderItem({ ...current, sellpia_arbitrary_field_raw: " \t\n" }).arbitrary_field_raw_snapshot, null);
+assert.equal(snapshotFromCurrentOrderItem({ ...current, sellpia_arbitrary_field_raw: null }).arbitrary_field_raw_snapshot, null);
+assert.equal(
+  snapshotFromCurrentOrderItem({ item: { raw: { sellpia_arbitrary_field_raw: "  nested raw  " } } }).arbitrary_field_raw_snapshot,
+  "  nested raw  ",
+  "nested raw source must preserve whitespace",
+);
 
 const regularMatch = findOperationForCurrentItem(current, [operation]);
 assert.equal(regularMatch.status, "matched");
@@ -64,11 +76,29 @@ assert.equal(findCurrentSourceForOperation(operation, [current]).matchMethod, "r
 const displayCurrent = resolveOperationDisplayFields({ operation, currentItem: current });
 assert.equal(displayCurrent.sellpiaProductCode, "SKU-1");
 assert.equal(displayCurrent.supplierCellRaw, "0-세븐피어싱 [ 1 ]");
+assert.equal(displayCurrent.arbitraryFieldRaw, "  VENDOR\t001 /  A  \n", "current arbitrary field must win without parsing or trimming");
 assert.equal(displayCurrent.sourceMissing, false);
 const displayFallback = resolveOperationDisplayFields({ operation, currentItem: null });
 assert.equal(displayFallback.sellpiaProductCode, "OLD-SKU");
 assert.equal(displayFallback.supplierCellRaw, "예전 매입처");
+assert.equal(displayFallback.arbitraryFieldRaw, "  OLD-VENDOR  ", "source cleanup must retain the original snapshot value");
 assert.equal(displayFallback.sourceMissing, true);
+for (const missingRaw of [undefined, null, "", " \t\n"]) {
+  assert.equal(
+    resolveOperationDisplayFields({ operation, currentItem: { ...current, sellpia_arbitrary_field_raw: missingRaw } }).arbitraryFieldRaw,
+    "  OLD-VENDOR  ",
+    "missing current raw field must use the preserved snapshot",
+  );
+}
+assert.equal(resolveOperationDisplayFields().arbitraryFieldRaw, "");
+assert.equal(
+  resolveOperationDisplayFields({ currentItem: { arbitraryFieldRaw: "  effective alias  " } }).arbitraryFieldRaw,
+  "  effective alias  ",
+);
+assert.deepEqual(missingSnapshotBackfill(operation, current), {}, "existing arbitrary snapshot must never be replaced by backfill");
+assert.deepEqual(missingSnapshotBackfill({ ...operation, arbitrary_field_raw_snapshot: " \t" }, current), {
+  arbitrary_field_raw_snapshot: "  VENDOR\t001 /  A  \n",
+}, "explicit missing-only backfill must preserve the new raw field");
 
 assert.deepEqual(resolveEffectiveInboundExpectedDate({ operation, currentItem: current }), {
   date: "2026-10-12",
@@ -163,28 +193,35 @@ const adapter = createOrderItemOperationsAdapter(memoryDb);
 const created = await adapter.upsertOperationForCurrentOrderItem(current, {
   inbound_expected_date: "2026-10-20",
   inbound_expected_source: "manual",
+  arbitrary_field_raw_snapshot: "injected snapshot",
 });
 assert.equal(created.sellpia_product_code_snapshot, "SKU-1");
 assert.equal(created.supplier_cell_raw_snapshot, "0-세븐피어싱 [ 1 ]");
+assert.equal(created.arbitrary_field_raw_snapshot, "  VENDOR\t001 /  A  \n", "creation must snapshot the source and reject caller snapshot fields");
 
-const changedSource = { ...current, p_name: "최신 상품명", sellpia_supplier_cell_raw: "새 매입처" };
+const changedSource = { ...current, p_name: "최신 상품명", sellpia_supplier_cell_raw: "새 매입처", sellpia_arbitrary_field_raw: "  NEW-VENDOR  " };
 const updated = await adapter.upsertOperationForCurrentOrderItem(changedSource, {
   inbound_expected_date: null,
   inbound_expected_source: "manual",
+  arbitrary_field_raw_snapshot: "injected update",
 });
 assert.equal(updated.operation_id, created.operation_id);
 assert.equal(updated.product_name_snapshot, "상품 1", "ordinary updates must not overwrite creation snapshots");
 assert.equal(updated.supplier_cell_raw_snapshot, "0-세븐피어싱 [ 1 ]");
+assert.equal(updated.arbitrary_field_raw_snapshot, created.arbitrary_field_raw_snapshot, "ordinary updates must preserve the creation arbitrary snapshot");
+assert.equal(resolveOperationDisplayFields({ operation: updated, currentItem: changedSource }).arbitraryFieldRaw, "  NEW-VENDOR  ");
 assert.equal(updated.inbound_expected_date, null);
 assert.equal(updated.inbound_expected_source, "manual");
 assert.equal(memoryDb.rows.length, 1);
 const workflowUpdated = await adapter.updateOperation(updated.operation_id, {
   custom_ordered_on: "2026-10-01",
   internal_memo: "업체 주문 완료",
+  arbitrary_field_raw_snapshot: "injected workflow snapshot",
 });
 assert.equal(workflowUpdated.custom_ordered_on, "2026-10-01");
 assert.equal(workflowUpdated.internal_memo, "업체 주문 완료");
 assert.equal(workflowUpdated.product_name_snapshot, "상품 1", "workflow updates must preserve creation snapshots");
+assert.equal(workflowUpdated.arbitrary_field_raw_snapshot, created.arbitrary_field_raw_snapshot);
 const reloadedOperations = await adapter.loadAllOperations();
 const reloadedMatch = findOperationForCurrentItem(current, reloadedOperations);
 assert.equal(reloadedMatch.status, "matched");
@@ -194,5 +231,22 @@ assert.equal(
   true,
   "manual clear must survive a repository reload and continue suppressing the legacy date",
 );
+
+const missingSnapshotDb = createMemoryDb([{ ...operation, arbitrary_field_raw_snapshot: null }]);
+const missingSnapshotAdapter = createOrderItemOperationsAdapter(missingSnapshotDb);
+const ordinaryMissingUpdate = await missingSnapshotAdapter.upsertOperationForCurrentOrderItem(current, { internal_memo: "ordinary edit" });
+assert.equal(ordinaryMissingUpdate.arbitrary_field_raw_snapshot, null, "ordinary updates must not silently backfill missing snapshots");
+const explicitBackfill = await missingSnapshotAdapter.backfillMissingSnapshots(ordinaryMissingUpdate, [current]);
+assert.equal(explicitBackfill.updated, true);
+assert.equal(explicitBackfill.operation.arbitrary_field_raw_snapshot, "  VENDOR\t001 /  A  \n");
+const preservedBackfill = await missingSnapshotAdapter.backfillMissingSnapshots(explicitBackfill.operation, [changedSource]);
+assert.equal(preservedBackfill.updated, false);
+assert.equal(preservedBackfill.operation.arbitrary_field_raw_snapshot, "  VENDOR\t001 /  A  \n");
+
+const operationWithoutSnapshotField = { ...operation };
+delete operationWithoutSnapshotField.arbitrary_field_raw_snapshot;
+const legacySnapshotAdapter = createOrderItemOperationsAdapter(createMemoryDb([operationWithoutSnapshotField]));
+const legacySnapshotUpdate = await legacySnapshotAdapter.upsertOperationForCurrentOrderItem(current, { internal_memo: "legacy ordinary edit" });
+assert.equal(Object.hasOwn(legacySnapshotUpdate, "arbitrary_field_raw_snapshot"), false, "ordinary updates must not require or implicitly backfill an absent raw snapshot field");
 
 console.log("orderItemOperationsAdapter.mock.test: OK");

@@ -16,10 +16,16 @@ const SNAPSHOT_FIELDS = Object.freeze([
   "product_name_snapshot",
   "product_option_snapshot",
   "supplier_cell_raw_snapshot",
+  "arbitrary_field_raw_snapshot",
 ]);
 
 function text(value) {
   return String(value ?? "").trim();
+}
+
+function rawText(value) {
+  const raw = String(value ?? "");
+  return raw.trim() ? raw : "";
 }
 
 function firstText(...values) {
@@ -40,6 +46,18 @@ function field(value, ...names) {
   for (const name of names) {
     const normalized = firstText(source?.[name], nestedRaw?.[name]);
     if (normalized) return normalized;
+  }
+  return "";
+}
+
+function rawField(value, ...names) {
+  const source = rawSource(value);
+  const nestedRaw = source?.raw || {};
+  for (const name of names) {
+    for (const candidate of [source?.[name], nestedRaw?.[name]]) {
+      const raw = rawText(candidate);
+      if (raw) return raw;
+    }
   }
   return "";
 }
@@ -108,6 +126,7 @@ export function snapshotFromCurrentOrderItem(currentItem) {
     product_name_snapshot: field(currentItem, "p_name", "productName", "name") || null,
     product_option_snapshot: field(currentItem, "p_option", "productOption", "optionName") || null,
     supplier_cell_raw_snapshot: field(currentItem, "sellpia_supplier_cell_raw", "sellpiaSupplierCellRaw") || null,
+    arbitrary_field_raw_snapshot: rawField(currentItem, "sellpia_arbitrary_field_raw", "sellpiaArbitraryFieldRaw", "arbitraryFieldRaw") || null,
   };
 }
 
@@ -128,6 +147,7 @@ export function resolveOperationDisplayFields({ operation = null, currentItem = 
     productName: field(currentItem, "p_name", "productName", "name") || text(snapshot.product_name_snapshot),
     productOption: field(currentItem, "p_option", "productOption", "optionName") || text(snapshot.product_option_snapshot),
     supplierCellRaw: field(currentItem, "sellpia_supplier_cell_raw", "sellpiaSupplierCellRaw") || text(snapshot.supplier_cell_raw_snapshot),
+    arbitraryFieldRaw: rawField(currentItem, "sellpia_arbitrary_field_raw", "sellpiaArbitraryFieldRaw", "arbitraryFieldRaw") || rawText(snapshot.arbitrary_field_raw_snapshot),
     sourceMissing: !currentItem,
   };
 }

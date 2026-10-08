@@ -60,13 +60,15 @@ function previewApp(source) {
 function sampleProductPhoto(filename) {
   const gold = /SKU-CURRENT|LOCAL-SKU-1|191/.test(filename);
   const metal = gold ? "#cba54e" : "#aebac5";
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-label="로컬 미리보기 피어싱 샘플">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 426.6667 320" role="img" aria-label="로컬 미리보기 가로형 피어싱 샘플">
     <defs><radialGradient id="background"><stop stop-color="#fff"/><stop offset="1" stop-color="#eef1f5"/></radialGradient><linearGradient id="metal" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".4" stop-color="${metal}"/><stop offset=".7" stop-color="#fff"/><stop offset="1" stop-color="${metal}"/></linearGradient></defs>
-    <rect width="320" height="320" rx="24" fill="url(#background)"/>
+    <rect width="426.6667" height="320" rx="24" fill="url(#background)"/>
+    <g transform="translate(53.3333 0)">
     <ellipse cx="158" cy="230" rx="81" ry="13" fill="#d7dce4" opacity=".45"/>
     <g transform="rotate(-34 160 160)"><rect x="87" y="153" width="147" height="18" rx="9" fill="url(#metal)" stroke="${metal}"/><circle cx="91" cy="162" r="25" fill="url(#metal)" stroke="${metal}"/>
     ${gold ? `<circle cx="228" cy="162" r="32" fill="url(#metal)" stroke="${metal}"/><circle cx="218" cy="151" r="8" fill="#fff" opacity=".7"/>` : `<circle cx="228" cy="162" r="35" fill="url(#metal)" stroke="${metal}"/><path d="M228 133 253 147 253 176 228 191 203 176 203 147Z" fill="#eefaff" stroke="#adcadb"/><path d="m228 133-13 29 13 29 13-29Z" fill="#fff"/><path d="m203 147 12 15-12 14m50-29-12 15 12 14" fill="none" stroke="#c3dceb"/>`}</g>
-    <text x="160" y="289" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#64748b">LOCAL SAMPLE</text>
+    </g>
+    <text x="213.3333" y="289" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#64748b">LOCAL SAMPLE · 4:3</text>
   </svg>`;
 }
 

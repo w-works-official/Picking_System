@@ -8,6 +8,11 @@ import { chromium } from "playwright";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const maliciousVendorRaw = '<img src=x onerror="window.__vendorRawExecuted=true"> & VENDOR';
 const maliciousSupplierRaw = '<img src=x onerror="window.__supplierRawExecuted=true"> & SUPPLIER';
+const photoFixtures = {
+  "SAME-SKU": { width: 600, height: 800 },
+  LEGACY: { width: 800, height: 600 },
+  "PICK-SKU": { width: 600, height: 600 },
+};
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -50,7 +55,7 @@ context = await browser.newContext({
 const page = await context.newPage();
 await page.clock.install({ time: new Date("2026-10-01T12:00:00+09:00") });
 const pageErrors = [];
-const supabaseNetworkAttempts = { blocked: 0, storage: 0, api: 0 };
+const supabaseNetworkAttempts = { blocked: 0, mockedPhotos: 0, storage: 0, api: 0 };
 const consoleErrors = [];
 const failedRequests = [];
 page.on("pageerror", (error) => pageErrors.push(error.message));
@@ -98,9 +103,21 @@ await page.addInitScript(() => {
 await page.route("**/*", async (route) => {
   const url = new URL(route.request().url());
   if (url.hostname === "supabase.co" || url.hostname.endsWith(".supabase.co")) {
+    if (url.pathname.startsWith("/storage/v1/")) {
+      supabaseNetworkAttempts.storage += 1;
+      const imageCode = decodeURIComponent(url.pathname.split("/").at(-1))
+        .replace(/\.jpg$/, "").replace(/\.__priority$/, "");
+      const fixture = photoFixtures[imageCode];
+      if (fixture && route.request().resourceType() === "image") {
+        supabaseNetworkAttempts.mockedPhotos += 1;
+        await route.fulfill({
+          contentType: "image/svg+xml",
+          body: `<svg xmlns="http://www.w3.org/2000/svg" width="${fixture.width}" height="${fixture.height}" viewBox="0 0 ${fixture.width} ${fixture.height}"><rect width="100%" height="100%" fill="#e2e8f0"/><rect x="0" y="0" width="${fixture.width}" height="24" fill="#2563eb"/><rect x="0" y="${fixture.height - 24}" width="${fixture.width}" height="24" fill="#16a34a"/></svg>`,
+        });
+        return;
+      }
+    } else supabaseNetworkAttempts.api += 1;
     supabaseNetworkAttempts.blocked += 1;
-    if (url.pathname.startsWith("/storage/v1/")) supabaseNetworkAttempts.storage += 1;
-    else supabaseNetworkAttempts.api += 1;
     await route.abort();
     return;
   }
@@ -392,6 +409,59 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
 
   for (const viewport of [{ width: 1920, height: 1000 }, { width: 1240, height: 1100 }]) {
     await page.setViewportSize(viewport);
+    for (const card of await page.locator(".custom-order-slip-card").all()) {
+      await card.scrollIntoViewIfNeeded();
+      await card.locator(".custom-order-product-photo img").evaluate((image) => (
+        image.complete ? undefined : new Promise((resolve) => {
+          image.addEventListener("load", resolve, { once: true });
+          image.addEventListener("error", resolve, { once: true });
+        })
+      ));
+    }
+    await page.waitForFunction(() => {
+      const image = document.querySelector('[data-operation-id="op-missing"] .custom-order-product-photo img');
+      return image.complete && getComputedStyle(image).visibility === "hidden";
+    });
+    for (const operationId of ["op-before", "op-legacy", pickingOperationId]) {
+      const photo = page.locator(`[data-operation-id="${operationId}"] .custom-order-product-photo`);
+      await photo.evaluate((node) => node.scrollIntoView({ block: "center", inline: "nearest" }));
+      const naturalSize = await photo.locator("img").evaluate((image) => ({ width: image.naturalWidth, height: image.naturalHeight }));
+      const screenshot = await photo.screenshot();
+      const pixels = await page.evaluate(async ({ png, naturalSize }) => {
+        const image = new Image();
+        await new Promise((resolve, reject) => {
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = `data:image/png;base64,${png}`;
+        });
+        const canvas = document.createElement("canvas");
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext("2d");
+        context.drawImage(image, 0, 0);
+        const innerWidth = canvas.width - 2;
+        const innerHeight = canvas.height - 2;
+        const scale = Math.min(innerWidth / naturalSize.width, innerHeight / naturalSize.height);
+        const contentWidth = naturalSize.width * scale;
+        const contentHeight = naturalSize.height * scale;
+        const top = 1 + (innerHeight - contentHeight) / 2;
+        const pixel = (x, y) => [...context.getImageData(Math.floor(x), Math.floor(y), 1, 1).data].slice(0, 3);
+        return {
+          width: canvas.width,
+          height: canvas.height,
+          topStripe: pixel(canvas.width / 2, top + 12 * scale),
+          bottomStripe: pixel(canvas.width / 2, top + contentHeight - 12 * scale),
+          sideMargin: contentWidth < innerWidth - 10 ? pixel(5, canvas.height / 2) : null,
+        };
+      }, { png: screenshot.toString("base64"), naturalSize });
+      const screen = `${viewport.width}x${viewport.height}`;
+      assert.ok(Math.abs(pixels.width - 240) <= 1, `${screen}: ${operationId} rendered frame must have fixed width (screenshot rounds fractional coordinates)`);
+      assert.ok(Math.abs(pixels.height - 180) <= 1, `${screen}: ${operationId} rendered frame must have the requested 4:3 ratio (screenshot rounds fractional coordinates)`);
+      assert.deepEqual(pixels.topStripe, [37, 99, 235], `${screen}: ${operationId} must display the original image's top edge`);
+      assert.deepEqual(pixels.bottomStripe, [22, 163, 74], `${screen}: ${operationId} must display the original image's bottom edge`);
+      if (pixels.sideMargin) assert.deepEqual(pixels.sideMargin, [255, 255, 255], `${screen}: ${operationId} must letterbox the complete image without stretching it`);
+    }
+    await page.locator("#custom-orders-list").evaluate((list) => { list.scrollTop = 0; });
     const cardLayout = await page.evaluate(() => {
       const panel = document.getElementById("custom-orders-panel");
       const list = document.getElementById("custom-orders-list");
@@ -444,7 +514,11 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
           const slip = card.querySelector(".custom-order-row-primary").getBoundingClientRect();
           const controls = card.querySelector(".custom-order-slip-management").getBoundingClientRect();
           const quantity = card.querySelector(".custom-order-slip-quantity").getBoundingClientRect();
-          const image = card.querySelector(".custom-order-product-photo").getBoundingClientRect();
+          const photo = card.querySelector(".custom-order-product-photo");
+          const image = photo.querySelector("img");
+          const photoBounds = photo.getBoundingClientRect();
+          const imageBounds = image.getBoundingClientRect();
+          const imageLoaded = image.complete && image.naturalWidth > 0;
           return {
             operationId: card.dataset.operationId,
             clippedWidth: card.scrollWidth - card.clientWidth,
@@ -453,7 +527,19 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
             alignedTop: Math.abs(slip.top - controls.top) <= 1,
             separatedHorizontally: slip.right <= controls.left + 1,
             quantityInsideSlip: quantity.left >= slip.left && quantity.right <= slip.right + 1 && quantity.top >= slip.top && quantity.bottom <= slip.bottom + 1,
-            quantityBesidePhoto: quantity.left >= image.right && quantity.top < image.bottom,
+            quantityBesidePhoto: quantity.left >= photoBounds.right && (!imageLoaded || quantity.top < photoBounds.bottom),
+            photoWidth: photoBounds.width,
+            photoHeight: photoBounds.height,
+            photoClippedHeight: photo.scrollHeight - photo.clientHeight,
+            photoInsideSlip: photoBounds.left >= slip.left && photoBounds.right <= slip.right + 1 && photoBounds.top >= slip.top && photoBounds.bottom <= slip.bottom + 1,
+            imageLoaded,
+            imageVisibility: getComputedStyle(image).visibility,
+            imageWidth: imageBounds.width,
+            imageHeight: imageBounds.height,
+            imageNaturalWidth: image.naturalWidth,
+            imageNaturalHeight: image.naturalHeight,
+            imageFit: getComputedStyle(image).objectFit,
+            imageInsidePhoto: imageBounds.left >= photoBounds.left && imageBounds.right <= photoBounds.right + 1 && imageBounds.top >= photoBounds.top && imageBounds.bottom <= photoBounds.bottom + 1,
             controlsOutside: [...card.querySelectorAll("input, button, summary")].some((control) => {
               const box = control.getBoundingClientRect();
               return box.width && (box.left < bounds.left || box.right > bounds.right + 1 || box.top < bounds.top || box.bottom > bounds.bottom + 1);
@@ -470,8 +556,8 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
     assert.ok(cardLayout.primaryWidth > cardLayout.managementWidth && cardLayout.primaryWidth < cardLayout.firstWidth, `${screen}: the left capture area must be the larger of two card columns`);
     assert.ok(Math.abs(cardLayout.primaryTop - cardLayout.managementTop) <= 1, `${screen}: the capture area and management area must start at the same height`);
     assert.ok(cardLayout.primaryRight <= cardLayout.managementLeft + 1, `${screen}: management controls must sit to the right of the order slip`);
-    assert.equal(cardLayout.photoWidth, 144, `${screen}: workflow product photos must remain 9rem wide`);
-    assert.equal(cardLayout.photoHeight, 144, `${screen}: workflow product photos must remain square`);
+    assert.equal(cardLayout.photoWidth, 240, `${screen}: workflow product photos must use the enlarged fixed 15rem width`);
+    assert.equal(cardLayout.photoHeight, 180, `${screen}: workflow product photos must use the fixed 4:3 frame height`);
     assert.equal(cardLayout.photoFit, "contain", `${screen}: photos must preserve the full product image`);
     assert.equal(cardLayout.groups.length, 4, `${screen}: every supplier must have one group heading`);
     for (const group of cardLayout.groups) {
@@ -492,6 +578,23 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       assert.equal(card.quantityInsideSlip, true, `${screen}: ${card.operationId} quantity must fit completely inside the capture area`);
       assert.equal(card.quantityBesidePhoto, true, `${screen}: ${card.operationId} quantity must stay beside its photo without wrapping below it`);
       assert.equal(card.controlsOutside, false, `${screen}: ${card.operationId} controls must remain inside its card`);
+      assert.equal(card.photoWidth, 240, `${screen}: ${card.operationId} photo width must stay fixed across image ratios`);
+      assert.equal(card.photoHeight, 180, `${screen}: ${card.operationId} photo height must stay fixed across image ratios`);
+      assert.ok(card.photoClippedHeight <= 1, `${screen}: ${card.operationId} photo wrapper must show its complete image height`);
+      assert.equal(card.photoInsideSlip, true, `${screen}: ${card.operationId} photo must fit completely inside the capture area`);
+      if (card.operationId === "op-missing") {
+        assert.equal(card.imageLoaded, false, `${screen}: the missing-photo fixture must exercise the existing unavailable-photo path`);
+        assert.equal(card.imageVisibility, "hidden", `${screen}: the unavailable image must finish its fallbacks safely`);
+      } else {
+        const expected = photoFixtures[card.operationId === "op-legacy" ? "LEGACY" : card.operationId === pickingOperationId ? "PICK-SKU" : "SAME-SKU"];
+        assert.equal(card.imageLoaded, true, `${screen}: ${card.operationId} must load its local photo fixture`);
+        assert.equal(card.imageNaturalWidth, expected.width);
+        assert.equal(card.imageNaturalHeight, expected.height);
+        assert.equal(card.imageWidth, 238, `${screen}: ${card.operationId} image element must fit the frame's inner width`);
+        assert.equal(card.imageHeight, 178, `${screen}: ${card.operationId} image element must fit the frame's inner height`);
+        assert.equal(card.imageInsidePhoto, true, `${screen}: ${card.operationId} image must not extend beyond its wrapper`);
+        assert.equal(card.imageFit, "contain", `${screen}: ${card.operationId} must retain its complete photo`);
+      }
     }
     const scrolledEnd = await page.locator("#custom-orders-list").evaluate((list) => {
       list.scrollTop = list.scrollHeight;
@@ -646,10 +749,11 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.deepEqual(pageErrors, []);
   assert.equal(supabaseNetworkAttempts.api, 0, "the browser test must never attempt production Supabase API requests");
   assert.equal(
-    supabaseNetworkAttempts.blocked,
+    supabaseNetworkAttempts.blocked + supabaseNetworkAttempts.mockedPhotos,
     supabaseNetworkAttempts.storage,
-    "every attempted Supabase Storage request must be intercepted and aborted before network access",
+    "every attempted Supabase Storage request must be intercepted and mocked or aborted before network access",
   );
+  assert.ok(supabaseNetworkAttempts.mockedPhotos > 0, "photo geometry checks must use successful local image responses");
   console.log("customOrderUi.browser.test: OK");
 } finally {
   try {

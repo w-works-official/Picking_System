@@ -431,7 +431,7 @@
 }
 
 .custom-order-slip-card .custom-order-row-primary {
-  grid-template-columns: 9rem minmax(0, 1fr) minmax(4rem, auto);
+  grid-template-columns: 15rem minmax(0, 1fr) minmax(4rem, auto);
   align-content: center;
   align-items: center;
   gap: 1rem;
@@ -439,10 +439,26 @@
 }
 
 .custom-order-slip-card .custom-order-product-photo {
-  width: 9rem;
-  height: 9rem;
-  min-width: 9rem;
+  display: block;
+  width: 15rem;
+  height: 11.25rem;
+  min-width: 15rem;
+  aspect-ratio: 4 / 3;
   background: #fff;
+}
+
+.custom-order-slip-card .custom-order-product-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.custom-order-slip-card .custom-order-product-photo > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
 }
 
 .custom-order-slip-card .custom-order-row-primary-copy {
@@ -628,6 +644,11 @@
   .custom-order-slip-management {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
+  }
+
+  .custom-order-slip-card .custom-order-slip-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: .125rem;
   }
 
   .custom-order-slip-card .custom-order-slip-management .custom-order-row-side {

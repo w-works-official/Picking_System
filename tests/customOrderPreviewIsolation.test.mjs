@@ -115,7 +115,9 @@ test("preview server serves isolated HTML, the local image origin, and generated
     assert.match(app, /const IMAGE_SUPABASE_URL = location.origin;/);
     const image = await fetch(`${origin}/storage/v1/object/public/product-images/sellpia/SKU-CURRENT.__priority.jpg`);
     assert.equal(image.headers.get("content-type"), "image/svg+xml; charset=utf-8");
-    assert.match(await image.text(), /LOCAL SAMPLE/);
+    const samplePhoto = await image.text();
+    assert.match(samplePhoto, /LOCAL SAMPLE/);
+    assert.match(samplePhoto, /width="400" height="300"/, "preview photos must demonstrate the requested 4:3 landscape ratio");
     assert.equal((await fetch(`${origin}/tools/sellpia_scraper.js`)).status, 404);
     assert.equal((await fetch(`${origin}/rest/v1/orders`, { method: "POST", body: "{}" })).status, 405);
   } finally {

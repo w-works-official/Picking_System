@@ -370,6 +370,55 @@
   grid-row: 5;
 }
 
+.custom-order-supplier-group {
+  display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
+  min-width: 0;
+  gap: .375rem;
+  padding-bottom: .625rem;
+  border-bottom: 1px solid #e5edf7;
+}
+
+.custom-order-supplier-group-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 52rem;
+  margin: 0;
+  gap: .25rem .5rem;
+  padding: .4375rem .625rem;
+  border: 1px solid #bfdbfe;
+  border-left: 4px solid #2563eb;
+  border-radius: .5rem;
+  background: #eff6ff;
+  line-height: 1.4;
+}
+
+.custom-order-supplier-group-head strong {
+  color: #1d4ed8;
+  font-size: .875rem;
+  font-weight: 1000;
+  overflow-wrap: anywhere;
+}
+
+.custom-order-supplier-group-head span {
+  color: #1e3a8a;
+  font-size: .75rem;
+  font-weight: 900;
+}
+
+.custom-order-supplier-group-items {
+  display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
+  min-width: 0;
+  gap: .375rem;
+}
+
 .custom-orders-toolbar[data-custom-orders-toolbar="workflow"] {
   grid-template-columns: minmax(6rem, .7fr) minmax(10rem, 1.2fr) minmax(7rem, .8fr) minmax(16rem, 1.5fr) minmax(9rem, 1fr) minmax(12rem, 1.4fr);
 }

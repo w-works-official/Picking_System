@@ -205,6 +205,22 @@ function customOrderQuantity(currentItem) {
   return null;
 }
 
+export function groupCustomOrderRows(rows = []) {
+  const groups = new Map();
+  for (const row of rows) {
+    const supplierCellRaw = text(row?.display?.supplierCellRaw);
+    if (!groups.has(supplierCellRaw)) {
+      groups.set(supplierCellRaw, { supplierCellRaw, rows: [], quantity: 0, unknownQuantityCount: 0 });
+    }
+    const group = groups.get(supplierCellRaw);
+    group.rows.push(row);
+    const quantity = customOrderQuantity(row?.currentItem);
+    if (quantity === null) group.unknownQuantityCount += 1;
+    else group.quantity += quantity;
+  }
+  return [...groups.values()];
+}
+
 function trimRemovedOptionSeparators(value) {
   return value.replace(/^[\s,;/|]+|[\s,;/|]+$/g, "").trim();
 }

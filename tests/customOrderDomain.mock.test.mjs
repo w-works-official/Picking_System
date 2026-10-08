@@ -11,6 +11,7 @@ import {
   customOrderSuppliers,
   filterCustomOrderRows,
   filterInboundExpectedRows,
+  groupCustomOrderRows,
   sortInboundExpectedRows,
   sortCustomOrderRows,
 } from "../src/domain/customOrder.mjs";
@@ -168,6 +169,51 @@ for (const [currentItem, expected] of [
   [{ qty: [] }, null],
 ]) assert.equal(customOrderSlipDetails({ currentItem }).quantity, expected);
 assert.equal(customOrderSlipDetails({ operation: { quantity_snapshot: 10, qty: 10 } }).quantity, null, "quantities must come from the matched current item only");
+
+const groupingRows = Object.freeze([
+  ["same-sku-one", " 3-오로 [ 40 ] ", { qty: 2 }],
+  ["other-supplier", "3-더피어싱 [ 3 ]", { o_amount: "4" }],
+  ["same-sku-two", "3-오로 [ 40 ]", { qty: null, o_amount: "1" }],
+  ["missing-source", "3-오로 [ 40 ]", null],
+  ["zero", "3-오로 [ 40 ]", { qty: 0, o_amount: 99 }],
+  ["unknown-supplier", "", { quantity: "5" }],
+  ["whitespace-supplier", " \t ", null],
+  ["absent-supplier", undefined, {}],
+].map(([operationId, supplierCellRaw, currentItem]) => Object.freeze({
+  operation: Object.freeze({ operation_id: operationId, quantity_snapshot: 100 }),
+  display: Object.freeze({ supplierCellRaw, sellpiaProductCode: "SAME-SKU" }),
+  currentItem: currentItem ? Object.freeze(currentItem) : null,
+})));
+const grouped = groupCustomOrderRows(groupingRows);
+assert.deepEqual(grouped.map((group) => group.supplierCellRaw), ["3-오로 [ 40 ]", "3-더피어싱 [ 3 ]", ""], "group order must preserve the first supplier occurrence and raw names");
+assert.deepEqual(grouped[0].rows.map((row) => row.operation.operation_id), ["same-sku-one", "same-sku-two", "missing-source", "zero"], "same-SKU items must remain distinct rows in their original order");
+assert.equal(grouped[0].quantity, 3, "known current item quantities 2 + 1 + 0 must total 3");
+assert.equal(grouped[0].unknownQuantityCount, 1, "source-missing quantity must remain unknown and must not use a snapshot");
+assert.equal(grouped[1].quantity, 4);
+assert.equal(grouped[1].unknownQuantityCount, 0);
+assert.equal(grouped[2].quantity, 5);
+assert.equal(grouped[2].unknownQuantityCount, 2);
+assert.deepEqual(grouped[2].rows, groupingRows.slice(5), "empty, whitespace, and absent suppliers must share the unknown supplier group");
+assert.ok(grouped.flatMap((group) => group.rows).every((row) => groupingRows.includes(row)), "grouping must preserve the original row objects");
+assert.equal(groupingRows[0].display.supplierCellRaw, " 3-오로 [ 40 ] ", "grouping must not mutate the effective display field");
+assert.deepEqual(groupCustomOrderRows(), []);
+assert.deepEqual(groupCustomOrderRows([]), []);
+for (const mode of ["supplier_asc", "supplier_desc"]) {
+  const sorted = sortCustomOrderRows(sortRows, mode);
+  assert.deepEqual(groupCustomOrderRows(sorted).flatMap((group) => group.rows), sorted, "grouping must preserve an already supplier-sorted list");
+}
+assert.deepEqual(groupCustomOrderRows([first, missing]).map((group) => group.supplierCellRaw), ["0-베니스톤 [ 28 ]", "0-스냅매입처 [ 9 ]"], "groups must use the effective current-or-snapshot display supplier");
+for (const [currentItem, expectedQuantity, expectedUnknownCount] of [
+  [{ qty: "", o_amount: null, quantity: " 4 " }, 4, 0],
+  [{ qty: "invalid", o_amount: 3 }, 0, 1],
+  [{ qty: -1 }, 0, 1],
+  [{ qty: 1.5 }, 0, 1],
+  [{ qty: true }, 0, 1],
+]) {
+  const [group] = groupCustomOrderRows([{ display: { supplierCellRaw: "업체" }, currentItem }]);
+  assert.equal(group.quantity, expectedQuantity);
+  assert.equal(group.unknownQuantityCount, expectedUnknownCount, "group totals must follow the existing current item quantity rules");
+}
 
 const barChangeLabel = "바길이 변경(주문제작/취소불가):";
 for (const [option, optionName, barLength] of [

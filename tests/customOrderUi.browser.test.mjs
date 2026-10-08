@@ -7,6 +7,7 @@ import { chromium } from "playwright";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const maliciousVendorRaw = '<img src=x onerror="window.__vendorRawExecuted=true"> & VENDOR';
+const maliciousSupplierRaw = '<img src=x onerror="window.__supplierRawExecuted=true"> & SUPPLIER';
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -280,13 +281,13 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
     const panel = document.getElementById("custom-orders-panel");
     const toolbar = document.querySelector(".custom-orders-toolbar");
     const status = document.getElementById("custom-orders-status");
-    const firstRow = document.querySelector(".custom-order-row");
+    const firstEntry = document.querySelector(".custom-order-supplier-group, .custom-order-row");
     return {
       panelRows: getComputedStyle(panel).gridTemplateRows.split(" ").length,
       listGridRow: getComputedStyle(document.getElementById("custom-orders-list")).gridRowStart,
       toolbarHeight: toolbar.getBoundingClientRect().height,
       statusHeight: status.getBoundingClientRect().height,
-      gapToFirstRow: firstRow.getBoundingClientRect().top - toolbar.getBoundingClientRect().bottom,
+      gapToFirstRow: firstEntry.getBoundingClientRect().top - toolbar.getBoundingClientRect().bottom,
     };
   });
   assert.equal(layout.panelRows, 6, "custom-order panel must allocate header/tabs/filters/SKU-manager/summary/list rows");
@@ -337,15 +338,50 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.equal(await page.locator(".custom-order-slip-management-heading .workflow-row-badge.danger").count(), 1, "a missing source warning must stay on the internal management side");
 
   const readSupplierOrder = () => page.locator(".custom-order-slip-card .custom-order-supplier").allTextContents();
+  const readSupplierGroups = () => page.locator("#custom-orders-list > .custom-order-supplier-group").evaluateAll((groups) => groups.map((group) => ({
+    supplier: group.dataset.customOrderSupplier,
+    name: group.querySelector(".custom-order-supplier-group-head strong").textContent.trim(),
+    summary: group.querySelector(".custom-order-supplier-group-head span").textContent.trim(),
+    operationIds: [...group.querySelectorAll(".custom-order-supplier-group-items > .custom-order-slip-card")].map((card) => card.dataset.operationId),
+    childClasses: [...group.children].map((child) => child.className),
+    headingTag: group.querySelector(".custom-order-supplier-group-head").tagName,
+    labelledBy: group.getAttribute("aria-labelledby"),
+    headingId: group.querySelector(".custom-order-supplier-group-head").id,
+  })));
+  const assertGroupSummaries = async (expected) => {
+    const groups = await readSupplierGroups();
+    assert.deepEqual(groups.map(({ supplier, name, summary }) => [supplier, name, summary]), expected);
+    for (const group of groups) {
+      assert.deepEqual(group.childClasses, ["custom-order-supplier-group-head", "custom-order-supplier-group-items"], "each supplier section must have a compact header followed by its cards");
+      assert.equal(group.headingTag, "H3", "supplier names must be semantic group headings");
+      assert.ok(group.headingId && group.labelledBy === group.headingId, "each supplier section must be labelled by its own heading");
+    }
+    assert.equal(new Set(groups.map((group) => group.headingId)).size, groups.length, "supplier headings must have unique IDs");
+    return groups;
+  };
+  const pickingOperationId = await page.evaluate(() => window.__tables.order_item_operations.find((row) => row.ord_no === "O-P").operation_id);
+  const ascendingGroupSummaries = [
+    ["0-베니스톤 [ 28 ]", "0-베니스톤 [ 28 ]", "2건 · 총 0개 · 수량 미확인 1건"],
+    ["0-세븐피어싱 [ 1 ]", "0-세븐피어싱 [ 1 ]", "1건 · 총 3개"],
+    ["0-스냅매입처 [ 9 ]", "0-스냅매입처 [ 9 ]", "1건 · 수량 미확인 1건"],
+    ["", "매입처 미확인", "1건 · 총 1개"],
+  ];
   const ascendingSuppliers = ["0-베니스톤 [ 28 ]", "0-베니스톤 [ 28 ]", "0-세븐피어싱 [ 1 ]", "0-스냅매입처 [ 9 ]", "매입처 미확인"];
   assert.deepEqual(await readSupplierOrder(), ascendingSuppliers, "the default workflow list must group suppliers alphabetically and keep missing suppliers last");
+  const initialGroups = await assertGroupSummaries(ascendingGroupSummaries);
+  assert.deepEqual(initialGroups.map((group) => group.operationIds), [["op-before", "op-legacy"], ["op-manual-clear"], ["op-missing"], [pickingOperationId]], "grouping must preserve every order row and use the current supplier before a stale snapshot");
+  assert.equal(await page.locator('[data-operation-id="op-before"] .custom-order-slip-source summary').filter({ hasText: "SAME-SKU" }).count(), 1);
+  assert.equal(await page.locator('[data-operation-id="op-manual-clear"] .custom-order-slip-source summary').filter({ hasText: "SAME-SKU" }).count(), 1, "separate orders sharing a SKU must remain separate workflow cards");
   await page.selectOption("#custom-orders-sort", "supplier_desc");
   assert.deepEqual(await readSupplierOrder(), ["0-스냅매입처 [ 9 ]", "0-세븐피어싱 [ 1 ]", "0-베니스톤 [ 28 ]", "0-베니스톤 [ 28 ]", "매입처 미확인"], "descending supplier sorting must also keep missing suppliers last");
+  await assertGroupSummaries([ascendingGroupSummaries[2], ascendingGroupSummaries[1], ascendingGroupSummaries[0], ascendingGroupSummaries[3]]);
   await page.selectOption("#custom-orders-sort", "required_desc");
-  const pickingOperationId = await page.evaluate(() => window.__tables.order_item_operations.find((row) => row.ord_no === "O-P").operation_id);
+  assert.equal(await page.locator(".custom-order-supplier-group").count(), 0, "registration-date sorting must retain a flat list in global date order");
+  assert.equal(await page.locator("#custom-orders-list > .custom-order-slip-card").count(), 5, "registration-date sorting must keep every card directly in the list");
   assert.equal(await page.locator(".custom-order-slip-card").first().getAttribute("data-operation-id"), pickingOperationId, "registration-date sorting must place the newly registered order first");
   await page.selectOption("#custom-orders-sort", "supplier_asc");
   assert.deepEqual(await readSupplierOrder(), ascendingSuppliers, "returning to supplier sorting must restore the default order");
+  await assertGroupSummaries(ascendingGroupSummaries);
 
   const originalOption = "실버/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):8mm바";
   const sourceDetails = page.locator('[data-operation-id="op-before"] .custom-order-slip-source');
@@ -360,6 +396,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       const panel = document.getElementById("custom-orders-panel");
       const list = document.getElementById("custom-orders-list");
       const summary = document.querySelector(".custom-orders-summary");
+      const groups = [...list.querySelectorAll(".custom-order-supplier-group")];
       const cards = [...list.querySelectorAll(".custom-order-slip-card")];
       const first = cards[0];
       const primary = first.querySelector(".custom-order-row-primary");
@@ -370,7 +407,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
         listGridRow: getComputedStyle(list).gridRowStart,
         listBottom: list.getBoundingClientRect().bottom,
         panelBottom: panel.getBoundingClientRect().bottom,
-        gapFromSummary: first.getBoundingClientRect().top - summary.getBoundingClientRect().bottom,
+        gapFromSummary: groups[0].getBoundingClientRect().top - summary.getBoundingClientRect().bottom,
         firstWidth: first.clientWidth,
         primaryWidth: primary.getBoundingClientRect().width,
         managementWidth: management.getBoundingClientRect().width,
@@ -381,6 +418,27 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
         photoWidth: photo.getBoundingClientRect().width,
         photoHeight: photo.getBoundingClientRect().height,
         photoFit: getComputedStyle(photo.querySelector("img")).objectFit,
+        groups: groups.map((group, index) => {
+          const bounds = group.getBoundingClientRect();
+          const heading = group.querySelector(".custom-order-supplier-group-head").getBoundingClientRect();
+          const groupCards = [...group.querySelectorAll(".custom-order-slip-card")];
+          const firstCard = groupCards[0].getBoundingClientRect();
+          const lastCard = groupCards.at(-1).getBoundingClientRect();
+          const previousLast = index ? groups[index - 1].getBoundingClientRect().bottom : null;
+          return {
+            supplier: group.dataset.customOrderSupplier,
+            headingHeight: heading.height,
+            headingBeforeCards: heading.bottom <= firstCard.top + 1,
+            alignedWidth: Math.abs(heading.left - firstCard.left) <= 1 && Math.abs(heading.right - firstCard.right) <= 1,
+            allCardsInside: groupCards.every((card) => {
+              const box = card.getBoundingClientRect();
+              return box.left >= bounds.left - 1 && box.right <= bounds.right + 1 && box.top >= heading.bottom - 1 && box.bottom <= bounds.bottom + 1;
+            }),
+            followsPreviousGroup: previousLast === null || bounds.top >= previousLast - 1,
+            finalCardInside: lastCard.bottom <= bounds.bottom + 1,
+            clippedWidth: group.scrollWidth - group.clientWidth,
+          };
+        }),
         cards: cards.map((card) => {
           const bounds = card.getBoundingClientRect();
           const slip = card.querySelector(".custom-order-row-primary").getBoundingClientRect();
@@ -408,13 +466,23 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
     assert.equal(cardLayout.panelRows, 6, `${screen}: panel must retain its six tracks`);
     assert.equal(cardLayout.listGridRow, "6", `${screen}: list must stay in the final grid row`);
     assert.ok(cardLayout.listBottom <= cardLayout.panelBottom + 1 && cardLayout.listBottom <= viewport.height, `${screen}: the list must end inside the visible panel`);
-    assert.ok(cardLayout.gapFromSummary >= 0 && cardLayout.gapFromSummary < 24, `${screen}: cards must start immediately below the summary`);
+    assert.ok(cardLayout.gapFromSummary >= 0 && cardLayout.gapFromSummary < 24, `${screen}: supplier groups must start immediately below the summary`);
     assert.ok(cardLayout.primaryWidth > cardLayout.managementWidth && cardLayout.primaryWidth < cardLayout.firstWidth, `${screen}: the left capture area must be the larger of two card columns`);
     assert.ok(Math.abs(cardLayout.primaryTop - cardLayout.managementTop) <= 1, `${screen}: the capture area and management area must start at the same height`);
     assert.ok(cardLayout.primaryRight <= cardLayout.managementLeft + 1, `${screen}: management controls must sit to the right of the order slip`);
     assert.equal(cardLayout.photoWidth, 144, `${screen}: workflow product photos must remain 9rem wide`);
     assert.equal(cardLayout.photoHeight, 144, `${screen}: workflow product photos must remain square`);
     assert.equal(cardLayout.photoFit, "contain", `${screen}: photos must preserve the full product image`);
+    assert.equal(cardLayout.groups.length, 4, `${screen}: every supplier must have one group heading`);
+    for (const group of cardLayout.groups) {
+      assert.ok(group.headingHeight > 0 && group.headingHeight <= 64, `${screen}: ${group.supplier} heading must remain compact (${group.headingHeight}px)`);
+      assert.equal(group.headingBeforeCards, true, `${screen}: ${group.supplier} heading must precede its cards`);
+      assert.equal(group.alignedWidth, true, `${screen}: ${group.supplier} heading must align with its cards`);
+      assert.equal(group.allCardsInside, true, `${screen}: ${group.supplier} cards must stay inside their supplier section`);
+      assert.equal(group.followsPreviousGroup, true, `${screen}: ${group.supplier} section must follow the preceding supplier section`);
+      assert.equal(group.finalCardInside, true, `${screen}: ${group.supplier} final card must fit inside its section`);
+      assert.ok(group.clippedWidth <= 1, `${screen}: ${group.supplier} section must not clip horizontally`);
+    }
     for (const card of cardLayout.cards) {
       assert.ok(card.clippedWidth <= 1, `${screen}: ${card.operationId} must not clip horizontal content (${card.clippedWidth}px)`);
       assert.ok(card.clippedHeight <= 1, `${screen}: ${card.operationId} must size itself to all content (${card.clippedHeight}px)`);
@@ -427,7 +495,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
     }
     const scrolledEnd = await page.locator("#custom-orders-list").evaluate((list) => {
       list.scrollTop = list.scrollHeight;
-      const last = list.querySelector(".custom-order-slip-card:last-child");
+      const last = [...list.querySelectorAll(".custom-order-slip-card")].at(-1);
       return { lastBottom: last.getBoundingClientRect().bottom, listBottom: list.getBoundingClientRect().bottom, scrollTop: list.scrollTop };
     });
     assert.ok(scrolledEnd.scrollTop > 0, `${screen}: the test must exercise scrolling through multiple full-height cards`);
@@ -451,16 +519,25 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   await page.selectOption("#custom-orders-status", "active");
   await page.selectOption("#custom-orders-supplier", "0-스냅매입처 [ 9 ]");
   assert.equal(await page.locator(".custom-order-row").count(), 1);
+  await assertGroupSummaries([ascendingGroupSummaries[2]]);
   await page.selectOption("#custom-orders-supplier", "");
   await page.fill("#custom-orders-search", "OWN-2");
   assert.equal(await page.locator('.custom-order-row[data-operation-id="op-manual-clear"]').count(), 1);
+  await assertGroupSummaries([ascendingGroupSummaries[1]]);
+  await page.fill("#custom-orders-search", "OWN-1");
+  await assertGroupSummaries([["0-베니스톤 [ 28 ]", "0-베니스톤 [ 28 ]", "1건 · 총 0개"]]);
+  await page.fill("#custom-orders-search", "no-fixture-matches-this");
+  assert.equal(await page.locator(".custom-order-supplier-group").count(), 0, "empty filter results must not leave stale supplier headers");
+  assert.equal(await page.locator(".custom-order-slip-card").count(), 0);
   await page.fill("#custom-orders-search", "");
   await page.fill("#custom-orders-date-from", "2026-10-01");
   await page.fill("#custom-orders-date-to", "2026-10-01");
   assert.equal(await page.locator(".custom-order-slip-card").count(), 1, "workflow date filtering must keep working with supplier sorting enabled");
   assert.equal(await page.locator(".custom-order-slip-card").first().getAttribute("data-operation-id"), pickingOperationId);
+  await assertGroupSummaries([ascendingGroupSummaries[3]]);
   await page.fill("#custom-orders-date-from", "");
   await page.fill("#custom-orders-date-to", "");
+  await assertGroupSummaries(ascendingGroupSummaries);
 
   await page.locator('[data-operation-id="op-before"] [data-custom-order-action="ordered-today"]').click();
   await page.waitForFunction(() => {
@@ -502,6 +579,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.match(await page.locator("#custom-orders-sku-count").textContent(), /1개 SKU/);
   assert.equal(await page.locator(".inbound-expected-row").count(), 5);
   assert.equal(await page.locator(".custom-order-slip-card").count(), 0, "the inbound view must retain its existing row layout");
+  assert.equal(await page.locator(".custom-order-supplier-group").count(), 0, "supplier group headers must be limited to the order-workflow view");
   assert.equal(await page.locator("#custom-orders-sort").isVisible(), false, "workflow sorting must not appear in the inbound view");
   assert.match(await page.locator('[data-inbound-row-key="O-2::R-2"]').textContent(), /명시적 삭제/);
   assert.match(await page.locator('[data-inbound-row-key="O-M::R-M"]').textContent(), /원천 주문행 없음/);
@@ -548,6 +626,18 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
 
   const after = await page.evaluate(() => window.__supabaseCalls.filter((entry) => entry.table === "order_item_operations" && entry.method === "not").length);
   assert.equal(after, 2, "custom-order and inbound operation queries must each lazy-load once on first tab entry");
+
+  await page.evaluate((supplier) => {
+    window.__tables.order_item_operations.find((row) => row.operation_id === "op-missing").supplier_cell_raw_snapshot = `  ${supplier}  `;
+  }, maliciousSupplierRaw);
+  await page.selectOption("#custom-orders-status", "received");
+  await page.click("#custom-orders-refresh");
+  await page.waitForFunction((supplier) => [...document.querySelectorAll(".custom-order-supplier-group")].some((group) => group.dataset.customOrderSupplier === supplier), maliciousSupplierRaw);
+  const escapedSupplierGroup = page.locator(".custom-order-supplier-group").filter({ has: page.locator('[data-operation-id="op-missing"]') });
+  assert.equal(await escapedSupplierGroup.getAttribute("data-custom-order-supplier"), maliciousSupplierRaw, "supplier group identity must use the trimmed effective raw supplier text");
+  assert.equal(await escapedSupplierGroup.locator(".custom-order-supplier-group-head strong").textContent(), maliciousSupplierRaw, "snapshot supplier text must be preserved literally in the heading");
+  assert.equal(await escapedSupplierGroup.locator(".custom-order-supplier-group-head strong *").count(), 0, "raw supplier markup must not create elements in a group heading");
+  assert.equal(await page.evaluate(() => window.__supplierRawExecuted), undefined, "raw supplier text must never execute an event handler");
 
   for (const tab of ["dashboard", "picking", "shortage", "inspection", "cs", "completed", "custom-orders"]) {
     await page.click(`[data-app-tab="${tab}"]`);

@@ -18,9 +18,10 @@ import {
   customOrderSuppliers,
   filterCustomOrderRows,
   filterInboundExpectedRows,
+  groupCustomOrderRows,
   sortCustomOrderRows,
   sortInboundExpectedRows,
-} from "../domain/customOrder.mjs?v=20261008-vendor-slip2";
+} from "../domain/customOrder.mjs?v=20261008-vendor-groups1";
 import { createSkuInboundSchedulesAdapter } from "../adapters/skuInboundSchedulesAdapter.mjs?v=20261001-sku-schedule1";
 import {
   SKU_INBOUND_SCHEDULE_HEADERS,
@@ -5807,6 +5808,24 @@ function renderCustomOrderRow(row) {
   </article>`;
 }
 
+function renderCustomOrderSupplierGroups(rows) {
+  return groupCustomOrderRows(rows).map((group, index) => {
+    const headerId = `custom-order-supplier-${index}`;
+    const summary = [
+      `${group.rows.length}건`,
+      group.rows.length > group.unknownQuantityCount ? `총 ${group.quantity}개` : "",
+      group.unknownQuantityCount ? `수량 미확인 ${group.unknownQuantityCount}건` : "",
+    ].filter(Boolean).join(" · ");
+    return `<section class="custom-order-supplier-group" data-custom-order-supplier="${escapeHtml(group.supplierCellRaw)}" aria-labelledby="${headerId}">
+      <h3 id="${headerId}" class="custom-order-supplier-group-head">
+        <strong>${escapeHtml(group.supplierCellRaw || "매입처 미확인")}</strong>
+        <span>${escapeHtml(summary)}</span>
+      </h3>
+      <div class="custom-order-supplier-group-items">${group.rows.map(renderCustomOrderRow).join("")}</div>
+    </section>`;
+  }).join("");
+}
+
 function inboundRowIdentity(row) {
   return orderItemIdentity(row?.operation || row?.currentItem || {});
 }
@@ -5958,7 +5977,9 @@ function renderCustomOrdersPanel() {
     renderWorkflowEmpty(els.customOrdersList, "현재 필터에 맞는 주문제작 건이 없습니다.");
     return;
   }
-  els.customOrdersList.innerHTML = filtered.map(renderCustomOrderRow).join("");
+  els.customOrdersList.innerHTML = workspace.sort === "required_desc"
+    ? filtered.map(renderCustomOrderRow).join("")
+    : renderCustomOrderSupplierGroups(filtered);
 }
 
 async function loadCustomOrdersData({ force = false } = {}) {

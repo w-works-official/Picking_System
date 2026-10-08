@@ -9,6 +9,7 @@ import {
   buildSkuInboundScheduleMap,
   findSkuInboundSchedule,
 } from "./skuInboundSchedule.mjs";
+import { normalizeLabelOptionName } from "./labelOption.mjs?v=20261008-slip-fields2";
 
 export const CUSTOM_ORDER_STATUS = Object.freeze({
   BEFORE_ORDER: "before_order",
@@ -225,6 +226,39 @@ function trimRemovedOptionSeparators(value) {
   return value.replace(/^[\s,;/|]+|[\s,;/|]+$/g, "").trim();
 }
 
+export function customOrderSupplierCode(raw) {
+  return text(raw).split("//ㅁ", 1)[0].trim();
+}
+
+function memoBarLength(value) {
+  const memo = text(value);
+  if (!memo) return null;
+  const barTokens = [...memo.matchAll(/(\d+(?:\.\d+)?)[ \t]*(?:mm[ \t]*)?바/gi)]
+    .filter((match) => {
+      const prefix = memo.slice(0, match.index);
+      // Product identifiers and words such as 8바늘 are not bar directives.
+      if (/[\dA-Za-z가-힣.]$/.test(prefix)
+        && !/(?:바[ \t]*길이(?:[ \t]*변경)?[ \t]*[:：]?|취소|미사용)[ \t]*$/.test(prefix)) return false;
+      const suffix = memo.slice(match.index + match[0].length);
+      return !/^[A-Za-z가-힣]/.test(suffix)
+        || /^(?:로|으로|제작|변경|요청|사용|쓰|미사용|취소|아님|아니|말고|제외|불가|안됨|안되|인지|여부|가능|확인|문의|미정|또는|혹은|적용|부탁|해주세요|만|는|은|가|이|을|를|하고|필요|맞)/.test(suffix);
+    });
+  if (!barTokens.length) {
+    return /바[ \t]*길이[^,;\/|\r\n]*?(?:확인[ \t]*필요|미정|문의|\?)/.test(memo) ? "" : null;
+  }
+
+  const lengths = new Set(barTokens.map((match) => Number(match[1])));
+  if (lengths.size !== 1 || !Number.isFinite([...lengths][0]) || [...lengths][0] <= 0) return "";
+  for (const match of barTokens) {
+    const prefix = memo.slice(0, match.index);
+    const suffix = memo.slice(match.index + match[0].length);
+    const directPrefix = /(?:혹시|아마|미정|미사용|취소|문의|확인[ \t]*필요|not|→|->|↔)[ \t]*(?:바[ \t]*길이[ \t]*[:：]?[ \t]*)?$/i;
+    const directSuffix = /^[ \t]*(?:로|으로|을|를|는|은|가|이|만)?[ \t]*(?:(?:제작|변경|주문|적용|요청|사용|쓰)(?:하|해)?[ \t]*)?(?:아니|아님|말고|제외|제거|없|불가|안[ \t]*(?:돼|되|됨|하|함|해)|하?지[ \t]*(?:않|말|마)|취소(?![ \t]*불가)|미정|미사용|여부|문의|확인[ \t]*(?:필요|요청|중|부탁)|검토|가능[ \t]*(?:여부|한지|할지|할까요|한가)|맞(?:는지|나요|을까요)|인지|일까요|또는|혹은|→|->|↔|\?)/;
+    if (directPrefix.test(prefix) || directSuffix.test(suffix)) return "";
+  }
+  return `${[...lengths][0]}바`;
+}
+
 export function customOrderSlipDetails(row) {
   let optionName = text(row?.display?.productOption);
   let barLength = "";
@@ -233,7 +267,7 @@ export function customOrderSlipDetails(row) {
   const changes = [...optionName.matchAll(changeSegment)];
   const changedLengths = new Set(changes.map((match) => match[2]));
   if (changedLengths.size === 1) {
-    barLength = `${changes[0][2]}mm`;
+    barLength = `${changes[0][2]}바`;
     optionName = trimRemovedOptionSeparators(optionName.replace(changeSegment, ""));
   }
 
@@ -241,13 +275,19 @@ export function customOrderSlipDetails(row) {
   const barSegment = /(^|[,;/|\r\n])[ \t]*(\d+(?:\.\d+)?)[ \t]*mm[ \t]*바(?=(?:[ \t]*\[[^\]\r\n]*\])*[ \t]*(?:$|[,;/|\r\n]))/gi;
   const bars = [...optionName.matchAll(barSegment)];
   if (bars.length === 1 && changes.length === 0) {
-    barLength = `${bars[0][2]}mm`;
+    barLength = `${bars[0][2]}바`;
     optionName = trimRemovedOptionSeparators(optionName.replace(barSegment, ""));
   } else if (bars.length === 1 && barLength) {
     optionName = trimRemovedOptionSeparators(optionName.replace(barSegment, ""));
   }
 
-  return { optionName, barLength, quantity: customOrderQuantity(row?.currentItem) };
+  const memoLength = memoBarLength(row?.operation?.internal_memo);
+  if (memoLength !== null) barLength = memoLength;
+  return {
+    optionName: normalizeLabelOptionName(optionName),
+    barLength,
+    quantity: customOrderQuantity(row?.currentItem),
+  };
 }
 
 export function customOrderSearchText(row) {

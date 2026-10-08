@@ -14,6 +14,7 @@ import {
   buildInboundExpectedRows,
   canClearCustomRequired,
   customOrderSlipDetails,
+  customOrderSupplierCode,
   customOrderStatus,
   customOrderSuppliers,
   filterCustomOrderRows,
@@ -21,7 +22,8 @@ import {
   groupCustomOrderRows,
   sortCustomOrderRows,
   sortInboundExpectedRows,
-} from "../domain/customOrder.mjs?v=20261008-vendor-groups1";
+} from "../domain/customOrder.mjs?v=20261008-slip-fields2";
+import { normalizeLabelOptionName } from "../domain/labelOption.mjs?v=20261008-slip-fields2";
 import { createSkuInboundSchedulesAdapter } from "../adapters/skuInboundSchedulesAdapter.mjs?v=20261001-sku-schedule1";
 import {
   SKU_INBOUND_SCHEDULE_HEADERS,
@@ -5732,6 +5734,7 @@ function renderCustomOrderRow(row) {
   const operation = row.operation;
   const display = row.display;
   const slip = customOrderSlipDetails(row);
+  const supplierCode = customOrderSupplierCode(display.arbitraryFieldRaw);
   const imageCode = display.sellpiaProductCode || "";
   const imageUrl = productImageUrl(imageCode);
   const statusLabel = CUSTOM_ORDER_STATUS_LABEL[row.status] || "-";
@@ -5749,15 +5752,15 @@ function renderCustomOrderRow(row) {
           <strong class="custom-order-supplier">${escapeHtml(display.supplierCellRaw || "매입처 미확인")}</strong>
         </div>
         <dl class="custom-order-slip-facts">
-          <div><dt>업체상품코드</dt><dd class="${display.arbitraryFieldRaw ? "" : "is-unavailable"}" title="셀피아 임의필드 원문">${escapeHtml(display.arbitraryFieldRaw || "미수집")}</dd></div>
-          <div><dt>옵션</dt><dd>${escapeHtml(slip.optionName || "옵션 확인 필요")}</dd></div>
+          <div><dt>옵션</dt><dd title="${escapeHtml(display.productOption || "")}">${escapeHtml(slip.optionName || "옵션 확인 필요")}</dd></div>
           <div><dt>바길이</dt><dd class="${slip.barLength ? "" : "is-unavailable"}">${escapeHtml(slip.barLength || "확인 필요")}</dd></div>
+          <div><dt>업체상품코드</dt><dd class="custom-order-slip-supplier-code ${supplierCode ? "" : "is-unavailable"}" title="${escapeHtml(display.arbitraryFieldRaw || "")}">${escapeHtml(supplierCode || "미수집")}</dd></div>
+          <div class="custom-order-slip-quantity ${slip.quantity === null ? "is-unavailable" : ""}">
+            <dt>수량</dt>
+            <dd><strong>${slip.quantity === null ? "확인 필요" : `${escapeHtml(String(slip.quantity))}<small>개</small>`}</strong></dd>
+          </div>
         </dl>
         <div class="custom-order-product"><b>${escapeHtml(display.productName || "상품명 없음")}</b></div>
-      </div>
-      <div class="custom-order-slip-quantity ${slip.quantity === null ? "is-unavailable" : ""}">
-        <span>수량</span>
-        <strong>${slip.quantity === null ? "확인 필요" : `${escapeHtml(String(slip.quantity))}<small>개</small>`}</strong>
       </div>
     </div>
     <div class="custom-order-slip-management">
@@ -5802,6 +5805,7 @@ function renderCustomOrderRow(row) {
         <div class="custom-order-identity">
           <span>주문 ${escapeHtml(operation.ord_no || "-")} · 상품행 ${escapeHtml(operation.sellpia_order_item_no || operation.item_no || "-")}</span>
           <span>원본 옵션 ${escapeHtml(display.productOption || "없음")}</span>
+          ${supplierCode !== String(display.arbitraryFieldRaw || "").trim() ? `<span>원본 업체상품코드 ${escapeHtml(display.arbitraryFieldRaw)}</span>` : ""}
         </div>
       </details>
     </div>
@@ -8848,14 +8852,6 @@ function formatCsvTextCell(value) {
   const text = String(value ?? "").trim();
   if (!text) return "";
   return `="${text.replace(/"/g, '""')}"`;
-}
-
-function normalizeLabelOptionName(optionName) {
-  let value = String(optionName || "").trim();
-  if (value.includes(",")) value = value.split(",")[0];
-  if (value.includes(":")) value = value.split(":").pop();
-  if (value.includes("[")) value = value.split("[")[0];
-  return value.trim();
 }
 
 function labelDateValue(value) {

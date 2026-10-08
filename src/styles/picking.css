@@ -387,7 +387,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  min-width: 52rem;
+  min-width: 56rem;
   margin: 0;
   gap: .25rem .5rem;
   padding: .4375rem .625rem;
@@ -424,14 +424,14 @@
 }
 
 .custom-order-row.custom-order-slip-card {
-  grid-template-columns: minmax(30rem, 1.25fr) minmax(22rem, 1fr);
+  grid-template-columns: minmax(40rem, 1.8fr) minmax(16rem, 1fr);
   grid-auto-rows: max-content;
   align-self: start;
-  min-width: 52rem;
+  min-width: 56rem;
 }
 
 .custom-order-slip-card .custom-order-row-primary {
-  grid-template-columns: 15rem minmax(0, 1fr) minmax(4rem, auto);
+  grid-template-columns: 15rem minmax(0, 1fr);
   align-content: center;
   align-items: center;
   gap: 1rem;
@@ -462,7 +462,7 @@
 }
 
 .custom-order-slip-card .custom-order-row-primary-copy {
-  gap: .5rem;
+  gap: .75rem;
 }
 
 .custom-order-slip-heading {
@@ -480,15 +480,18 @@
 
 .custom-order-slip-facts {
   display: grid;
-  gap: .375rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(4rem, .8fr) minmax(0, 1.5fr) minmax(4rem, .8fr);
+  align-items: start;
+  gap: .75rem;
   margin: 0;
 }
 
 .custom-order-slip-facts > div {
   display: grid;
-  grid-template-columns: 6.5rem minmax(0, 1fr);
-  align-items: baseline;
-  gap: .5rem;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: .375rem;
 }
 
 .custom-order-slip-facts dt {
@@ -500,10 +503,14 @@
 .custom-order-slip-facts dd {
   margin: 0;
   color: #0f172a;
-  font-size: 1rem;
-  line-height: 1.4;
-  font-weight: 800;
+  font-size: 1.75rem;
+  line-height: 1.25;
+  font-weight: 900;
   overflow-wrap: anywhere;
+}
+
+.custom-order-slip-facts dd.custom-order-slip-supplier-code {
+  font-size: 1.5rem;
 }
 
 .custom-order-slip-card .is-unavailable {
@@ -526,21 +533,15 @@
 }
 
 .custom-order-slip-quantity {
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  align-self: stretch;
-  gap: .375rem;
-  padding: .5rem .75rem;
+  padding-left: .75rem;
   border-left: 1px solid #e5edf7;
-  color: #334155;
-  font-size: .8125rem;
 }
 
 .custom-order-slip-quantity strong {
   color: #0f172a;
-  font-size: 1.75rem;
-  white-space: nowrap;
+  font-size: 2.25rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .custom-order-slip-quantity strong small {
@@ -644,11 +645,6 @@
   .custom-order-slip-management {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto;
-  }
-
-  .custom-order-slip-card .custom-order-slip-facts > div {
-    grid-template-columns: minmax(0, 1fr);
-    gap: .125rem;
   }
 
   .custom-order-slip-card .custom-order-slip-management .custom-order-row-side {

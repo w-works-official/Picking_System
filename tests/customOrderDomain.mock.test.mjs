@@ -8,6 +8,7 @@ import {
   customOrderDate,
   customOrderSlipDetails,
   customOrderStatus,
+  customOrderSupplierCode,
   customOrderSuppliers,
   filterCustomOrderRows,
   filterInboundExpectedRows,
@@ -15,6 +16,7 @@ import {
   sortInboundExpectedRows,
   sortCustomOrderRows,
 } from "../src/domain/customOrder.mjs";
+import { normalizeLabelOptionName } from "../src/domain/labelOption.mjs";
 
 const base = {
   custom_required_at: "2026-09-28T03:00:00Z",
@@ -216,31 +218,52 @@ for (const [currentItem, expectedQuantity, expectedUnknownCount] of [
 }
 
 const barChangeLabel = "바길이 변경(주문제작/취소불가):";
+for (const [option, expected] of [
+  ["  크리스탈/M[GPA-1-101],추가 옵션  ", "크리스탈/M"],
+  ["14K 옵션 기본 no ball 설명 참고: 크리스탈/M", "크리스탈/M"],
+  ["옵션: 첫 안내: 골드/S[CODE],추가 안내", "골드/S"],
+  ["골드 / 6mm 큐빅", "골드 / 6mm 큐빅"],
+  [null, ""],
+  [undefined, ""],
+]) assert.equal(normalizeLabelOptionName(option), expected, "slip and labels must share the established option cleanup");
+
+for (const [raw, expected] of [
+  ["001-VENDOR-TEST//ㅁhidden", "001-VENDOR-TEST"],
+  ["  001/VENDOR//OTHER//ㅁhidden//ㅁmore  ", "001/VENDOR//OTHER"],
+  ["001/VENDOR//OTHER", "001/VENDOR//OTHER"],
+  ["001-VENDOR-TEST//mhidden", "001-VENDOR-TEST//mhidden"],
+  ["001-VENDOR-TEST// ㅁhidden", "001-VENDOR-TEST// ㅁhidden"],
+  ["//ㅁhidden", ""],
+  ["  001-VENDOR-TEST  ", "001-VENDOR-TEST"],
+  [null, ""],
+  [undefined, ""],
+]) assert.equal(customOrderSupplierCode(raw), expected, "only the first literal //ㅁ delimiter may shorten a supplier code");
+
 for (const [option, optionName, barLength] of [
-  [`로즈골드/S[GPA-1-093],${barChangeLabel}4mm바`, "로즈골드/S[GPA-1-093]", "4mm"],
-  [`골드[GPA-1-141],${barChangeLabel}8mm바`, "골드[GPA-1-141]", "8mm"],
-  [`골드/6mm바[GPA-3-191],${barChangeLabel}4mm바`, "골드[GPA-3-191]", "4mm"],
-  [`크리스탈/3mm[GPA-1-101],${barChangeLabel}4mm바`, "크리스탈/3mm[GPA-1-101]", "4mm"],
-  [`골드/6mm바[GPA-3-191],${barChangeLabel}4mm바,크리스탈/3mm`, "골드[GPA-3-191],크리스탈/3mm", "4mm"],
-  ["골드/6mm바[GPA-3-191]", "골드[GPA-3-191]", "6mm"],
-  ["6.5mm바", "", "6.5mm"],
-  ["실버 / 8mm바", "실버", "8mm"],
-  ["크리스탈/3mm[GPA-1-101]", "크리스탈/3mm[GPA-1-101]", ""],
+  [`로즈골드/S[GPA-1-093],${barChangeLabel}4mm바`, "로즈골드/S", "4바"],
+  [`골드[GPA-1-141],${barChangeLabel}8mm바`, "골드", "8바"],
+  [`골드/6mm바[GPA-3-191],${barChangeLabel}4mm바`, "골드", "4바"],
+  [`크리스탈/3mm[GPA-1-101],${barChangeLabel}4mm바`, "크리스탈/3mm", "4바"],
+  [`골드/6mm바[GPA-3-191],${barChangeLabel}4mm바,크리스탈/3mm`, "골드", "4바"],
+  ["골드/6mm바[GPA-3-191]", "골드", "6바"],
+  ["6.5mm바", "", "6.5바"],
+  ["실버 / 8mm바", "실버", "8바"],
+  ["크리스탈/3mm[GPA-1-101]", "크리스탈/3mm", ""],
   ["골드 / 6mm 큐빅", "골드 / 6mm 큐빅", ""],
   ["실버 / 바 길이 8mm", "실버 / 바 길이 8mm", ""],
-  ["골드,바길이 변경:4mm바", "골드", "4mm"],
-  ["골드/6mm바[GPA-3-191],바 길이 변경 : 4 mm 바", "골드[GPA-3-191]", "4mm"],
-  ["골드,바길이 변경(임의 안내):4mm바", "골드,바길이 변경(임의 안내):4mm바", ""],
-  [`골드,${barChangeLabel}4mm`, `골드,${barChangeLabel}4mm`, ""],
-  ["미니6mm바[3mm]", "미니6mm바[3mm]", ""],
+  ["골드,바길이 변경:4mm바", "골드", "4바"],
+  ["골드/6mm바[GPA-3-191],바 길이 변경 : 4 mm 바", "골드", "4바"],
+  ["골드,바길이 변경(임의 안내):4mm바", "골드", ""],
+  [`골드,${barChangeLabel}4mm`, "골드", ""],
+  ["미니6mm바[3mm]", "미니6mm바", ""],
   ["6mm바 포함", "6mm바 포함", ""],
   ["골드/6mm바/8mm바", "골드/6mm바/8mm바", ""],
-  [`골드,${barChangeLabel}4mm바,${barChangeLabel}8mm바`, `골드,${barChangeLabel}4mm바,${barChangeLabel}8mm바`, ""],
+  [`골드,${barChangeLabel}4mm바,${barChangeLabel}8mm바`, "골드", ""],
 ]) {
   const slipRow = Object.freeze({
     display: Object.freeze({ productOption: option }),
     currentItem: Object.freeze({ qty: 2 }),
-    operation: Object.freeze({ internal_memo: "8바로 제작" }),
+    operation: Object.freeze({ internal_memo: "포장 확인" }),
   });
   assert.deepEqual(customOrderSlipDetails(slipRow), { optionName, barLength, quantity: 2 }, option);
   assert.equal(slipRow.display.productOption, option, "slip preparation must not mutate the original option");
@@ -248,7 +271,64 @@ for (const [option, optionName, barLength] of [
 assert.deepEqual(customOrderSlipDetails({
   display: { productOption: "14K 옵션 기본 no ball 설명 참고: 크리스탈/M" },
   operation: { internal_memo: "8바" },
-}), { optionName: "14K 옵션 기본 no ball 설명 참고: 크리스탈/M", barLength: "", quantity: null }, "memo text must not invent a bar length");
+}), { optionName: "크리스탈/M", barLength: "8바", quantity: null }, "the staff ArtPierce example must use the label option and explicit memo length");
+const memoOption = `14K 옵션: 골드/6mm바[GPA-3-191],${barChangeLabel}4mm바`;
+for (const [memo, expectedBar] of [
+  ["8바", "8바"],
+  ["8바로 제작", "8바"],
+  ["8바 입고 예정, 주문 확인", "8바"],
+  ["8바로 제작 / 취소불가", "8바"],
+  ["4바", "4바"],
+  ["4 mm 바 제작", "4바"],
+  ["8바, 4바", ""],
+  ["4바 / 8바 확인", ""],
+  ["6바→8바", ""],
+  ["8바아님", ""],
+  ["8바 아님", ""],
+  ["8바로 제작하지 않음", ""],
+  ["8바 불가", ""],
+  ["8바 여부", ""],
+  ["8바?", ""],
+  ["8바 확인 필요", ""],
+  ["바길이 미정", ""],
+  ["바길이 확인 필요", ""],
+  ["8바 사용하지 않음", ""],
+  ["8바사용하지않음", ""],
+  ["8바 미사용", ""],
+  ["8바 쓰지 마세요", ""],
+  ["8바쓰지마세요", ""],
+  ["취소 8바", ""],
+  ["취소8바", ""],
+  ["", "4바"],
+  [null, "4바"],
+  ["포장 확인", "4바"],
+  ["큐빅 크기 3mm", "4바"],
+  ["8바늘 포장", "4바"],
+  ["14K984바 코드 확인", "4바"],
+]) {
+  const memoRow = Object.freeze({
+    display: Object.freeze({ productOption: memoOption }),
+    operation: Object.freeze({ internal_memo: memo }),
+    currentItem: Object.freeze({ qty: 2 }),
+  });
+  assert.deepEqual(customOrderSlipDetails(memoRow), { optionName: "골드", barLength: expectedBar, quantity: 2 }, `memo ${memo}`);
+  assert.equal(memoRow.display.productOption, memoOption, "raw option must survive memo precedence and label normalization");
+  assert.equal(memoRow.operation.internal_memo, memo, "memo parsing must never change stored memo text");
+}
+const sameSkuSlips = buildCustomOrderRows({
+  operations: [
+    { ...base, operation_id: "slip-sibling-4", ord_no: "O-SLIP", sellpia_order_item_no: "R-SLIP-4", internal_memo: "4바" },
+    { ...base, operation_id: "slip-sibling-8", ord_no: "O-SLIP", sellpia_order_item_no: "R-SLIP-8", internal_memo: "8바" },
+  ],
+  currentItems: [
+    { ord_no: "O-SLIP", sellpia_order_item_no: "R-SLIP-4", p_code: "SAME-SKU", p_option: memoOption, qty: 5 },
+    { ord_no: "O-SLIP", sellpia_order_item_no: "R-SLIP-8", p_code: "SAME-SKU", p_option: memoOption, qty: 1 },
+  ],
+});
+assert.deepEqual(sameSkuSlips.map(customOrderSlipDetails), [
+  { optionName: "골드", barLength: "4바", quantity: 5 },
+  { optionName: "골드", barLength: "8바", quantity: 1 },
+], "same-SKU siblings must retain their own memo length and current item quantity");
 assert.deepEqual(customOrderSlipDetails(), { optionName: "", barLength: "", quantity: null });
 
 const restored = buildCustomOrderRows({

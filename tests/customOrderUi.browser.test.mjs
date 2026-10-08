@@ -6,7 +6,11 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const maliciousVendorRaw = '<img src=x onerror="window.__vendorRawExecuted=true"> & VENDOR';
+const staffOptionRaw = "14K 옵션 기본 no ball 설명 참고: 크리스탈/M";
+const currentVendorRaw = "001-VENDOR-TEST//ㅁhidden";
+const snapshotVendorRaw = "SNAP/VENDOR//TEST//ㅁhidden";
+const maliciousVendorCode = '<img src=x onerror="window.__vendorRawExecuted=true"> & VENDOR';
+const maliciousVendorRaw = `${maliciousVendorCode}//ㅁhidden`;
 const maliciousSupplierRaw = '<img src=x onerror="window.__supplierRawExecuted=true"> & SUPPLIER';
 const photoFixtures = {
   "SAME-SKU": { width: 600, height: 800 },
@@ -139,16 +143,16 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       window.__tables = {
         orders: [{ ord_no: "O-P", inv_no: "6890123456789", receipt_date: "2026-10-01", sort_order: 1, receiver: "테스트", seller: "스마트스토어" }],
         order_item_operations: [
-          { ...base, operation_id: "op-before", ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "1_R-1", sellpia_product_code_snapshot: "OLD", arbitrary_field_raw_snapshot: "OLD-VENDOR-SNAPSHOT", product_name_snapshot: "예전 상품", supplier_cell_raw_snapshot: "예전 매입처" },
-          { ...base, operation_id: "op-missing", ord_no: "O-M", sellpia_order_item_no: "R-M", item_no: "1_R-M", custom_ordered_on: "2026-09-29", inbound_expected_date: "2026-10-05", inbound_expected_source: "sku_schedule", sellpia_product_code_snapshot: "SNAP", own_code_snapshot: "SNAP-OWN", arbitrary_field_raw_snapshot: "SNAP-VENDOR-TEST", product_name_snapshot: "스냅 상품", product_option_snapshot: "스냅 옵션", supplier_cell_raw_snapshot: "0-스냅매입처 [ 9 ]" },
-          { ...base, operation_id: "op-manual-clear", ord_no: "O-2", sellpia_order_item_no: "R-2", item_no: "1_R-2", custom_ordered_on: "2026-09-30", inbound_expected_source: "manual", inbound_expected_date: null },
+          { ...base, operation_id: "op-before", ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "1_R-1", sellpia_product_code_snapshot: "OLD", arbitrary_field_raw_snapshot: "OLD-VENDOR-SNAPSHOT", product_name_snapshot: "예전 상품", supplier_cell_raw_snapshot: "예전 매입처", internal_memo: "8바 입고 예정, 주문 확인" },
+          { ...base, operation_id: "op-missing", ord_no: "O-M", sellpia_order_item_no: "R-M", item_no: "1_R-M", custom_ordered_on: "2026-09-29", inbound_expected_date: "2026-10-05", inbound_expected_source: "sku_schedule", sellpia_product_code_snapshot: "SNAP", own_code_snapshot: "SNAP-OWN", arbitrary_field_raw_snapshot: ${JSON.stringify(snapshotVendorRaw)}, product_name_snapshot: "스냅 상품", product_option_snapshot: "스냅 옵션", supplier_cell_raw_snapshot: "0-스냅매입처 [ 9 ]" },
+          { ...base, operation_id: "op-manual-clear", ord_no: "O-2", sellpia_order_item_no: "R-2", item_no: "1_R-2", custom_ordered_on: "2026-09-30", inbound_expected_source: "manual", inbound_expected_date: null, internal_memo: "4바" },
           { ...base, operation_id: "op-legacy", ord_no: "O-3", sellpia_order_item_no: "R-3", item_no: "1_R-3", custom_ordered_on: "2026-09-30" },
           { ...base, operation_id: "op-received", ord_no: "O-4", sellpia_order_item_no: "R-4", item_no: "1_R-4", custom_received_on: "2026-10-01" },
           { ...base, operation_id: "op-cancelled", ord_no: "O-5", sellpia_order_item_no: "R-5", item_no: "1_R-5", custom_cancelled_at: "2026-10-01T04:00:00Z" }
         ],
         order_items: [
           { ord_no: "O-P", sellpia_order_item_no: "R-P", item_no: "1_R-P", sort_order: 1, p_code: "PICK-SKU", p_dpcode: "PICK-OWN", p_name: "피킹 주문제작 상품", p_option: "테스트 옵션", p_location: "A-1", qty: 1 },
-          { ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "9_R-1", p_code: "SAME-SKU", p_dpcode: "OWN-1", p_name: "현재 상품 1", p_option: "실버/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):8mm바", qty: 0, o_amount: 99, sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_arbitrary_field_raw: "001-VENDOR-TEST" },
+          { ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "9_R-1", p_code: "SAME-SKU", p_dpcode: "OWN-1", p_name: "아트피어스 현재 상품 1", p_option: ${JSON.stringify(staffOptionRaw)}, qty: 0, o_amount: 99, sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_arbitrary_field_raw: ${JSON.stringify(currentVendorRaw)} },
           { ord_no: "O-2", sellpia_order_item_no: "R-2", item_no: "1_R-2", p_code: "SAME-SKU", p_dpcode: "OWN-2", p_name: "현재 상품 2", p_option: "골드 / 6mm 큐빅", o_amount: "3", sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]", sellpia_outbound_confirmed_date: "2026-10-08" },
           { ord_no: "O-3", sellpia_order_item_no: "R-3", item_no: "1_R-3", p_code: "LEGACY", p_dpcode: "OWN-3", p_name: "레거시 상품", p_option: "반지 8호", sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_arbitrary_field_raw: ${JSON.stringify(maliciousVendorRaw)}, sellpia_outbound_confirmed_date: "2026-10-09" },
           { ord_no: "O-LONLY", sellpia_order_item_no: "R-LONLY", item_no: "1_R-LONLY", p_code: "LEGACY-ONLY", p_dpcode: "OWN-LONLY", p_name: "operation 없는 셀피아 일정", sellpia_supplier_cell_raw: "0-신규매입처 [ 7 ]", sellpia_outbound_confirmed_date: "2026-10-11" }
@@ -324,12 +328,15 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   const slipFacts = async (operationId) => page.locator(`[data-operation-id="${operationId}"] .custom-order-slip-facts`).evaluate((node) => (
     Object.fromEntries([...node.children].map((fact) => [fact.querySelector("dt").textContent.trim(), fact.querySelector("dd").textContent.trim()]))
   ));
-  assert.deepEqual(await slipFacts("op-before"), { 업체상품코드: "001-VENDOR-TEST", 옵션: "실버[GPA-3-191]", 바길이: "8mm" }, "current raw vendor codes must override stale snapshots and preserve leading zeroes");
-  assert.deepEqual(await slipFacts("op-missing"), { 업체상품코드: "SNAP-VENDOR-TEST", 옵션: "스냅 옵션", 바길이: "확인 필요" }, "a missing source row must retain its vendor-code snapshot");
-  assert.deepEqual(await slipFacts("op-manual-clear"), { 업체상품코드: "미수집", 옵션: "골드 / 6mm 큐빅", 바길이: "확인 필요" });
-  assert.deepEqual(await slipFacts("op-legacy"), { 업체상품코드: maliciousVendorRaw, 옵션: "반지 8호", 바길이: "확인 필요" });
+  assert.deepEqual(await slipFacts("op-before"), { 옵션: "크리스탈/M", 바길이: "8바", 업체상품코드: "001-VENDOR-TEST", 수량: "0개" }, "the ArtPierce example must use normalized option, memo length and the shortened current code");
+  assert.deepEqual(await slipFacts("op-missing"), { 옵션: "스냅 옵션", 바길이: "확인 필요", 업체상품코드: "SNAP/VENDOR//TEST", 수량: "확인 필요" }, "a missing source row must retain its vendor-code snapshot and literal generic slashes");
+  assert.deepEqual(await slipFacts("op-manual-clear"), { 옵션: "골드 / 6mm 큐빅", 바길이: "4바", 업체상품코드: "미수집", 수량: "3개" }, "same-SKU siblings must retain independent memo bar lengths and quantities");
+  assert.deepEqual(await slipFacts("op-legacy"), { 옵션: "반지 8호", 바길이: "확인 필요", 업체상품코드: maliciousVendorCode, 수량: "확인 필요" });
   const vendorCodeFact = (operationId) => page.locator(`[data-operation-id="${operationId}"] .custom-order-slip-facts div`).filter({ has: page.locator("dt", { hasText: "업체상품코드" }) }).locator("dd");
-  assert.equal(await vendorCodeFact("op-before").getAttribute("title"), "셀피아 임의필드 원문");
+  assert.equal(await vendorCodeFact("op-before").getAttribute("title"), currentVendorRaw, "a shortened supplier code must retain its complete raw value in the title");
+  assert.equal(await vendorCodeFact("op-missing").getAttribute("title"), snapshotVendorRaw);
+  assert.equal(await vendorCodeFact("op-legacy").getAttribute("title"), maliciousVendorRaw, "malicious-looking raw text must stay literal even in its title");
+  assert.equal(await page.locator('[data-operation-id="op-before"] .custom-order-slip-facts dd').first().getAttribute("title"), staffOptionRaw, "option title must preserve raw label text");
   assert.equal(await vendorCodeFact("op-before").evaluate((node) => node.classList.contains("is-unavailable")), false);
   assert.equal(await vendorCodeFact("op-missing").evaluate((node) => node.classList.contains("is-unavailable")), false);
   assert.equal(await vendorCodeFact("op-manual-clear").evaluate((node) => node.classList.contains("is-unavailable")), true);
@@ -400,12 +407,14 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.deepEqual(await readSupplierOrder(), ascendingSuppliers, "returning to supplier sorting must restore the default order");
   await assertGroupSummaries(ascendingGroupSummaries);
 
-  const originalOption = "실버/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):8mm바";
+  const originalOption = staffOptionRaw;
   const sourceDetails = page.locator('[data-operation-id="op-before"] .custom-order-slip-source');
   assert.equal(await sourceDetails.getAttribute("open"), null);
   assert.match(await sourceDetails.locator("summary").textContent(), /SAME-SKU.*OWN-1/);
   await sourceDetails.locator("summary").click();
   assert.ok((await sourceDetails.textContent()).includes(originalOption), "the source detail must preserve the complete original option");
+  assert.ok((await sourceDetails.textContent()).includes(currentVendorRaw), "the source detail must preserve the shortened supplier code's full original value");
+  assert.equal(await page.evaluate(() => window.__tables.order_items.find((row) => row.ord_no === "O-1").sellpia_arbitrary_field_raw), currentVendorRaw, "rendering must leave the raw vendor field unchanged");
 
   for (const viewport of [{ width: 1920, height: 1000 }, { width: 1240, height: 1100 }]) {
     await page.setViewportSize(viewport);
@@ -507,6 +516,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
             followsPreviousGroup: previousLast === null || bounds.top >= previousLast - 1,
             finalCardInside: lastCard.bottom <= bounds.bottom + 1,
             clippedWidth: group.scrollWidth - group.clientWidth,
+            geometry: { group: bounds.toJSON(), heading: heading.toJSON(), firstCard: firstCard.toJSON(), lastCard: lastCard.toJSON() },
           };
         }),
         cards: cards.map((card) => {
@@ -519,6 +529,10 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
           const photoBounds = photo.getBoundingClientRect();
           const imageBounds = image.getBoundingClientRect();
           const imageLoaded = image.complete && image.naturalWidth > 0;
+          const facts = card.querySelector(".custom-order-slip-facts");
+          const factBounds = facts.getBoundingClientRect();
+          const factCells = [...facts.children];
+          const firstFactTop = factCells[0].getBoundingClientRect().top;
           return {
             operationId: card.dataset.operationId,
             clippedWidth: card.scrollWidth - card.clientWidth,
@@ -528,6 +542,31 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
             separatedHorizontally: slip.right <= controls.left + 1,
             quantityInsideSlip: quantity.left >= slip.left && quantity.right <= slip.right + 1 && quantity.top >= slip.top && quantity.bottom <= slip.bottom + 1,
             quantityBesidePhoto: quantity.left >= photoBounds.right && (!imageLoaded || quantity.top < photoBounds.bottom),
+            factsDisplay: getComputedStyle(facts).display,
+            factLabels: factCells.map((fact) => fact.querySelector("dt").textContent.trim()),
+            factsHorizontal: factCells.every((fact, index) => {
+              const box = fact.getBoundingClientRect();
+              const previous = index ? factCells[index - 1].getBoundingClientRect() : null;
+              return Math.abs(box.top - firstFactTop) <= 1 && (!previous || previous.right <= box.left + 1);
+            }),
+            factsInsideSlip: factBounds.left >= slip.left && factBounds.right <= slip.right + 1 && factBounds.top >= slip.top && factBounds.bottom <= slip.bottom + 1,
+            factContentFits: factCells.every((fact) => {
+              const value = fact.querySelector("dd");
+              const valueBounds = value.getBoundingClientRect();
+              const overflowY = getComputedStyle(value).overflowY;
+              return value.scrollWidth <= value.clientWidth + 1
+                && (value.scrollHeight <= value.clientHeight + 1 || !["hidden", "clip"].includes(overflowY))
+                && valueBounds.top + value.scrollHeight <= slip.bottom + 1;
+            }),
+            factSizes: factCells.map((fact) => {
+              const value = fact.querySelector("dd");
+              return { label: fact.querySelector("dt").textContent.trim(), width: value.clientWidth, contentWidth: value.scrollWidth, height: value.clientHeight, contentHeight: value.scrollHeight };
+            }),
+            factFonts: factCells.map((fact) => ({
+              label: fact.querySelector("dt").textContent.trim(),
+              available: !fact.classList.contains("is-unavailable") && !fact.querySelector("dd").classList.contains("is-unavailable"),
+              size: parseFloat(getComputedStyle(fact.querySelector("strong") || fact.querySelector("dd")).fontSize),
+            })),
             photoWidth: photoBounds.width,
             photoHeight: photoBounds.height,
             photoClippedHeight: photo.scrollHeight - photo.clientHeight,
@@ -564,7 +603,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       assert.ok(group.headingHeight > 0 && group.headingHeight <= 64, `${screen}: ${group.supplier} heading must remain compact (${group.headingHeight}px)`);
       assert.equal(group.headingBeforeCards, true, `${screen}: ${group.supplier} heading must precede its cards`);
       assert.equal(group.alignedWidth, true, `${screen}: ${group.supplier} heading must align with its cards`);
-      assert.equal(group.allCardsInside, true, `${screen}: ${group.supplier} cards must stay inside their supplier section`);
+      assert.equal(group.allCardsInside, true, `${screen}: ${group.supplier} cards must stay inside their supplier section ${JSON.stringify(group.geometry)}`);
       assert.equal(group.followsPreviousGroup, true, `${screen}: ${group.supplier} section must follow the preceding supplier section`);
       assert.equal(group.finalCardInside, true, `${screen}: ${group.supplier} final card must fit inside its section`);
       assert.ok(group.clippedWidth <= 1, `${screen}: ${group.supplier} section must not clip horizontally`);
@@ -577,6 +616,15 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       assert.ok(Math.abs(card.primaryRight - cardLayout.primaryRight) <= 1, `${screen}: ${card.operationId} must share a straight capture boundary with the other cards`);
       assert.equal(card.quantityInsideSlip, true, `${screen}: ${card.operationId} quantity must fit completely inside the capture area`);
       assert.equal(card.quantityBesidePhoto, true, `${screen}: ${card.operationId} quantity must stay beside its photo without wrapping below it`);
+      assert.equal(card.factsDisplay, "grid", `${screen}: ${card.operationId} production facts must retain the horizontal grid`);
+      assert.deepEqual(card.factLabels, ["옵션", "바길이", "업체상품코드", "수량"], `${screen}: ${card.operationId} facts must read in the staff-requested order`);
+      assert.equal(card.factsHorizontal, true, `${screen}: ${card.operationId} all four production facts must align horizontally`);
+      assert.equal(card.factsInsideSlip, true, `${screen}: ${card.operationId} the complete production strip must fit in the left capture area`);
+      assert.equal(card.factContentFits, true, `${screen}: ${card.operationId} enlarged fact text must not clip within its cells ${JSON.stringify(card.factSizes)}`);
+      for (const fact of card.factFonts.filter(({ available }) => available)) {
+        const minimum = fact.label === "수량" ? 36 : fact.label === "업체상품코드" ? 24 : 28;
+        assert.ok(fact.size >= minimum, `${screen}: ${card.operationId} ${fact.label} must remain large enough to read (${fact.size}px)`);
+      }
       assert.equal(card.controlsOutside, false, `${screen}: ${card.operationId} controls must remain inside its card`);
       assert.equal(card.photoWidth, 240, `${screen}: ${card.operationId} photo width must stay fixed across image ratios`);
       assert.equal(card.photoHeight, 180, `${screen}: ${card.operationId} photo height must stay fixed across image ratios`);
@@ -607,6 +655,21 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   }
   await page.setViewportSize({ width: 1600, height: 1000 });
   await sourceDetails.locator("summary").click();
+  const barFact = (operationId) => page.locator(`[data-operation-id="${operationId}"] .custom-order-slip-facts div`).filter({ has: page.locator("dt", { hasText: "바길이" }) }).locator("dd");
+  const rowMemo = () => page.locator('[data-operation-id="op-before"] [data-custom-order-field="internal_memo"]');
+  for (const memo of ["8바아님", "6바→8바"]) {
+    await rowMemo().fill(memo);
+    await rowMemo().press("Tab");
+    await page.waitForFunction((value) => window.__tables.order_item_operations.find((row) => row.operation_id === "op-before").internal_memo === value, memo);
+    assert.equal(await barFact("op-before").textContent(), "확인 필요", "ambiguous or negated memo length must display a warning instead of guessing");
+    assert.equal(await barFact("op-before").evaluate((node) => node.classList.contains("is-unavailable")), true);
+    assert.equal((await slipFacts("op-manual-clear")).바길이, "4바", "editing one same-SKU row must not change its sibling's memo display");
+  }
+  await rowMemo().fill("8바 입고 예정, 주문 확인");
+  await rowMemo().press("Tab");
+  await page.waitForFunction(() => window.__tables.order_item_operations.find((row) => row.operation_id === "op-before").internal_memo === "8바 입고 예정, 주문 확인");
+  assert.equal((await slipFacts("op-before")).바길이, "8바", "unrelated schedule and confirmation text must not erase an explicit memo length");
+  assert.equal(await page.evaluate(() => window.__tables.order_items.find((row) => row.ord_no === "O-1").p_option), staffOptionRaw, "memo editing must leave raw Sellpia options unchanged");
 
   const statusColors = {};
   for (const [filter, key] of [["before_order", "before"], ["received", "received"]]) {

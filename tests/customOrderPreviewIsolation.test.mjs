@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
+import { buildCustomOrderRows, customOrderSlipDetails, customOrderSupplierCode } from "../src/domain/customOrder.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixture = await readFile(path.join(root, "tests/fixtures/customOrderPreviewSupabase.js"), "utf8");
@@ -80,11 +81,24 @@ test("preview retains operation identities and realistic quantity and sibling fi
   assert.deepEqual(siblings.map((row) => row.qty), [5, 1]);
   assert.equal(siblings[0].p_code, siblings[1].p_code);
   const { data: operations } = await db.from("order_item_operations").select("*");
-  assert.equal(operations.length, 6);
+  assert.equal(operations.length, 8);
   assert.equal(operations.some((row) => row.operation_id === "preview-missing"), true);
   const { data: item } = await db.from("order_items").select("*").eq("ord_no", "LOCAL-O1");
   assert.equal(item[0].qty, 2);
   assert.equal(item[0].p_option, "골드/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):4mm바");
+  assert.equal(item[0].sellpia_arbitrary_field_raw, "001-VENDOR-TEST//ㅁhidden");
+  const siblingOperations = operations.filter((row) => row.ord_no === "LOCAL-PICK-2");
+  const siblingRows = buildCustomOrderRows({ operations: siblingOperations, currentItems: siblings });
+  assert.deepEqual(siblingRows.map(customOrderSlipDetails), [
+    { optionName: "크리스탈/M", barLength: "4바", quantity: 5 },
+    { optionName: "크리스탈/M", barLength: "8바", quantity: 1 },
+  ], "the ArtPierce same-SKU fixture must display each order row's explicit memo independently");
+  assert.deepEqual(siblingRows.map((row) => customOrderSupplierCode(row.display.arbitraryFieldRaw)), ["001-VENDOR-TEST", "001/VENDOR//OTHER"]);
+  assert.equal(siblings[1].sellpia_arbitrary_field_raw, "001/VENDOR//OTHER//ㅁhidden", "shortening displayed vendor codes must preserve raw fixture data");
+  await db.from("order_item_operations").update({ internal_memo: "6바" }).eq("operation_id", "preview-sibling-4");
+  assert.equal(browser.__previewTables.order_item_operations.find((row) => row.operation_id === "preview-sibling-4").internal_memo, "6바");
+  assert.equal(browser.__previewTables.order_item_operations.find((row) => row.operation_id === "preview-sibling-8").internal_memo, "8바", "the sibling operation keeps its original memo");
+  assert.equal(browser.__previewTables.order_items.find((row) => row.sellpia_order_item_no === "LOCAL-R2-A").p_option, "14K 옵션 기본 no ball 설명 참고: 크리스탈/M", "local memo editing must leave raw Sellpia options unchanged");
 });
 
 test("preview server serves isolated HTML, the local image origin, and generated SVG only", async () => {

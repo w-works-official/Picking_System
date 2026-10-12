@@ -6,3 +6,9 @@ export function isGoldOwnCode(ownCode) {
 export function isBareGpaOwnCode(ownCode) {
   return String(ownCode ?? "").trim().toUpperCase() === "[GPA]";
 }
+
+export function isOrGoldItem(item) {
+  const ownCode = item?.ownCode || item?.raw?.prod_code || item?.raw?.own_code || "";
+  return isGoldOwnCode(ownCode)
+    && String(item?.raw?.sellpia_supplier_cell_raw ?? "").includes("오르");
+}

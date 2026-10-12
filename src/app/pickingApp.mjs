@@ -32,7 +32,7 @@ import {
   skuInboundScheduleWorkbookRows,
 } from "../domain/skuInboundSchedule.mjs?v=20261001-sku-schedule1";
 import { createAlimtalkSendAdapter } from "../adapters/alimtalkSendAdapter.mjs?v=20260728-alimtalk-history2";
-import { isBareGpaOwnCode, isGoldOwnCode } from "../domain/gold.mjs?v=20260811-bare-gpa-label1";
+import { isBareGpaOwnCode, isGoldOwnCode, isOrGoldItem } from "../domain/gold.mjs?v=20261012-or-badge1";
 import { alimtalkSendLogAnchor, alimtalkSendLogCode, alimtalkSendNaturalKey, appendAlimtalkSendLog, formatAlimtalkInboundExpectedDate, hasTomorrowShippingManagementMemo, normalizeAlimtalkSendLog, resolveAlimtalkTemplate } from "../domain/alimtalk.mjs?v=20260804-send-log-anchor2";
 import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/businessDays.mjs?v=20260728-receipt-business-days1";
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
@@ -1501,6 +1501,13 @@ function optionHasBarChange(item) {
 
 function optionClass(item, base = "option") {
   return [base, optionHasBarChange(item) ? "option-change" : ""].filter(Boolean).join(" ");
+}
+
+function renderPickingOptionHeading(item, option, { gold = false } = {}) {
+  const tag = gold ? "strong" : "p";
+  const heading = `<${tag} class="${optionClass(item)}">${escapeHtml(option)}</${tag}>`;
+  if (!isOrGoldItem(item)) return heading;
+  return `<div class="picking-option-heading">${heading}<span class="or-supplier-badge" title="14K 상품 · 매입처에 오르 포함">오르</span></div>`;
 }
 
 function orderedInvoicesForSystemSequence(invoices = []) {
@@ -3251,7 +3258,7 @@ function renderGoldInvoiceItem(invoice, item, invoiceIndex = 0, itemIndex = 0) {
     <div class="gold-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
     <div class="gold-item-main">
       <span class="workflow-row-order">상품순서 ${itemOrderNo(item, itemIndex)}번</span>
-      <strong class="${optionClass(item, "option")}">${escapeHtml(option)}</strong>
+      ${renderPickingOptionHeading(item, option, { gold: true })}
       <small>${escapeHtml(item.ownCode || "-")} · ${escapeHtml(item.productName || "")}</small>
       ${renderPickingCustomOrderControls(invoice, item, { compact: true })}
     </div>
@@ -4749,7 +4756,7 @@ function renderPickingRow(invoice, item, invoiceIndex = 0, itemIndex = 0) {
           ${item.sellpiaLocation ? `<span class="small-badge">${escapeHtml(item.sellpiaLocation)}</span>` : ""}
           ${itemIsEffectivelyCancelled(invoice, item) ? '<span class="workflow-row-badge cancelled">취소</span>' : ""}
         </div>
-        <p class="${optionClass(item)}">${escapeHtml(option)}</p>
+        ${renderPickingOptionHeading(item, option)}
         <p class="product">${escapeHtml(product)}</p>
         <div class="invoice-meta">
           <span>${escapeHtml(invoice.displayName || invoice.csDisplayName || "-")}</span>

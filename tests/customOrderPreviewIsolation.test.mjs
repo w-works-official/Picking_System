@@ -6,6 +6,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { buildCustomOrderRows, customOrderSlipDetails, customOrderSupplierCode } from "../src/domain/customOrder.mjs";
+import { normalizeCurrentDbItem } from "../src/adapters/currentDbPickingAdapter.mjs";
+import { isOrGoldItem } from "../src/domain/gold.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixture = await readFile(path.join(root, "tests/fixtures/customOrderPreviewSupabase.js"), "utf8");
@@ -87,6 +89,9 @@ test("preview retains operation identities and realistic quantity and sibling fi
   assert.equal(item[0].qty, 2);
   assert.equal(item[0].p_option, "골드/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):4mm바");
   assert.equal(item[0].sellpia_arbitrary_field_raw, "001-VENDOR-TEST//ㅁhidden");
+  const { data: badgeItem } = await db.from("order_items").select("*").eq("ord_no", "LOCAL-PICK-1");
+  assert.equal(isOrGoldItem(normalizeCurrentDbItem(badgeItem[0])), true, "the manual preview must include the Or badge on its existing gold item");
+  assert.deepEqual(siblings.map((row) => isOrGoldItem(normalizeCurrentDbItem(row))), [false, false], "ArtPierce siblings must keep their existing non-Or supplier classification");
   const siblingOperations = operations.filter((row) => row.ord_no === "LOCAL-PICK-2");
   const siblingRows = buildCustomOrderRows({ operations: siblingOperations, currentItems: siblings });
   assert.deepEqual(siblingRows.map(customOrderSlipDetails), [

@@ -12,10 +12,26 @@ const snapshotVendorRaw = "SNAP/VENDOR//TEST//ㅁhidden";
 const maliciousVendorCode = '<img src=x onerror="window.__vendorRawExecuted=true"> & VENDOR';
 const maliciousVendorRaw = `${maliciousVendorCode}//ㅁhidden`;
 const maliciousSupplierRaw = '<img src=x onerror="window.__supplierRawExecuted=true"> & SUPPLIER';
+const orBadgeFixtureItems = [
+  ["R-OR-GPA", "GPA-3-191", "3-오르 [40]", true],
+  ["R-OR-GPB", "GPB-1-019", "0-오르 [ 1 ]", true],
+  ["R-OR-BARE", "[GPA]", "오르", true],
+  ["R-OR-OTHER", "GPA-3-191", "0-베니스톤 [ 28 ]", false],
+  ["R-OR-NONGOLD", "BP-1-019", "오르", false],
+  ["R-OR-DECOY", "GPA-3-191", "0-베니스톤 [ 28 ]", false],
+].map(([rowId, ownCode, supplier, expectedBadge], index) => ({
+  expectedBadge,
+  raw: {
+    ord_no: "O-OR", sellpia_order_item_no: rowId, item_no: `${index + 1}_${rowId}`, sort_order: index + 1,
+    p_code: "OR-SAME-SKU", p_dpcode: ownCode, p_name: "오르 이름은 분류 근거 아님", p_option: "실버/S",
+    p_location: "오르 위치", o_shop_memo: "오르 메모", qty: 1, sellpia_supplier_cell_raw: supplier,
+  },
+}));
 const photoFixtures = {
   "SAME-SKU": { width: 600, height: 800 },
   LEGACY: { width: 800, height: 600 },
   "PICK-SKU": { width: 600, height: 600 },
+  "OR-SAME-SKU": { width: 600, height: 600 },
 };
 
 const contentTypes = {
@@ -141,7 +157,10 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       window.__supabaseCalls = [];
       const base = { custom_required_at: "2026-09-28T03:00:00Z", custom_ordered_on: null, custom_received_on: null, custom_cancelled_at: null, inbound_expected_date: null, inbound_expected_source: null, internal_memo: null };
       window.__tables = {
-        orders: [{ ord_no: "O-P", inv_no: "6890123456789", receipt_date: "2026-10-01", sort_order: 1, receiver: "테스트", seller: "스마트스토어" }],
+        orders: [
+          { ord_no: "O-P", inv_no: "6890123456789", receipt_date: "2026-10-01", sort_order: 1, receiver: "테스트", seller: "스마트스토어" },
+          { ord_no: "O-OR", inv_no: "6890123456790", receipt_date: "2026-10-01", sort_order: 2, receiver: "배지검증", seller: "오르" }
+        ],
         order_item_operations: [
           { ...base, operation_id: "op-before", ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "1_R-1", sellpia_product_code_snapshot: "OLD", arbitrary_field_raw_snapshot: "OLD-VENDOR-SNAPSHOT", product_name_snapshot: "예전 상품", supplier_cell_raw_snapshot: "예전 매입처", internal_memo: "8바 입고 예정, 주문 확인" },
           { ...base, operation_id: "op-missing", ord_no: "O-M", sellpia_order_item_no: "R-M", item_no: "1_R-M", custom_ordered_on: "2026-09-29", inbound_expected_date: "2026-10-05", inbound_expected_source: "sku_schedule", sellpia_product_code_snapshot: "SNAP", own_code_snapshot: "SNAP-OWN", arbitrary_field_raw_snapshot: ${JSON.stringify(snapshotVendorRaw)}, product_name_snapshot: "스냅 상품", product_option_snapshot: "스냅 옵션", supplier_cell_raw_snapshot: "0-스냅매입처 [ 9 ]" },
@@ -155,7 +174,8 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
           { ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "9_R-1", p_code: "SAME-SKU", p_dpcode: "OWN-1", p_name: "아트피어스 현재 상품 1", p_option: ${JSON.stringify(staffOptionRaw)}, qty: 0, o_amount: 99, sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_arbitrary_field_raw: ${JSON.stringify(currentVendorRaw)} },
           { ord_no: "O-2", sellpia_order_item_no: "R-2", item_no: "1_R-2", p_code: "SAME-SKU", p_dpcode: "OWN-2", p_name: "현재 상품 2", p_option: "골드 / 6mm 큐빅", o_amount: "3", sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]", sellpia_outbound_confirmed_date: "2026-10-08" },
           { ord_no: "O-3", sellpia_order_item_no: "R-3", item_no: "1_R-3", p_code: "LEGACY", p_dpcode: "OWN-3", p_name: "레거시 상품", p_option: "반지 8호", sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_arbitrary_field_raw: ${JSON.stringify(maliciousVendorRaw)}, sellpia_outbound_confirmed_date: "2026-10-09" },
-          { ord_no: "O-LONLY", sellpia_order_item_no: "R-LONLY", item_no: "1_R-LONLY", p_code: "LEGACY-ONLY", p_dpcode: "OWN-LONLY", p_name: "operation 없는 셀피아 일정", sellpia_supplier_cell_raw: "0-신규매입처 [ 7 ]", sellpia_outbound_confirmed_date: "2026-10-11" }
+          { ord_no: "O-LONLY", sellpia_order_item_no: "R-LONLY", item_no: "1_R-LONLY", p_code: "LEGACY-ONLY", p_dpcode: "OWN-LONLY", p_name: "operation 없는 셀피아 일정", sellpia_supplier_cell_raw: "0-신규매입처 [ 7 ]", sellpia_outbound_confirmed_date: "2026-10-11" },
+          ${orBadgeFixtureItems.map(({ raw }) => JSON.stringify(raw)).join(",\n          ")}
         ],
         sku_inbound_schedules: [
           { sellpia_sku: "LEGACY-ONLY", inbound_expected_date: "2026-10-07", own_code: "OWN-LONLY", created_at: "2026-10-01T01:00:00Z", updated_at: "2026-10-01T01:00:00Z" }
@@ -251,6 +271,39 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
     });
     throw error;
   }
+  const assertOrBadges = async (rowClass, optionTag) => {
+    const fixtureRows = page.locator(`${rowClass}[data-order-group="O-OR"]`);
+    assert.equal(await fixtureRows.count(), orBadgeFixtureItems.length);
+    assert.equal(await fixtureRows.locator(".or-supplier-badge").count(), 3, "only three gold items with literal Or suppliers receive badges");
+    for (const { raw, expectedBadge } of orBadgeFixtureItems) {
+      const row = page.locator(`${rowClass}[data-order-group="O-OR"][data-item-no="${raw.item_no}"]`);
+      assert.equal(await row.locator(".or-supplier-badge").count(), expectedBadge ? 1 : 0, `${rowClass}: ${raw.item_no} must classify only its own supplier`);
+      assert.equal(await row.locator(".picking-option-heading").count(), expectedBadge ? 1 : 0, "nonmatching option markup must remain unchanged");
+      assert.equal(await row.locator(`${optionTag}.option`).textContent(), "실버/S", "the existing cleaned option must remain unchanged");
+      if (expectedBadge) {
+        const heading = row.locator(".picking-option-heading");
+        assert.deepEqual(await heading.evaluate((node) => [...node.children].map((child) => child.tagName)), [optionTag.toUpperCase(), "SPAN"], "the badge must directly follow the option");
+        assert.equal(await heading.locator(".or-supplier-badge").textContent(), "오르");
+        const geometry = await heading.evaluate((node) => {
+          const bounds = node.getBoundingClientRect();
+          const option = node.children[0].getBoundingClientRect();
+          const badge = node.children[1].getBoundingClientRect();
+          return {
+            badgeBesideOption: badge.left >= option.right - 1 && badge.top < option.bottom && badge.bottom > option.top,
+            badgeFits: badge.left >= bounds.left - 1 && badge.right <= bounds.right + 1 && badge.top >= bounds.top - 1 && badge.bottom <= bounds.bottom + 1,
+          };
+        });
+        assert.equal(geometry.badgeBesideOption, true, "Or badge must sit beside the product option");
+        assert.equal(geometry.badgeFits, true, "Or badge must remain inside its option heading");
+      }
+    }
+  };
+  await page.click('#filter-bar [data-filter="todo"]');
+  await assertOrBadges(".picking-item-card", "p");
+  await page.click('#filter-bar [data-filter="gold"]');
+  await assertOrBadges(".gold-item-row", "strong");
+  await page.click('#filter-bar [data-filter="all"]');
+  assert.equal(await page.locator('.picking-item-card[data-order-group="O-P"]').count(), 1);
   await page.fill("#search-input", "테스트");
   assert.equal(await page.locator("#search-input").inputValue(), "테스트", "normal keyboard search must remain immediate");
   await page.fill("#search-input", "6890123456789".repeat(3));

@@ -26,6 +26,7 @@
   "managementMemoUpdaterScope.mock.test.mjs",
   "orderItemOperationsAdapter.mock.test.mjs",
   "orderItemOperationsMigration.mock.test.mjs",
+  "orSupplierBadge.mock.test.mjs",
   "pickingPersistence.mock.test.mjs",
   "pickingRouteSort.mock.test.mjs",
   "scraperKoreanSafetyCopy.mock.test.mjs",

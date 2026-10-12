@@ -74,7 +74,7 @@
       { ord_no: "LOCAL-PICK-2", receipt_date: receiptDate, sort_order: 2, receiver: "형제행테스트", seller: "에이블리", sellpia_order_total_amount: 13070 },
     ],
     order_items: [
-      { ord_no: "LOCAL-PICK-1", sellpia_order_item_no: "LOCAL-R1", item_no: "1_LOCAL-R1", sort_order: 1, p_code: "LOCAL-SKU-1", p_dpcode: "GPA-3-191", p_name: "피킹에서 주문제작 체크할 상품", p_option: "골드/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):4mm바", p_location: "A-1", qty: 2 },
+      { ord_no: "LOCAL-PICK-1", sellpia_order_item_no: "LOCAL-R1", item_no: "1_LOCAL-R1", sort_order: 1, p_code: "LOCAL-SKU-1", p_dpcode: "GPA-3-191", p_name: "피킹에서 주문제작 체크할 상품", p_option: "골드/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):4mm바", p_location: "A-1", qty: 2, sellpia_supplier_cell_raw: "3-오르 [40]" },
       { ord_no: "LOCAL-PICK-2", sellpia_order_item_no: "LOCAL-R2-A", item_no: "1_LOCAL-R2-A", sort_order: 1, p_code: "SAME-SKU", p_dpcode: "GPA-1-101", p_name: "아트피어스 동일 SKU 형제상품 A", p_option: "14K 옵션 기본 no ball 설명 참고: 크리스탈/M", p_location: "B-2", qty: 5, sellpia_supplier_cell_raw: "아트피어스", sellpia_arbitrary_field_raw: "001-VENDOR-TEST//ㅁhidden" },
       { ord_no: "LOCAL-PICK-2", sellpia_order_item_no: "LOCAL-R2-B", item_no: "2_LOCAL-R2-B", sort_order: 2, p_code: "SAME-SKU", p_dpcode: "GPA-1-101", p_name: "아트피어스 동일 SKU 형제상품 B", p_option: "14K 옵션 기본 no ball 설명 참고: 크리스탈/M", p_location: "B-3", qty: 1, sellpia_supplier_cell_raw: "아트피어스", sellpia_arbitrary_field_raw: "001/VENDOR//OTHER//ㅁhidden" },
       { ord_no: "LOCAL-O1", sellpia_order_item_no: "R1", item_no: "9_R1", p_code: "SKU-CURRENT", p_dpcode: "GPA-3-191", p_name: "14K 골드 볼 피어싱", p_option: "골드/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):4mm바", qty: 2, sellpia_supplier_cell_raw: "0-베니스톤 [ 28 ]", sellpia_arbitrary_field_raw: "001-VENDOR-TEST//ㅁhidden" },

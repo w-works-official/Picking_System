@@ -5038,6 +5038,37 @@ input {
   overflow-wrap: anywhere;
 }
 
+.picking-option-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .375rem .5rem;
+  min-width: 0;
+}
+
+.picking-option-heading > .option {
+  min-width: 0;
+  margin: 0;
+}
+
+.picking-main > .picking-option-heading {
+  margin-bottom: .3125rem;
+}
+
+.or-supplier-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  padding: .125rem .5rem;
+  border: 1px solid #c4b5fd;
+  border-radius: .375rem;
+  background: #f5f3ff;
+  color: #6d28d9;
+  font-size: .8125rem;
+  font-weight: 900;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .product {
   margin: 0;
   color: #475569;

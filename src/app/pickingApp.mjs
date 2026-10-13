@@ -6,7 +6,7 @@ import {
   findOperationForCurrentItem,
   orderItemIdentity,
   resolveEffectiveInboundExpectedDate,
-} from "../adapters/orderItemOperationsAdapter.mjs?v=20261008-arbitrary-field2";
+} from "../adapters/orderItemOperationsAdapter.mjs?v=20261013-custom-orderer1";
 import {
   CUSTOM_ORDER_STATUS_LABEL,
   addCalendarDays,
@@ -22,7 +22,7 @@ import {
   groupCustomOrderRows,
   sortCustomOrderRows,
   sortInboundExpectedRows,
-} from "../domain/customOrder.mjs?v=20261008-slip-fields2";
+} from "../domain/customOrder.mjs?v=20261013-custom-orderer1";
 import { normalizeLabelOptionName } from "../domain/labelOption.mjs?v=20261008-slip-fields2";
 import { createSkuInboundSchedulesAdapter } from "../adapters/skuInboundSchedulesAdapter.mjs?v=20261001-sku-schedule1";
 import {
@@ -229,6 +229,7 @@ const state = {
     error: "",
     operations: [],
     currentItems: [],
+    orderersByOrderNo: new Map(),
     skuSchedules: [],
     skuSchedulesLoaded: false,
     skuScheduleImportStatus: "",
@@ -5740,6 +5741,7 @@ function renderSkuInboundScheduleManager() {
 function renderCustomOrderRow(row) {
   const operation = row.operation;
   const display = row.display;
+  const orderer = state.customOrders.orderersByOrderNo.get(String(operation.ord_no || "").trim()) || "";
   const slip = customOrderSlipDetails(row);
   const supplierCode = customOrderSupplierCode(display.arbitraryFieldRaw);
   const imageCode = display.sellpiaProductCode || "";
@@ -5772,7 +5774,10 @@ function renderCustomOrderRow(row) {
     </div>
     <div class="custom-order-slip-management">
       <div class="custom-order-slip-management-heading">
-        <strong class="custom-order-section-title">진행 관리</strong>
+        <div class="custom-order-slip-management-labels">
+          <strong class="custom-order-section-title">진행 관리</strong>
+          <small class="custom-order-orderer">주문자 ${escapeHtml(orderer || "미확인")}</small>
+        </div>
         <div class="custom-order-row-badges">
           <span class="custom-order-status status-${escapeHtml(row.status)}">${escapeHtml(statusLabel)}</span>
           ${row.sourceMissing ? '<span class="workflow-row-badge danger">원천 주문행 없음</span>' : ""}
@@ -6010,6 +6015,9 @@ async function loadCustomOrdersData({ force = false } = {}) {
     ).values()];
     state.customOrders.operations = workspace.operations;
     state.customOrders.currentItems = currentItems;
+    state.customOrders.orderersByOrderNo = new Map(
+      workspace.orderers.map((order) => [String(order.ord_no || "").trim(), String(order.orderer || "").trim()]),
+    );
     state.customOrders.skuSchedules = schedules;
     state.customOrders.skuSchedulesLoaded = true;
     state.customOrders.loaded = true;
@@ -9775,6 +9783,10 @@ async function onOrderListClick(event) {
     const saved = await orderItemOperations.upsertOperationForCurrentOrderItem(item, {
       custom_required_at: checked ? new Date().toISOString() : null,
     });
+    const savedOrderNo = String(saved.ord_no || "").trim();
+    if (state.customOrders.loaded && !state.customOrders.orderersByOrderNo.has(savedOrderNo)) {
+      state.customOrders.orderersByOrderNo.set(savedOrderNo, String(invoice.buyerName || "").trim());
+    }
     mergeOperationState(saved);
     renderPickingSurfaces();
     toast(checked ? "주문제작 필요로 등록했습니다." : "주문제작 체크를 해제했습니다.");

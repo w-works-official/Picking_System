@@ -12,6 +12,8 @@ const snapshotVendorRaw = "SNAP/VENDOR//TEST//ㅁhidden";
 const maliciousVendorCode = '<img src=x onerror="window.__vendorRawExecuted=true"> & VENDOR';
 const maliciousVendorRaw = `${maliciousVendorCode}//ㅁhidden`;
 const maliciousSupplierRaw = '<img src=x onerror="window.__supplierRawExecuted=true"> & SUPPLIER';
+const maliciousOrderer = '<img src=x onerror="window.__ordererExecuted=true"> & 주문자';
+const longOrderer = "박같은상품다른주문자이름이아주길어도전체표시검증";
 const orBadgeFixtureItems = [
   ["R-OR-GPA", "GPA-3-191", "3-오르 [40]", true],
   ["R-OR-GPB", "GPB-1-019", "0-오르 [ 1 ]", true],
@@ -158,8 +160,13 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       const base = { custom_required_at: "2026-09-28T03:00:00Z", custom_ordered_on: null, custom_received_on: null, custom_cancelled_at: null, inbound_expected_date: null, inbound_expected_source: null, internal_memo: null };
       window.__tables = {
         orders: [
-          { ord_no: "O-P", inv_no: "6890123456789", receipt_date: "2026-10-01", sort_order: 1, receiver: "테스트", seller: "스마트스토어" },
-          { ord_no: "O-OR", inv_no: "6890123456790", receipt_date: "2026-10-01", sort_order: 2, receiver: "배지검증", seller: "오르" }
+          { ord_no: "O-P", inv_no: "6890123456789", receipt_date: "2026-10-01", sort_order: 1, receiver: "테스트", orderer: "새등록주문자", seller: "스마트스토어" },
+          { ord_no: "O-OR", inv_no: "6890123456790", receipt_date: "2026-10-01", sort_order: 2, receiver: "배지검증", orderer: "탭조회후등록주문자", seller: "오르" },
+          { ord_no: "O-1", receipt_date: "2026-09-28", orderer: "  김주문  " },
+          { ord_no: "O-2", receipt_date: "2026-09-27", orderer: ${JSON.stringify(longOrderer)} },
+          { ord_no: "O-M", receipt_date: "2026-09-26", orderer: "원천행없는주문자" },
+          { ord_no: "O-3", receipt_date: "2026-09-25", orderer: ${JSON.stringify(maliciousOrderer)} },
+          { ord_no: "O-5", receipt_date: "2026-09-24", orderer: "   " }
         ],
         order_item_operations: [
           { ...base, operation_id: "op-before", ord_no: "O-1", sellpia_order_item_no: "R-1", item_no: "1_R-1", sellpia_product_code_snapshot: "OLD", arbitrary_field_raw_snapshot: "OLD-VENDOR-SNAPSHOT", product_name_snapshot: "예전 상품", supplier_cell_raw_snapshot: "예전 매입처", internal_memo: "8바 입고 예정, 주문 확인" },
@@ -315,6 +322,8 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   await page.waitForFunction(() => document.getElementById("jump-invoice-input")?.value === "6890123456789");
   const before = await page.evaluate(() => window.__supabaseCalls.filter((entry) => entry.table === "order_item_operations" && entry.method === "not").length);
   assert.equal(before, 0, "custom-order workspace query must not run before the tab opens");
+  const ordererLookupCount = () => page.evaluate(() => window.__supabaseCalls.filter((entry) => entry.table === "orders" && entry.method === "select" && entry.args[0] === "ord_no,orderer").length);
+  assert.equal(await ordererLookupCount(), 0, "orderer lookup must lazy-load with the custom-order workspace");
 
   let pickingCard = page.locator('.picking-item-card[data-order-group="O-P"]');
   assert.match(await pickingCard.textContent(), /스마트스토어/);
@@ -377,6 +386,19 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.match(await page.locator('[data-operation-id="op-manual-clear"]').textContent(), /수동 · 삭제됨/);
   assert.match(await page.locator('[data-operation-id="op-legacy"]').textContent(), /셀피아/);
   assert.equal(await page.locator('[data-operation-id="op-before"] .custom-order-product-photo img').count(), 1, "custom-order workflow must show the product photo");
+  const ordererLabel = (operationId) => page.locator(`[data-operation-id="${operationId}"] .custom-order-orderer`);
+  assert.equal(await ordererLabel("op-before").textContent(), "주문자 김주문");
+  assert.equal(await ordererLabel("op-manual-clear").textContent(), `주문자 ${longOrderer}`, "same-SKU orders must retain separate current orderers from outside the selected picking date");
+  assert.equal(await ordererLabel("op-missing").textContent(), "주문자 원천행없는주문자", "a missing product row must not hide the current orderer");
+  assert.equal(await ordererLabel("op-legacy").textContent(), `주문자 ${maliciousOrderer}`);
+  assert.equal(await ordererLabel("op-legacy").locator("*").count(), 0, "orderer markup must stay literal text");
+  assert.equal(await page.evaluate(() => window.__ordererExecuted), undefined, "orderer text must never execute an event handler");
+  assert.equal(await ordererLookupCount(), 1, "the initial custom workspace must batch its orderers in one request");
+  await page.selectOption("#custom-orders-status", "received");
+  assert.equal(await ordererLabel("op-received").textContent(), "주문자 미확인", "an absent order must stay visibly unavailable");
+  await page.selectOption("#custom-orders-status", "cancelled");
+  assert.equal(await ordererLabel("op-cancelled").textContent(), "주문자 미확인", "a blank orderer must stay visibly unavailable");
+  await page.selectOption("#custom-orders-status", "active");
 
   const slipFacts = async (operationId) => page.locator(`[data-operation-id="${operationId}"] .custom-order-slip-facts`).evaluate((node) => (
     Object.fromEntries([...node.children].map((fact) => [fact.querySelector("dt").textContent.trim(), fact.querySelector("dd").textContent.trim()]))
@@ -408,7 +430,8 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
     const primary = card.locator(".custom-order-row-primary");
     const management = card.locator(".custom-order-slip-management");
     assert.equal(await primary.locator(".custom-order-product-photo, .custom-order-supplier, .custom-order-slip-facts, .custom-order-slip-quantity").count(), 4, "the left capture area must retain the photo, supplier, order facts and quantity");
-    assert.equal(await primary.locator("input, button, .custom-order-status, .workflow-row-badge, .custom-order-slip-source, .custom-order-row-dates, .custom-order-row-memo").count(), 0, "the left capture area must exclude internal dates, memo, actions, status and source warnings");
+    assert.equal(await primary.locator("input, button, .custom-order-status, .workflow-row-badge, .custom-order-slip-source, .custom-order-row-dates, .custom-order-row-memo, .custom-order-orderer").count(), 0, "the left capture area must exclude internal dates, memo, actions, status, source warnings and buyer names");
+    assert.equal(await management.locator(".custom-order-slip-management-heading .custom-order-orderer").count(), 1, "orderer names must appear only in the right management heading");
     assert.equal(await management.locator(".custom-order-slip-management-heading .custom-order-status").count(), 1, "workflow status must be inside the right management heading");
     assert.equal(await management.locator(".custom-order-row-dates, .custom-order-row-memo, .custom-order-row-actions, .custom-order-slip-source").count(), 4, "the right management area must retain dates, memo, actions and source details");
   }
@@ -576,6 +599,9 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
           const bounds = card.getBoundingClientRect();
           const slip = card.querySelector(".custom-order-row-primary").getBoundingClientRect();
           const controls = card.querySelector(".custom-order-slip-management").getBoundingClientRect();
+          const orderer = card.querySelector(".custom-order-orderer");
+          const ordererBounds = orderer.getBoundingClientRect();
+          const ordererStyle = getComputedStyle(orderer);
           const quantity = card.querySelector(".custom-order-slip-quantity").getBoundingClientRect();
           const photo = card.querySelector(".custom-order-product-photo");
           const image = photo.querySelector("img");
@@ -593,6 +619,10 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
             primaryRight: slip.right,
             alignedTop: Math.abs(slip.top - controls.top) <= 1,
             separatedHorizontally: slip.right <= controls.left + 1,
+            ordererInsideManagement: ordererBounds.left >= controls.left && ordererBounds.right <= controls.right + 1 && ordererBounds.top >= controls.top && ordererBounds.bottom <= controls.bottom + 1,
+            ordererFontSize: parseFloat(ordererStyle.fontSize),
+            ordererFits: orderer.scrollWidth <= orderer.clientWidth + 1 && orderer.scrollHeight <= orderer.clientHeight + 1,
+            ordererEllipsis: ordererStyle.textOverflow === "ellipsis",
             quantityInsideSlip: quantity.left >= slip.left && quantity.right <= slip.right + 1 && quantity.top >= slip.top && quantity.bottom <= slip.bottom + 1,
             quantityBesidePhoto: quantity.left >= photoBounds.right && (!imageLoaded || quantity.top < photoBounds.bottom),
             factsDisplay: getComputedStyle(facts).display,
@@ -666,6 +696,10 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
       assert.ok(card.clippedHeight <= 1, `${screen}: ${card.operationId} must size itself to all content (${card.clippedHeight}px)`);
       assert.equal(card.alignedTop, true, `${screen}: ${card.operationId} must preserve a side-by-side split`);
       assert.equal(card.separatedHorizontally, true, `${screen}: ${card.operationId} management must remain right of its capture area`);
+      assert.equal(card.ordererInsideManagement, true, `${screen}: ${card.operationId} the full orderer name must stay on the management side`);
+      assert.equal(card.ordererFontSize, 12, `${screen}: ${card.operationId} orderer names must use the small .75rem font`);
+      assert.equal(card.ordererFits, true, `${screen}: ${card.operationId} long orderer names must wrap without clipping`);
+      assert.equal(card.ordererEllipsis, false, `${screen}: ${card.operationId} orderer names must not be ellipsized`);
       assert.ok(Math.abs(card.primaryRight - cardLayout.primaryRight) <= 1, `${screen}: ${card.operationId} must share a straight capture boundary with the other cards`);
       assert.equal(card.quantityInsideSlip, true, `${screen}: ${card.operationId} quantity must fit completely inside the capture area`);
       assert.equal(card.quantityBesidePhoto, true, `${screen}: ${card.operationId} quantity must stay beside its photo without wrapping below it`);
@@ -845,9 +879,11 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
 
   const after = await page.evaluate(() => window.__supabaseCalls.filter((entry) => entry.table === "order_item_operations" && entry.method === "not").length);
   assert.equal(after, 2, "custom-order and inbound operation queries must each lazy-load once on first tab entry");
+  assert.equal(await ordererLookupCount(), 1, "view switches and workflow edits must reuse the loaded orderer map");
 
   await page.evaluate((supplier) => {
     window.__tables.order_item_operations.find((row) => row.operation_id === "op-missing").supplier_cell_raw_snapshot = `  ${supplier}  `;
+    window.__tables.orders.find((row) => row.ord_no === "O-M").orderer = "새로고침현재주문자";
   }, maliciousSupplierRaw);
   await page.selectOption("#custom-orders-status", "received");
   await page.click("#custom-orders-refresh");
@@ -857,11 +893,49 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.equal(await escapedSupplierGroup.locator(".custom-order-supplier-group-head strong").textContent(), maliciousSupplierRaw, "snapshot supplier text must be preserved literally in the heading");
   assert.equal(await escapedSupplierGroup.locator(".custom-order-supplier-group-head strong *").count(), 0, "raw supplier markup must not create elements in a group heading");
   assert.equal(await page.evaluate(() => window.__supplierRawExecuted), undefined, "raw supplier text must never execute an event handler");
+  assert.equal(await ordererLabel("op-missing").textContent(), "주문자 새로고침현재주문자", "refresh must re-read the current orders value");
+  assert.equal(await page.locator('[data-operation-id="op-missing"] .workflow-row-badge.danger').count(), 1, "current orderer lookup must preserve the missing-source warning");
+  assert.equal(await ordererLookupCount(), 2);
 
   for (const tab of ["dashboard", "picking", "shortage", "inspection", "cs", "completed", "custom-orders"]) {
     await page.click(`[data-app-tab="${tab}"]`);
     assert.equal(await page.locator(`[data-app-tab="${tab}"]`).evaluate((node) => node.classList.contains("active")), true);
   }
+  assert.equal(await ordererLookupCount(), 2, "re-entering the loaded custom tab must reuse the current map");
+  await page.click('[data-app-tab="picking"]');
+  await page.click('#filter-bar [data-filter="todo"]');
+  await page.fill("#search-input", "");
+  const newRegistration = page.locator(`.picking-item-card[data-order-group="O-OR"][data-item-no="${orBadgeFixtureItems[0].raw.item_no}"]`);
+  await newRegistration.locator('[data-action="custom-order-toggle"]').check();
+  await page.waitForFunction(() => window.__tables.order_item_operations.some((row) => row.ord_no === "O-OR" && row.custom_required_at));
+  const newOperationId = await page.evaluate(() => window.__tables.order_item_operations.find((row) => row.ord_no === "O-OR").operation_id);
+  await page.click('[data-app-tab="custom-orders"]');
+  await page.selectOption("#custom-orders-status", "active");
+  assert.equal(await ordererLabel(newOperationId).textContent(), "주문자 탭조회후등록주문자", "new picking registration must seed the loaded workspace's transient name map");
+  assert.equal(await ordererLookupCount(), 2, "new picking registration must reuse its current invoice name without another lookup");
+  await page.evaluate(() => { window.__tables.orders.find((row) => row.ord_no === "O-OR").orderer = "   "; });
+  await page.click("#custom-orders-refresh");
+  await page.waitForFunction((operationId) => document.querySelector(`[data-operation-id="${operationId}"] .custom-order-orderer`)?.textContent === "주문자 미확인", newOperationId);
+  await page.click('[data-app-tab="picking"]');
+  await newRegistration.locator('[data-action="custom-order-toggle"]').uncheck();
+  await page.waitForFunction((operationId) => window.__tables.order_item_operations.find((row) => row.operation_id === operationId)?.custom_required_at === null, newOperationId);
+  await newRegistration.locator('[data-action="custom-order-toggle"]').check();
+  await page.waitForFunction((operationId) => Boolean(window.__tables.order_item_operations.find((row) => row.operation_id === operationId)?.custom_required_at), newOperationId);
+  await page.click('[data-app-tab="custom-orders"]');
+  assert.equal(await ordererLabel(newOperationId).textContent(), "주문자 미확인", "a refreshed blank name must not be overwritten by the older picking invoice name");
+  assert.equal(await ordererLookupCount(), 3, "safe toggles must preserve the refreshed name map without another request");
+  assert.equal(await page.evaluate(() => window.__tables.order_item_operations.some((row) => Object.keys(row).some((key) => /orderer|buyer/i.test(key)))), false, "workflow writes must never persist buyer names in operations");
+  await page.evaluate(() => window.sessionStorage.removeItem("system-v3-picking-session-v1"));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#picking-login-form");
+  await page.locator('[name="username"]').fill("demo");
+  await page.locator('[name="password"]').fill("fixture-only");
+  await page.locator('#picking-login-form [type="submit"]').click();
+  await page.waitForSelector('[data-app-tab="custom-orders"]');
+  await page.click('[data-app-tab="custom-orders"]');
+  await page.waitForSelector('[data-operation-id="op-before"] .custom-order-orderer');
+  assert.equal(await ordererLabel("op-before").textContent(), "주문자 김주문", "a fresh document must restore names from the independent current orders lookup");
+  assert.equal(await ordererLookupCount(), 1, "a reloaded document must load its orderer map once");
   assert.deepEqual(pageErrors, []);
   assert.equal(supabaseNetworkAttempts.api, 0, "the browser test must never attempt production Supabase API requests");
   assert.equal(

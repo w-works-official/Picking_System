@@ -574,6 +574,24 @@
   border-bottom: 1px solid #e5edf7;
 }
 
+.custom-order-slip-management-labels {
+  display: flex;
+  flex: 1 1 8rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: .375rem .625rem;
+}
+
+.custom-order-orderer {
+  min-width: 0;
+  max-width: 100%;
+  color: #64748b;
+  font-size: .75rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .custom-order-slip-card .custom-order-row-workflow,
 .custom-order-slip-card .custom-order-row-side {
   padding: .625rem .875rem;

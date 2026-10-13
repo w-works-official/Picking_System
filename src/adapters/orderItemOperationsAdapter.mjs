@@ -339,6 +339,21 @@ export function createOrderItemOperationsAdapter(db) {
     return rows;
   }
 
+  async function loadCurrentOrderersForOperations(operations = []) {
+    const ordNos = [...new Set(operations.map((operation) => orderItemIdentity(operation).ordNo).filter(Boolean))];
+    const rows = [];
+    const batchSize = 200;
+    for (let offset = 0; offset < ordNos.length; offset += batchSize) {
+      const { data, error } = await db
+        .from("orders")
+        .select("ord_no,orderer")
+        .in("ord_no", ordNos.slice(offset, offset + batchSize));
+      if (error) throw error;
+      rows.push(...(data || []));
+    }
+    return rows;
+  }
+
   async function loadCustomOrderWorkspace() {
     const [customOperations, inboundOperations, legacyInboundItems] = await Promise.all([
       loadCustomOrderOperations(),
@@ -349,7 +364,10 @@ export function createOrderItemOperationsAdapter(db) {
       [...customOperations, ...inboundOperations]
         .map((operation) => [text(operation.operation_id), operation]),
     ).values()];
-    const operationItems = await loadCurrentItemsForOperations(operations);
+    const [operationItems, orderers] = await Promise.all([
+      loadCurrentItemsForOperations(operations),
+      loadCurrentOrderersForOperations(customOperations),
+    ]);
     const currentItems = [...new Map(
       [...operationItems, ...legacyInboundItems]
         .map((item) => {
@@ -357,7 +375,7 @@ export function createOrderItemOperationsAdapter(db) {
           return [`${identity.ordNo}::${identity.sellpiaOrderItemNo || identity.itemNo}`, item];
         }),
     ).values()];
-    return { operations, currentItems };
+    return { operations, currentItems, orderers };
   }
 
   async function getOperationForCurrentOrderItem(currentItem, { operations } = {}) {
@@ -427,6 +445,7 @@ export function createOrderItemOperationsAdapter(db) {
     loadInboundExpectedOperations,
     loadLegacyInboundExpectedItems,
     loadCurrentItemsForOperations,
+    loadCurrentOrderersForOperations,
     loadCustomOrderWorkspace,
     getOperationForCurrentOrderItem,
     upsertOperationForCurrentOrderItem,

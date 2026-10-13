@@ -66,6 +66,7 @@ assert.match(customOrderRenderer, /class="custom-order-slip-facts"/);
 assert.match(customOrderRenderer, /class="custom-order-slip-quantity(?:\s|")/);
 assert.match(customOrderRenderer, /class="custom-order-slip-management"/);
 assert.match(customOrderRenderer, /class="custom-order-slip-management-heading"/);
+assert.match(customOrderRenderer, /class="custom-order-orderer">주문자 \$\{escapeHtml\(orderer \|\| "미확인"\)\}/, "orderer text must be escaped and show an explicit unavailable value");
 const primarySlipSource = customOrderRenderer.slice(
   customOrderRenderer.indexOf('<div class="custom-order-row-primary '),
   customOrderRenderer.indexOf('<div class="custom-order-slip-management">'),
@@ -75,6 +76,10 @@ assert.match(primarySlipSource, /custom-order-supplier/);
 assert.match(primarySlipSource, /custom-order-slip-facts/);
 assert.match(primarySlipSource, /custom-order-slip-quantity/);
 assert.doesNotMatch(primarySlipSource, /custom-order-status|workflow-row-badge|custom-order-slip-source|data-custom-order-field|data-custom-order-action/, "the left capture area must contain only supplier order-slip content");
+assert.doesNotMatch(primarySlipSource, /custom-order-orderer|orderer|buyerName/, "buyer names must stay outside the supplier capture area");
+assert.match(app, /workspace\.orderers\.map/, "the custom-order name map must come from its independent workspace lookup");
+assert.match(app, /state\.customOrders\.loaded && !state\.customOrders\.orderersByOrderNo\.has\(savedOrderNo\)/, "picking registration must preserve authoritative workspace names, including blank ones");
+assert.match(app, /state\.customOrders\.orderersByOrderNo\.set\(savedOrderNo/, "picking registration must seed the transient name map for an already loaded workspace");
 assert.match(customOrderRenderer, /옵션/);
 assert.match(customOrderRenderer, /바길이/);
 assert.match(customOrderRenderer, /업체상품코드/);
@@ -123,6 +128,10 @@ assert.match(slipFactsCss, /grid-template-columns:\s*(?:minmax\([^)]*\)\s*){4};/
 const slipFactValueCss = css.match(/\.custom-order-slip-facts dd\s*\{([^}]*)\}/)?.[1];
 assert.match(slipFactValueCss, /font-size:\s*1\.75rem\s*;/, "the production facts must be enlarged for capture and reading");
 assert.match(css, /\.custom-order-slip-management/);
+const ordererCss = css.match(/\.custom-order-orderer\s*\{([^}]*)\}/)?.[1];
+assert.match(ordererCss, /font-size:\s*\.75rem\s*;/, "names must stay small on the management side");
+assert.match(ordererCss, /overflow-wrap:\s*anywhere\s*;/, "long names must wrap in full");
+assert.doesNotMatch(ordererCss, /ellipsis|overflow:\s*(?:hidden|clip)/, "names must not be shortened or hidden");
 assert.match(css, /\.custom-order-supplier-group\s*\{/, "supplier sections must have scoped layout rules");
 assert.match(css, /\.custom-order-supplier-group-head\s*\{/, "compact supplier headers must be styled independently of workflow cards");
 assert.match(css, /\.custom-order-supplier-group-items\s*\{/, "grouped cards must retain a dedicated layout container");

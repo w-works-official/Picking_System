@@ -70,8 +70,12 @@
 
   const tables = {
     orders: [
-      { ord_no: "LOCAL-PICK-1", receipt_date: receiptDate, sort_order: 1, receiver: "로컬테스트", seller: "스마트스토어" },
-      { ord_no: "LOCAL-PICK-2", receipt_date: receiptDate, sort_order: 2, receiver: "형제행테스트", seller: "에이블리", sellpia_order_total_amount: 13070 },
+      { ord_no: "LOCAL-PICK-1", receipt_date: receiptDate, sort_order: 1, receiver: "로컬테스트", orderer: "새등록 주문자", seller: "스마트스토어" },
+      { ord_no: "LOCAL-PICK-2", receipt_date: receiptDate, sort_order: 2, receiver: "형제행테스트", orderer: "형제상품 주문자", seller: "에이블리", sellpia_order_total_amount: 13070 },
+      { ord_no: "LOCAL-O1", receipt_date: "2026-09-28", orderer: "주문제작 주문자 가" },
+      { ord_no: "LOCAL-O2", receipt_date: "2026-09-28", orderer: "주문제작 주문자 나" },
+      { ord_no: "LOCAL-O3", receipt_date: "2026-09-28", orderer: "이름이 긴 주문자도 관리 영역에서 전체 확인" },
+      { ord_no: "LOCAL-MISSING", receipt_date: "2026-09-28", orderer: "원천 상품행 없는 주문자" },
     ],
     order_items: [
       { ord_no: "LOCAL-PICK-1", sellpia_order_item_no: "LOCAL-R1", item_no: "1_LOCAL-R1", sort_order: 1, p_code: "LOCAL-SKU-1", p_dpcode: "GPA-3-191", p_name: "피킹에서 주문제작 체크할 상품", p_option: "골드/6mm바[GPA-3-191],바길이 변경(주문제작/취소불가):4mm바", p_location: "A-1", qty: 2, sellpia_supplier_cell_raw: "3-오르 [40]" },

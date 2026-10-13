@@ -219,12 +219,16 @@ assert.equal(memoryDb.rows.length, 1);
 const workflowUpdated = await adapter.updateOperation(updated.operation_id, {
   custom_ordered_on: "2026-10-01",
   internal_memo: "업체 주문 완료",
+  orderer: "must not be persisted",
+  orderer_snapshot: "must not be snapshotted",
   arbitrary_field_raw_snapshot: "injected workflow snapshot",
 });
 assert.equal(workflowUpdated.custom_ordered_on, "2026-10-01");
 assert.equal(workflowUpdated.internal_memo, "업체 주문 완료");
 assert.equal(workflowUpdated.product_name_snapshot, "상품 1", "workflow updates must preserve creation snapshots");
 assert.equal(workflowUpdated.arbitrary_field_raw_snapshot, created.arbitrary_field_raw_snapshot);
+assert.equal(Object.hasOwn(workflowUpdated, "orderer"), false);
+assert.equal(Object.hasOwn(workflowUpdated, "orderer_snapshot"), false);
 const reloadedOperations = await adapter.loadAllOperations();
 const reloadedMatch = findOperationForCurrentItem(current, reloadedOperations);
 assert.equal(reloadedMatch.status, "matched");
@@ -256,5 +260,57 @@ delete operationWithoutSnapshotField.arbitrary_field_raw_snapshot;
 const legacySnapshotAdapter = createOrderItemOperationsAdapter(createMemoryDb([operationWithoutSnapshotField]));
 const legacySnapshotUpdate = await legacySnapshotAdapter.upsertOperationForCurrentOrderItem(current, { internal_memo: "legacy ordinary edit" });
 assert.equal(Object.hasOwn(legacySnapshotUpdate, "arbitrary_field_raw_snapshot"), false, "ordinary updates must not require or implicitly backfill an absent raw snapshot field");
+
+const ordererRows = Array.from({ length: 201 }, (_, index) => ({
+  ord_no: `BUYER-${index}`,
+  orderer: `주문자 ${index}`,
+  receipt_date: "2026-01-01",
+  receiver: "not selected",
+  orderer_mobile: "not selected",
+}));
+const ordererCalls = [];
+const ordererDb = {
+  from(table) {
+    assert.equal(table, "orders");
+    const call = { table, columns: "", filters: [] };
+    ordererCalls.push(call);
+    const query = {
+      select(columns) { call.columns = columns; return query; },
+      in(column, values) { call.filters.push([column, values]); return query; },
+      then(resolve) {
+        assert.equal(call.columns, "ord_no,orderer", "lookup must read only the order number and current orderer");
+        assert.equal(call.filters.length, 1, "lookup must not depend on picking dates or sessions");
+        assert.equal(call.filters[0][0], "ord_no");
+        resolve({
+          data: ordererRows.filter((row) => call.filters[0][1].includes(row.ord_no))
+            .map(({ ord_no, orderer }) => ({ ord_no, orderer })),
+          error: null,
+        });
+      },
+    };
+    return query;
+  },
+};
+const ordererAdapter = createOrderItemOperationsAdapter(ordererDb);
+assert.deepEqual(await ordererAdapter.loadCurrentOrderersForOperations([]), []);
+assert.deepEqual(await ordererAdapter.loadCurrentOrderersForOperations([{ ord_no: " " }, {}]), []);
+assert.equal(ordererCalls.length, 0, "empty identities must not query orders");
+const requestedOperations = ordererRows.map(({ ord_no }) => ({ ord_no }));
+const loadedOrderers = await ordererAdapter.loadCurrentOrderersForOperations([
+  ...requestedOperations, { ord_no: " BUYER-0 " }, { ord_no: "BUYER-200" }, { ord_no: "" },
+]);
+assert.equal(loadedOrderers.length, 201);
+assert.deepEqual(ordererCalls.map((call) => call.filters[0][1].length), [200, 1], "201 unique orders must use two batches instead of per-card requests");
+assert.deepEqual(ordererCalls.flatMap((call) => call.filters[0][1]), requestedOperations.map(({ ord_no }) => ord_no));
+assert.deepEqual(Object.keys(loadedOrderers[0]), ["ord_no", "orderer"]);
+ordererRows[0].orderer = "현재 주문자";
+assert.deepEqual(await ordererAdapter.loadCurrentOrderersForOperations([{ ord_no: "BUYER-0" }]), [
+  { ord_no: "BUYER-0", orderer: "현재 주문자" },
+], "a reload must use the current orders value rather than an operation snapshot");
+const errorAdapter = createOrderItemOperationsAdapter({
+  from() { return { select() { return this; }, in() { return Promise.resolve({ data: null, error: new Error("orderer lookup failed") }); } }; },
+});
+await assert.rejects(errorAdapter.loadCurrentOrderersForOperations([{ ord_no: "BUYER-0" }]), /orderer lookup failed/);
+assert.equal(Object.hasOwn(snapshotFromCurrentOrderItem({ ...current, orderer: "private name", buyerName: "private name" }), "orderer_snapshot"), false);
 
 console.log("orderItemOperationsAdapter.mock.test: OK");

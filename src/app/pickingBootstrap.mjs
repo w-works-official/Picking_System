@@ -31,7 +31,7 @@ function lock() {
 async function unlock() {
   expiryTimer = setTimeout(() => { auth.clear(); lock(); }, Math.max(0, Date.parse(auth.expiresAt) - Date.now()));
   if (form.dataset.reload) { location.reload(); return; }
-  await import("./pickingApp.mjs?v=20261012-or-badge1");
+  await import("./pickingApp.mjs?v=20261013-custom-orderer1");
   started = true;
   gate.hidden = true;
   app.hidden = false;

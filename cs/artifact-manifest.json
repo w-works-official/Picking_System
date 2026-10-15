@@ -1,15 +1,15 @@
 {
   "formatVersion": 2,
-  "buildId": "2026-10-15T05-13-25-382Z",
-  "createdAt": "2026-10-15T05:13:25.811Z",
+  "buildId": "2026-10-15T05-50-22-177Z",
+  "createdAt": "2026-10-15T05:50:22.785Z",
   "mode": "synthetic-inquiries-reviewed-sheet-text",
   "sourceCommit": "af68b9c4fb50c1552f33c2acae2bfcc233b1bfef",
   "sourceWorkingTreeDirty": true,
-  "inputSnapshotSha256": "5af9dcf64971700fbb7199d1fd4f5d20130cfb1efefd418163dcd2f7b11c938e",
+  "inputSnapshotSha256": "e9b76605de173cd3c6f01bdb8c484f797847fef9750acf556cd100f7d26df8fb",
   "inputFiles": [
     {
       "path": "company-pages/CsWorkspace.tsx",
-      "sha256": "3696536d2f428d3edc764ba7d784a960f50f3e725a560ed717c9d56f846d1958"
+      "sha256": "f512a92836146f3a37609a37e87bc0b0c07a825e3500858b918c047ec6194800"
     },
     {
       "path": "company-pages/company.css",
@@ -37,7 +37,7 @@
     },
     {
       "path": "company-pages/picking-theme.css",
-      "sha256": "0cc77329bb64f7e26e1cc03ef3b7040526cdc114f131cd806c544b8a6c21feaa"
+      "sha256": "5ff5765c0acb3bff938b4884acd22955589b85ae3090bf4ce3e95cc47e2ea714"
     },
     {
       "path": "company-pages/public/captures/README.txt",
@@ -85,7 +85,7 @@
     },
     {
       "path": "company-pages/sample-data-source.ts",
-      "sha256": "28f102ed28d11e6b9208aabc0ef12995c1b115ccf76da78e19fedf08260d648b"
+      "sha256": "48d060681c7f8cd3bdca8e026dc8c588a71dc51830a0df7b92bda6079bf9b0a6"
     },
     {
       "path": "company-pages/scripts/build.mjs",
@@ -148,14 +148,14 @@
   },
   "files": [
     {
-      "path": "assets/index-B81SrzMi.css",
-      "bytes": 66948,
-      "sha256": "6ca47c28663e05dd9815976dfa4f9244066a8236ac5ff36d961e4000c643985f"
+      "path": "assets/index-D7GD4Y4P.css",
+      "bytes": 71467,
+      "sha256": "20cd58c17bea37d4ad011155eded7be0b3a1dc0f61eb08d4108b62ce0dc7d9dc"
     },
     {
-      "path": "assets/index-RSBzC8q5.js",
-      "bytes": 255776,
-      "sha256": "e6fd8f998b769a04255d7c1aeec15f531687993a38d6759ec62a6e3bf8b4487f"
+      "path": "assets/index-DSrM0I8z.js",
+      "bytes": 256348,
+      "sha256": "e224dcfaaec371aaef285c72f6e484eae1953ab6c1f08368216a7714c219550e"
     },
     {
       "path": "captures/README.txt",
@@ -215,7 +215,7 @@
     {
       "path": "index.html",
       "bytes": 665,
-      "sha256": "2924334de514c502ec401bd24e69b72333200522e6f35be8d0be60426614569d"
+      "sha256": "d8ae3fc16697151c6c2089763a5008053862c80b312aec6eaa09f7ad0f83dc5f"
     }
   ]
 }

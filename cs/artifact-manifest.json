@@ -1,15 +1,15 @@
 {
   "formatVersion": 2,
-  "buildId": "2026-10-15T05-50-22-177Z",
-  "createdAt": "2026-10-15T05:50:22.785Z",
+  "buildId": "2026-10-15T05-56-59-720Z",
+  "createdAt": "2026-10-15T05:57:00.364Z",
   "mode": "synthetic-inquiries-reviewed-sheet-text",
   "sourceCommit": "af68b9c4fb50c1552f33c2acae2bfcc233b1bfef",
   "sourceWorkingTreeDirty": true,
-  "inputSnapshotSha256": "e9b76605de173cd3c6f01bdb8c484f797847fef9750acf556cd100f7d26df8fb",
+  "inputSnapshotSha256": "f17f67dbccdeced41c0eacc653322edad00e2e0d4b039e8a3b2cd66e2a3bf877",
   "inputFiles": [
     {
       "path": "company-pages/CsWorkspace.tsx",
-      "sha256": "f512a92836146f3a37609a37e87bc0b0c07a825e3500858b918c047ec6194800"
+      "sha256": "8393084baa8d7eddf105401ce98dcbbaa71e29e19995b4a4e71fe5fe7d0a26a5"
     },
     {
       "path": "company-pages/company.css",
@@ -37,7 +37,7 @@
     },
     {
       "path": "company-pages/picking-theme.css",
-      "sha256": "5ff5765c0acb3bff938b4884acd22955589b85ae3090bf4ce3e95cc47e2ea714"
+      "sha256": "360f519d1118ac736ca13c05f6244db7683ba4feac7c2a4d0615ba2520ae8ff8"
     },
     {
       "path": "company-pages/public/captures/README.txt",
@@ -148,14 +148,14 @@
   },
   "files": [
     {
-      "path": "assets/index-D7GD4Y4P.css",
-      "bytes": 71467,
-      "sha256": "20cd58c17bea37d4ad011155eded7be0b3a1dc0f61eb08d4108b62ce0dc7d9dc"
+      "path": "assets/index-TdbZWzbo.js",
+      "bytes": 256413,
+      "sha256": "35cc2eb60fd57ac14a27980eeca22446443c87a2942adfd92ebb8534be735cd3"
     },
     {
-      "path": "assets/index-DSrM0I8z.js",
-      "bytes": 256348,
-      "sha256": "e224dcfaaec371aaef285c72f6e484eae1953ab6c1f08368216a7714c219550e"
+      "path": "assets/index-wmp_m_en.css",
+      "bytes": 71878,
+      "sha256": "9ae97e82e26af491cb253d9a2fa713c8e5acd0abe7f3f1dc06f2d974b8eb1df5"
     },
     {
       "path": "captures/README.txt",
@@ -215,7 +215,7 @@
     {
       "path": "index.html",
       "bytes": 665,
-      "sha256": "d8ae3fc16697151c6c2089763a5008053862c80b312aec6eaa09f7ad0f83dc5f"
+      "sha256": "2c9a3d3a8a5d6df35a3c41b1520fa1e5d78572e949207ea0189c967c97a16780"
     }
   ]
 }

@@ -1,20 +1,75 @@
-# Pink Rocket CS 프론트엔드 통합 — 로컬 검증 완료
+# Pink Rocket CS — 프론트엔드 / 매크로 연동 인계
 
-## 구현 범위
+갱신: 2026-10-15. 회사 Picking_System의 독립 CS 페이지를 이어받는 개발자 및 Claude용 문서입니다.
 
-기존 피킹 헤더에 `피킹시스템 / CS 관리` 메뉴를 추가하고, AI_CS에서 만든 독립 React 정적 빌드를 `cs/`에 포함했습니다. 기존 물류 CS 탭은 그대로이며, 두 화면은 별도 HTML 문서로 실행됩니다.
+## 먼저 알아둘 현재 상태
 
-기존 추적 파일 수정은 `index.html`의 메뉴·참조 6줄과 `scripts/build-pages.mjs`의 `cs` 배포 포함 항목입니다. 새 `src/app/workspaceNavigation.mjs`와 `src/styles/workspaceNavigation.css`가 이동 링크와 메뉴 스타일을 담당합니다. 피킹 업무·로그인·바코드·DB 로직 파일은 수정하지 않았습니다.
+- 운영 피킹: https://w-works-official.github.io/Picking_System/
+- 신규 CS: https://w-works-official.github.io/Picking_System/cs/
+- CS는 별도 React 정적 앱입니다. 기존 피킹과 페이지 이동으로 연결하며 같은 DOM에서 실행하지 않습니다.
+- 문의 9건·캡처 9장은 합성이고, 문구 28개는 공개 검토한 Google Sheets 원문입니다.
+- 분류는 화면 메모리에만 적용되며 새로고침 시 초기화됩니다. AI가 분류하거나 답변을 생성한 결과가 아닙니다.
+- 회사 Pages 정적 배포까지 구현했습니다. **실제 수집·NAS/로컬 조회·영구 저장·CS 직원 인증·자동 답변 전송은 연결되지 않았습니다.**
+- 다음 단계는 대표님 측 수집 매크로 개발과 실제 데이터 연결입니다. 매크로의 저장 형식·API·NAS 경로는 이 프론트 작업에서 확정하지 않았습니다.
 
-모바일은 기존 피킹의 넓은 업무 영역과 가로 탐색을 유지했습니다. 새 메뉴가 화면 밖으로 나가지 않도록 모바일 헤더 폭만 제한했습니다. 새 메뉴 안에서는 전역 업무 단축키로 인한 오동작을 막고 기본 Tab·Enter 링크 이동을 사용합니다.
+## 화면 사용
 
-URL에서는 현재 존재하는 `write`, `events`, `reorder`의 `0/1`만 왕복 전달합니다. 중복·잘못된 값은 `0`, 누락된 값은 누락 상태를 유지합니다. 토큰·임의 return URL·나머지 query/hash는 전달하지 않습니다. 인증 권한 판정은 기존 피킹 코드에 남겨두었습니다.
+문의 선택 → 원본 캡처 확인 → 대분류 태그 또는 키워드 검색 → 문구 선택 → 전문·적용 조건 확인 → 복사.
 
-## 데이터와 Google Sheets
+대분류는 단일 선택 태그이며 선택된 태그를 다시 누르면 전체로 돌아갑니다. 검색과 태그를 동시에 적용하고 태그 변경 시 결과 첫 페이지로 이동합니다. 문구를 선택하면 분류 입력이 채워지지만 검색 필터는 임의로 바뀌지 않습니다.
 
-원본 `CS 안내문구 정리본_260827`의 네 탭 전체 범위를 읽기 전용으로 확인했습니다. 시트는 수정하지 않았습니다.
+후보는 4개씩 탐색합니다. 선택 후 전문을 바로 표시하고 `다른 문구 찾기`로 후보를 다시 엽니다. 복사 버튼은 우측 하단에 유지합니다. 분류·메모는 접기/펼치기로 수정하며 `변경사항 있음`은 아직 임시 적용하지 않은 입력입니다.
 
-| 탭 | C열 답변 후보 | 공개 반영 | 제외 |
+원본 캡처는 원본 너비를 넘겨 확대하지 않습니다. 긴 캡처의 상단 도구는 스크롤 중에도 유지되며 확대 화면에서 원본 크기 보기와 다중 이미지 탐색을 지원합니다.
+
+## 소스 위치와 버전 — 회사 저장소만으로 UI를 다시 빌드할 수는 없음
+
+| 위치 | 역할 |
+| --- | --- |
+| 이 저장소 `cs/` | 빌드된 HTML·CSS·JS·합성 이미지·manifest. Pages 배포 대상 |
+| 이 저장소 `src/app/workspaceNavigation.mjs`, `src/styles/workspaceNavigation.css` | 피킹 상단 업무 메뉴. 기존 피킹 업무 로직과 분리 |
+| 이 저장소 `tests/helpers/csIntegrationPreviewServer.mjs` | 운영 API를 사용하지 않는 합성 미리보기 |
+| 별도 AI_CS `company-pages/` | 편집할 React 소스·어댑터·문구 스냅샷·CS 전용 스타일·빌드·테스트 |
+| 별도 AI_CS `app/globals.css`, `app/review-workspace.css` | 재사용하는 기존 UI 스타일 |
+| 별도 AI_CS `app/page.tsx` | 회사 런타임에는 미포함. 빌드 입력 manifest 생성 시 읽는 기존 소스 |
+
+원본 작업 위치:
+
+```text
+C:/Users/hihi0/Documents/Codex/2026-08-12/cs/work/AI_CS
+```
+
+관련 저장소: https://github.com/w-works-official/AI_CS
+
+최신 `company-pages/`는 위 PC의 미커밋 작업본에 있습니다. 원격 AI_CS의 HEAD만으로 최신 UI가 복원된다고 가정하지 마세요. 다른 PC에서는 담당자로부터 현재 소스와 필요한 공유 CSS·설정·잠금 파일을 함께 전달받아야 합니다. 인증정보·브라우저 프로필·실제 고객 산출물·비공개 전체 시트는 전달 패키지나 공개 저장소에 섞지 않습니다.
+
+안전한 인계 대상은 현재 AI_CS 소스 작업본 또는 검증된 소스 패키지입니다. `company-pages/` 외에 root package/lock·TypeScript/ESLint 설정과 공유 CSS가 필요합니다. `company-pages/vite.config.ts`가 실제 회사용 빌드 설정이며, `scripts/build.mjs`는 입력 manifest 생성을 위해 `app/page.tsx`도 읽습니다. 이 파일은 회사 런타임에서 import하지 않습니다. 루트 typecheck는 기존 앱 전체도 검사하므로 필요한 기존 소스 의존성이 누락된 일부 폴더만으로 전체 검사까지 재현된다고 가정하지 마세요.
+
+정확한 소스 입력 목록과 체크섬은 `cs/artifact-manifest.json`의 `inputFiles`, `inputSnapshotSha256`을 확인합니다. `sourceCommit`은 기존 AI_CS HEAD이고, 미커밋 회사용 소스의 버전은 입력 체크섬으로 별도 식별합니다. 빌드된 압축 JS를 직접 수정하는 대신 원본을 수정하고 다시 빌드합니다.
+
+## 실제 데이터 연결 지점
+
+AI_CS 원본에서 다음 파일을 확인합니다.
+
+| 파일 | 작업 지점 |
+| --- | --- |
+| `company-pages/main.tsx` | `CsWorkspace`에 데이터 소스를 주입하는 진입점 |
+| `company-pages/model.ts` | 화면 내부의 Inquiry, Capture, Classification, CsTemplate, CsDataSource 타입 |
+| `company-pages/sample-data-source.ts` | 합성 데이터 조회 구현. 실제 저장 방식이 정해지면 대체 어댑터 작성 |
+| `company-pages/CsWorkspace.tsx` | 목록·캡처·분류·검색·복사 UI. 현재 임시 적용은 메모리 상태만 변경 |
+| `company-pages/picking-theme.css`, `company-pages/company.css` | CS 전용 디자인·배치. 피킹 원본 CSS를 수정하지 않음 |
+
+현재 연결 흐름은 `main.tsx` → `sampleDataSource.load()` → `{ inquiries, templates }` → UI입니다. `model.ts`는 프론트 내부 표현이며 매크로 측이 이 구조 그대로 저장해야 한다는 계약이 아닙니다. 실제 형식이 정해지면 어댑터에서 변환합니다.
+
+`CsDataSource`에는 현재 읽기용 `load()`만 있습니다. 영구 저장 API나 `save()`가 이미 있다고 가정하지 마세요. 분류 영구 저장은 실제 저장 방식·권한이 결정된 후 별도로 구현해야 합니다.
+
+실제 캡처를 연결할 때는 브라우저가 접근할 수 있는 인증된 주소나 데이터 전달 방법을 검증합니다. `C:/...` 및 NAS의 UNC 경로를 그대로 `<img src>`에 넣는 방식으로는 회사 Pages에서 조회할 수 없습니다. 공개 파일 URL로 개인정보를 노출하지 마세요. 공개 정적 페이지의 로그인 UI 자체는 파일 접근 제어가 아닙니다.
+
+## 템플릿 출처와 정책 경계
+
+원본: [CS 안내문구 정리본_260827](https://docs.google.com/spreadsheets/d/1-nZHkT5whlMSwYPBqUZL4WeoAIqEpr55Ql0g7_25F48/edit)
+
+| 시트 | 답변 후보 | 정적 반영 | 제외 |
 | --- | ---: | ---: | ---: |
 | 제품문의 | 17 | 11 | 6 |
 | 주문문의 | 26 | 12 | 14 |
@@ -22,77 +77,54 @@ URL에서는 현재 존재하는 `write`, `events`, `reorder`의 `0/1`만 왕복
 | 기타 | 7 | 1 | 6 |
 | 합계 | 60 | 28 | 32 |
 
-60개 중 59개는 분류 가능하며 기타 C10은 빈 행 뒤 유형·세부가 없는 고립 문구라 분류하지 않았습니다. 기타 B2 사용 가이드는 C열 답변 후보와 별도입니다.
+후보 60개 중 59개가 분류 가능하고 1개는 고립 문구입니다. 계좌정보·내부 규정·미확인 요금/기한/혜택·정책 충돌 문구 등의 원문은 공개 빌드에서 제외했습니다. 제외 원문을 현재 번들에서 찾거나 임의로 복구하지 마세요.
 
-고객 안내용으로 공개 범위를 검토한 원문 28개만 정적 번들에 포함합니다. 계좌정보가 포함된 주문문의 C10, 내부 정책, 상태표, 현재 적용 여부를 확인할 수 없는 수수료·기한·혜택 규정 등은 원문 전체를 제외했습니다. 부분 출고 기준이 다른 셀 사이에 충돌하며, 판매처별 취소 상태 및 교환·반품 조건도 임의 확정하지 않았습니다. 제외 목록은 본문 없이 셀 위치와 이유만 기록했습니다.
+원본의 줄바꿈·공백·오탈자와 동일 이름의 서로 다른 행을 보존합니다. 각 문구의 출처 셀과 본문 SHA가 있으며, 날짜 등 치환값과 적용 조건은 상담원이 확인해야 합니다. 공개 범위 검토는 주문 상태나 최신 정책을 승인했다는 의미가 아닙니다. 실시간 Sheets 동기화나 편집기는 없습니다.
 
-각 원문에는 source 셀·조회 시각·본문 SHA-256이 있습니다. 줄바꿈·공백·오탈자를 포함한 원문은 변경하지 않았습니다. 동일 유형·세부라도 다른 원문인 주문문의 C26/C27은 별도 항목이며 화면에 셀 번호를 표시합니다. 공개 범위 검토는 회사 정책의 최신성 승인이나 실제 주문의 처리 승인을 의미하지 않습니다.
+원본 파일: AI_CS의 `company-pages/templates/public-templates.json`, 본문 없는 제외 사유: `review-summary.json`.
 
-문의 9건과 캡처 9장은 합성입니다. 실제 문의·고객정보·주문번호·상담 이미지는 포함하지 않았습니다. 합성 문의와 실제 문구의 연결은 예시이며 AI 추천 결과가 아닙니다. 분류 적용은 화면 메모리만 변경하고 새로고침하면 초기화됩니다.
+## 빌드·검증·반영
 
-AI_CS의 `company-pages/templates/public-templates.json`은 공개 원문, `review-summary.json`은 본문 없는 파싱·제외 기록입니다. 내부 정보를 포함한 전체 원본은 저장소 밖 비공개 백업에만 있습니다.
+현재 개발 PC에서는 기존 AI_CS 의존성을 사용합니다. 다른 PC에서는 전달받은 package/lock에 맞춰 의존성을 설치한 뒤 아래를 실행합니다. 기존 미커밋 소스를 덮어쓰거나 `git reset/clean/pull`로 정리하지 마세요.
 
-## 빌드와 버전
+이번 CS 검증 환경은 Node.js `v24.15.0`입니다. CS 브라우저 테스트는 TypeScript 소스를 직접 import하므로 다른 PC에서도 검증한 런타임과 호환되는 환경을 사용하세요. 패키지 관리자는 전달받은 잠금 파일(`pnpm-lock.yaml`)에 맞추고, 브라우저 테스트 전에 `npx playwright install chromium`을 실행합니다. 회사 피킹의 Node 22 이상 조건만으로 별도 CS 원본의 모든 테스트 환경이 준비됐다고 가정하지 않습니다.
 
-- Picking 시작 HEAD: `a7924dc70f2e92ffba5f153cf4208c18a670a32a` — 시작 시 원격 main과 일치.
-- 작업 브랜치: `codex/cs-static-integration-20261015`.
-- AI_CS 기준 HEAD: `af68b9c4fb50c1552f33c2acae2bfcc233b1bfef` — 기존 dirty 작업과 7개 로컬 커밋 보존.
-- CS build: `2026-10-15T05-13-25-382Z`.
-- 입력 소스 SHA-256: `5af9dcf64971700fbb7199d1fd4f5d20130cfb1efefd418163dcd2f7b11c938e`.
-- CS manifest SHA-256: `e8a9b32ed209beeccdf61e703b8b9a65e05937bf35f69fd661cf460fcf2f9958`.
-- 산출물: `cs/`의 정적 파일 15개. 소스 버전은 HEAD와 별도로 입력 체크섬으로 식별합니다.
-- asset base: `./`; 예정 회사 진입 경로: `/Picking_System/cs/`.
-
-`cs/artifact-manifest.json`에 파일별 체크섬이 있으며 `docs/cs-build-info.json`에는 회사 소스·빌드 검증 정보가 있습니다. 기존 `_site`는 보존하고 별도 새 검증 폴더에서 `npm run build`를 실행했습니다. AI_CS 산출물·회사 `cs/`·최종 `_site/cs/`의 체크섬을 대조했습니다.
-
-## 검증
-
-| 항목 | 결과 |
-| --- | --- |
-| Picking `npm run check` | 33개 구문 및 경로·credential 검사 통과 |
-| Picking `npm test` | 73 통과 / 선택적 PGlite 1 skip / 실패 0 |
-| Picking `npm run test:browser` | 기존 합성 브라우저 회귀 통과 |
-| 회사 Pages `npm run build` | 새 검증 폴더에서 통과, cs 포함 |
-| CS typecheck / ESLint | 오류·경고 0 |
-| CS 소스·파서·비공개 원본 대조 | 11/11 통과 |
-| CS Chromium 흐름 | 17개 통과; 28개 원문·분류값·출처 전수 확인 포함 |
-| 통합 Chromium 흐름 | 7개 묶음 통과; 로그인·바코드·기존 CS·단축키·왕복·세션·모드·피킹/검품 |
-| 반응형 | 1440 / 1024 / 390px 확인 |
-| 외부 요청 / 업무 API 요청 / pageerror | 모두 0 |
-
-QA에서는 실제 기존 피킹 인증/UI 코드에 명시적인 합성 계정·더미 세션과 메모리 데이터만 연결했습니다. 운영 로그인 서버·운영 DB를 검증하거나 변경하지 않았습니다. CS 파일은 최종 `_site` 산출물 그대로 제공했습니다. 피킹 SDK·외부 자원·이미지는 미리보기 응답에서만 합성 자원으로 교체했습니다.
-
-QA 중 발견한 모바일 메뉴 이탈, 줄바꿈 제목 검색 실패, 줄바꿈 세부 option 값 불일치는 수정 후 재검증했습니다. 긴 캡처·다중 이미지·없음·의도적 404/재시도·확대·복사 성공/거절도 확인했습니다.
-
-## 로컬 미리보기
-
-- 최종 빌드 피킹: http://127.0.0.1:4189/Picking_System/?write=1&events=0
-- 최종 빌드 CS: http://127.0.0.1:4189/Picking_System/cs/
-- 로컬 전용 계정: `local-preview` / `fixture-only`.
-
-소스 미리보기 재실행:
+AI_CS 루트:
 
 ```powershell
+node node_modules/typescript/bin/tsc --noEmit --incremental false
+node node_modules/eslint/bin/eslint.js company-pages --ignore-pattern company-pages/public --max-warnings 0
+node --test company-pages/tests/source.contract.test.mjs company-pages/tests/templates.parser.test.mjs
+node company-pages/scripts/build.mjs
+node company-pages/tests/browser.test.mjs
+node company-pages/tests/usability.browser.test.mjs
+node company-pages/scripts/preview.mjs
+```
+
+빌드는 `output/company-pages-builds/<buildId>/cs/`에 새 디렉터리를 만듭니다. `latest-build.json`이 최신 경로를 가리키며 이전 빌드 출력은 덮어쓰지 않습니다. base는 `./`, 회사 마운트 경로는 `/Picking_System/cs/`입니다. 단독 미리보기 기본 포트는 4186이며 새 빌드 적용 시 서버를 재시작합니다.
+
+검증한 `cs/` 산출물을 회사 저장소의 `cs/`에 반영하고 manifest의 파일별 SHA를 대조합니다. 교체 전 기존 산출물과 수정 소스를 별도로 백업하세요. 이전 해시 asset을 정리할 때는 manifest에서 확인된 생성 파일만 대상으로 합니다.
+
+Picking_System 루트:
+
+```powershell
+npm run check
+npm test
+node tests/csIntegration.browser.test.mjs
+npm run test:browser
 node tests/helpers/csIntegrationPreviewServer.mjs
 ```
 
-기본 포트는 4188입니다. 최종 `_site` 폴더를 쓰려면 `CS_INTEGRATION_PREVIEW_ROOT`를 해당 절대 경로로, 포트를 4189로 지정합니다. 현재 최종 빌드 위치는 `outputs/reports/cs-final-build-location.json`에 있습니다.
+미리보기: `http://127.0.0.1:4188/Picking_System/cs/`. 피킹 복귀 검증용 합성 계정은 `local-preview` / `fixture-only`이며 운영 계정이 아닙니다. 운영 SDK/API/이미지는 응답 단계에서 로컬 fixture로 대체됩니다.
 
-```powershell
-$env:CS_INTEGRATION_TEST_URL='http://127.0.0.1:4189/Picking_System/'
-node tests/csIntegration.browser.test.mjs
-```
+`npm run build`는 `_site/`가 없는 새 작업 폴더/checkout에서 실행합니다. 기존 `_site/`가 있으면 보존을 위해 실패하도록 되어 있습니다. 배포는 main push → CI 성공 → Pages workflow 순서이며 DB 배포는 포함하지 않습니다. 운영 배포 권한은 그 작업을 요청한 사용자에게 확인된 범위로만 적용합니다.
 
-통합 결과·캡처: `outputs/ui-qa/phase2-cs/`. 원본 보존·파일 복사·격리 대조: `outputs/reports/cs-phase2-preservation-and-isolation.json`. 이 출력 폴더들은 Git에서 제외합니다.
+배포 후 Actions의 해당 커밋 CI/Pages 성공과 운영 `/cs/artifact-manifest.json`의 buildId/체크섬을 대조합니다. 기존 피킹 업무 파일의 diff가 생겼다면 CS 연동을 이유로 함께 반영하지 말고 원인을 확인합니다. 롤백은 이전 CS 산출물을 복원하고 재검증·재배포합니다. 이번 프론트 변경에는 DB 쓰기가 없습니다.
 
-## 향후 매크로 연동과 보존
+## 유지할 범위와 시작 프롬프트
 
-AI_CS `company-pages/main.tsx`의 `CsDataSource.load()` 주입과 `sample-data-source.ts`가 연결 경계입니다. 대표님의 실제 저장 형식에 맞는 변환 또는 조회 구현을 이곳에 연결합니다. 모델은 화면 내부 타입이며 NAS/API 계약을 확정한 것이 아닙니다. 분류 영구 저장·실제 이미지 인증 조회·실제 CS 직원 권한은 향후 실제 데이터 연결 단계의 범위입니다.
+기존 피킹 로그인·공유 세션·바코드·단축키·주문·검품·물류 CS·Supabase 정책을 보존하세요. 상품운영허브는 상품·매칭·이미지 원본의 소유 시스템이며 이번 CS 매크로를 위해 복제하지 않습니다. 자동 수집과 실제 답변 전송은 별개입니다. 실제 답변 전송 권한이 있다고 가정하지 마세요.
 
-2차 시작 백업에는 AI_CS 소스 171개와 Picking 소스 161개, Git bundle·변경 patch·checksum이 있습니다. AI_CS의 기존 회사용 폴더 외 파일과 Picking 업무·인증·DB 파일은 보존했습니다. 새 CS 파일은 별도 경로라 메뉴·빌드 포함 항목을 되돌리면 격리할 수 있으며, 복구 전 백업 체크섬과 비교합니다.
+다음 작업자에게 전달할 예시:
 
-이번에는 커밋·push·회사 Pages 배포·개인 Sites 배포·운영 설정 변경을 수행하지 않았습니다. Git 롤백을 DB 복구로 취급하지 않으며 이번 작업에는 DB 변경 자체가 없습니다.
-
-## 피킹 디자인 일관성 보완
-
-CS의 별도 picking-theme.css에서 피킹과 동일한 색상·폰트·8px 패널·7px 버튼·입력·선택 상태·업무 메뉴를 적용했습니다. 기존 3열과 반응형 기능을 유지하고 피킹 원본 CSS는 변경하지 않았습니다. 실제 브라우저의 메뉴·폰트·버튼·패널·브랜드 스타일 8개를 직접 대조했으며 CS 17개 및 통합 7개 검사를 다시 통과했습니다.
+> README와 docs/cs-frontend-integration.md, 현재 Git 상태, cs/artifact-manifest.json부터 확인해 주세요. 기존 피킹 기능은 변경하지 않습니다. 현재 CS는 합성 프론트이고 실제 수집·NAS 연결·영구 저장은 미구현입니다. 먼저 최신 AI_CS/company-pages 원본을 확보하고 현재 매크로와 저장 방식을 조사한 뒤, 실제 전달 형식에 맞는 별도 데이터 어댑터를 연결해 주세요. 화면 내부 타입을 매크로 계약으로 강제하지 말고, 개인정보를 공개 Pages/저장소에 넣지 마세요. 운영 DB·판매처 상태·실제 답변 전송·배포는 해당 작업에서 확인된 권한 범위만 수행해 주세요. 기존 3열 UI와 태그 검색·복사를 유지하고 로컬 합성 QA를 통과한 후 실제 데이터 연동 검증 범위를 구분해 보고해 주세요.

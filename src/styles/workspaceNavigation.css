@@ -1,0 +1,62 @@
+/* The upper workspaces are independent documents. Keep the existing five-row
+   picking app shell and all toolbar controls in place. */
+.workspace-navigation {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid #dbe3ee;
+  border-radius: 9px;
+  background: #f4f7fb;
+}
+
+.workspace-navigation .workspace-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  color: #526176;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.workspace-navigation .workspace-link:hover {
+  background: #e7edf6;
+  color: #1d4ed8;
+}
+
+.workspace-navigation .workspace-link.is-current {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 1px 3px #1d4ed829;
+}
+
+.workspace-navigation .workspace-link:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  /* The existing work grid intentionally pans at min-width:644px. Its grid
+     track must not push the new workspace links outside the phone viewport. */
+  .topbar {
+    width: min(100%, calc(100vw - 14px));
+    max-width: calc(100vw - 14px);
+  }
+
+  .topbar > .workspace-navigation {
+    margin-left: auto;
+    max-width: 100%;
+  }
+
+  .workspace-navigation .workspace-link {
+    min-height: 36px;
+    padding: 7px 10px;
+  }
+}

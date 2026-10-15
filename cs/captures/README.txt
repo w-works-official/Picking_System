@@ -1,0 +1,1 @@
+All PNGs in this directory are generated from invented HTML by company-pages/scripts/generate-captures.mjs. No seller website, customer record, screenshot, remote resource, or account is used. The intentionally missing image is not a file and tests the UI error state.

@@ -1,0 +1,79 @@
+{
+  "formatVersion": 2,
+  "createdAt": "2026-10-15T05:15:50.952Z",
+  "source": {
+    "aiCsHead": "af68b9c4fb50c1552f33c2acae2bfcc233b1bfef",
+    "pickingHead": "a7924dc70f2e92ffba5f153cf4208c18a670a32a",
+    "pickingBranch": "codex/cs-static-integration-20261015",
+    "inputSnapshotSha256": "5af9dcf64971700fbb7199d1fd4f5d20130cfb1efefd418163dcd2f7b11c938e"
+  },
+  "artifact": {
+    "buildId": "2026-10-15T05-13-25-382Z",
+    "sourceCommit": "af68b9c4fb50c1552f33c2acae2bfcc233b1bfef",
+    "inputSnapshotSha256": "5af9dcf64971700fbb7199d1fd4f5d20130cfb1efefd418163dcd2f7b11c938e",
+    "manifestSha256": "e8a9b32ed209beeccdf61e703b8b9a65e05937bf35f69fd661cf460fcf2f9958",
+    "files": 15,
+    "verifiedLocations": [
+      "C:\\Users\\hihi0\\Documents\\Codex\\2026-08-12\\cs\\work\\AI_CS\\output\\company-pages-builds\\2026-10-15T05-13-25-382Z\\cs",
+      "C:\\Users\\hihi0\\Documents\\Codex\\2026-10-01\\git-1-product-hub-system-v3\\work\\company-split-20261005\\Picking_System\\cs",
+      "C:\\Users\\hihi0\\Documents\\Codex\\2026-10-15\\cs-picking-style-backups\\2026-10-15T05-11-22-619Z\\pages-build-2026-10-15T05-13-25-382Z\\Picking_System\\_site\\cs"
+    ],
+    "publicTemplates": 28,
+    "excludedCandidateBodiesChecked": 32,
+    "internalPolicyBlocksChecked": 3
+  },
+  "templates": {
+    "kind": "google-sheets-read-only-reviewed-subset",
+    "spreadsheetId": "1-nZHkT5whlMSwYPBqUZL4WeoAIqEpr55Ql0g7_25F48",
+    "retrievedAt": "2026-10-15T04:44:20.143Z",
+    "candidates": 60,
+    "classifiable": 59,
+    "published": 28,
+    "excluded": 32,
+    "publicBodiesSha256": "8490b3fef61749aec19288ee41e052b6c0748e6c792526c60cd8a2a920d612c4"
+  },
+  "changedPickingRuntimeFiles": [
+    {
+      "path": "index.html",
+      "sha256": "0e114b7aa8febd740ce5bdd78a9abdf5bf40093853ea5a01f4cb4a206661f831"
+    },
+    {
+      "path": "scripts/build-pages.mjs",
+      "sha256": "6e5073cb38e18b6d2f17c6b30fa63c422a10c26c2ff3c946b2b35dbe1f2b4f45"
+    },
+    {
+      "path": "src/app/workspaceNavigation.mjs",
+      "sha256": "99271a602f69d4d142c29abc0592b5585dcbff332e95e73a6ce46fe43332275c"
+    },
+    {
+      "path": "src/styles/workspaceNavigation.css",
+      "sha256": "2e52b1592c000197ce7237ddf5575bd63c15e23f6d873908e29adfda83541dd7"
+    }
+  ],
+  "qa": {
+    "companyBrowserChecks": 17,
+    "integrationChecks": 7,
+    "externalRequests": 0,
+    "businessRequests": 0,
+    "pageErrors": 0,
+    "sourceAndParserTests": 11,
+    "pickingTests": {
+      "passed": 73,
+      "skipped": 1,
+      "failed": 0
+    },
+    "productionAuthenticationUsed": false,
+    "productionDatabaseWrites": 0
+  },
+  "deployment": {
+    "performed": false,
+    "targetPath": "/Picking_System/cs/",
+    "assetBase": "./"
+  },
+  "style": {
+    "source": "Picking_System/src/styles/picking.css and workspaceNavigation.css",
+    "implementation": "AI_CS/company-pages/picking-theme.css",
+    "computedStyleChecks": 8,
+    "pickingStylesUnchanged": true
+  }
+}

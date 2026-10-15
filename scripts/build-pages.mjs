@@ -4,7 +4,7 @@ const root=process.cwd(),pkg=JSON.parse(fs.readFileSync("package.json","utf8"));
 const output=path.resolve(root,"_site");
 if(path.dirname(output)!==root||path.basename(output)!=="_site")throw Error("Invalid Pages output path");
 if(fs.existsSync(output))throw Error("_site already exists; use a fresh checkout/output directory");
-const paths=pkg.name==="operation-hub"?["index.html","sw.js","mockups/operations-hub","tools"]:["index.html","manifest.webmanifest","sw.js","assets","src","tools"];
+const paths=pkg.name==="operation-hub"?["index.html","sw.js","mockups/operations-hub","tools"]:["index.html","manifest.webmanifest","sw.js","assets","src","tools","cs"];
 fs.mkdirSync(output);
 for(const entry of paths)if(fs.existsSync(entry))fs.cpSync(entry,path.join(output,entry),{recursive:true});
 fs.writeFileSync(path.join(output,".nojekyll"),"");

@@ -936,6 +936,45 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   await page.waitForSelector('[data-operation-id="op-before"] .custom-order-orderer');
   assert.equal(await ordererLabel("op-before").textContent(), "주문자 김주문", "a fresh document must restore names from the independent current orders lookup");
   assert.equal(await ordererLookupCount(), 1, "a reloaded document must load its orderer map once");
+
+  // Isolated reproduction of the reported two-order, five-item shipment.
+  // All mutations below affect the in-memory adapter fixture, never production.
+  await page.evaluate(() => {
+    window.__tables.orders = [
+      { ord_no: "TOTAL-A", inv_no: "6890999999999", receipt_date: "2026-10-01", sort_order: 1, receiver: "합배송금액테스트", seller: "스마트스토어", sellpia_order_total_amount: 9600 },
+      { ord_no: "TOTAL-B", inv_no: "6890999999999", receipt_date: "2026-10-01", sort_order: 2, receiver: "합배송금액테스트", seller: "스마트스토어", sellpia_order_total_amount: 15000 },
+    ];
+    window.__tables.order_items = ["TOTAL-A", "TOTAL-A", "TOTAL-B", "TOTAL-B", "TOTAL-B"].map((ord_no, index) => ({
+      ord_no, item_no: `${index + 1}_TOTAL-${index}`, sellpia_order_item_no: `TOTAL-${index}`,
+      p_code: "PICK-SKU", p_dpcode: "PICK-OWN", p_name: "합배송 금액 확인 상품", p_option: "테스트 옵션", qty: 1,
+      sellpia_item_sales_amount: ord_no === "TOTAL-A" ? 4800 : 5000,
+    }));
+  });
+  await page.click("#refresh-btn");
+  await page.click('[data-app-tab="inspection"]');
+  const shipmentSelector = '[data-inspection-group="invoice:6890999999999"]';
+  await page.waitForSelector(shipmentSelector);
+  await page.click(shipmentSelector);
+  const inspectionDetail = page.locator("#inspection-detail");
+  await page.waitForFunction(() => document.querySelector("#inspection-detail .inspection-total-amount")?.textContent === "총금액 24,600원");
+  assert.match(await inspectionDetail.textContent(), /합배송 2주문/);
+  assert.equal(await inspectionDetail.locator(".inspection-total-amount").textContent(), "총금액 24,600원");
+  assert.equal(await inspectionDetail.getByText("사은품확인!", { exact: true }).count(), 1);
+
+  await page.evaluate(() => { window.__tables.orders[1].sellpia_order_total_amount = null; });
+  await page.click("#refresh-btn");
+  await page.waitForFunction(() => document.querySelector("#inspection-detail")?.textContent.includes("총금액 확인 필요"));
+  assert.equal(await inspectionDetail.locator(".inspection-total-amount").count(), 0, "a partial 9,600 total must never look complete");
+  assert.equal(await inspectionDetail.getByText("사은품확인!", { exact: true }).count(), 0);
+
+  await page.evaluate(() => { window.__tables.orders[1].sellpia_order_total_amount = 10400; });
+  await page.click("#refresh-btn");
+  await page.waitForFunction(() => document.querySelector("#inspection-detail .inspection-total-amount")?.textContent === "총금액 20,000원");
+  assert.equal(await inspectionDetail.getByText("사은품확인!", { exact: true }).count(), 1);
+  await page.evaluate(() => { window.__tables.orders[1].sellpia_order_total_amount = 10399; });
+  await page.click("#refresh-btn");
+  await page.waitForFunction(() => document.querySelector("#inspection-detail .inspection-total-amount")?.textContent === "총금액 19,999원");
+  assert.equal(await inspectionDetail.getByText("사은품확인!", { exact: true }).count(), 0);
   assert.deepEqual(pageErrors, []);
   assert.equal(supabaseNetworkAttempts.api, 0, "the browser test must never attempt production Supabase API requests");
   assert.equal(

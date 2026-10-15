@@ -19,6 +19,7 @@
   "defaultPermissions.mock.test.mjs",
   "goldBareGpaLabel.mock.test.mjs",
   "inspectionItemSelection.mock.test.mjs",
+  "inspectionTotalAmount.mock.test.mjs",
   "inspectionShipmentMemo.mock.test.mjs",
   "inventorySurveyExport.mock.test.mjs",
   "inventorySurveyRepickCount.migration.test.mjs",

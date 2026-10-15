@@ -2152,6 +2152,21 @@ function parseAmountNumber(value) {
 }
 
 function getInvoiceTotalAmount(invoice) {
+  if (invoice?.shipmentGroup) {
+    const sources = invoice.sourceInvoices;
+    if (!Array.isArray(sources) || !sources.length) return null;
+    const amountsByOrder = new Map();
+    for (const source of sources) {
+      const orderNo = String(source?.orderGroupNo || "").trim();
+      const amount = source === invoice ? null : getInvoiceTotalAmount(source);
+      // Never expose a partial total or count a repeated source order twice.
+      if (!orderNo || amount === null) return null;
+      if (amountsByOrder.has(orderNo) && amountsByOrder.get(orderNo) !== amount) return null;
+      amountsByOrder.set(orderNo, amount);
+    }
+    const total = [...amountsByOrder.values()].reduce((sum, amount) => sum + amount, 0);
+    return Number.isFinite(total) ? total : null;
+  }
   const candidates = [
     invoice?.orderTotalAmount,
     invoice?.order_amount,
@@ -2182,7 +2197,11 @@ function getInvoiceTotalAmount(invoice) {
 
 function renderInspectionTotalAmountBadge(invoice) {
   const totalAmount = getInvoiceTotalAmount(invoice);
-  if (totalAmount === null) return "";
+  if (totalAmount === null) {
+    return invoice?.shipmentGroup
+      ? '<span class="workflow-row-badge warn" aria-label="총 주문금액 확인 필요">총금액 확인 필요</span>'
+      : "";
+  }
   return `<span class="invoice-badge inspection-total-amount" aria-label="총 주문금액">총금액 ${escapeHtml(formatAmount(totalAmount))}원</span>
     ${totalAmount >= 20000 ? '<span class="workflow-row-badge gift">사은품확인!</span>' : ""}`;
 }

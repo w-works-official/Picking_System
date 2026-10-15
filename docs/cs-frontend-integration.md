@@ -22,7 +22,19 @@
 
 원본 캡처는 원본 너비를 넘겨 확대하지 않습니다. 긴 캡처의 상단 도구는 스크롤 중에도 유지되며 확대 화면에서 원본 크기 보기와 다중 이미지 탐색을 지원합니다.
 
-## 소스 위치와 버전 — 회사 저장소만으로 UI를 다시 빌드할 수는 없음
+## 같은 회사 계정에서 이어받을 로컬 경로
+
+이 개발 PC에서는 아래 기존 폴더를 열어 작업을 이어갑니다.
+
+```text
+CS 원본:
+C:/Users/hihi0/Documents/Codex/2026-08-12/cs/work/AI_CS
+
+회사 피킹 저장소:
+C:/Users/hihi0/Documents/Codex/2026-10-01/git-1-product-hub-system-v3/work/company-split-20261005/Picking_System
+```
+
+먼저 해당 폴더와 Git 상태를 확인하세요. 같은 회사 계정 사용만으로 다른 PC에 로컬 폴더가 자동 동기화되지는 않습니다. 경로가 없으면 기존 작업본의 실제 위치를 확인하고, 원격 코드로 덮어쓰거나 대체 프로젝트를 만들지 마세요.
 
 | 위치 | 역할 |
 | --- | --- |
@@ -30,20 +42,15 @@
 | 이 저장소 `src/app/workspaceNavigation.mjs`, `src/styles/workspaceNavigation.css` | 피킹 상단 업무 메뉴. 기존 피킹 업무 로직과 분리 |
 | 이 저장소 `tests/helpers/csIntegrationPreviewServer.mjs` | 운영 API를 사용하지 않는 합성 미리보기 |
 | 별도 AI_CS `company-pages/` | 편집할 React 소스·어댑터·문구 스냅샷·CS 전용 스타일·빌드·테스트 |
+| 별도 AI_CS `company-pages/README.md` | 회사용 프론트 실행·빌드 안내 |
+| 별도 AI_CS `company-pages/sample-data-source.ts` | 현재 합성 데이터 연결부. 실제 연동 시 교체할 위치 |
+| 별도 AI_CS `company-pages/scripts/build.mjs`, `company-pages/vite.config.ts` | 회사용 정적 빌드 실행기·설정 |
 | 별도 AI_CS `app/globals.css`, `app/review-workspace.css` | 재사용하는 기존 UI 스타일 |
 | 별도 AI_CS `app/page.tsx` | 회사 런타임에는 미포함. 빌드 입력 manifest 생성 시 읽는 기존 소스 |
 
-원본 작업 위치:
-
-```text
-C:/Users/hihi0/Documents/Codex/2026-08-12/cs/work/AI_CS
-```
-
 관련 저장소: https://github.com/w-works-official/AI_CS
 
-최신 `company-pages/`는 위 PC의 미커밋 작업본에 있습니다. 원격 AI_CS의 HEAD만으로 최신 UI가 복원된다고 가정하지 마세요. 다른 PC에서는 담당자로부터 현재 소스와 필요한 공유 CSS·설정·잠금 파일을 함께 전달받아야 합니다. 인증정보·브라우저 프로필·실제 고객 산출물·비공개 전체 시트는 전달 패키지나 공개 저장소에 섞지 않습니다.
-
-안전한 인계 대상은 현재 AI_CS 소스 작업본 또는 검증된 소스 패키지입니다. `company-pages/` 외에 root package/lock·TypeScript/ESLint 설정과 공유 CSS가 필요합니다. `company-pages/vite.config.ts`가 실제 회사용 빌드 설정이며, `scripts/build.mjs`는 입력 manifest 생성을 위해 `app/page.tsx`도 읽습니다. 이 파일은 회사 런타임에서 import하지 않습니다. 루트 typecheck는 기존 앱 전체도 검사하므로 필요한 기존 소스 의존성이 누락된 일부 폴더만으로 전체 검사까지 재현된다고 가정하지 마세요.
+최신 `company-pages/`는 위 AI_CS의 미커밋 작업본에 있습니다. 원격 HEAD만으로 최신 UI가 복원된다고 가정하지 말고 기존 변경사항을 보존하세요. 회사 저장소의 `cs/`는 빌드 산출물이므로 React 수정과 빌드는 AI_CS 루트에서 진행합니다. 필요한 공유 CSS·설정·잠금 파일도 기존 AI_CS에 있습니다. 인증정보·브라우저 프로필·실제 고객 산출물·비공개 전체 시트를 공개 저장소나 빌드에 넣지 마세요.
 
 정확한 소스 입력 목록과 체크섬은 `cs/artifact-manifest.json`의 `inputFiles`, `inputSnapshotSha256`을 확인합니다. `sourceCommit`은 기존 AI_CS HEAD이고, 미커밋 회사용 소스의 버전은 입력 체크섬으로 별도 식별합니다. 빌드된 압축 JS를 직접 수정하는 대신 원본을 수정하고 다시 빌드합니다.
 
@@ -85,9 +92,9 @@ AI_CS 원본에서 다음 파일을 확인합니다.
 
 ## 빌드·검증·반영
 
-현재 개발 PC에서는 기존 AI_CS 의존성을 사용합니다. 다른 PC에서는 전달받은 package/lock에 맞춰 의존성을 설치한 뒤 아래를 실행합니다. 기존 미커밋 소스를 덮어쓰거나 `git reset/clean/pull`로 정리하지 마세요.
+현재 개발 PC에서는 위 AI_CS 루트의 기존 의존성을 사용합니다. 의존성이 없는 환경이라면 해당 작업본의 package/lock에 맞춰 설치한 뒤 아래를 실행합니다. 기존 미커밋 소스를 덮어쓰거나 `git reset/clean/pull`로 정리하지 마세요.
 
-이번 CS 검증 환경은 Node.js `v24.15.0`입니다. CS 브라우저 테스트는 TypeScript 소스를 직접 import하므로 다른 PC에서도 검증한 런타임과 호환되는 환경을 사용하세요. 패키지 관리자는 전달받은 잠금 파일(`pnpm-lock.yaml`)에 맞추고, 브라우저 테스트 전에 `npx playwright install chromium`을 실행합니다. 회사 피킹의 Node 22 이상 조건만으로 별도 CS 원본의 모든 테스트 환경이 준비됐다고 가정하지 않습니다.
+이번 CS 검증 환경은 Node.js `v24.15.0`입니다. CS 브라우저 테스트는 TypeScript 소스를 직접 import하므로 검증한 런타임과 호환되는 환경을 사용하세요. 패키지 관리자는 기존 잠금 파일(`pnpm-lock.yaml`)에 맞추고, 브라우저 테스트 전에 Chromium 설치 여부를 확인합니다. 필요한 경우 `npx playwright install chromium`을 실행합니다.
 
 AI_CS 루트:
 
@@ -127,4 +134,4 @@ node tests/helpers/csIntegrationPreviewServer.mjs
 
 다음 작업자에게 전달할 예시:
 
-> README와 docs/cs-frontend-integration.md, 현재 Git 상태, cs/artifact-manifest.json부터 확인해 주세요. 기존 피킹 기능은 변경하지 않습니다. 현재 CS는 합성 프론트이고 실제 수집·NAS 연결·영구 저장은 미구현입니다. 먼저 최신 AI_CS/company-pages 원본을 확보하고 현재 매크로와 저장 방식을 조사한 뒤, 실제 전달 형식에 맞는 별도 데이터 어댑터를 연결해 주세요. 화면 내부 타입을 매크로 계약으로 강제하지 말고, 개인정보를 공개 Pages/저장소에 넣지 마세요. 운영 DB·판매처 상태·실제 답변 전송·배포는 해당 작업에서 확인된 권한 범위만 수행해 주세요. 기존 3열 UI와 태그 검색·복사를 유지하고 로컬 합성 QA를 통과한 후 실제 데이터 연동 검증 범위를 구분해 보고해 주세요.
+> README와 docs/cs-frontend-integration.md에 적힌 AI_CS·Picking_System 로컬 경로를 열고 현재 Git 상태와 cs/artifact-manifest.json부터 확인해 주세요. 기존 피킹 기능과 AI_CS 미커밋 작업본을 보존합니다. 현재 CS는 합성 프론트이고 실제 수집·NAS 연결·영구 저장은 미구현입니다. AI_CS/company-pages/README.md와 sample-data-source.ts를 확인한 뒤 현재 매크로·저장 방식에 맞는 데이터 어댑터를 연결해 주세요. 화면 내부 타입을 매크로 계약으로 강제하지 말고 개인정보를 공개 Pages/저장소에 넣지 마세요. 운영 DB·판매처 상태·실제 답변 전송·배포는 해당 작업에서 확인된 권한 범위만 수행해 주세요. 기존 3열 UI와 태그 검색·복사를 유지하고 로컬 합성 QA와 실제 데이터 연동 검증 결과를 구분해 보고해 주세요.

@@ -14,10 +14,33 @@ CS 화면: <https://w-works-official.github.io/Picking_System/cs/>
 - 문의 9건과 캡처 9장은 합성입니다. 템플릿은 Google Sheets 원문 중 공개 범위를 검토한 28개이며 실시간 동기화되지 않습니다. 분류 변경은 새로고침 시 초기화됩니다.
 - **미구현:** 실제 수집, 로컬/NAS 연결, 실제 문의 조회, 분류 영구 저장, AI 실행, 고객 답변 전송. 화면에서 운영 API를 호출하는 구조가 아닙니다.
 - 대표님 측 작업: 수집 매크로와 저장·전달 방식 개발, 이후 데이터 연결. 저장 위치·파일 형식·API는 아직 확정하지 않았습니다.
-- `cs/`는 생성된 정적 배포 파일입니다. 수정 원본은 별도 `AI_CS/company-pages/`이며 최신본은 로컬 미커밋 작업본입니다. **회사 저장소만 clone하면 CS React 소스가 포함되지 않습니다.** 원본을 전달받아 수정·빌드하고 산출물을 이곳에 반영합니다. minified JS를 직접 수정하거나 피킹 앱 전체를 재작성하지 마세요.
+- `cs/`는 생성된 정적 배포 파일입니다. 수정할 때는 아래 로컬 `AI_CS/company-pages/` 작업본을 직접 열고, 빌드한 산출물을 이곳에 반영합니다. 최신 원본에는 미커밋 작업이 있으므로 그대로 보존합니다.
 - 연결 경계: 원본의 `company-pages/main.tsx` → `CsDataSource.load()` 주입 → `sample-data-source.ts`. `model.ts`는 화면 내부 타입이며 매크로 데이터 계약이 아닙니다.
 - 실제 개인정보·상담 캡처·계좌정보·로그인 세션·관리자 키를 공개 저장소/Pages에 넣지 마세요. 피킹 로그인 화면이 CS 정적 파일까지 비공개로 보호하는 것은 아닙니다. 로컬/UNC 경로는 공개 웹페이지에서 직접 읽을 수 없으므로 실제 데이터 연결 시 인증된 조회 방법을 확인해야 합니다.
 - 기존 피킹 로그인·바코드·단축키·주문·검품·물류 CS·DB는 보존합니다. 신규 CS와 같은 DOM에서 실행하지 않습니다.
+
+### 바로 이어서 작업할 로컬 경로
+
+대표님 측 Claude는 아래 **현재 작업 PC의 기존 폴더**를 사용하면 됩니다. 먼저 폴더 존재 여부와 Git 상태를 확인하세요.
+
+```text
+CS 원본 저장소:
+C:/Users/hihi0/Documents/Codex/2026-08-12/cs/work/AI_CS
+
+CS 프론트엔드 원본 및 자체 README:
+C:/Users/hihi0/Documents/Codex/2026-08-12/cs/work/AI_CS/company-pages/
+C:/Users/hihi0/Documents/Codex/2026-08-12/cs/work/AI_CS/company-pages/README.md
+
+회사 피킹 저장소:
+C:/Users/hihi0/Documents/Codex/2026-10-01/git-1-product-hub-system-v3/work/company-split-20261005/Picking_System
+
+회사에 반영할 CS 정적 산출물 위치:
+C:/Users/hihi0/Documents/Codex/2026-10-01/git-1-product-hub-system-v3/work/company-split-20261005/Picking_System/cs/
+```
+
+CS 데이터 연결은 원본 `company-pages/sample-data-source.ts`와 `main.tsx`부터 확인합니다. 회사용 빌드는 AI_CS 루트에서 `node company-pages/scripts/build.mjs`로 실행하며, 새 산출물 경로는 `output/company-pages-builds/latest-build.json`에 기록됩니다. 피킹 기능 파일은 수정하지 않습니다.
+
+위 경로가 없는 환경에서는 실제 작업본 위치를 먼저 확인하세요. 기존 미커밋 파일을 원격 코드로 덮어쓰거나 새 프로젝트로 대체하지 마세요.
 
 회사 저장소의 안전한 합성 데이터 미리보기:
 

@@ -22,7 +22,7 @@ import {
   groupCustomOrderRows,
   sortCustomOrderRows,
   sortInboundExpectedRows,
-} from "../domain/customOrder.mjs?v=20261013-custom-orderer1";
+} from "../domain/customOrder.mjs?v=20261019-custom-state-fill1";
 import { normalizeLabelOptionName } from "../domain/labelOption.mjs?v=20261008-slip-fields2";
 import { createSkuInboundSchedulesAdapter } from "../adapters/skuInboundSchedulesAdapter.mjs?v=20261001-sku-schedule1";
 import {
@@ -4708,13 +4708,8 @@ function operationForPickingItem(item) {
   return match.status === "matched" ? match.row : null;
 }
 
-function operationStatusMeta(operation, item = null) {
-  const inbound = resolveEffectiveInboundExpectedDate({
-    operation,
-    currentItem: item,
-    skuSchedule: findSkuInboundSchedule(item, state.customOrders.skuSchedules),
-  });
-  const status = customOrderStatus(operation || {}, inbound);
+function operationStatusMeta(operation) {
+  const status = customOrderStatus(operation || {});
   return {
     status,
     label: CUSTOM_ORDER_STATUS_LABEL[status] || (String(operation?.internal_memo || "").trim() ? "메모" : ""),
@@ -4724,7 +4719,7 @@ function operationStatusMeta(operation, item = null) {
 function renderPickingCustomOrderControls(invoice, item, { compact = false } = {}) {
   const operation = operationForPickingItem(item);
   const required = Boolean(String(operation?.custom_required_at || "").trim());
-  const meta = operationStatusMeta(operation, item);
+  const meta = operationStatusMeta(operation);
   const memo = String(operation?.internal_memo || "");
   const identityAttrs = `data-order-group="${escapeHtml(invoice.orderGroupNo)}" data-item-no="${escapeHtml(item.sellpiaItemNo)}"`;
   return `<div class="picking-custom-order ${compact ? "compact" : ""}">

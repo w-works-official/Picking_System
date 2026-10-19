@@ -30,7 +30,8 @@ const base = {
 
 assert.equal(customOrderStatus(base), CUSTOM_ORDER_STATUS.BEFORE_ORDER);
 assert.equal(customOrderStatus({ ...base, custom_ordered_on: "2026-09-29" }), CUSTOM_ORDER_STATUS.ORDERED);
-assert.equal(customOrderStatus({ ...base, custom_ordered_on: "2026-09-29", inbound_expected_date: "2026-10-03" }), CUSTOM_ORDER_STATUS.WAITING);
+assert.equal(customOrderStatus({ ...base, custom_ordered_on: "2026-09-29", inbound_expected_date: "2026-10-03" }), CUSTOM_ORDER_STATUS.ORDERED, "an inbound date must not create a separate waiting status");
+assert.deepEqual(Object.values(CUSTOM_ORDER_STATUS), ["before_order", "ordered", "received", "cancelled"]);
 assert.equal(customOrderStatus({ ...base, custom_received_on: "2026-10-03" }), CUSTOM_ORDER_STATUS.RECEIVED);
 assert.equal(customOrderStatus({ ...base, custom_received_on: "2026-10-03", custom_cancelled_at: "2026-10-01T01:00:00Z" }), CUSTOM_ORDER_STATUS.CANCELLED);
 assert.equal(canClearCustomRequired(base), true);
@@ -109,12 +110,14 @@ const scheduledRows = buildCustomOrderRows({
 });
 assert.equal(scheduledRows[0].inbound.source, "sku_schedule");
 assert.equal(scheduledRows[0].inbound.date, "2026-10-07");
-assert.equal(scheduledRows[0].status, CUSTOM_ORDER_STATUS.WAITING, "SKU date must move an ordered row into the waiting detail status");
+assert.equal(scheduledRows[0].status, CUSTOM_ORDER_STATUS.ORDERED, "a shared SKU date must retain the ordered status");
 assert.equal(scheduledRows[1].inbound.date, "", "manual clear must suppress the shared SKU schedule");
 assert.equal(scheduledRows[1].status, CUSTOM_ORDER_STATUS.ORDERED);
 
 assert.deepEqual(filterCustomOrderRows(rows, { status: "active" }).map((row) => row.operation.operation_id).sort(), ["before", "manual-clear", "missing", "sibling"]);
-assert.deepEqual(filterCustomOrderRows(rows, { status: "waiting" }).map((row) => row.operation.operation_id), ["missing"]);
+assert.deepEqual(filterCustomOrderRows(rows, { status: "ordered" }).map((row) => row.operation.operation_id), ["sibling", "missing"], "ordered filter must include rows both with and without inbound dates");
+assert.equal(missing.inbound.date, "2026-10-05", "removing the waiting classification must preserve the inbound date");
+assert.equal(missing.operation.inbound_expected_source, "sku_schedule");
 assert.deepEqual(filterCustomOrderRows(rows, { supplier: "0-스냅매입처 [ 9 ]" }).map((row) => row.operation.operation_id), ["missing"]);
 assert.deepEqual(filterCustomOrderRows(rows, { search: "SNAP-OWN" }).map((row) => row.operation.operation_id), ["missing"]);
 assert.deepEqual(filterCustomOrderRows(rows, { search: "R-2" }).map((row) => row.operation.operation_id), ["sibling"]);

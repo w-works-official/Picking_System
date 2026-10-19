@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="assets/system-v3-icon.svg">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
-  <link rel="stylesheet" href="src/styles/picking.css?v=20261013-custom-orderer1">
+  <link rel="stylesheet" href="src/styles/picking.css?v=20261019-custom-state-fill1">
     <link rel="stylesheet" href="src/styles/pickingLogin.css?v=20261007-login1">
     <link rel="stylesheet" href="src/styles/workspaceNavigation.css?v=20261015-cs1">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -357,7 +357,6 @@
                   <option value="active">미완료</option>
                   <option value="before_order">주문 전</option>
                   <option value="ordered">주문완</option>
-                  <option value="waiting">주문완 · 입고 대기</option>
                   <option value="received">입고 완료</option>
                   <option value="cancelled">취소</option>
                   <option value="all">전체</option>
@@ -516,7 +515,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="src/auth/pickingAuth.js?v=20261007-login1"></script>
     <script type="module" src="src/app/workspaceNavigation.mjs?v=20261015-cs1"></script>
-    <script type="module" src="src/app/pickingBootstrap.mjs?v=20261015-shipment-total1"></script>
+    <script type="module" src="src/app/pickingBootstrap.mjs?v=20261019-custom-state-fill1"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {

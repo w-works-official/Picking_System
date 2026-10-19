@@ -14,6 +14,9 @@ for (const tab of ["dashboard", "picking", "shortage", "inspection", "cs", "cust
 }
 assert.match(html, /id="custom-orders-panel"/);
 assert.match(html, /id="custom-orders-status"/);
+const workflowStatus = html.match(/<select id="custom-orders-status">([\s\S]*?)<\/select>/)?.[1];
+assert.ok(workflowStatus);
+assert.doesNotMatch(workflowStatus, /waiting|입고 대기/, "waiting must not remain as a separate classification");
 assert.match(html, /id="custom-orders-supplier"/);
 assert.match(html, /id="custom-orders-sort"/);
 const workflowSort = html.match(/<select id="custom-orders-sort">([\s\S]*?)<\/select>/)?.[1];
@@ -155,6 +158,17 @@ assert.match(css, /\.picking-custom-order/);
 assert.match(css, /\.custom-order-row\.status-before_order/);
 assert.match(css, /\.custom-order-row\.status-ordered/);
 assert.match(css, /\.custom-order-row\.status-received/);
+assert.doesNotMatch(css, /\.status-waiting/);
+for (const [status, color] of Object.entries({ before_order: "#ede9fe", ordered: "#dbeafe", received: "#dcfce7", cancelled: "#f1f5f9" })) {
+  const stateCss = css.match(new RegExp(`\\.custom-order-row\\.status-${status}\\s*\\{([^}]*)\\}`))?.[1];
+  assert.ok(stateCss, `${status} must retain its own color`);
+  assert.match(stateCss, new RegExp(`background:\\s*${color}\\s*;`), "state color must fill the entire card");
+  assert.doesNotMatch(stateCss, /gradient/, "state color must not fade into a white card");
+}
+for (const selector of ["custom-order-slip-management", "custom-order-slip-source"]) {
+  const sectionCss = css.match(new RegExp(`\\.${selector}\\s*\\{([^}]*)\\}`))?.[1];
+  assert.match(sectionCss, /background:\s*transparent\s*;/, "management and source details must not cover the card's state color");
+}
 assert.match(css, /\.sku-inbound-schedule-panel/);
 
 console.log("customOrderUi.contract.test: OK");

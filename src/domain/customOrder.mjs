@@ -14,7 +14,6 @@ import { normalizeLabelOptionName } from "./labelOption.mjs?v=20261008-slip-fiel
 export const CUSTOM_ORDER_STATUS = Object.freeze({
   BEFORE_ORDER: "before_order",
   ORDERED: "ordered",
-  WAITING: "waiting",
   RECEIVED: "received",
   CANCELLED: "cancelled",
 });
@@ -22,7 +21,6 @@ export const CUSTOM_ORDER_STATUS = Object.freeze({
 export const CUSTOM_ORDER_STATUS_LABEL = Object.freeze({
   [CUSTOM_ORDER_STATUS.BEFORE_ORDER]: "주문 전",
   [CUSTOM_ORDER_STATUS.ORDERED]: "주문완",
-  [CUSTOM_ORDER_STATUS.WAITING]: "주문완 · 입고 대기",
   [CUSTOM_ORDER_STATUS.RECEIVED]: "입고 완료",
   [CUSTOM_ORDER_STATUS.CANCELLED]: "취소",
 });
@@ -31,10 +29,9 @@ function text(value) {
   return String(value ?? "").trim();
 }
 
-export function customOrderStatus(operation = {}, inbound = null) {
+export function customOrderStatus(operation = {}) {
   if (text(operation.custom_cancelled_at)) return CUSTOM_ORDER_STATUS.CANCELLED;
   if (text(operation.custom_received_on)) return CUSTOM_ORDER_STATUS.RECEIVED;
-  if (text(operation.custom_ordered_on) && text(inbound?.date ?? operation.inbound_expected_date)) return CUSTOM_ORDER_STATUS.WAITING;
   if (text(operation.custom_ordered_on)) return CUSTOM_ORDER_STATUS.ORDERED;
   if (text(operation.custom_required_at)) return CUSTOM_ORDER_STATUS.BEFORE_ORDER;
   return "";
@@ -74,7 +71,7 @@ export function buildCustomOrderRows({ operations = [], currentItems = [], skuSc
         match,
         display,
         inbound,
-        status: customOrderStatus(operation, inbound),
+        status: customOrderStatus(operation),
         sourceMissing: match.status !== "matched",
       };
     });

@@ -356,6 +356,9 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.equal(await page.locator("#custom-orders-panel").isVisible(), true);
   assert.equal(await page.locator("#picking-panel").isVisible(), false);
   assert.equal(await page.locator("#custom-orders-status").inputValue(), "active");
+  assert.deepEqual(await page.locator("#custom-orders-status option").evaluateAll((nodes) => nodes.map((node) => node.value)), [
+    "active", "before_order", "ordered", "received", "cancelled", "all",
+  ], "waiting must not be offered as a separate status");
   assert.equal(await page.locator("#custom-orders-sort").inputValue(), "supplier_asc");
   assert.deepEqual(await page.locator("#custom-orders-sort option").evaluateAll((nodes) => nodes.map((node) => node.value)), [
     "supplier_asc", "supplier_desc", "required_desc",
@@ -759,12 +762,50 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   assert.equal(await page.evaluate(() => window.__tables.order_items.find((row) => row.ord_no === "O-1").p_option), staffOptionRaw, "memo editing must leave raw Sellpia options unchanged");
 
   const statusColors = {};
-  for (const [filter, key] of [["before_order", "before"], ["received", "received"]]) {
-    await page.selectOption("#custom-orders-status", filter);
-    const row = page.locator(".custom-order-row").first();
-    statusColors[key] = await row.evaluate((node) => getComputedStyle(node).borderLeftColor);
+  const statusFills = {
+    before_order: "rgb(237, 233, 254)", ordered: "rgb(219, 234, 254)",
+    received: "rgb(220, 252, 231)", cancelled: "rgb(241, 245, 249)",
+  };
+  for (const width of [1920, 1240]) {
+    await page.setViewportSize({ width, height: 1100 });
+    for (const [filter, expected] of Object.entries(statusFills)) {
+      await page.selectOption("#custom-orders-status", filter);
+      const row = page.locator(".custom-order-row").first();
+      const fill = await row.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const sections = [".custom-order-row-primary", ".custom-order-slip-management", ".custom-order-slip-management-heading", ".custom-order-row-workflow", ".custom-order-row-side", ".custom-order-slip-source"];
+        return {
+          background: style.backgroundColor, image: style.backgroundImage, border: style.borderLeftColor,
+          sections: sections.map((selector) => {
+            const section = node.querySelector(selector);
+            const layers = [];
+            for (let element = section; element !== node; element = element.parentElement) {
+              const layer = getComputedStyle(element);
+              layers.push({ background: layer.backgroundColor, image: layer.backgroundImage });
+            }
+            return { selector, layers };
+          }),
+        };
+      });
+      assert.equal(fill.background, expected, `${width}px: ${filter} must fill the complete card`);
+      assert.equal(fill.image, "none", "state color must not fade towards white");
+      for (const section of fill.sections) {
+        for (const layer of section.layers) {
+          assert.ok(["rgba(0, 0, 0, 0)", expected].includes(layer.background), `${width}px: ${filter} ${section.selector} must show the card color, not an opaque white/gray overlay`);
+          assert.equal(layer.image, "none");
+        }
+      }
+      if (filter === "before_order") statusColors.before = fill.border;
+      if (filter === "received") statusColors.received = fill.border;
+    }
   }
+  await page.setViewportSize({ width: 1600, height: 1000 });
   assert.notEqual(statusColors.before, statusColors.received, "before-order and received rows must have distinct status colors");
+
+  await page.selectOption("#custom-orders-status", "ordered");
+  assert.equal(await page.locator('[data-operation-id="op-missing"]').count(), 1, "ordered filter must include the operation with an inbound date");
+  assert.equal(await page.locator('[data-operation-id="op-missing"] [data-custom-order-field="inbound_expected_date"]').inputValue(), "2026-10-05");
+  assert.equal(await page.locator('[data-operation-id="op-missing"] .custom-order-status').textContent(), "주문완");
 
   await page.selectOption("#custom-orders-status", "received");
   assert.equal(await page.locator('.custom-order-row[data-operation-id="op-received"]').count(), 1);

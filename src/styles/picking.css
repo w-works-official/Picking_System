@@ -60,8 +60,7 @@
 }
 
 .custom-order-status.status-before_order { border-color: #c4b5fd; background: #f5f3ff; color: #6d28d9; }
-.custom-order-status.status-ordered,
-.custom-order-status.status-waiting { border-color: #60a5fa; background: #dbeafe; color: #1d4ed8; }
+.custom-order-status.status-ordered { border-color: #60a5fa; background: #dbeafe; color: #1d4ed8; }
 .custom-order-status.status-received { border-color: #86efac; background: #f0fdf4; color: #15803d; }
 .custom-order-status.status-cancelled { border-color: #cbd5e1; background: #f1f5f9; color: #64748b; }
 
@@ -560,7 +559,7 @@
   grid-template-rows: auto 1fr auto;
   min-width: 0;
   border-left: 1px solid #dbe3ef;
-  background: #f8fafc;
+  background: transparent;
 }
 
 .custom-order-slip-management-heading {
@@ -638,7 +637,7 @@
   border-top: 1px solid #e5edf7;
   color: #64748b;
   font-size: .75rem;
-  background: #fff;
+  background: transparent;
 }
 
 .custom-order-slip-source summary {
@@ -697,20 +696,19 @@
 
 .custom-order-row.status-before_order {
   border-left-color: #7c3aed;
-  background: linear-gradient(90deg, #f5f3ff 0, #fff 18%);
+  background: #ede9fe;
 }
 
-.custom-order-row.status-ordered,
-.custom-order-row.status-waiting {
+.custom-order-row.status-ordered {
   border-left-color: #2563eb;
-  background: linear-gradient(90deg, #eff6ff 0, #fff 18%);
+  background: #dbeafe;
 }
 
 .custom-order-row.status-received {
   border-left-color: #16a34a;
-  background: linear-gradient(90deg, #f0fdf4 0, #fff 18%);
+  background: #dcfce7;
 }
-.custom-order-row.status-cancelled { border-left-color: #94a3b8; background: #f8fafc; }
+.custom-order-row.status-cancelled { border-left-color: #94a3b8; background: #f1f5f9; }
 
 .custom-order-row-primary-copy,
 .custom-order-product,

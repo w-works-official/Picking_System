@@ -59,6 +59,9 @@
   } catch {}
 
   const base = {
+    updated_at: "2026-10-19T00:00:00.000Z",
+    slip_overrides: {},
+    slip_sort_order: null,
     custom_required_at: "2026-09-28T03:00:00Z",
     custom_ordered_on: null,
     custom_received_on: null,
@@ -102,7 +105,39 @@
     ],
   };
 
+  const slipStoreKey = "picking-local-preview-slip-edits-v1";
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(slipStoreKey) || "{}");
+    for (const row of tables.order_item_operations) {
+      const edit = saved[row.operation_id];
+      if (!edit) continue;
+      for (const key of ["slip_overrides", "slip_sort_order", "internal_memo", "updated_at"]) {
+        if (Object.hasOwn(edit, key)) row[key] = edit[key];
+      }
+    }
+  } catch {}
   window.__previewTables = tables;
+
+  function saveSlipEdits(body) {
+    if (window.__previewSlipSaveFailure) return { data: null, error: { message: "로컬 테스트: 저장 실패" } };
+    const changes = body.p_changes;
+    if (!Array.isArray(changes) || new Set(changes.map((entry) => entry.operation_id)).size !== changes.length) return { data: null, error: { message: "중복 저장 대상" } };
+    const next = structuredClone(tables.order_item_operations);
+    for (const entry of changes) {
+      const row = next.find((item) => item.operation_id === entry.operation_id);
+      if (!row || row.updated_at !== entry.expected_updated_at) return { data: null, error: { message: "다른 작업자가 수정했습니다. 수정 취소 후 새로고침해주세요." } };
+      if (Object.keys(entry.patch).some((key) => !["slip_overrides", "slip_sort_order", "internal_memo"].includes(key))) return { data: null, error: { message: "원본 데이터 수정 금지" } };
+      Object.assign(row, structuredClone(entry.patch), { updated_at: new Date(Math.max(Date.now(), Date.parse(row.updated_at) + 1)).toISOString() });
+    }
+    const saved = Object.fromEntries(next.map((row) => [row.operation_id, {
+      slip_overrides: row.slip_overrides, slip_sort_order: row.slip_sort_order, internal_memo: row.internal_memo, updated_at: row.updated_at,
+    }]));
+    // Persist the local mock first; a storage error must not partially mutate it.
+    try { window.sessionStorage.setItem(slipStoreKey, JSON.stringify(saved)); }
+    catch { return { data: null, error: { message: "로컬 저장 공간 오류" } }; }
+    tables.order_item_operations = next;
+    return { data: structuredClone(next.filter((row) => changes.some((entry) => entry.operation_id === row.operation_id))), error: null };
+  }
 
   function query(table) {
     const state = { mode: "select", payload: null, filters: [], notNull: "", range: null };
@@ -120,7 +155,7 @@
             if (state.range) rows = rows.slice(state.range[0], state.range[1] + 1);
             if (state.mode === "update") rows.forEach((row) => Object.assign(row, state.payload));
             if (state.mode === "insert") {
-              const inserted = { operation_id: `preview-generated-${Date.now()}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...state.payload };
+              const inserted = { ...base, operation_id: `preview-generated-${Date.now()}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...state.payload };
               (tables[table] ||= []).push(inserted);
               rows = [inserted];
             }
@@ -159,7 +194,13 @@
     createClient() {
       return {
         from: (table) => query(table),
-        rpc: (name, body) => Promise.resolve({ data: authResult(name, body) || [], error: null }),
+        rpc: async (name, body) => {
+          if (name === "picking_save_custom_order_slips_v1") {
+            if (window.__previewSlipDelayMs) await new Promise((resolve) => setTimeout(resolve, window.__previewSlipDelayMs));
+            return saveSlipEdits(body);
+          }
+          return { data: authResult(name, body) || [], error: null };
+        },
         storage: {
           from: () => ({
             download: () => Promise.resolve({ data: null, error: new Error("local mock: no shared file") }),

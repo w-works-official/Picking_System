@@ -10,6 +10,7 @@ import {
   findSkuInboundSchedule,
 } from "./skuInboundSchedule.mjs";
 import { normalizeLabelOptionName } from "./labelOption.mjs?v=20261008-slip-fields2";
+import { applySlipOverrides } from "./customOrderSlipEditor.mjs?v=20261019-slip-editor2";
 
 export const CUSTOM_ORDER_STATUS = Object.freeze({
   BEFORE_ORDER: "before_order",
@@ -43,6 +44,7 @@ export function canClearCustomRequired(operation = {}) {
     && !text(operation.custom_received_on)
     && !text(operation.custom_cancelled_at)
     && !text(operation.internal_memo)
+    && !Object.keys(operation.slip_overrides || {}).length
     && !text(operation.inbound_expected_source);
 }
 
@@ -182,12 +184,17 @@ export function sortCustomOrderRows(rows = [], order = "supplier_asc") {
   const supplierCollator = new Intl.Collator("ko", { numeric: true });
   return [...rows].sort((left, right) => {
     if (mode === "required_desc") return customOrderRegistrationOrder(left, right);
-    const leftSupplier = text(left?.display?.supplierCellRaw);
-    const rightSupplier = text(right?.display?.supplierCellRaw);
+    const leftSupplier = text(customOrderEditableSlip(left).supplierCellRaw);
+    const rightSupplier = text(customOrderEditableSlip(right).supplierCellRaw);
     if (Boolean(leftSupplier) !== Boolean(rightSupplier)) return leftSupplier ? -1 : 1;
     const supplierOrder = supplierCollator.compare(leftSupplier, rightSupplier);
-    return (mode === "supplier_desc" ? -supplierOrder : supplierOrder)
-      || customOrderRegistrationOrder(left, right);
+    if (supplierOrder) return mode === "supplier_desc" ? -supplierOrder : supplierOrder;
+    {
+      const rank = (row) => Number.isSafeInteger(row?.operation?.slip_sort_order) && row.operation.slip_sort_order >= 0 ? row.operation.slip_sort_order : Infinity;
+      const leftRank = rank(left), rightRank = rank(right);
+      if (leftRank !== rightRank) return leftRank < rightRank ? -1 : 1;
+    }
+    return customOrderRegistrationOrder(left, right);
   });
 }
 
@@ -206,13 +213,13 @@ function customOrderQuantity(currentItem) {
 export function groupCustomOrderRows(rows = []) {
   const groups = new Map();
   for (const row of rows) {
-    const supplierCellRaw = text(row?.display?.supplierCellRaw);
+    const supplierCellRaw = text(customOrderEditableSlip(row).supplierCellRaw);
     if (!groups.has(supplierCellRaw)) {
       groups.set(supplierCellRaw, { supplierCellRaw, rows: [], quantity: 0, unknownQuantityCount: 0 });
     }
     const group = groups.get(supplierCellRaw);
     group.rows.push(row);
-    const quantity = customOrderQuantity(row?.currentItem);
+    const quantity = customOrderSlipDetails(row).quantity;
     if (quantity === null) group.unknownQuantityCount += 1;
     else group.quantity += quantity;
   }
@@ -257,7 +264,8 @@ function memoBarLength(value) {
 }
 
 export function customOrderSlipDetails(row) {
-  let optionName = text(row?.display?.productOption);
+  const display = row?.display || {};
+  let optionName = text(display.productOption);
   let barLength = "";
   // The known parenthetical contains a slash; recognize it as part of the label.
   const changeSegment = /(^|[,;/|\r\n])[ \t]*바[ \t]*길이[ \t]*변경[ \t]*(?:\([ \t]*주문제작[ \t]*\/[ \t]*취소불가[ \t]*\)[ \t]*)?:[ \t]*(\d+(?:\.\d+)?)[ \t]*mm[ \t]*바(?=(?:[ \t]*\[[^\]\r\n]*\])*[ \t]*(?:$|[,;/|\r\n]))/gi;
@@ -280,11 +288,21 @@ export function customOrderSlipDetails(row) {
 
   const memoLength = memoBarLength(row?.operation?.internal_memo);
   if (memoLength !== null) barLength = memoLength;
-  return {
+  const effective = applySlipOverrides({
     optionName: normalizeLabelOptionName(optionName),
     barLength,
     quantity: customOrderQuantity(row?.currentItem),
-  };
+  }, row?.operation?.slip_overrides);
+  return { optionName: effective.optionName, barLength: effective.barLength, quantity: effective.quantity };
+}
+
+export function customOrderEditableSlip(row) {
+  const display = row?.display || {};
+  return applySlipOverrides({
+    supplierCellRaw: text(display.supplierCellRaw), productName: text(display.productName),
+    supplierCode: customOrderSupplierCode(display.arbitraryFieldRaw),
+    ...customOrderSlipDetails(row),
+  }, row?.operation?.slip_overrides);
 }
 
 export function customOrderSearchText(row) {
@@ -292,6 +310,7 @@ export function customOrderSearchText(row) {
   const identity = orderItemIdentity(row?.operation || row?.currentItem || {});
   const display = row?.display || {};
   return [
+    ...Object.values(customOrderEditableSlip(row)),
     identity.ordNo,
     identity.sellpiaOrderItemNo,
     identity.itemNo,
@@ -335,7 +354,7 @@ export function filterCustomOrderRows(rows = [], filters = {}) {
   return rows.filter((row) => {
     if (status === "active" && [CUSTOM_ORDER_STATUS.RECEIVED, CUSTOM_ORDER_STATUS.CANCELLED].includes(row.status)) return false;
     if (status !== "active" && status !== "all" && row.status !== status) return false;
-    if (supplier && text(row.display?.supplierCellRaw) !== supplier) return false;
+    if (supplier && text(customOrderEditableSlip(row).supplierCellRaw) !== supplier) return false;
     if (query && !customOrderSearchText(row).includes(query)) return false;
     if (from || to) {
       const value = customOrderDate(row, criterion);
@@ -346,6 +365,6 @@ export function filterCustomOrderRows(rows = [], filters = {}) {
 }
 
 export function customOrderSuppliers(rows = []) {
-  return [...new Set(rows.map((row) => text(row.display?.supplierCellRaw)).filter(Boolean))]
+  return [...new Set(rows.map((row) => text(row.status ? customOrderEditableSlip(row).supplierCellRaw : row.display?.supplierCellRaw)).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right, "ko"));
 }

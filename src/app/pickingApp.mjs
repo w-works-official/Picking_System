@@ -13,8 +13,7 @@ import {
   buildCustomOrderRows,
   buildInboundExpectedRows,
   canClearCustomRequired,
-  customOrderSlipDetails,
-  customOrderSupplierCode,
+  customOrderEditableSlip,
   customOrderStatus,
   customOrderSuppliers,
   filterCustomOrderRows,
@@ -22,8 +21,9 @@ import {
   groupCustomOrderRows,
   sortCustomOrderRows,
   sortInboundExpectedRows,
-} from "../domain/customOrder.mjs?v=20261019-custom-state-fill1";
+} from "../domain/customOrder.mjs?v=20261019-slip-editor2";
 import { normalizeLabelOptionName } from "../domain/labelOption.mjs?v=20261008-slip-fields2";
+import { SLIP_FIELDS, buildSlipEditChanges, moveSlipId, saveSlipEditBatch } from "../domain/customOrderSlipEditor.mjs?v=20261019-slip-editor2";
 import { createSkuInboundSchedulesAdapter } from "../adapters/skuInboundSchedulesAdapter.mjs?v=20261001-sku-schedule1";
 import {
   SKU_INBOUND_SCHEDULE_HEADERS,
@@ -223,6 +223,14 @@ const state = {
   orderItemOperations: [],
   orderItemOperationsLoaded: false,
   customOrders: {
+    slipDrafts: new Map(),
+    slipSaving: new Set(),
+    slipSaveCompletions: new Map(),
+    slipOrderSaving: false,
+    slipDragId: null,
+    visibleIds: [],
+    visibleRows: [],
+    editorMessage: "",
     view: "workflow",
     loaded: false,
     loading: false,
@@ -5756,15 +5764,22 @@ function renderCustomOrderRow(row) {
   const operation = row.operation;
   const display = row.display;
   const orderer = state.customOrders.orderersByOrderNo.get(String(operation.ord_no || "").trim()) || "";
-  const slip = customOrderSlipDetails(row);
-  const supplierCode = customOrderSupplierCode(display.arbitraryFieldRaw);
+  const entry = state.customOrders.slipDrafts.get(operation.operation_id);
+  const inline = Object.hasOwn(operation, "slip_overrides") && Object.hasOwn(operation, "slip_sort_order");
+  const slip = entry?.fields || customOrderEditableSlip(row);
+  const supplierCode = slip.supplierCode;
+  const editDisabled = !allowWrites || state.customOrders.slipOrderSaving ? "disabled" : "";
+  const moveDisabled = !allowWrites || state.customOrders.slipOrderSaving ? "disabled" : "";
+  const slipField = (key, label, value) => inline
+    ? `<input data-slip-field="${key}" aria-label="${label}" ${key === "quantity" ? 'type="number" min="0" max="1000000" step="1"' : 'maxlength="500"'} value="${escapeHtml(String(value ?? ""))}" ${editDisabled}>`
+    : escapeHtml(String(value ?? ""));
   const imageCode = display.sellpiaProductCode || "";
   const imageUrl = productImageUrl(imageCode);
   const statusLabel = CUSTOM_ORDER_STATUS_LABEL[row.status] || "-";
   const operationId = escapeHtml(operation.operation_id);
   const cancelled = row.status === "cancelled";
   const saving = state.saving.has(`custom-order:${operation.operation_id}`);
-  const disabled = cancelled || saving ? "disabled" : "";
+  const disabled = cancelled || saving || state.customOrders.slipOrderSaving ? "disabled" : "";
   return `<article class="custom-order-row custom-order-slip-card status-${escapeHtml(row.status)}" data-operation-id="${operationId}" aria-busy="${saving ? "true" : "false"}">
     <div class="custom-order-row-primary custom-order-card-section">
       <div class="custom-order-product-photo">
@@ -5772,18 +5787,18 @@ function renderCustomOrderRow(row) {
       </div>
       <div class="custom-order-row-primary-copy">
         <div class="custom-order-slip-heading">
-          <strong class="custom-order-supplier">${escapeHtml(display.supplierCellRaw || "매입처 미확인")}</strong>
+          <strong class="custom-order-supplier">${slipField("supplierCellRaw", "주문서 매입처", slip.supplierCellRaw || (inline ? "" : "매입처 미확인"))}</strong>
         </div>
         <dl class="custom-order-slip-facts">
-          <div><dt>옵션</dt><dd title="${escapeHtml(display.productOption || "")}">${escapeHtml(slip.optionName || "옵션 확인 필요")}</dd></div>
-          <div><dt>바길이</dt><dd class="${slip.barLength ? "" : "is-unavailable"}">${escapeHtml(slip.barLength || "확인 필요")}</dd></div>
-          <div><dt>업체상품코드</dt><dd class="custom-order-slip-supplier-code ${supplierCode ? "" : "is-unavailable"}" title="${escapeHtml(display.arbitraryFieldRaw || "")}">${escapeHtml(supplierCode || "미수집")}</dd></div>
+          <div><dt>옵션</dt><dd title="${escapeHtml(display.productOption || "")}">${slipField("optionName", "주문서 옵션", slip.optionName || (inline ? "" : "옵션 확인 필요"))}</dd></div>
+          <div><dt>바길이</dt><dd class="${slip.barLength ? "" : "is-unavailable"}">${slipField("barLength", "주문서 바길이", slip.barLength || (inline ? "" : "확인 필요"))}</dd></div>
+          <div><dt>업체상품코드</dt><dd class="custom-order-slip-supplier-code ${supplierCode ? "" : "is-unavailable"}" title="${escapeHtml(display.arbitraryFieldRaw || "")}">${slipField("supplierCode", "주문서 업체상품코드", supplierCode || (inline ? "" : "미수집"))}</dd></div>
           <div class="custom-order-slip-quantity ${slip.quantity === null ? "is-unavailable" : ""}">
             <dt>수량</dt>
-            <dd><strong>${slip.quantity === null ? "확인 필요" : `${escapeHtml(String(slip.quantity))}<small>개</small>`}</strong></dd>
+            <dd><strong>${inline ? slipField("quantity", "주문서 수량", slip.quantity) : slip.quantity === null ? "확인 필요" : `${escapeHtml(String(slip.quantity))}<small>개</small>`}</strong></dd>
           </div>
         </dl>
-        <div class="custom-order-product"><b>${escapeHtml(display.productName || "상품명 없음")}</b></div>
+        <div class="custom-order-product"><b>${slipField("productName", "주문서 상품명", slip.productName || (inline ? "" : "상품명 없음"))}</b></div>
       </div>
     </div>
     <div class="custom-order-slip-management">
@@ -5793,6 +5808,7 @@ function renderCustomOrderRow(row) {
           <small class="custom-order-orderer">주문자 ${escapeHtml(orderer || "미확인")}</small>
         </div>
         <div class="custom-order-row-badges">
+          ${inline ? `<div class="custom-order-drag-controls"><button type="button" class="btn" data-slip-drag="${operationId}" aria-label="카드 순서 이동" title="잡고 다른 업체에 놓으면 해당 업체로 배정됩니다" ${moveDisabled}>⠿ 순서 이동</button><button type="button" class="btn" data-slip-move="up" aria-label="같은 업체 안에서 위로" ${moveDisabled}>↑</button><button type="button" class="btn" data-slip-move="down" aria-label="같은 업체 안에서 아래로" ${moveDisabled}>↓</button></div>` : ""}
           <span class="custom-order-status status-${escapeHtml(row.status)}">${escapeHtml(statusLabel)}</span>
           ${row.sourceMissing ? '<span class="workflow-row-badge danger">원천 주문행 없음</span>' : ""}
         </div>
@@ -5817,7 +5833,8 @@ function renderCustomOrderRow(row) {
       <div class="custom-order-card-section custom-order-row-side">
         <div class="custom-order-row-memo">
           <label>내부 메모
-            <input data-custom-order-field="internal_memo" maxlength="500" value="${escapeHtml(operation.internal_memo || "")}" placeholder="System V3 내부 메모" ${disabled}>
+            <input ${inline ? 'data-slip-memo aria-label="주문서 내부 메모"' : 'data-custom-order-field="internal_memo"'} maxlength="500" value="${escapeHtml(entry ? entry.memo : operation.internal_memo || "")}" placeholder="System V3 내부 메모" ${!allowWrites || saving || state.customOrders.slipOrderSaving ? "disabled" : ""}>
+            ${entry?.error ? `<small class="custom-order-inline-error" role="alert">${escapeHtml(entry.error)}</small><span><button class="btn" type="button" data-slip-retry>다시 저장</button><button class="btn" type="button" data-slip-discard>입력 취소</button></span>` : ""}
           </label>
         </div>
         <div class="custom-order-row-actions">
@@ -5839,7 +5856,9 @@ function renderCustomOrderRow(row) {
 }
 
 function renderCustomOrderSupplierGroups(rows) {
-  return groupCustomOrderRows(rows).map((group, index) => {
+  // A supplier is a destination, never a heading attached to a moving card.
+  const groups = groupCustomOrderRows(rows);
+  return groups.map((group, index) => {
     const headerId = `custom-order-supplier-${index}`;
     const summary = [
       `${group.rows.length}건`,
@@ -5923,10 +5942,124 @@ function syncCustomOrdersViewControls() {
   });
 }
 
+function syncSlipEditorControls() {
+  const workspace = state.customOrders;
+  const status = document.getElementById("custom-orders-edit-status");
+  if (status) status.textContent = workspace.editorMessage || "입력 후 자동 저장 · 순서 이동을 잡고 다른 업체에 놓으면 해당 업체로 배정";
+  const busy = workspace.slipOrderSaving || workspace.slipSaving.size > 0 || workspace.slipDrafts.size > 0;
+  if (els.customOrdersRefresh) els.customOrdersRefresh.disabled = busy || workspace.loading;
+  document.querySelectorAll('[data-custom-orders-toolbar="workflow"] input, [data-custom-orders-toolbar="workflow"] select, [data-custom-orders-view]').forEach((control) => { control.disabled = busy; });
+}
+
+function inlineSlipDraft(id) {
+  const workspace = state.customOrders;
+  if (workspace.slipDrafts.has(id)) return workspace.slipDrafts.get(id);
+  const row = workspace.visibleRows.find((entry) => entry.operation.operation_id === id);
+  if (!row || !Object.hasOwn(row.operation, "slip_overrides")) return null;
+  const draft = {
+    original: structuredClone(row.operation), fields: { ...customOrderEditableSlip(row) },
+    defaults: customOrderEditableSlip({ ...row, operation: { ...row.operation, slip_overrides: null } }),
+    initialOverrides: row.operation.slip_overrides || {}, memo: row.operation.internal_memo || "",
+    revision: 0, requestedRevision: 0, error: "",
+  };
+  workspace.slipDrafts.set(id, draft);
+  return draft;
+}
+
+async function saveInlineSlip(id) {
+  const workspace = state.customOrders;
+  const draft = workspace.slipDrafts.get(id);
+  if (!allowWrites || !draft || workspace.slipOrderSaving) return;
+  draft.requestedRevision = draft.revision;
+  if (workspace.slipSaving.has(id)) return;
+  const revision = draft.revision;
+  workspace.slipSaving.add(id);
+  let finish;
+  workspace.slipSaveCompletions.set(id, new Promise((resolve) => { finish = resolve; }));
+  try {
+    const { changes } = buildSlipEditChanges({
+      ids: [id], originalIds: [id], fullIds: [id], originals: new Map([[id, draft.original]]),
+      entries: new Map([[id, { ...draft, fields: { ...draft.fields } }]]),
+    });
+    workspace.editorMessage = "자동 저장 중…";
+    syncSlipEditorControls();
+    const saved = await saveSlipEditBatch(db, changes);
+    for (const operation of saved) mergeOperationState(operation);
+    draft.error = "";
+    if (draft.revision === revision) workspace.slipDrafts.delete(id);
+    else if (saved[0]) {
+      draft.original = structuredClone(saved[0]);
+      draft.initialOverrides = saved[0].slip_overrides || {};
+    }
+    workspace.editorMessage = "자동 저장됨 · 원본 주문/피킹 수량은 그대로입니다.";
+  } catch (error) {
+    draft.error = `저장 실패: ${error?.message || error}`;
+    workspace.editorMessage = `${draft.error} · 입력 내용은 유지됩니다.`;
+    toast(workspace.editorMessage);
+  } finally {
+    workspace.slipSaving.delete(id);
+    workspace.slipSaveCompletions.delete(id);
+    finish();
+    if (!workspace.slipDragId) renderCustomOrdersPanel();
+    if (!draft.error && workspace.slipDrafts.has(id) && draft.requestedRevision > revision) void saveInlineSlip(id);
+  }
+}
+
+async function moveSlipEditorCard(source, target, after = false) {
+  const workspace = state.customOrders;
+  // The click which blurs a memo must also perform its requested move. Wait for
+  // that autosave rather than requiring the user to click the move button again.
+  while (workspace.slipSaveCompletions.size) await Promise.all([...workspace.slipSaveCompletions.values()]);
+  if (!allowWrites || workspace.slipOrderSaving || workspace.slipDrafts.size || state.saving.size) {
+    toast("입력 내용이 저장된 뒤 순서를 이동해주세요.");
+    return;
+  }
+  try {
+    const rows = buildCustomOrderRows(workspace);
+    const fullRows = sortCustomOrderRows(rows, workspace.sort);
+    const ids = moveSlipId(workspace.visibleIds, source, target, after);
+    const sourceRow = rows.find((row) => row.operation.operation_id === source);
+    const targetRow = workspace.visibleRows.find((row) => row.operation.operation_id === target);
+    if (!sourceRow || !targetRow || source === target) return;
+    const supplier = customOrderEditableSlip(targetRow).supplierCellRaw;
+    const fields = { ...customOrderEditableSlip(sourceRow), supplierCellRaw: supplier };
+    const entry = {
+      fields,
+      defaults: customOrderEditableSlip({ ...sourceRow, operation: { ...sourceRow.operation, slip_overrides: null } }),
+      initialOverrides: sourceRow.operation.slip_overrides || {}, memo: sourceRow.operation.internal_memo || "",
+    };
+    const { changes } = buildSlipEditChanges({
+      ids, originalIds: workspace.visibleIds, fullIds: fullRows.map((row) => row.operation.operation_id),
+      forceSort: customOrderEditableSlip(sourceRow).supplierCellRaw !== supplier,
+      originals: new Map(rows.map((row) => [row.operation.operation_id, row.operation])), entries: new Map([[source, entry]]),
+    });
+    if (!changes.length) return;
+    workspace.slipOrderSaving = true;
+    workspace.editorMessage = "업체 배정 · 목록 순서 저장 중…";
+    renderCustomOrdersPanel();
+    const saved = await saveSlipEditBatch(db, changes);
+    for (const operation of saved) mergeOperationState(operation);
+    workspace.sort = workspace.sort === "supplier_desc" ? "supplier_desc" : "manual";
+    workspace.editorMessage = `목록 순서가 저장됐습니다. · 배정 업체: ${supplier || "매입처 미확인"}`;
+  } catch (error) {
+    workspace.editorMessage = `순서 저장 실패: ${error?.message || error} · 이전 순서를 유지합니다.`;
+    toast(workspace.editorMessage);
+  } finally {
+    workspace.slipOrderSaving = false;
+    renderCustomOrdersPanel();
+  }
+}
+
 function renderCustomOrdersPanel() {
   if (!els.customOrdersList) return;
   const workspace = state.customOrders;
+  const active = document.activeElement;
+  const focused = els.customOrdersList.contains(active) && active.tagName === "INPUT" ? {
+    id: active.closest("[data-operation-id]")?.dataset.operationId, field: active.dataset.slipField || active.dataset.customOrderField,
+    memo: active.hasAttribute("data-slip-memo"), value: active.value, start: active.selectionStart, end: active.selectionEnd,
+  } : null;
   syncCustomOrdersViewControls();
+  syncSlipEditorControls();
   if (workspace.loading && !workspace.loaded) {
     renderWorkflowEmpty(els.customOrdersList, "주문제작 데이터를 불러오는 중입니다.");
     return;
@@ -6001,6 +6134,8 @@ function renderCustomOrdersPanel() {
     dateTo: workspace.dateTo,
     search: workspace.search,
   }), workspace.sort);
+  workspace.visibleRows = filtered;
+  workspace.visibleIds = filtered.map((row) => row.operation.operation_id);
   if (els.customOrdersCount) els.customOrdersCount.textContent = `${filtered.length}건 / 전체 ${rows.length}건`;
   if (els.customOrdersSummaryText) els.customOrdersSummaryText.textContent = "기본 화면은 완료·취소를 제외한 미완료 주문제작 건입니다.";
   if (!filtered.length) {
@@ -6010,9 +6145,20 @@ function renderCustomOrdersPanel() {
   els.customOrdersList.innerHTML = workspace.sort === "required_desc"
     ? filtered.map(renderCustomOrderRow).join("")
     : renderCustomOrderSupplierGroups(filtered);
+  if (focused) {
+    const replacement = [...els.customOrdersList.querySelectorAll("[data-operation-id] input")].find((input) =>
+      input.closest("[data-operation-id]").dataset.operationId === focused.id
+      && (focused.memo ? input.hasAttribute("data-slip-memo") : (input.dataset.slipField || input.dataset.customOrderField) === focused.field));
+    if (replacement && !replacement.disabled) {
+      replacement.value = focused.value;
+      replacement.focus({ preventScroll: true });
+      if (focused.start !== null) replacement.setSelectionRange(focused.start, focused.end);
+    }
+  }
 }
 
 async function loadCustomOrdersData({ force = false } = {}) {
+  if (state.customOrders.slipDrafts.size || state.customOrders.slipSaving.size || state.customOrders.slipOrderSaving) return;
   if (state.customOrders.loading || (state.customOrders.loaded && !force)) return;
   state.customOrders.loading = true;
   state.customOrders.error = "";
@@ -6027,6 +6173,7 @@ async function loadCustomOrdersData({ force = false } = {}) {
       [...workspace.currentItems, ...scheduledItems]
         .map((item) => [currentItemIdentityKey(item), item]),
     ).values()];
+    if (!state.customOrders.loaded && workspace.operations.some((row) => Number.isSafeInteger(row.slip_sort_order))) state.customOrders.sort = "manual";
     state.customOrders.operations = workspace.operations;
     state.customOrders.currentItems = currentItems;
     state.customOrders.orderersByOrderNo = new Map(
@@ -6249,6 +6396,10 @@ async function onCustomOrderListClick(event) {
   const row = button.closest("[data-operation-id]");
   const operationId = row?.dataset.operationId;
   if (!operationId) return;
+  if (state.customOrders.slipDrafts.has(operationId) || state.customOrders.slipSaving.has(operationId) || state.customOrders.slipOrderSaving) {
+    toast("입력 내용의 자동 저장이 끝난 뒤 진행 상태를 변경해주세요.");
+    return;
+  }
   const action = button.dataset.customOrderAction;
   if (action === "ordered-today") {
     const orderedOn = todayDateString();
@@ -10204,6 +10355,10 @@ async function loadWorkflowData() {
 }
 
 function setActiveTab(tab) {
+  if (state.customOrders.slipDrafts.size || state.customOrders.slipSaving.size || state.customOrders.slipOrderSaving) {
+    toast("자동 저장을 기다리거나 저장 실패 항목을 확인해주세요.");
+    return;
+  }
   const requestedTab = tab === "gold" ? "picking" : tab;
   const allowedTabs = new Set(["dashboard", "picking", "shortage", "inspection", "cs", "custom-orders", "completed"]);
   state.activeTab = allowedTabs.has(requestedTab) ? requestedTab : "picking";
@@ -10523,6 +10678,140 @@ function onGlobalKeydown(event) {
 }
 
 function bindEvents() {
+  window.addEventListener("beforeunload", (event) => {
+    if (!state.customOrders.slipDrafts.size && !state.customOrders.slipOrderSaving) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
+  els.customOrdersList?.addEventListener("input", (event) => {
+    if (!allowWrites || state.customOrders.slipOrderSaving || !event.target.matches("[data-slip-field], [data-slip-memo]")) return;
+    const id = event.target.closest("[data-operation-id]")?.dataset.operationId;
+    const entry = inlineSlipDraft(id);
+    if (!entry) return;
+    const key = event.target.dataset.slipField;
+    if (SLIP_FIELDS.includes(key)) entry.fields[key] = event.target.value;
+    if (event.target.hasAttribute("data-slip-memo")) entry.memo = event.target.value;
+    entry.revision++;
+    syncSlipEditorControls();
+  });
+  els.customOrdersList?.addEventListener("change", (event) => {
+    if (!event.target.matches("[data-slip-field], [data-slip-memo]")) return;
+    const id = event.target.closest("[data-operation-id]")?.dataset.operationId;
+    void saveInlineSlip(id);
+  });
+  els.customOrdersList?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target.matches("[data-slip-field], [data-slip-memo]")) {
+      event.preventDefault();
+      event.target.blur();
+    }
+  });
+  els.customOrdersList?.addEventListener("click", (event) => {
+    const workspace = state.customOrders;
+    if (!allowWrites || workspace.slipOrderSaving) return;
+    const id = event.target.closest("[data-operation-id]")?.dataset.operationId;
+    if (event.target.closest("[data-slip-retry]")) void saveInlineSlip(id);
+    if (event.target.closest("[data-slip-discard]") && !workspace.slipSaving.has(id)) {
+      workspace.slipDrafts.delete(id);
+      workspace.editorMessage = "저장하지 않은 입력을 취소했습니다.";
+      renderCustomOrdersPanel();
+    }
+    const direction = event.target.closest("[data-slip-move]")?.dataset.slipMove;
+    const row = workspace.visibleRows.find((entry) => entry.operation.operation_id === id);
+    const supplier = row && customOrderEditableSlip(row).supplierCellRaw;
+    const siblings = workspace.visibleRows.filter((entry) => customOrderEditableSlip(entry).supplierCellRaw === supplier).map((entry) => entry.operation.operation_id);
+    const index = siblings.indexOf(id);
+    const target = siblings[index + (direction === "up" ? -1 : 1)];
+    if (direction && target) void moveSlipEditorCard(id, target, direction === "down");
+  });
+  // Pointer capture works in nested scrolling lists and does not depend on the
+  // browser's HTML drag threshold/dataTransfer implementation.
+  let slipGesture = null;
+  const clearSlipDrop = () => {
+    els.customOrdersList?.querySelectorAll(".slip-drop-before,.slip-drop-after,.slip-drop-group").forEach((node) => node.classList.remove("slip-drop-before", "slip-drop-after", "slip-drop-group"));
+  };
+  const locateSlipDrop = () => {
+    const drag = slipGesture;
+    if (!drag?.active) return;
+    clearSlipDrop();
+    drag.target = null;
+    const listBounds = els.customOrdersList.getBoundingClientRect();
+    const inside = drag.x >= listBounds.left && drag.x <= listBounds.right && drag.y >= listBounds.top && drag.y <= listBounds.bottom;
+    const hit = inside ? document.elementFromPoint(drag.x, drag.y) : null;
+    const header = hit?.closest(".custom-order-supplier-group-head");
+    const group = hit?.closest("[data-custom-order-supplier]");
+    let card = hit?.closest("[data-operation-id]");
+    if (header && group) card = [...group.querySelectorAll("[data-operation-id]")].find((node) => node.dataset.operationId !== drag.source);
+    if (card && els.customOrdersList.contains(card) && card.dataset.operationId !== drag.source) {
+      const after = !header && drag.y > card.getBoundingClientRect().top + card.getBoundingClientRect().height / 2;
+      drag.target = { id: card.dataset.operationId, after };
+      (header || card).classList.add(header ? "slip-drop-group" : after ? "slip-drop-after" : "slip-drop-before");
+      const row = state.customOrders.visibleRows.find((entry) => entry.operation.operation_id === card.dataset.operationId);
+      drag.hint.textContent = `→ ${customOrderEditableSlip(row).supplierCellRaw || "매입처 미확인"} ${header ? "맨 위로 배정" : "업체로 배정"}`;
+    } else drag.hint.textContent = "이동할 업체 헤더 또는 상품 위에 놓으세요 · Esc 취소";
+    drag.hint.style.left = `${Math.min(drag.x + 14, Math.max(8, window.innerWidth - 340))}px`;
+    drag.hint.style.top = `${Math.min(drag.y + 16, window.innerHeight - 55)}px`;
+  };
+  const scrollSlipDrag = () => {
+    const drag = slipGesture;
+    if (!drag?.active) return;
+    const bounds = els.customOrdersList.getBoundingClientRect();
+    if (drag.x >= bounds.left && drag.x <= bounds.right && drag.y >= bounds.top && drag.y <= bounds.bottom) {
+      const edge = 64;
+      const speed = drag.y < bounds.top + edge ? -Math.ceil((bounds.top + edge - drag.y) / 5)
+        : drag.y > bounds.bottom - edge ? Math.ceil((drag.y - bounds.bottom + edge) / 5) : 0;
+      if (speed) { els.customOrdersList.scrollTop += speed; locateSlipDrop(); }
+    }
+    drag.frame = requestAnimationFrame(scrollSlipDrag);
+  };
+  const finishSlipDrag = (cancel = false) => {
+    const drag = slipGesture;
+    if (!drag) return;
+    slipGesture = null;
+    cancelAnimationFrame(drag.frame);
+    if (drag.handle.hasPointerCapture(drag.pointerId)) drag.handle.releasePointerCapture(drag.pointerId);
+    drag.hint?.remove();
+    els.customOrdersList.querySelectorAll(".slip-drag-source").forEach((node) => node.classList.remove("slip-drag-source"));
+    clearSlipDrop();
+    state.customOrders.slipDragId = null;
+    if (!cancel && drag.active && drag.target) void moveSlipEditorCard(drag.source, drag.target.id, drag.target.after);
+    else renderCustomOrdersPanel();
+  };
+  els.customOrdersList?.addEventListener("pointerdown", (event) => {
+    const handle = event.target.closest("[data-slip-drag]");
+    const workspace = state.customOrders;
+    if (!handle || handle.disabled || !allowWrites || workspace.slipOrderSaving || event.button !== 0 || slipGesture) return;
+    workspace.slipDragId = handle.dataset.slipDrag;
+    // Flush the focused memo first; the drop will wait for its autosave.
+    document.activeElement?.blur();
+    slipGesture = { handle, pointerId: event.pointerId, source: handle.dataset.slipDrag, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, active: false };
+    handle.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  window.addEventListener("pointermove", (event) => {
+    const drag = slipGesture;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    drag.x = event.clientX; drag.y = event.clientY;
+    if (!drag.active && Math.hypot(drag.x - drag.startX, drag.y - drag.startY) >= 5) {
+      drag.active = true;
+      drag.handle.closest("[data-operation-id]").classList.add("slip-drag-source");
+      drag.hint = document.createElement("div");
+      drag.hint.className = "custom-order-drag-hint";
+      drag.hint.setAttribute("role", "status");
+      document.body.append(drag.hint);
+      drag.frame = requestAnimationFrame(scrollSlipDrag);
+    }
+    locateSlipDrop();
+  });
+  window.addEventListener("pointerup", (event) => {
+    if (slipGesture?.pointerId !== event.pointerId) return;
+    slipGesture.x = event.clientX; slipGesture.y = event.clientY;
+    locateSlipDrop();
+    finishSlipDrag();
+  });
+  window.addEventListener("pointercancel", (event) => { if (slipGesture?.pointerId === event.pointerId) finishSlipDrag(true); });
+  els.customOrdersList?.addEventListener("lostpointercapture", (event) => { if (slipGesture?.pointerId === event.pointerId) finishSlipDrag(true); });
+  window.addEventListener("blur", () => finishSlipDrag(true));
+  window.addEventListener("keydown", (event) => { if (event.key === "Escape" && slipGesture) { event.preventDefault(); finishSlipDrag(true); } });
   document.querySelectorAll("[data-app-tab]").forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.appTab));
   });

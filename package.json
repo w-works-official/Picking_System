@@ -9,10 +9,11 @@
   "scripts": {
     "check": "node scripts/check.mjs",
     "test": "node scripts/run-tests.mjs",
-    "test:browser": "node tests/customOrderUi.browser.test.mjs",
+    "test:browser": "node tests/customOrderUi.browser.test.mjs && node tests/customOrderSlipEditor.browser.test.mjs",
     "build": "node scripts/build-pages.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
     "playwright": "1.62.1"
   }
 }

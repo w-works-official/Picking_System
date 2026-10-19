@@ -361,7 +361,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
   ], "waiting must not be offered as a separate status");
   assert.equal(await page.locator("#custom-orders-sort").inputValue(), "supplier_asc");
   assert.deepEqual(await page.locator("#custom-orders-sort option").evaluateAll((nodes) => nodes.map((node) => node.value)), [
-    "supplier_asc", "supplier_desc", "required_desc",
+    "supplier_asc", "supplier_desc", "required_desc", "manual",
   ]);
   const layout = await page.evaluate(() => {
     const panel = document.getElementById("custom-orders-panel");
@@ -763,7 +763,7 @@ await page.route("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2", async (
 
   const statusColors = {};
   const statusFills = {
-    before_order: "rgb(237, 233, 254)", ordered: "rgb(219, 234, 254)",
+    before_order: "rgb(252, 231, 243)", ordered: "rgb(254, 243, 199)",
     received: "rgb(220, 252, 231)", cancelled: "rgb(241, 245, 249)",
   };
   for (const width of [1920, 1240]) {

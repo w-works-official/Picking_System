@@ -13,6 +13,8 @@
   "csQuickFix0804.mock.test.mjs",
   "csShipmentMemoWorkflow.mock.test.mjs",
   "customOrderDomain.mock.test.mjs",
+  "customOrderSlipEditor.mock.test.mjs",
+  "customOrderSlipMigration.mock.test.mjs",
   "customOrderUi.contract.test.mjs",
   "customOrderPreviewIsolation.test.mjs",
   "dashboardPhotoUpload.mock.test.mjs",

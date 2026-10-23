@@ -494,17 +494,24 @@ function knownInvoiceNumbers() {
   return sortedAllInvoices().map((invoice) => invoice.invoiceNo).filter(Boolean);
 }
 
-function canonicalInvoiceInput(value) {
-  return canonicalInvoiceScan(value, knownInvoiceNumbers());
+function canonicalInvoiceInput(value, extraInvoiceNumbers = null) {
+  const known = knownInvoiceNumbers();
+  return canonicalInvoiceScan(value, extraInvoiceNumbers ? [...known, ...extraInvoiceNumbers()] : known);
 }
 
-function scheduleInvoiceScan(input, onSettled, { dedupe = false } = {}) {
+// Inspection lists invoices outside today's picking view (other dates, repicked
+// shortages, inspection queues); repeated scans of those must collapse too.
+function inspectionInvoiceNumbers() {
+  return inspectionSourceInvoices().map((invoice) => invoice.invoiceNo).filter(Boolean);
+}
+
+function scheduleInvoiceScan(input, onSettled, { dedupe = false, extraInvoiceNumbers = null } = {}) {
   const scanState = invoiceScanState(input);
   clearTimeout(scanState.timer);
-  const code = canonicalInvoiceInput(input.value);
+  const code = canonicalInvoiceInput(input.value, extraInvoiceNumbers);
   if (!code) return false;
   scanState.timer = window.setTimeout(() => {
-    const settledCode = canonicalInvoiceInput(input.value);
+    const settledCode = canonicalInvoiceInput(input.value, extraInvoiceNumbers);
     if (!settledCode) return;
     const now = Date.now();
     const duplicate = dedupe && isDuplicateInvoiceScan({
@@ -11005,7 +11012,7 @@ function bindEvents() {
         state.selectedInspectionGroup = row.orderGroupNo;
       }
       renderInspectionPanels();
-    }, { dedupe: true });
+    }, { dedupe: true, extraInvoiceNumbers: inspectionInvoiceNumbers });
   });
   els.csDateTabs?.addEventListener("click", (event) => {
     const alimtalkAction = event.target.closest("[data-cs-alimtalk-action]");

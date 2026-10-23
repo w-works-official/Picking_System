@@ -4889,6 +4889,12 @@ input {
   resize: vertical;
 }
 
+/* Inspection drawer/memo box: the generic 112px width above was overriding the
+   wider inspection width, so "서랍번호 / 메모" wrapped onto two lines. */
+.drawer-input[data-inspection-drawer] {
+  width: min(340px, 100%);
+}
+
 .drawer-keypad-overlay {
   position: fixed;
   inset: 0;

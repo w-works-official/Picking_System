@@ -10659,7 +10659,9 @@ function onGlobalKeydown(event) {
     event.preventDefault();
     return;
   }
-  if (event.key.toLowerCase() === "q" && !isTypingTarget(event.target)) {
+  // Numpad 0 (code is "Numpad0" with NumLock on or off) works like Q. Inside an
+  // input it still types 0, so quantities and invoice numbers are unaffected.
+  if ((event.key.toLowerCase() === "q" || event.code === "Numpad0") && !isTypingTarget(event.target)) {
     event.preventDefault();
     focusActiveSearch();
     return;

@@ -1308,6 +1308,13 @@ input {
   font-size: 14px;
 }
 
+button.metric-toggle {
+  border: 0;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .metric.good {
   background: var(--green-soft);
   color: var(--green);

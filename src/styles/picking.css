@@ -1952,6 +1952,12 @@ input {
   gap: 12px;
 }
 
+.dashboard-photo-library-head-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
 .dashboard-photo-library-head h4 {
   margin: 0;
   color: #0f172a;

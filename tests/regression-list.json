@@ -62,5 +62,6 @@
   "updaterMultipleTargets.mock.test.mjs",
   "updaterOrderMemoTarget.mock.test.mjs",
   "updaterPartialHoldSelection.mock.test.mjs",
-  "workflowCancellation.mock.test.mjs"
+  "workflowCancellation.mock.test.mjs",
+  "missingPhotos.mock.test.mjs"
 ]

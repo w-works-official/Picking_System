@@ -37,6 +37,7 @@ import { alimtalkSendLogAnchor, alimtalkSendLogCode, alimtalkSendNaturalKey, app
 import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/businessDays.mjs?v=20260728-receipt-business-days1";
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
+import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
 import {
@@ -310,6 +311,7 @@ const state = {
     selectedNames: new Set(),
   },
   inventoryCountExportRunning: false,
+  missingPhotoExportRunning: false,
 };
 
 const els = {
@@ -396,6 +398,7 @@ const els = {
   dashboardPhotoSearch: document.getElementById("dashboard-photo-search"),
   dashboardPhotoFilter: document.getElementById("dashboard-photo-filter"),
   dashboardPhotoLibraryStatus: document.getElementById("dashboard-photo-library-status"),
+  dashboardMissingPhotoExportBtn: document.getElementById("dashboard-missing-photo-export"),
   dashboardPhotoLibraryGrid: document.getElementById("dashboard-photo-library-grid"),
   dashboardPhotoLibraryMore: document.getElementById("dashboard-photo-library-more"),
   dashboardInventoryCountExportBtn: document.getElementById("dashboard-inventory-count-export-btn"),
@@ -1153,6 +1156,86 @@ function renderProductPhotoLibrary() {
   if (els.dashboardPhotoLibraryMore) {
     els.dashboardPhotoLibraryMore.hidden = library.loading || !library.hasMore || Boolean(library.error);
     els.dashboardPhotoLibraryMore.disabled = library.loading;
+  }
+}
+
+// Read-only report: every Sellpia SKU (Hub sellpia_stock_latest) with no photo in
+// product-images/sellpia. Downloads an Excel file; never writes to DB or Storage.
+async function listAllProductPhotoFileNames(onProgress) {
+  const names = [];
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await imageDb.storage.from(IMAGE_BUCKET).list(PRODUCT_PHOTO_FOLDER, {
+      limit: pageSize,
+      offset,
+      sortBy: { column: "name", order: "asc" },
+    });
+    if (error) throw error;
+    names.push(...(data || []).map((file) => file?.name).filter(Boolean));
+    onProgress?.(names.length);
+    if (!data || data.length < pageSize) break;
+  }
+  return names;
+}
+
+function setMissingPhotoExportBusy(label) {
+  const button = els.dashboardMissingPhotoExportBtn;
+  if (!button) return;
+  button.disabled = Boolean(label);
+  button.textContent = label || "사진 없는 상품 엑셀";
+}
+
+async function exportMissingPhotoList() {
+  if (state.missingPhotoExportRunning) return;
+  state.missingPhotoExportRunning = true;
+  try {
+    setMissingPhotoExportBusy("사진 목록 확인 중...");
+    const fileNames = await listAllProductPhotoFileNames((count) => setMissingPhotoExportBusy(`사진 목록 ${count.toLocaleString()}개 확인 중...`));
+    setMissingPhotoExportBusy("셀피아 상품 불러오는 중...");
+    const skuRows = await fetchAllRows(() =>
+      imageDb
+        .from("sellpia_stock_latest")
+        .select("sellpia_sku_code,sellpia_product_code,sellpia_product_name,sellpia_option_name,own_sku")
+        .order("sellpia_sku_code", { ascending: true }),
+    );
+    if (!skuRows.length) throw new Error("셀피아 상품 목록이 비어 있습니다.");
+    const report = buildMissingPhotoReport(skuRows, photoStemsFromFileNames(fileNames));
+    const skuSheet = [
+      ["셀피아코드", "셀피아 상품코드", "상품명", "옵션명", "자사코드"],
+      ...report.skus.map((row) => [row.skuCode, row.productCode, row.productName, row.optionName, row.ownSku]),
+    ];
+    const productSheet = [
+      ["셀피아 상품코드", "상품명", "사진 없는 옵션 수"],
+      ...report.products.map((row) => [row.productCode, row.productName, row.missingCount]),
+    ];
+    const filename = `사진없는상품_${todayDateString()}.xlsx`;
+    if (!window.XLSX) {
+      toast("XLSX 라이브러리 로드 실패: CSV로 저장합니다.");
+      downloadCsv(filename.replace(/\.xlsx$/i, ".csv"), skuSheet);
+    } else {
+      const workbook = window.XLSX.utils.book_new();
+      const addSheet = (rows, name, cols, textColumns) => {
+        const sheet = window.XLSX.utils.aoa_to_sheet(rows);
+        sheet["!cols"] = cols.map((wch) => ({ wch }));
+        sheet["!autofilter"] = { ref: window.XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(0, rows.length - 1), c: cols.length - 1 } }) };
+        for (let r = 1; r < rows.length; r += 1) {
+          for (const c of textColumns) {
+            const cell = sheet[window.XLSX.utils.encode_cell({ r, c })];
+            if (cell) { cell.t = "s"; cell.z = "@"; }
+          }
+        }
+        window.XLSX.utils.book_append_sheet(workbook, sheet, name);
+      };
+      addSheet(skuSheet, "옵션별(SKU)", [14, 14, 48, 28, 24], [0, 1, 4]);
+      addSheet(productSheet, "상품별", [14, 48, 16], [0]);
+      window.XLSX.writeFile(workbook, filename, { bookType: "xlsx" });
+    }
+    toast(`사진 없는 옵션 ${report.skus.length.toLocaleString()}개 / 상품 ${report.products.length.toLocaleString()}개 (전체 ${report.totalSkus.toLocaleString()}개 중)`);
+  } catch (error) {
+    toast(`사진 없는 상품 목록 실패: ${error?.message || error}`);
+  } finally {
+    state.missingPhotoExportRunning = false;
+    setMissingPhotoExportBusy("");
   }
 }
 
@@ -11258,6 +11341,9 @@ function bindEvents() {
         return;
       }
       els.dashboardPhotoInput?.click();
+    }
+    if (button.dataset.dashboardAction === "missing-photo-export") {
+      exportMissingPhotoList().catch(() => {});
     }
     if (button.dataset.dashboardAction === "photo-library-refresh") {
       loadProductPhotoLibrary({ reset: true }).catch(() => {});

@@ -4142,6 +4142,12 @@ function renderInspectionPanels(options = {}) {
   const holdNotice = holdState.needsAttention
     ? '<div class="workflow-note">관리메모/기존 보류 신호가 있어 배송보류 ON 확인이 필요합니다. 확인 전 업데이터는 배송보류 OFF를 계획하지 않습니다.</div>'
     : '<div class="workflow-note">셀피아 배송보류는 시스템 배송보류 current 값과 업데이터 실행 시 동기화됩니다.</div>';
+  // Rows now scroll inside the item table (pinned header area); keep their position
+  // when the same invoice re-renders (memo save, live events), reset on invoice change.
+  const previousItemTable = els.inspectionDetail.querySelector(".inspection-item-table");
+  const previousItemScroll = previousItemTable && els.inspectionDetail.dataset.renderedGroup === selected.orderGroupNo
+    ? { top: previousItemTable.scrollTop, left: previousItemTable.scrollLeft }
+    : null;
   els.inspectionDetail.innerHTML = `${shipmentGroupNotice(selected)}<div class="inspection-header-skeleton ${invoiceState?.systemShippingHold ? "is-hold" : ""} ${selectedCompleted ? "is-completed" : ""} ${selectedCancelled ? "is-cancelled" : ""} ${selectedShipmentGroup ? "is-shipment-group" : ""}">
       <div class="inspection-title-block">
         <div class="inspection-title-line">
@@ -4245,6 +4251,14 @@ function renderInspectionPanels(options = {}) {
         .join("")}
     </div>
     ${invoiceState?.memo ? `<div class="workflow-note">${escapeHtml(invoiceState.memo)}</div>` : ""}`;
+  els.inspectionDetail.dataset.renderedGroup = selected.orderGroupNo;
+  if (previousItemScroll) {
+    const itemTable = els.inspectionDetail.querySelector(".inspection-item-table");
+    if (itemTable) {
+      itemTable.scrollTop = previousItemScroll.top;
+      itemTable.scrollLeft = previousItemScroll.left;
+    }
+  }
 }
 
 function csRowKey(invoice, item) {

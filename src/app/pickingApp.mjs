@@ -432,6 +432,11 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+// 상품명의 "(사은품)"을 괄호 포함 빨간 글씨로 (2026-10-26 대표님 요청). 나머지는 그대로 escape.
+function productNameHtml(value) {
+  return escapeHtml(value).replace(/\(사은품\)/g, '<span class="gift-label">(사은품)</span>');
+}
+
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -3377,7 +3382,7 @@ function renderGoldInvoiceItem(invoice, item, invoiceIndex = 0, itemIndex = 0) {
     <div class="gold-item-main">
       <span class="workflow-row-order">상품순서 ${itemOrderNo(item, itemIndex)}번</span>
       ${renderPickingOptionHeading(item, option, { gold: true })}
-      <small>${escapeHtml(item.ownCode || "-")} · ${escapeHtml(item.productName || "")}</small>
+      <small>${escapeHtml(item.ownCode || "-")} · ${productNameHtml(item.productName || "")}</small>
       ${renderPickingCustomOrderControls(invoice, item, { compact: true })}
     </div>
     <span class="gold-item-qty">${Number(item.quantity) || 1}개</span>
@@ -4227,7 +4232,7 @@ function renderInspectionPanels(options = {}) {
             <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
             <em class="${optionClass(item, "workflow-option-cell")}">${shipmentMemberBadge(item)}${escapeHtml(option)}</em>
             <b>${Number(item.quantity) || 1}</b>
-            <strong class="workflow-product-cell">${escapeHtml(product)}</strong>
+            <strong class="workflow-product-cell">${productNameHtml(product)}</strong>
             <span class="workflow-amount-cell">${escapeHtml(formatAmount(item.itemSalesAmount))}</span>
             <strong class="workflow-code-cell">${escapeHtml(item.ownCode || "-")}</strong>
             <span class="workflow-sellpia-cell">${escapeHtml(item.sellpiaProductCode || "-")}</span>
@@ -4702,7 +4707,7 @@ function renderLegacyCsInvoicePanels() {
             <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
             <em class="${optionClass(item, "workflow-option-cell")}">${escapeHtml(option)}</em>
             <b>${Number(item.quantity) || 1}</b>
-            <strong class="workflow-product-cell">${escapeHtml(product)}</strong>
+            <strong class="workflow-product-cell">${productNameHtml(product)}</strong>
             <span class="workflow-amount-cell">${escapeHtml(formatAmount(item.itemSalesAmount))}</span>
             <strong class="workflow-code-cell">${escapeHtml(item.ownCode || "-")}</strong>
             <span class="workflow-sellpia-cell">${escapeHtml(item.sellpiaProductCode || "-")}</span>
@@ -4884,7 +4889,7 @@ function renderPickingRow(invoice, item, invoiceIndex = 0, itemIndex = 0) {
           ${itemIsEffectivelyCancelled(invoice, item) ? '<span class="workflow-row-badge cancelled">취소</span>' : ""}
         </div>
         ${renderPickingOptionHeading(item, option)}
-        <p class="product">${escapeHtml(product)}</p>
+        <p class="product">${productNameHtml(product)}</p>
         <div class="invoice-meta">
           <span>${escapeHtml(invoice.displayName || invoice.csDisplayName || "-")}</span>
           <span>${escapeHtml(invoiceSequenceWithGroupLabel(invoice))}</span>

@@ -6685,3 +6685,9 @@ input {
     scroll-padding-top: 64px;
   }
 }
+
+/* 상품명 속 "(사은품)" 빨간 글씨 (2026-10-26) */
+.gift-label,
+.workflow-item-row .gift-label {
+  color: var(--red);
+}

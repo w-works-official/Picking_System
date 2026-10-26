@@ -38,6 +38,7 @@ import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/busi
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
+import { piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-piercing-voice2";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
 import {
@@ -419,6 +420,8 @@ const els = {
   metricShortage: document.getElementById("metric-shortage"),
   metricHold: document.getElementById("metric-hold"),
   metricWrite: document.getElementById("metric-write"),
+  metricVoice: document.getElementById("metric-voice"),
+  metricVoiceToggle: document.getElementById("metric-voice-toggle"),
   metricEvents: document.getElementById("metric-events"),
   toast: document.getElementById("toast"),
 };
@@ -10487,6 +10490,7 @@ function setActiveTab(tab) {
 }
 
 function scrollToTrayItem(key) {
+  announcePickingSelection(key);
   state.currentTrayKey = key;
   const selectorKey = window.CSS?.escape ? CSS.escape(key) : key.replace(/"/g, '\\"');
   let target = els.orderList.querySelector(`[data-slot-key="${selectorKey}"]`);
@@ -10511,7 +10515,61 @@ function scrollTrayToSelectedItem(key) {
   if (els.bottomTray) els.bottomTray.scrollTop = 0;
 }
 
+const PICKING_VOICE_STORAGE_KEY = "system-v3-picking-voice";
+const pickingVoice = { lastKey: "", lastAt: 0 };
+
+// Per-device on/off (default ON). Storage can be unavailable; then it stays ON.
+function pickingVoiceEnabled() {
+  try {
+    return window.localStorage.getItem(PICKING_VOICE_STORAGE_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function setPickingVoiceEnabled(enabled) {
+  try {
+    window.localStorage.setItem(PICKING_VOICE_STORAGE_KEY, enabled ? "on" : "off");
+  } catch {
+    // Ignore: the toggle simply won't persist in restricted browser modes.
+  }
+  if (!enabled) window.speechSynthesis?.cancel();
+  renderPickingVoiceToggle();
+}
+
+function renderPickingVoiceToggle() {
+  if (els.metricVoice) els.metricVoice.textContent = pickingVoiceEnabled() ? "ON" : "OFF";
+}
+
+function speakText(text) {
+  const synth = window.speechSynthesis;
+  if (!synth || typeof window.SpeechSynthesisUtterance !== "function") return;
+  synth.cancel();
+  const utterance = new window.SpeechSynthesisUtterance(text);
+  utterance.lang = "ko-KR";
+  const voice = synth.getVoices().find((entry) => /^ko/i.test(entry.lang || ""));
+  if (voice) utterance.voice = voice;
+  synth.speak(utterance);
+}
+
+// Picking tab only: reads piercing own codes aloud when an item is selected.
+// Read-only — never saves anything.
+function announcePickingSelection(key) {
+  if (state.activeTab !== "picking" || !pickingVoiceEnabled()) return;
+  if (!key) return;
+  const now = Date.now();
+  if (key === pickingVoice.lastKey && now - pickingVoice.lastAt < 400) return;
+  const [orderGroupNo, sellpiaItemNo] = String(key).split("::");
+  const { item } = findInvoiceAndItem(orderGroupNo, sellpiaItemNo);
+  const text = piercingSpeechText(item?.ownCode);
+  if (!text) return;
+  pickingVoice.lastKey = key;
+  pickingVoice.lastAt = now;
+  speakText(text);
+}
+
 function selectPickingCard(key) {
+  announcePickingSelection(key);
   state.currentTrayKey = key;
   els.orderList.querySelectorAll(".is-selected[data-slot-key]").forEach((card) => card.classList.remove("is-selected"));
   els.trayBoard?.querySelectorAll(".selected[data-tray-key]").forEach((card) => card.classList.remove("selected"));
@@ -10529,6 +10587,7 @@ function selectFirstItemOfInvoice(invoice, shouldRender = true) {
   const item = invoice?.items?.[0];
   if (!invoice || !item) return false;
   const key = itemSlotKey(invoice, item);
+  announcePickingSelection(key);
   state.currentTrayKey = key;
   if (shouldRender) {
     if (state.activeTab === "picking") renderPickingSurfaces();
@@ -11674,6 +11733,8 @@ function bindEvents() {
       toggleSelectedItem().catch(showError);
     }
   });
+  els.metricVoiceToggle?.addEventListener("click", () => setPickingVoiceEnabled(!pickingVoiceEnabled()));
+  renderPickingVoiceToggle();
   document.addEventListener("keydown", onGlobalKeydown);
 }
 

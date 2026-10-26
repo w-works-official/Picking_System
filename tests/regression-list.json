@@ -65,5 +65,6 @@
   "workflowCancellation.mock.test.mjs",
   "missingPhotos.mock.test.mjs",
   "inspectionStickyHeader.contract.test.mjs",
-  "giftLabel.mock.test.mjs"
+  "giftLabel.mock.test.mjs",
+  "piercingSpeech.mock.test.mjs"
 ]

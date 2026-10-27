@@ -12,6 +12,14 @@ assert.equal(piercingSpeechText("[P] S-11 ]"), "피어싱 S 일일");
 assert.equal(piercingSpeechText("[P] S-11-02-3 ]"), "피어싱 S 일일 다시 공이 다시 삼");
 assert.equal(piercingSpeechText("[P] R-26-01_2 ]##"), "피어싱 R 이육 다시 공일 언더바 이", "underscore is read 언더바");
 assert.equal(piercingSpeechText("[P] A-01-09 ]-피킹패스-"), "피어싱 A 공일 다시 공구");
+// Set piercing (SA) and leading text before "[" (real data: 끝, 낱, ###).
+assert.equal(piercingSpeechText("[SA-01-03_3]", { quantity: 2 }), "세트피어싱 공일 다시 공삼 언더바 삼, 2개");
+assert.equal(piercingSpeechText("끝[SA-05-05_1]"), "세트피어싱 공오 다시 공오 언더바 일");
+assert.equal(piercingSpeechText("[SA-12-01]"), "세트피어싱 일이 다시 공일");
+assert.equal(piercingSpeechText("###[P] K-08-07 ]"), "피어싱 K 공팔 다시 공칠");
+assert.equal(piercingSpeechText("끝[P] M-07-01 ]99"), "피어싱 M 공칠 다시 공일");
+assert.equal(piercingSpeechText("[SAB-01]"), "", "other codes starting with SA letters stay silent");
+assert.equal(piercingSpeechText("[NA-03-04_5]"), "");
 // Quantity is read last.
 assert.equal(piercingSpeechText("[P] S-11-02 ]", { quantity: 2 }), "피어싱 S 일일 다시 공이, 2개");
 assert.equal(piercingSpeechText("[P] Q-23-07 ]", { quantity: "1" }), "피어싱 Q 이삼 다시 공칠, 1개");

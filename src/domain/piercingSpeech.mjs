@@ -1,12 +1,16 @@
 // Spoken label for piercing own codes. Rules settled with 대표님 (2026-10-27):
-// - only codes starting with "[P]" are spoken; "[P]" is read as "피어싱"
-// - brackets and anything after the closing "]" are dropped
-// - the first hyphen is a pause, every later hyphen is read "다시"
+// - "[P] ..." codes are piercing ("피어싱"), "[SA-...]" codes are set piercing ("세트피어싱")
+// - brackets, any text before the first "[" (예: 끝, 낱) and anything after the code are dropped
+// - [P]: the first hyphen is a pause, every later hyphen is read "다시"
+//   [SA]: "SA" itself is the label, so the hyphen after the first number is read "다시"
 // - digits are read one by one: 11 -> 일일, 304 -> 삼공사, 02 -> 공이
 // - an underscore is read "언더바": R-26-01_2 -> R 이육 다시 공일 언더바 이
 // - the quantity is read last: ", 2개"
-// e.g. "[P] S-11-02 ]" with quantity 2 -> "피어싱 S 일일 다시 공이, 2개"
-const PIERCING_CODE = /^\s*(?:낱\s*)?\[\s*P\s*\]\s*([A-Za-z0-9_]+(?:\s*-\s*[A-Za-z0-9_]+)*)/i;
+// e.g. "[P] S-11-02 ]" x2 -> "피어싱 S 일일 다시 공이, 2개"
+//      "[SA-01-03_3]" x2 -> "세트피어싱 공일 다시 공삼 언더바 삼, 2개"
+const CODE_TOKENS = "([A-Za-z0-9_]+(?:\\s*-\\s*[A-Za-z0-9_]+)*)";
+const PIERCING_CODE = new RegExp(`^[^\\[]*\\[\\s*P\\s*\\]\\s*${CODE_TOKENS}`, "i");
+const SET_PIERCING_CODE = new RegExp(`^[^\\[]*\\[\\s*SA\\s*-\\s*${CODE_TOKENS}`, "i");
 const KO_DIGITS = ["공", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"];
 
 function spokenToken(token) {
@@ -14,16 +18,22 @@ function spokenToken(token) {
 }
 
 export function piercingSpeechText(ownCode, { quantity } = {}) {
-  const match = PIERCING_CODE.exec(String(ownCode ?? ""));
+  const raw = String(ownCode ?? "");
+  const piercing = PIERCING_CODE.exec(raw);
+  const setPiercing = piercing ? null : SET_PIERCING_CODE.exec(raw);
+  const match = piercing || setPiercing;
   if (!match) return "";
-  const parts = match[1]
+  const label = piercing ? "피어싱" : "세트피어싱";
+  const tokens = match[1]
     .split("-")
     .map((part) => part.trim().split("_").filter(Boolean))
     .filter((pieces) => pieces.length)
     .map(([main, ...extra]) => [spokenToken(main), ...extra.flatMap((piece) => ["언더바", spokenToken(piece)])]);
-  if (!parts.length) return "";
+  if (!tokens.length) return "";
+  // For SA the label stands in for the first token (the "S" of "[P] S-11-02 ]").
+  const parts = piercing ? tokens : [[], ...tokens];
   const [first, second = [], ...rest] = parts;
-  const code = ["피어싱", ...first, ...second, ...rest.flatMap((pieces) => ["다시", ...pieces])].join(" ");
+  const code = [label, ...first, ...second, ...rest.flatMap((pieces) => ["다시", ...pieces])].join(" ");
   const qty = Number(quantity);
   return Number.isFinite(qty) && qty > 0 ? `${code}, ${Math.trunc(qty)}개` : code;
 }

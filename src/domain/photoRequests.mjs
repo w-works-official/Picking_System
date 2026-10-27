@@ -3,7 +3,14 @@
 // 기기마다 같은 목록을 보도록 피킹 프로젝트의 공유 버킷(system-v3-shared)의
 // photo-requests/ 폴더를 씁니다. 상품 1개 = 파일 1개라서 동시에 눌러도 서로 덮어쓰지 않습니다.
 // 사진이 올라오면 목록에서 자동으로 빠집니다(사진 존재 여부로 판단).
+// 이 버킷은 CSV(text/csv)만 받으므로 요청 파일도 CSV 한 줄로 저장합니다(2026-10-27 수정).
+// 삭제 권한이 없을 수 있어, 정리된 요청은 짧은 "closed" 파일로 덮어써서 표시합니다.
 export const PHOTO_REQUEST_FOLDER = "photo-requests";
+export const PHOTO_REQUEST_CONTENT_TYPE = "text/csv";
+const PHOTO_REQUEST_COLUMNS = ["code", "title", "requestedAt", "source"];
+// A real request always has the header line (34 bytes+); the closed marker is 7 bytes.
+export const PHOTO_REQUEST_CLOSED_TEXT = "closed\n";
+const PHOTO_REQUEST_MIN_OPEN_SIZE = 16;
 
 const PRODUCT_PHOTO_SUFFIXES = [".__priority", ".__group", ".__range"];
 
@@ -11,7 +18,7 @@ const PRODUCT_PHOTO_SUFFIXES = [".__priority", ".__group", ".__range"];
 // normally like "1000-1". Anything else becomes "_" (the real code is stored inside).
 export function photoRequestFileName(code) {
   const safe = String(code || "").trim().replace(/[^A-Za-z0-9._-]/g, "_");
-  return safe ? `${safe}.json` : "";
+  return safe ? `${safe}.csv` : "";
 }
 
 export function photoRequestPath(code) {
@@ -55,21 +62,60 @@ export function buildPhotoRequestRecord({ code, title = "", requestedAt = new Da
   };
 }
 
-export function parsePhotoRequestRecord(text, fileName = "") {
-  try {
-    const value = JSON.parse(String(text || ""));
-    const code = String(value?.code || "").trim();
-    if (!code) return null;
-    return {
-      code,
-      title: String(value.title || ""),
-      requestedAt: String(value.requestedAt || ""),
-      source: String(value.source || ""),
-      fileName: String(fileName || ""),
-    };
-  } catch {
-    return null;
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let cell = "";
+  let quoted = false;
+  const source = String(text || "").replace(/^\uFEFF/, "");
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
+    if (quoted) {
+      if (ch === '"' && source[i + 1] === '"') { cell += '"'; i += 1; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && source[i + 1] === "\n") i += 1;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += ch;
   }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+export function serializePhotoRequestRecord(record) {
+  return `${PHOTO_REQUEST_COLUMNS.join(",")}\n${PHOTO_REQUEST_COLUMNS.map((key) => csvCell(record?.[key])).join(",")}\n`;
+}
+
+// Listing entries: a tiny "closed" file is a settled/cancelled request.
+export function isOpenPhotoRequestEntry(entry) {
+  const name = String(entry?.name || "");
+  if (!/\.csv$/i.test(name)) return false;
+  const size = Number(entry?.metadata?.size);
+  return !(Number.isFinite(size) && size < PHOTO_REQUEST_MIN_OPEN_SIZE);
+}
+
+export function parsePhotoRequestRecord(text, fileName = "") {
+  const rows = parseCsvRows(text).filter((cells) => cells.some((cell) => cell !== ""));
+  if (rows.length < 2) return null;
+  const header = rows[0].map((cell) => cell.trim());
+  const values = Object.fromEntries(header.map((key, index) => [key, rows[1][index] ?? ""]));
+  const code = String(values.code || "").trim();
+  if (!code) return null;
+  return {
+    code,
+    title: String(values.title || ""),
+    requestedAt: String(values.requestedAt || ""),
+    source: String(values.source || ""),
+    fileName: String(fileName || ""),
+  };
 }
 
 export function sortPhotoRequests(records = []) {

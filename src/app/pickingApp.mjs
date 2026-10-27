@@ -38,7 +38,7 @@ import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/busi
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
-import { PHOTO_REQUEST_FOLDER, buildPhotoRequestRecord, parsePhotoRequestRecord, photoRequestFileName, photoRequestPath, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261027-photo-request1";
+import { PHOTO_REQUEST_CLOSED_TEXT, PHOTO_REQUEST_CONTENT_TYPE, PHOTO_REQUEST_FOLDER, buildPhotoRequestRecord, isOpenPhotoRequestEntry, parsePhotoRequestRecord, photoRequestFileName, photoRequestPath, productCodeFromPhotoUrl, serializePhotoRequestRecord, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261027-photo-request-csv1";
 import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-all1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
@@ -1253,7 +1253,8 @@ async function exportMissingPhotoList() {
 }
 
 // ---- 사진 요청 (2026-10-27) -------------------------------------------------
-// 요청은 공유 버킷 system-v3-shared/photo-requests/<셀피아코드>.json 파일로 저장합니다.
+// 요청은 공유 버킷 system-v3-shared/photo-requests/<셀피아코드>.csv 파일로 저장합니다(버킷이 CSV만 허용).
+// 정리·취소된 요청은 삭제가 막혀 있어도 되도록 "closed" 표시 파일로 덮어씁니다.
 function photoRequestIsOpen(code) {
   return state.photoRequests.fileNames.has(photoRequestFileName(code));
 }
@@ -1302,7 +1303,7 @@ async function listPhotoRequestFileNames() {
       sortBy: { column: "name", order: "asc" },
     });
     if (error) throw error;
-    names.push(...(data || []).map((file) => String(file?.name || "")).filter((name) => /\.json$/i.test(name)));
+    names.push(...(data || []).filter(isOpenPhotoRequestEntry).map((file) => String(file.name)));
     if (!data || data.length < 1000) break;
   }
   return names;
@@ -1350,10 +1351,23 @@ async function productPhotoExists(code) {
   return false;
 }
 
+function photoRequestUpload(path, text) {
+  const file = new Blob([text], { type: PHOTO_REQUEST_CONTENT_TYPE });
+  return db.storage.from(RECEIVING_LABEL_BUCKET).upload(path, file, { upsert: true, contentType: PHOTO_REQUEST_CONTENT_TYPE, cacheControl: "0" });
+}
+
+// Delete may be refused silently (storage returns the objects it actually removed),
+// so anything not removed is overwritten with the "closed" marker = "정리된 요청".
 async function removePhotoRequestFiles(fileNames = []) {
   if (!fileNames.length) return;
-  const { error } = await db.storage.from(RECEIVING_LABEL_BUCKET).remove(fileNames.map((name) => `${PHOTO_REQUEST_FOLDER}/${name}`));
-  if (error) throw error;
+  const paths = fileNames.map((name) => `${PHOTO_REQUEST_FOLDER}/${name}`);
+  const { data, error } = await db.storage.from(RECEIVING_LABEL_BUCKET).remove(paths);
+  const removed = new Set((error ? [] : data || []).map((entry) => String(entry?.name || "")));
+  for (const path of paths) {
+    if (removed.has(path)) continue;
+    const { error: clearError } = await photoRequestUpload(path, PHOTO_REQUEST_CLOSED_TEXT);
+    if (clearError) throw clearError;
+  }
 }
 
 // 사진이 들어온 요청은 목록에서 자동으로 뺍니다(쓰기 모드면 요청 파일도 정리).
@@ -1387,8 +1401,7 @@ async function requestProductPhoto(code, title = "") {
   }
   const record = buildPhotoRequestRecord({ code, title, source: state.activeTab });
   const path = photoRequestPath(record.code);
-  const file = new Blob([JSON.stringify(record)], { type: "application/json" });
-  const { error } = await db.storage.from(RECEIVING_LABEL_BUCKET).upload(path, file, { upsert: true, contentType: "application/json", cacheControl: "0" });
+  const { error } = await photoRequestUpload(path, serializePhotoRequestRecord(record));
   if (error) throw error;
   state.photoRequests.fileNames.add(photoRequestFileName(record.code));
   state.photoRequests.records = sortPhotoRequests([

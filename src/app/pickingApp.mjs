@@ -1275,6 +1275,8 @@ function showPhotoRequestButton(image) {
   const code = image?.dataset?.photoRequestCode;
   const box = image?.parentElement;
   if (!code || !box || box.querySelector(".photo-request-btn")) return;
+  // 주문제작 전표의 왼쪽 캡처 영역에는 버튼을 넣지 않습니다(거래처 전달용 화면).
+  if (image.closest(".custom-order-slip-card, .custom-order-row-primary")) return;
   box.classList.add("has-photo-request");
   const button = document.createElement("button");
   button.type = "button";

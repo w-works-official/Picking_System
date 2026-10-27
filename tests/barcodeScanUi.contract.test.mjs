@@ -16,6 +16,6 @@ assert.match(app, /commitInvoiceScan\(input,[\s\S]*?state\.csWorkLogModal\.searc
 assert.doesNotMatch(app, /digits\.length >= 13 && findInvoiceByInvoiceNo/);
 const bootstrap = await readFile(new URL("../src/app/pickingBootstrap.mjs", import.meta.url), "utf8");
 assert.match(index, /src\/app\/pickingBootstrap\.mjs/);
-assert.match(bootstrap, /pickingApp\.mjs\?v=20261027-code-stack2/);
+assert.match(bootstrap, /pickingApp\.mjs\?v=20261027-gift-check2/);
 
 console.log("barcode scan UI contract tests passed");

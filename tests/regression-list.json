@@ -67,5 +67,6 @@
   "inspectionStickyHeader.contract.test.mjs",
   "giftLabel.mock.test.mjs",
   "piercingSpeech.mock.test.mjs",
-  "inspectionCodeStack.contract.test.mjs"
+  "inspectionCodeStack.contract.test.mjs",
+  "giftCheckBadge.mock.test.mjs"
 ]

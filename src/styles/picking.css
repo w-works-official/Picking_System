@@ -3474,6 +3474,11 @@ button.metric-toggle {
   color: #92400e;
 }
 
+/* 사은품 대상인데 (사은품) 상품이 없는 송장 */
+.workflow-row-badge.gift.no-gift {
+  color: var(--red);
+}
+
 .workflow-row-badge.done {
   background: #dcfce7;
   color: #15803d;

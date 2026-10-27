@@ -66,5 +66,6 @@
   "missingPhotos.mock.test.mjs",
   "inspectionStickyHeader.contract.test.mjs",
   "giftLabel.mock.test.mjs",
-  "piercingSpeech.mock.test.mjs"
+  "piercingSpeech.mock.test.mjs",
+  "inspectionCodeStack.contract.test.mjs"
 ]

@@ -6742,6 +6742,7 @@ button.metric-toggle {
 .workflow-code-stack > .workflow-code-cell,
 .workflow-code-stack > .workflow-sellpia-cell {
   text-align: left;
+}
 
 /* 화면 정리 (2026-10-27 대표님 요청)
    1) 왼쪽 메뉴와 오른쪽 작업영역 사이 여백 절반: 칸 사이 8→4px, 메뉴 오른쪽 안쪽여백 8→4px, 메뉴 스크롤바 얇게

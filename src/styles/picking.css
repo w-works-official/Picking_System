@@ -6714,3 +6714,45 @@ button.metric-toggle {
 .picking-item-card.is-selected .invoice-slot.active {
   animation: picking-active-slot-blink 1.2s ease-in-out infinite;
 }
+
+/* 화면 정리 (2026-10-27 대표님 요청)
+   1) 왼쪽 메뉴와 오른쪽 작업영역 사이 여백 절반: 칸 사이 8→4px, 메뉴 오른쪽 안쪽여백 8→4px, 메뉴 스크롤바 얇게
+   2) 피킹 카드 서랍번호 칸: "서랍" 글씨는 숨기고(화면읽기용으로만 유지) 높이를 옆 미송 칸(50px)과 맞춤,
+      폭 112→80px, 옆 칸과의 간격 10→8px(20% 축소) */
+.main-grid {
+  gap: 4px;
+}
+
+.sidebar {
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.picking-controls {
+  grid-template-columns: 66px 196px 144px 80px;
+}
+
+.picking-controls .drawer-box {
+  margin-left: -2px;
+}
+
+.picking-controls .drawer-box label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.picking-controls .drawer-box .drawer-input {
+  width: 80px;
+  height: 50px;
+  min-height: 50px;
+}
+
+@media (max-width: 980px) {
+  .picking-controls {
+    grid-template-columns: 60px 172px 128px 80px;
+  }
+}

@@ -11,7 +11,8 @@ const app = await readFile(new URL("../src/app/pickingApp.mjs", import.meta.url)
 const start = app.indexOf("function formatAmount(");
 const end = app.indexOf("function invoiceTotalQuantity(", start);
 assert.ok(start >= 0 && end > start);
-const context = vm.createContext({ escapeHtml: (value) => String(value) });
+// itemIsEffectivelyCancelled: used by the 사은품확인! colour check (giftCheckBadge) in this slice.
+const context = vm.createContext({ escapeHtml: (value) => String(value), itemIsEffectivelyCancelled: () => false });
 vm.runInContext(app.slice(start, end), context);
 const total = (invoice) => context.getInvoiceTotalAmount(invoice);
 const badge = (invoice) => context.renderInspectionTotalAmountBadge(invoice);

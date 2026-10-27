@@ -38,6 +38,7 @@ import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/busi
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
+import { PHOTO_REQUEST_FOLDER, buildPhotoRequestRecord, parsePhotoRequestRecord, photoRequestFileName, photoRequestPath, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261027-photo-request1";
 import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-all1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
@@ -313,6 +314,7 @@ const state = {
   },
   inventoryCountExportRunning: false,
   missingPhotoExportRunning: false,
+  photoRequests: { loaded: false, loading: false, open: false, fileNames: new Set(), records: [], error: "", note: "" },
 };
 
 const els = {
@@ -401,6 +403,8 @@ const els = {
   dashboardPhotoLibraryStatus: document.getElementById("dashboard-photo-library-status"),
   dashboardMissingPhotoExportBtn: document.getElementById("dashboard-missing-photo-export"),
   dashboardPhotoLibraryGrid: document.getElementById("dashboard-photo-library-grid"),
+  dashboardPhotoRequestCount: document.getElementById("dashboard-photo-request-count"),
+  dashboardPhotoRequestPanel: document.getElementById("dashboard-photo-request-panel"),
   dashboardPhotoLibraryMore: document.getElementById("dashboard-photo-library-more"),
   dashboardInventoryCountExportBtn: document.getElementById("dashboard-inventory-count-export-btn"),
   orderList: document.getElementById("order-list"),
@@ -869,6 +873,7 @@ async function uploadProductPhotos(fileList) {
   ];
   renderProductPhotoUploadStatus({ message: summary, tone: failures.length ? "warn" : "success", details });
   if (successes.length) loadProductPhotoLibrary({ reset: true }).catch(() => {});
+  if (successes.length && state.photoRequests.open) refreshPhotoRequestPanel().catch(() => {});
   toast(summary);
 }
 
@@ -1247,6 +1252,241 @@ async function exportMissingPhotoList() {
   }
 }
 
+// ---- 사진 요청 (2026-10-27) -------------------------------------------------
+// 요청은 공유 버킷 system-v3-shared/photo-requests/<셀피아코드>.json 파일로 저장합니다.
+function photoRequestIsOpen(code) {
+  return state.photoRequests.fileNames.has(photoRequestFileName(code));
+}
+
+function paintPhotoRequestButton(button) {
+  const requested = photoRequestIsOpen(button.dataset.photoRequestCode);
+  button.classList.toggle("is-requested", requested);
+  button.textContent = requested ? "요청됨" : "사진 요청";
+  button.title = requested ? "대시보드 › 상품 사진 관리 › [사진 요청]에서 확인" : "이 상품 사진을 요청 목록에 올립니다";
+}
+
+function paintAllPhotoRequestButtons() {
+  document.querySelectorAll(".photo-request-btn[data-photo-request-code]").forEach(paintPhotoRequestButton);
+  renderPhotoRequestCount();
+}
+
+// Called from the item <img> onerror when every fallback failed.
+function showPhotoRequestButton(image) {
+  const code = image?.dataset?.photoRequestCode;
+  const box = image?.parentElement;
+  if (!code || !box || box.querySelector(".photo-request-btn")) return;
+  box.classList.add("has-photo-request");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "photo-request-btn";
+  button.dataset.photoRequestCode = code;
+  button.dataset.photoRequestTitle = image.dataset.photoTitle || "";
+  paintPhotoRequestButton(button);
+  box.appendChild(button);
+}
+
+function renderPhotoRequestCount() {
+  if (!els.dashboardPhotoRequestCount) return;
+  const count = state.photoRequests.fileNames.size;
+  els.dashboardPhotoRequestCount.textContent = state.photoRequests.loaded && count ? String(count) : "";
+}
+
+async function listPhotoRequestFileNames() {
+  const names = [];
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await db.storage.from(RECEIVING_LABEL_BUCKET).list(PHOTO_REQUEST_FOLDER, {
+      limit: 1000,
+      offset,
+      sortBy: { column: "name", order: "asc" },
+    });
+    if (error) throw error;
+    names.push(...(data || []).map((file) => String(file?.name || "")).filter((name) => /\.json$/i.test(name)));
+    if (!data || data.length < 1000) break;
+  }
+  return names;
+}
+
+async function loadPhotoRequests({ withDetails = false } = {}) {
+  const requests = state.photoRequests;
+  requests.loading = true;
+  try {
+    const names = await listPhotoRequestFileNames();
+    requests.fileNames = new Set(names);
+    if (withDetails) {
+      const records = [];
+      for (let index = 0; index < names.length; index += 6) {
+        const chunk = await Promise.all(names.slice(index, index + 6).map(async (name) => {
+          const { data, error } = await db.storage.from(RECEIVING_LABEL_BUCKET).download(`${PHOTO_REQUEST_FOLDER}/${name}`);
+          if (error || !data) return null;
+          return parsePhotoRequestRecord(await data.text(), name);
+        }));
+        records.push(...chunk.filter(Boolean));
+      }
+      requests.records = sortPhotoRequests(records);
+    }
+    requests.loaded = true;
+    requests.error = "";
+  } catch (error) {
+    requests.error = error?.message || String(error || "알 수 없는 오류");
+    throw error;
+  } finally {
+    requests.loading = false;
+    paintAllPhotoRequestButtons();
+  }
+}
+
+async function productPhotoExists(code) {
+  const urls = [productImageUrl(code), ...productImageFallbackUrls(code)].filter(Boolean);
+  for (const url of [...new Set(urls)]) {
+    try {
+      const response = await fetch(url, { method: "HEAD", cache: "no-store" });
+      if (response.ok) return true;
+    } catch {
+      // Network hiccup: treat as "not confirmed" so the request stays.
+    }
+  }
+  return false;
+}
+
+async function removePhotoRequestFiles(fileNames = []) {
+  if (!fileNames.length) return;
+  const { error } = await db.storage.from(RECEIVING_LABEL_BUCKET).remove(fileNames.map((name) => `${PHOTO_REQUEST_FOLDER}/${name}`));
+  if (error) throw error;
+}
+
+// 사진이 들어온 요청은 목록에서 자동으로 뺍니다(쓰기 모드면 요청 파일도 정리).
+async function settleFulfilledPhotoRequests() {
+  const requests = state.photoRequests;
+  const fulfilled = [];
+  for (let index = 0; index < requests.records.length; index += 6) {
+    const chunk = requests.records.slice(index, index + 6);
+    const found = await Promise.all(chunk.map((record) => productPhotoExists(record.code)));
+    chunk.forEach((record, i) => { if (found[i]) fulfilled.push(record); });
+  }
+  if (!fulfilled.length) return 0;
+  const names = fulfilled.map((record) => record.fileName || photoRequestFileName(record.code));
+  if (allowWrites) {
+    try {
+      await removePhotoRequestFiles(names);
+    } catch {
+      // Keep the files; they are hidden below and retried next time.
+    }
+  }
+  const done = new Set(names);
+  requests.records = requests.records.filter((record) => !done.has(record.fileName || photoRequestFileName(record.code)));
+  names.forEach((name) => requests.fileNames.delete(name));
+  return fulfilled.length;
+}
+
+async function requestProductPhoto(code, title = "") {
+  if (!allowWrites) {
+    toast("읽기전용입니다. URL에 write=1을 붙여야 사진 요청을 저장할 수 있습니다.");
+    return;
+  }
+  const record = buildPhotoRequestRecord({ code, title, source: state.activeTab });
+  const path = photoRequestPath(record.code);
+  const file = new Blob([JSON.stringify(record)], { type: "application/json" });
+  const { error } = await db.storage.from(RECEIVING_LABEL_BUCKET).upload(path, file, { upsert: true, contentType: "application/json", cacheControl: "0" });
+  if (error) throw error;
+  state.photoRequests.fileNames.add(photoRequestFileName(record.code));
+  state.photoRequests.records = sortPhotoRequests([
+    { ...record, fileName: photoRequestFileName(record.code) },
+    ...state.photoRequests.records.filter((entry) => entry.code !== record.code),
+  ]);
+  paintAllPhotoRequestButtons();
+  if (state.photoRequests.open) renderPhotoRequestPanel();
+  toast(`사진 요청 등록: ${record.code}`);
+}
+
+async function cancelPhotoRequest(fileName) {
+  if (!allowWrites) {
+    toast("읽기전용입니다. URL에 write=1을 붙여야 요청을 취소할 수 있습니다.");
+    return;
+  }
+  await removePhotoRequestFiles([fileName]);
+  state.photoRequests.fileNames.delete(fileName);
+  state.photoRequests.records = state.photoRequests.records.filter((record) => record.fileName !== fileName);
+  paintAllPhotoRequestButtons();
+  renderPhotoRequestPanel();
+  toast("사진 요청을 취소했습니다.");
+}
+
+function productNameForPhotoCode(code) {
+  const lists = [state.viewModel?.invoices, state.workflowQueues?.viewModel?.invoices, state.workflowQueues?.inspectionInvoices];
+  for (const invoices of lists) {
+    for (const invoice of invoices || []) {
+      const item = (invoice.items || []).find((entry) => String(entry.sellpiaProductCode || "").trim() === code && entry.productName);
+      if (item) return item.productName;
+    }
+  }
+  return "";
+}
+
+function formatPhotoRequestTime(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return "-";
+  const pad = (number) => String(number).padStart(2, "0");
+  return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function renderPhotoRequestPanel() {
+  const panel = els.dashboardPhotoRequestPanel;
+  if (!panel) return;
+  const requests = state.photoRequests;
+  panel.hidden = !requests.open;
+  if (!requests.open) return;
+  const rows = requests.records
+    .map((record) => `<tr>
+        <td class="photo-request-code">${escapeHtml(record.code)}</td>
+        <td>${productNameHtml(productNameForPhotoCode(record.code) || "")}${productNameForPhotoCode(record.code) ? "<br>" : ""}<small>${escapeHtml(record.title || "-")}</small></td>
+        <td class="photo-request-time">${escapeHtml(formatPhotoRequestTime(record.requestedAt))}</td>
+        <td><button class="btn mini" data-photo-request-cancel="${escapeHtml(record.fileName)}" type="button">요청 취소</button></td>
+      </tr>`)
+    .join("");
+  const status = requests.loading
+    ? "요청 목록과 사진 등록 여부를 확인하는 중입니다."
+    : requests.error
+      ? `사진 요청 목록을 불러오지 못했습니다: ${requests.error}`
+      : requests.note || `사진 요청 ${requests.records.length}건 · 사진이 등록되면 자동으로 빠집니다.`;
+  panel.innerHTML = `<div class="dashboard-photo-request-head">
+      <strong>사진 요청</strong>
+      <span class="dashboard-photo-request-status" aria-live="polite">${escapeHtml(status)}</span>
+      <button class="btn mini" data-dashboard-action="photo-requests-refresh" type="button" ${requests.loading ? "disabled" : ""}>새로고침</button>
+    </div>
+    ${requests.records.length
+      ? `<div class="dashboard-photo-request-table-wrap"><table class="dashboard-photo-request-table">
+          <thead><tr><th>셀피아코드</th><th>상품</th><th>요청 시각</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`
+      : requests.loading ? "" : '<div class="dashboard-photo-request-empty">요청된 사진이 없습니다. 사진이 안 뜨는 상품의 [사진 요청] 버튼으로 추가하세요.</div>'}`;
+}
+
+async function refreshPhotoRequestPanel() {
+  const requests = state.photoRequests;
+  requests.note = "";
+  requests.loading = true;
+  renderPhotoRequestPanel();
+  try {
+    await loadPhotoRequests({ withDetails: true });
+    requests.loading = true;
+    renderPhotoRequestPanel();
+    const removed = await settleFulfilledPhotoRequests();
+    requests.note = removed ? `사진이 등록된 ${removed}건을 목록에서 뺐습니다. 남은 요청 ${requests.records.length}건.` : "";
+  } catch {
+    // error text already stored in state.photoRequests.error
+  } finally {
+    requests.loading = false;
+    paintAllPhotoRequestButtons();
+    renderPhotoRequestPanel();
+  }
+}
+
+function togglePhotoRequestPanel() {
+  state.photoRequests.open = !state.photoRequests.open;
+  renderPhotoRequestPanel();
+  if (state.photoRequests.open) refreshPhotoRequestPanel().catch(() => {});
+}
+
 async function loadProductPhotoLibrary({ reset = false } = {}) {
   const library = state.productPhotoLibrary;
   if (!els.dashboardPhotoLibraryGrid || library.loading) return;
@@ -1302,7 +1542,10 @@ function photoTitleForItem(item = {}) {
 function photoImgAttrs(src, title = "", fallbackSrcs = []) {
   const fallbacks = [...new Set((Array.isArray(fallbackSrcs) ? fallbackSrcs : [fallbackSrcs]).map((value) => String(value || "").trim()).filter(Boolean))];
   const fallbackAttr = fallbacks.length ? ` data-photo-fallbacks="${escapeHtml(JSON.stringify(fallbacks))}"` : "";
-  return `data-photo-src="${escapeHtml(src)}" data-photo-title="${escapeHtml(title)}"${fallbackAttr} onerror="var f=JSON.parse(this.dataset.photoFallbacks||'[]');if(f.length){var n=f.shift();this.dataset.photoFallbacks=JSON.stringify(f);this.src=n;this.dataset.photoSrc=n;}else{this.style.visibility='hidden'}"`;
+  // Item photos (they come with fallbacks) offer "사진 요청" when no photo loads at all.
+  const requestCode = fallbacks.length ? productCodeFromPhotoUrl(src) : "";
+  const requestAttr = requestCode ? ` data-photo-request-code="${escapeHtml(requestCode)}"` : "";
+  return `data-photo-src="${escapeHtml(src)}" data-photo-title="${escapeHtml(title)}"${fallbackAttr}${requestAttr} onerror="var f=JSON.parse(this.dataset.photoFallbacks||'[]');if(f.length){var n=f.shift();this.dataset.photoFallbacks=JSON.stringify(f);this.src=n;this.dataset.photoSrc=n;}else{this.style.visibility='hidden';if(window.SystemV3PhotoMissing)window.SystemV3PhotoMissing(this)}"`;
 }
 
 function normalizePhotoViewerZoom(value) {
@@ -11445,6 +11688,12 @@ function bindEvents() {
     if (button.dataset.dashboardAction === "missing-photo-export") {
       exportMissingPhotoList().catch(() => {});
     }
+    if (button.dataset.dashboardAction === "photo-requests") {
+      togglePhotoRequestPanel();
+    }
+    if (button.dataset.dashboardAction === "photo-requests-refresh") {
+      refreshPhotoRequestPanel().catch(() => {});
+    }
     if (button.dataset.dashboardAction === "photo-library-refresh") {
       loadProductPhotoLibrary({ reset: true }).catch(() => {});
     }
@@ -11770,9 +12019,38 @@ function showCsError(error) {
   toast(`CS 처리 실패: ${error?.message || error}`);
 }
 
+function bindPhotoRequestEvents() {
+  // Hook used by the item <img> onerror (photoImgAttrs) once every fallback failed.
+  window.SystemV3PhotoMissing = showPhotoRequestButton;
+  // Capture phase so the click does not also select/toggle the picking card underneath.
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest?.(".photo-request-btn[data-photo-request-code]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (photoRequestIsOpen(button.dataset.photoRequestCode)) {
+      toast("이미 사진 요청된 상품입니다.");
+      return;
+    }
+    button.disabled = true;
+    requestProductPhoto(button.dataset.photoRequestCode, button.dataset.photoRequestTitle)
+      .catch((error) => toast(`사진 요청 실패: ${error?.message || error}`))
+      .finally(() => { button.disabled = false; });
+  }, true);
+  els.dashboardPhotoRequestPanel?.addEventListener("click", (event) => {
+    const cancel = event.target.closest("[data-photo-request-cancel]");
+    if (!cancel) return;
+    cancel.disabled = true;
+    cancelPhotoRequest(cancel.dataset.photoRequestCancel)
+      .catch((error) => { cancel.disabled = false; toast(`요청 취소 실패: ${error?.message || error}`); });
+  });
+}
+
 function init() {
   els.dateInput.value = state.selectedDate;
   bindEvents();
+  bindPhotoRequestEvents();
+  loadPhotoRequests().catch(() => {});
   renderMetrics();
   loadPickingData().catch(showError);
 }

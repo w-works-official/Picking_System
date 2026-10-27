@@ -6785,3 +6785,116 @@ button.metric-toggle {
     grid-template-columns: 60px 172px 128px 80px;
   }
 }
+
+/* 사진 요청 (2026-10-27) */
+.has-photo-request {
+  position: relative;
+}
+
+.photo-request-btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: #fff7e0;
+  color: #92400e;
+  padding: 5px 9px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.photo-request-btn.is-requested {
+  border-color: #93a5e8;
+  background: #eef2ff;
+  color: #3446a3;
+}
+
+.photo-request-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.dashboard-photo-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.photo-request-count:not(:empty) {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #ffffff;
+  padding: 0 5px;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.dashboard-photo-request-panel {
+  border: 1px solid #f3d38a;
+  border-radius: 8px;
+  background: #fffbeb;
+  padding: 10px 12px;
+  margin: 8px 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-photo-request-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboard-photo-request-status {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+  flex: 1 1 auto;
+}
+
+.dashboard-photo-request-table-wrap {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.dashboard-photo-request-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.dashboard-photo-request-table th,
+.dashboard-photo-request-table td {
+  border-bottom: 1px solid #f1e3b8;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.dashboard-photo-request-table th {
+  position: sticky;
+  top: 0;
+  background: #fff3c4;
+  color: #92400e;
+}
+
+.photo-request-code,
+.photo-request-time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboard-photo-request-empty {
+  color: #64748b;
+  font-size: 12px;
+}

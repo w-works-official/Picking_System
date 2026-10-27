@@ -68,5 +68,6 @@
   "giftLabel.mock.test.mjs",
   "piercingSpeech.mock.test.mjs",
   "inspectionCodeStack.contract.test.mjs",
-  "giftCheckBadge.mock.test.mjs"
+  "giftCheckBadge.mock.test.mjs",
+  "photoRequests.mock.test.mjs"
 ]

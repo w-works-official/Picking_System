@@ -37,4 +37,8 @@ const sorted = sortPhotoRequests([
 ]);
 assert.deepEqual(sorted.map((r) => r.code), ["1", "3", "2"], "newest first, then code");
 
+import { readFile } from "node:fs/promises";
+const app = await readFile(new URL("../src/app/pickingApp.mjs", import.meta.url), "utf8");
+assert.match(app, /if \(image\.closest\("\.custom-order-slip-card, \.custom-order-row-primary"\)\) return;/, "no request button inside the 주문제작 capture area");
+
 console.log("photoRequests.mock.test: OK");

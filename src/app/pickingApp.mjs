@@ -4923,7 +4923,7 @@ function renderPickingRow(invoice, item, invoiceIndex = 0, itemIndex = 0) {
         </div>
         <div class="drawer-box">
           <label>서랍</label>
-          <textarea class="drawer-input" inputmode="none" data-action="drawer" data-order-group="${escapeHtml(invoice.orderGroupNo)}" rows="2" placeholder="서랍번호" readonly>${escapeHtml(drawerValue)}</textarea>
+          <textarea class="drawer-input" inputmode="none" data-action="drawer" data-order-group="${escapeHtml(invoice.orderGroupNo)}" rows="2" placeholder="서랍번호" aria-label="서랍번호" readonly>${escapeHtml(drawerValue)}</textarea>
         </div>
       </div>
     </div>

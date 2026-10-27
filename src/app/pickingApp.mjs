@@ -2326,8 +2326,7 @@ function renderInspectionItemHeader(includeLabelNo = false, totalQty = null) {
     <span>수량${totalQtyLabel}</span>
     <span>상품명</span>
     <span>금액</span>
-    <span>자사코드</span>
-    <span>셀피아코드</span>
+    <span>자사코드 / 셀피아코드</span>
     <span>부족수량</span>
     <span>셀피아 주문메모</span>
     <span>상품 확인메모</span>
@@ -4190,7 +4189,7 @@ function renderInspectionPanels(options = {}) {
       </div>
     </div>
     ${holdNotice}
-    <div class="workflow-item-table inspection-item-table ${selectedLabelTarget ? "has-label-number" : ""}">
+    <div class="workflow-item-table inspection-item-table is-code-stacked ${selectedLabelTarget ? "has-label-number" : ""}">
       ${renderInspectionItemHeader(selectedLabelTarget, selectedTotalQty)}
       ${invoiceItemsInSellpiaRowOrder(selected)
         .map((item, index) => {
@@ -4237,8 +4236,10 @@ function renderInspectionPanels(options = {}) {
             <b>${Number(item.quantity) || 1}</b>
             <strong class="workflow-product-cell">${productNameHtml(product)}</strong>
             <span class="workflow-amount-cell">${escapeHtml(formatAmount(item.itemSalesAmount))}</span>
-            <strong class="workflow-code-cell">${escapeHtml(item.ownCode || "-")}</strong>
-            <span class="workflow-sellpia-cell">${escapeHtml(item.sellpiaProductCode || "-")}</span>
+            <div class="workflow-code-stack">
+              <strong class="workflow-code-cell">${escapeHtml(item.ownCode || "-")}</strong>
+              <span class="workflow-sellpia-cell">${escapeHtml(item.sellpiaProductCode || "-")}</span>
+            </div>
             ${shortageQtyInput(selected, item, shortage, "workflow-shortage-cell compact")}
             <label class="inspection-memo-cell ${sellpiaOrderMemo ? "has-value" : ""}">
               <textarea data-inspection-memo-field="sellpia-order" data-order-group="${escapeHtml(itemSourceOrderGroupNo)}" data-item-no="${escapeHtml(item.sellpiaItemNo)}" rows="2" placeholder="셀피아 주문메모" ${memoReadonly}${memoHint}>${escapeHtml(sellpiaOrderMemo)}</textarea>

@@ -6714,3 +6714,27 @@ button.metric-toggle {
 .picking-item-card.is-selected .invoice-slot.active {
   animation: picking-active-slot-blink 1.2s ease-in-out infinite;
 }
+
+/* 검품 표: 셀피아코드를 자사코드 밑으로 (2026-10-27 대표님 요청). 글자 크기·색은 그대로.
+   셀피아코드 칸(92px)이 빠진 만큼 표 최소 폭도 102px 줄어듭니다. 작업완료 표는 그대로. */
+.inspection-item-table.is-code-stacked .workflow-item-row {
+  min-width: 1778px;
+  grid-template-columns: 52px 168px 380px 50px 260px 84px 148px 74px 180px 180px 96px;
+}
+
+.inspection-item-table.is-code-stacked.has-label-number .workflow-item-row {
+  min-width: 1868px;
+  grid-template-columns: 52px 82px 168px 380px 50px 260px 84px 148px 74px 180px 180px 96px;
+}
+
+.workflow-code-stack {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workflow-code-stack > .workflow-code-cell,
+.workflow-code-stack > .workflow-sellpia-cell {
+  text-align: left;
+}

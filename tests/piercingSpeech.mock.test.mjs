@@ -18,16 +18,36 @@ assert.equal(piercingSpeechText("끝[SA-05-05_1]"), "세트피어싱 공오 다�
 assert.equal(piercingSpeechText("[SA-12-01]"), "세트피어싱 일이 다시 공일");
 assert.equal(piercingSpeechText("###[P] K-08-07 ]"), "피어싱 K 공팔 다시 공칠");
 assert.equal(piercingSpeechText("끝[P] M-07-01 ]99"), "피어싱 M 공칠 다시 공일");
-assert.equal(piercingSpeechText("[SAB-01]"), "", "other codes starting with SA letters stay silent");
-assert.equal(piercingSpeechText("[NA-03-04_5]"), "");
+assert.equal(piercingSpeechText("[SAB-01]"), "S A B 공일", "unknown zones are spelled as written");
+assert.equal(piercingSpeechText("###[NA-03-04_5]"), "목걸이 A 공삼 다시 공사 언더바 오");
 // Quantity is read last.
 assert.equal(piercingSpeechText("[P] S-11-02 ]", { quantity: 2 }), "피어싱 S 일일 다시 공이, 2개");
 assert.equal(piercingSpeechText("[P] Q-23-07 ]", { quantity: "1" }), "피어싱 Q 이삼 다시 공칠, 1개");
 assert.equal(piercingSpeechText("[P] Q-23-07 ]", { quantity: 0 }), "피어싱 Q 이삼 다시 공칠", "no quantity when unknown");
-assert.equal(piercingSpeechText("[CA-02-01_1]", { quantity: 3 }), "", "non-piercing stays silent even with quantity");
-// Non-piercing codes stay silent.
-assert.equal(piercingSpeechText("[CA-02-01_1]0323"), "");
-assert.equal(piercingSpeechText("[EA-01-01]"), "");
+assert.equal(piercingSpeechText("[CA-02-01_1]", { quantity: 3 }), "부품 공이 다시 공일 언더바 일, 3개");
+// Category names (2026-10-27).
+const say = (code) => piercingSpeechText(code);
+assert.equal(say("[PG-2-05]"), "피어싱 G 이 다시 공오", "P+letter zones are piercing");
+assert.equal(say("[EA-11-01_1]"), "귀걸이 A 일일 다시 공일 언더바 일");
+assert.equal(say("끝[EB-15-17_1]"), "귀걸이 B 일오 다시 일칠 언더바 일");
+assert.equal(say("[ED-04-12]"), "귀걸이 D 공사 다시 일이");
+assert.equal(say("[EE-02-09_4]"), "은피어싱 E 공이 다시 공구 언더바 사");
+assert.equal(say("[EF-09-01_2]"), "은피어싱 F 공구 다시 공일 언더바 이");
+assert.equal(say("[HA-03-01_1]"), "헤어 A 공삼 다시 공일 언더바 일");
+assert.equal(say("XX[HB-6-01-1]"), "헤어 B 육 다시 공일 다시 일");
+assert.equal(say("[HD-04-01_1]"), "헤어 D 공사 다시 공일 언더바 일");
+assert.equal(say("XX[RA-7-01_4]"), "반지 A 칠 다시 공일 언더바 사");
+assert.equal(say("[RC-01-02]"), "반지 C 공일 다시 공이");
+assert.equal(say("[BA-06-02_1]0720"), "팔찌 A 공육 다시 공이 언더바 일");
+assert.equal(say("[GPA-07-15_1]"), "십사케이 A 공칠 다시 일오 언더바 일");
+assert.equal(say("[GPB-01-17_1]0226"), "십사케이 B 공일 다시 일칠 언더바 일");
+assert.equal(say("[CA-02-01_1]0323"), "부품 공이 다시 공일 언더바 일");
+// Other zones: spelled as written.
+assert.equal(say("[TA-02_5]"), "T A 공이 언더바 오");
+assert.equal(say("[HH-1-01]"), "H H 일 다시 공일", "only HA~HD are 헤어");
+// Codes without a bracket stay silent.
+assert.equal(say("성수문의 7"), "");
+assert.equal(say("xx"), "");
 assert.equal(piercingSpeechText(""), "");
 assert.equal(piercingSpeechText(null), "");
 

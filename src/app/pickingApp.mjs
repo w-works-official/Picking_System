@@ -38,7 +38,7 @@ import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/busi
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
-import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-piercing-voice2";
+import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-digits1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
 import {
@@ -10562,7 +10562,7 @@ function announcePickingSelection(key) {
   if (key === pickingVoice.lastKey && now - pickingVoice.lastAt < 400) return;
   const [orderGroupNo, sellpiaItemNo] = String(key).split("::");
   const { item } = findInvoiceAndItem(orderGroupNo, sellpiaItemNo);
-  const text = piercingSpeechText(item?.ownCode);
+  const text = piercingSpeechText(item?.ownCode, { quantity: item?.quantity });
   if (!text) return;
   pickingVoice.lastKey = key;
   pickingVoice.lastAt = now;

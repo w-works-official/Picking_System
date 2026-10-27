@@ -1,22 +1,31 @@
-// Spoken label for piercing own codes, e.g. "[P] S-11-02 ]" -> "피어싱 S 11 다시 02".
-// Rules (requested 2026-10-23, settled 2026-10-27): only codes starting with "[P]" are
-// spoken; "[P]" is read as "피어싱"; brackets and anything after the closing "]" are
-// dropped; the first hyphen is a pause and every later hyphen is read "다시"; an
-// underscore is also read "다시" ("R-26-01_2" -> "R 26 다시 01 다시 2"). Numbers are
-// left as written, so the voice reads "11" as 십일.
+// Spoken label for piercing own codes. Rules settled with 대표님 (2026-10-27):
+// - only codes starting with "[P]" are spoken; "[P]" is read as "피어싱"
+// - brackets and anything after the closing "]" are dropped
+// - the first hyphen is a pause, every later hyphen is read "다시"
+// - digits are read one by one: 11 -> 일일, 304 -> 삼공사, 02 -> 공이
+// - an underscore is read "언더바": R-26-01_2 -> R 이육 다시 공일 언더바 이
+// - the quantity is read last: ", 2개"
+// e.g. "[P] S-11-02 ]" with quantity 2 -> "피어싱 S 일일 다시 공이, 2개"
 const PIERCING_CODE = /^\s*(?:낱\s*)?\[\s*P\s*\]\s*([A-Za-z0-9_]+(?:\s*-\s*[A-Za-z0-9_]+)*)/i;
+const KO_DIGITS = ["공", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"];
 
-export function piercingSpeechText(ownCode) {
+function spokenToken(token) {
+  return String(token).toUpperCase().replace(/\d/g, (digit) => KO_DIGITS[Number(digit)]);
+}
+
+export function piercingSpeechText(ownCode, { quantity } = {}) {
   const match = PIERCING_CODE.exec(String(ownCode ?? ""));
   if (!match) return "";
   const parts = match[1]
     .split("-")
-    .map((part) => part.trim().toUpperCase().split("_").filter(Boolean))
+    .map((part) => part.trim().split("_").filter(Boolean))
     .filter((pieces) => pieces.length)
-    .map(([main, ...extra]) => [main, ...extra.flatMap((piece) => ["다시", piece])]);
+    .map(([main, ...extra]) => [spokenToken(main), ...extra.flatMap((piece) => ["언더바", spokenToken(piece)])]);
   if (!parts.length) return "";
   const [first, second = [], ...rest] = parts;
-  return ["피어싱", ...first, ...second, ...rest.flatMap((pieces) => ["다시", ...pieces])].join(" ");
+  const code = ["피어싱", ...first, ...second, ...rest.flatMap((pieces) => ["다시", ...pieces])].join(" ");
+  const qty = Number(quantity);
+  return Number.isFinite(qty) && qty > 0 ? `${code}, ${Math.trunc(qty)}개` : code;
 }
 
 // Female Korean voice when the device has one (requested 2026-10-27). Names cover

@@ -10518,12 +10518,13 @@ function scrollTrayToSelectedItem(key) {
 const PICKING_VOICE_STORAGE_KEY = "system-v3-picking-voice";
 const pickingVoice = { lastKey: "", lastAt: 0 };
 
-// Per-device on/off (default ON). Storage can be unavailable; then it stays ON.
+// Per-device on/off, default OFF (2026-10-27 대표님 결정: 시험할 기계에서만 켬).
+// Storage can be unavailable; then it stays OFF.
 function pickingVoiceEnabled() {
   try {
-    return window.localStorage.getItem(PICKING_VOICE_STORAGE_KEY) !== "off";
+    return window.localStorage.getItem(PICKING_VOICE_STORAGE_KEY) === "on";
   } catch {
-    return true;
+    return false;
   }
 }
 

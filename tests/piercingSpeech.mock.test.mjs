@@ -31,4 +31,8 @@ assert.match(app, /import \{ pickKoreanVoice, piercingSpeechText \} from "\.\.\/
 assert.match(app, /const voice = pickKoreanVoice\(synth\.getVoices\(\)\);/);
 assert.match(app, /function announcePickingSelection\(key\) \{\s*if \(state\.activeTab !== "picking" \|\| !pickingVoiceEnabled\(\)\) return;/);
 
+assert.match(app, /return window\.localStorage\.getItem\(PICKING_VOICE_STORAGE_KEY\) === "on";\s*\} catch \{\s*return false;/, "voice is OFF unless this device turned it on");
+const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
+assert.match(index, /<strong id="metric-voice">OFF<\/strong>/);
+
 console.log("piercingSpeech.mock.test: OK");

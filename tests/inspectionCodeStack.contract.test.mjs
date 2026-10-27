@@ -16,9 +16,9 @@ assert.match(inspection, /<div class="workflow-code-stack">\s*<strong class="wor
 const cols = (selector) => css.match(new RegExp(`${selector.replace(/\./g, "\\.")} \\.workflow-item-row \\{[^}]*grid-template-columns: ([^;]+);`))[1].trim().split(/\s+/).length;
 assert.equal(cols(".inspection-item-table.is-code-stacked"), headerCells - 1, "without the label-number column");
 assert.equal(cols(".inspection-item-table.is-code-stacked.has-label-number"), headerCells, "with the label-number column");
-// 작업완료 table keeps its separate Sellpia column.
-const completed = app.slice(app.indexOf("function renderCompletedPanels("));
-assert.match(completed, /<strong class="workflow-code-cell">[^\n]*\n\s*<span class="workflow-sellpia-cell">/);
-assert.doesNotMatch(completed.slice(0, 6000), /is-code-stacked/);
+// Other screens are unchanged: the legacy CS invoice table keeps its own Sellpia column.
+const legacyCs = app.slice(app.indexOf("function renderLegacyCsInvoicePanels("), app.indexOf("function renderCompletedPanels("));
+assert.match(legacyCs, /<strong class="workflow-code-cell">[^\n]*\n\s*<span class="workflow-sellpia-cell">/);
+assert.doesNotMatch(legacyCs, /is-code-stacked|workflow-code-stack/);
 
 console.log("inspectionCodeStack.contract.test: OK");

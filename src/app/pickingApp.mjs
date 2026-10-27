@@ -2309,7 +2309,19 @@ function renderInspectionTotalAmountBadge(invoice) {
       : "";
   }
   return `<span class="invoice-badge inspection-total-amount" aria-label="총 주문금액">총금액 ${escapeHtml(formatAmount(totalAmount))}원</span>
-    ${totalAmount >= 20000 ? '<span class="workflow-row-badge gift">사은품확인!</span>' : ""}`;
+    ${totalAmount >= 20000 ? giftCheckBadge(invoice) : ""}`;
+}
+
+// 사은품 대상인데 상품명에 "(사은품)"이 하나도 없으면 글씨를 빨강으로 (2026-10-27 대표님 요청).
+// 취소된 상품행은 사은품으로 치지 않습니다.
+function invoiceHasGiftItem(invoice) {
+  return (invoice?.items || []).some((item) => !itemIsEffectivelyCancelled(invoice, item) && String(item.productName || "").includes("(사은품)"));
+}
+
+function giftCheckBadge(invoice) {
+  return invoiceHasGiftItem(invoice)
+    ? '<span class="workflow-row-badge gift">사은품확인!</span>'
+    : '<span class="workflow-row-badge gift no-gift" title="상품명에 (사은품)이 없습니다. 사은품을 확인해 주세요.">사은품확인!</span>';
 }
 
 function invoiceTotalQuantity(invoice) {

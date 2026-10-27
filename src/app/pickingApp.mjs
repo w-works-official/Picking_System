@@ -10542,15 +10542,23 @@ function renderPickingVoiceToggle() {
   if (els.metricVoice) els.metricVoice.textContent = pickingVoiceEnabled() ? "ON" : "OFF";
 }
 
+// "피어싱 S 일일 다시 공이, 2개" is spoken as two utterances (code, then quantity):
+// read as one sentence the voice lowers pitch and volume at the trailing ", 2개"
+// (2026-10-27 대표님: "수량 읽을 때 볼륨이 갑자기 작아짐"). Both parts at full volume.
 function speakText(text) {
   const synth = window.speechSynthesis;
   if (!synth || typeof window.SpeechSynthesisUtterance !== "function") return;
   synth.cancel();
-  const utterance = new window.SpeechSynthesisUtterance(text);
-  utterance.lang = "ko-KR";
   const voice = pickKoreanVoice(synth.getVoices());
-  if (voice) utterance.voice = voice;
-  synth.speak(utterance);
+  for (const part of String(text).split(/\s*,\s*/).filter(Boolean)) {
+    const utterance = new window.SpeechSynthesisUtterance(part);
+    utterance.lang = "ko-KR";
+    utterance.volume = 1;
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    if (voice) utterance.voice = voice;
+    synth.speak(utterance);
+  }
 }
 
 // Picking tab only: reads piercing own codes aloud when an item is selected.

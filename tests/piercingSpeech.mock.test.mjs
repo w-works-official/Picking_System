@@ -70,4 +70,10 @@ assert.match(app, /return window\.localStorage\.getItem\(PICKING_VOICE_STORAGE_K
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 assert.match(index, /<strong id="metric-voice">OFF<\/strong>/);
 
+// Code and quantity are separate utterances at full volume (quantity was getting quiet).
+const speak = app.slice(app.indexOf("function speakText("), app.indexOf("function announcePickingSelection("));
+assert.match(speak, /String\(text\)\.split\(\/\\s\*,\\s\*\/\)/);
+assert.match(speak, /utterance\.volume = 1;/);
+assert.equal((speak.match(/synth\.cancel\(\)/g) || []).length, 1, "cancel once, before queueing both parts");
+
 console.log("piercingSpeech.mock.test: OK");

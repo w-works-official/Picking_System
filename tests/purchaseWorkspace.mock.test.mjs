@@ -47,6 +47,8 @@ assert.match(build, /"cs","purchase"\]/);
 const css = await readFile(new URL("../src/styles/purchase.css", import.meta.url), "utf8");
 assert.match(css, /--purchase-bg: #fff8dc;/, "light yellow background");
 assert.match(css, /\.purchase-tab\.active \{[^}]*background: var\(--purchase-green\);/, "green active menu");
-assert.match(css, /\.workspace-link\.is-current \{[^}]*background: var\(--purchase-green\);/, "green current workspace button");
+assert.match(css, /\.workspace-link\.is-current \{[^}]*background: #111827;[^}]*color: #ffffff;/, "current 사입 관리 = black + white (2026-10-28)");
+assert.match(css, /\.workspace-navigation \.workspace-link \{\s*box-sizing: border-box;/, "same 32px buttons as the other screens");
+assert.doesNotMatch(css, /\.workspace-navigation \{[^}]*background/, "nav frame keeps the shared gray design");
 
 console.log("purchaseWorkspace.mock.test: OK");

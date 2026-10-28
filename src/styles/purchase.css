@@ -101,25 +101,16 @@ body.purchase-workspace {
   white-space: nowrap;
 }
 
-/* 상위 업무 버튼: 사입 관리 화면에서는 초록 테마 */
-.purchase-workspace .workspace-navigation {
-  border-color: var(--purchase-line);
-  background: #fffdf2;
-}
-
-.purchase-workspace .workspace-navigation .workspace-link:hover {
-  background: var(--purchase-green-soft);
-  color: var(--purchase-green-dark);
+/* 상위 업무 버튼: 피킹시스템·CS 관리 화면과 같은 회색 틀·같은 크기, 현재 메뉴(사입 관리)만 검정+흰 글씨 (2026-10-28) */
+.purchase-workspace .workspace-navigation,
+.purchase-workspace .workspace-navigation .workspace-link {
+  box-sizing: border-box;
 }
 
 .purchase-workspace .workspace-navigation .workspace-link.is-current {
-  background: var(--purchase-green);
+  background: #111827;
   color: #ffffff;
-  box-shadow: 0 1px 3px rgba(21, 148, 91, 0.25);
-}
-
-.purchase-workspace .workspace-navigation .workspace-link:focus-visible {
-  outline-color: #86d6ad;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.25);
 }
 
 .purchase-main {

@@ -148,9 +148,10 @@
   },
   "files": [
     {
-      "path": "assets/index-TdbZWzbo.js",
-      "bytes": 256413,
-      "sha256": "35cc2eb60fd57ac14a27980eeca22446443c87a2942adfd92ebb8534be735cd3"
+      "path": "assets/index-TdbZWzbo-p1.js",
+      "bytes": 256529,
+      "sha256": "882105b757360dffe35231e2631f81142bdeffb69b0c243e2f432206acd263eb",
+      "patch": "2026-10-28 System V3: 원본 빌드에서 두 군데만 수정 — 링크 주소표에 purchase(../purchase/) 추가, 상위 업무 메뉴에 사입 관리 링크 추가"
     },
     {
       "path": "assets/index-wmp_m_en.css",

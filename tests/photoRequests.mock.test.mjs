@@ -139,6 +139,13 @@ JSON.parse(ctx2.doPost({ postData: { contents: JSON.stringify({ action: "fill", 
 assert.equal(old.data[1][6], "원터치 링");
 assert.equal(post({ action: "add", code: "" }).ok, false);
 assert.equal(JSON.parse(ctx.doPost({ postData: { contents: "not json" } }).text).ok, false);
+// Korean time zone is set once on the spreadsheet.
+let tz = "America/Los_Angeles";
+const ctx3 = { ...ctx, SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSpreadsheetTimeZone: () => tz, setSpreadsheetTimeZone: (z) => { tz = z; }, getSheetByName: () => sheet, getSheets: () => [sheet] }) } };
+vm.createContext(ctx3);
+vm.runInContext(gs, ctx3);
+JSON.parse(ctx3.doGet({}).text);
+assert.equal(tz, "Asia/Seoul");
 assert.doesNotMatch(gs, /deleteRow|deleteRows|clear\(|DriveApp|UrlFetchApp|MailApp|GmailApp/, "the script only reads/writes this sheet");
 
 console.log("photoRequests.mock.test: OK");

@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (권한을 "이 시트 하나"로만 제한)
  *
- * System V3 사진 요청 시트 (2026-10-28, 상품명 칸 추가 v2)
+ * System V3 사진 요청 시트 (2026-10-28 v2: 상품명 칸 추가, 한국 시간)
  * 구글드라이브 A_총괄 폴더의 시트 "System V3 사진요청" > 확장 프로그램 > Apps Script 에 붙여넣고
  * 배포 > 새 배포 > 유형: 웹 앱 / 실행: 나 / 액세스 권한: 모든 사용자 로 배포합니다.
  *
@@ -60,6 +60,8 @@ function respond_(work) {
 
 function sheet_() {
   var book = SpreadsheetApp.getActiveSpreadsheet();
+  // 시각이 한국 시간으로 보이도록 (처음 만든 시트는 미국 시간대였음)
+  if (book.getSpreadsheetTimeZone && book.getSpreadsheetTimeZone() !== 'Asia/Seoul') book.setSpreadsheetTimeZone('Asia/Seoul');
   var sheet = book.getSheetByName(SHEET_NAME);
   if (!sheet) {
     sheet = book.getSheets()[0];

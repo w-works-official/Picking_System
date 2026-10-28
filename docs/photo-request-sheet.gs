@@ -114,7 +114,7 @@ function addRequest_(sheet, body) {
   var rows = rows_(sheet);
   for (var i = 0; i < rows.length; i++) {
     if (plain_(rows[i][0]) === plain_(code) && String(rows[i][4]) === OPEN) {
-      sheet.getRange(i + 2, 2, 1, 3).setValues([[title || rows[i][1], source || rows[i][2], now]]);
+      sheet.getRange(i + 2, 2, 1, 3).setValues([[title || clean_(rows[i][1], 300), source || clean_(rows[i][2], 40), now]]);
       return 1;
     }
   }

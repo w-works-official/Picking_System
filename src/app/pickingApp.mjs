@@ -39,7 +39,7 @@ import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/busi
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
-import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261028-photo-request-drive1";
+import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261028-photo-request-drive2";
 import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-all1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";

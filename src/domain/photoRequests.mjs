@@ -5,7 +5,7 @@
 // - 요청 취소·사진 등록 시에는 줄을 지우지 않고 "상태" 칸만 취소/완료로 바꿉니다.
 // - 사진이 올라오면 앱 목록에서 자동으로 빠집니다(사진 존재 여부로 판단).
 // 시트 주소(웹앱 URL)는 대표님이 배포 후 알려주신 값을 아래에 넣습니다. 비어 있으면 기능이 꺼진 상태입니다.
-export const PHOTO_REQUEST_ENDPOINT = "";
+export const PHOTO_REQUEST_ENDPOINT = "https://script.google.com/macros/s/AKfycbzlVfpeKmU9cmS9KF0b3YL1KahUvYz1PKV6ip9p8a8BOB_nzDRU7x09d3cHclhMYxunzQ/exec";
 
 const PRODUCT_PHOTO_SUFFIXES = [".__priority", ".__group", ".__range"];
 const CODE_LIMIT = 80;

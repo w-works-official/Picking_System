@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261015-cs1">
-    <link rel="stylesheet" href="../src/styles/purchase.css?v=20261028-nav1">
+    <link rel="stylesheet" href="../src/styles/purchase.css?v=20261028-remote-board2">
   </head>
   <body class="purchase-workspace">
     <div id="purchase-app" class="purchase-shell">
@@ -42,12 +42,11 @@
           <div class="purchase-panel-head">
             <div>
               <h2 id="purchase-order-title">발주</h2>
-              <p>사입처에 넣을 발주를 관리하는 화면입니다.</p>
+              <p>재고체크 · 주문서 · 발주 — 사무실 PC 원격 실행</p>
             </div>
           </div>
-          <div class="purchase-empty">
-            <strong>발주 화면 준비 중</strong>
-            <span>필요한 기능을 정해 주시면 이 자리에 만들겠습니다.</span>
+          <div class="purchase-panel-body">
+            <div class="remote-board" data-remote-board="order"></div>
           </div>
         </section>
 
@@ -55,17 +54,18 @@
           <div class="purchase-panel-head">
             <div>
               <h2 id="purchase-receiving-title">입고</h2>
-              <p>사입 상품 입고를 확인하는 화면입니다.</p>
+              <p>재고매칭 · 셀피아 주문서 등록 — 사무실 PC 원격 실행</p>
             </div>
           </div>
-          <div class="purchase-empty">
-            <strong>입고 화면 준비 중</strong>
-            <span>필요한 기능을 정해 주시면 이 자리에 만들겠습니다.</span>
+          <div class="purchase-panel-body">
+            <div class="remote-board" data-remote-board="receiving"></div>
           </div>
         </section>
       </main>
     </div>
+    <div id="purchase-toast" class="purchase-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261028-purchase1"></script>
     <script type="module" src="../src/app/purchaseApp.mjs?v=20261028-purchase1"></script>
+    <script type="module" src="../src/app/remoteBoardPanel.mjs?v=20261028-remote-board1"></script>
   </body>
 </html>

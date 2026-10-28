@@ -6918,3 +6918,28 @@ button.metric-toggle {
   color: #64748b;
   font-size: 12px;
 }
+
+/* 주문제작 업체별 사진 다운로드 버튼 (2026-10-28 대표님 요청): 업체 이름 바로 옆 */
+.custom-order-supplier-group-head {
+  grid-template-columns: minmax(0, max-content) auto minmax(0, 1fr);
+}
+
+.custom-order-supplier-group-head > span {
+  justify-self: end;
+}
+
+.custom-order-sheet-btn {
+  min-height: 0;
+  padding: .1875rem .625rem;
+  border-color: #93c5fd;
+  background: #ffffff;
+  color: #1d4ed8;
+  font-size: .75rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.custom-order-sheet-btn:disabled {
+  opacity: .6;
+  cursor: progress;
+}

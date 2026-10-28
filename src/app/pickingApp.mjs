@@ -24,6 +24,7 @@ import {
 } from "../domain/customOrder.mjs?v=20261019-slip-editor2";
 import { normalizeLabelOptionName } from "../domain/labelOption.mjs?v=20261008-slip-fields2";
 import { SLIP_FIELDS, buildSlipEditChanges, moveSlipId, saveSlipEditBatch } from "../domain/customOrderSlipEditor.mjs?v=20261019-slip-editor2";
+import { SUPPLIER_SHEET_UNKNOWN, chunkSupplierSheetItems, supplierSheetFileNames, supplierSheetItem, supplierSheetSummary, wrapSheetText } from "../domain/customOrderSupplierSheet.mjs?v=20261028-supplier-sheet1";
 import { createSkuInboundSchedulesAdapter } from "../adapters/skuInboundSchedulesAdapter.mjs?v=20261001-sku-schedule1";
 import {
   SKU_INBOUND_SCHEDULE_HEADERS,
@@ -6238,6 +6239,227 @@ function renderCustomOrderRow(row) {
   </article>`;
 }
 
+// ---- 업체별 발주 사진 다운로드 (2026-10-28) ---------------------------------
+// 업체 이름 옆 [사진 다운로드] → 그 업체 묶음(지금 화면에 보이는 카드, 취소 제외)을
+// 사진+옵션·바길이·업체상품코드·수량·상품명 한 장의 PNG로 저장합니다. 읽기 전용 기능입니다.
+function customOrderSheetToday() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+
+function customOrderSheetRows(supplier) {
+  const workspace = state.customOrders;
+  return (workspace.visibleRows || []).filter((row) => row.status !== "cancelled"
+    && customOrderEditableSlip(row).supplierCellRaw === supplier);
+}
+
+async function loadCustomOrderSheetPhoto(code) {
+  const urls = [...new Set([productImageUrl(code), ...productImageFallbackUrls(code)].filter(Boolean))];
+  for (const url of urls) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      if (!blob.size) continue;
+      const objectUrl = URL.createObjectURL(blob);
+      try {
+        const image = await new Promise((resolve, reject) => {
+          const next = new Image();
+          next.onload = () => resolve(next);
+          next.onerror = () => reject(new Error("photo decode"));
+          next.src = objectUrl;
+        });
+        // Draw once into a bitmap-sized canvas so the object URL can be released.
+        const width = image.naturalWidth || 400;
+        const height = image.naturalHeight || 300;
+        const copy = document.createElement("canvas");
+        copy.width = width;
+        copy.height = height;
+        copy.getContext("2d").drawImage(image, 0, 0, width, height);
+        return copy;
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    } catch {
+      // Try the next fallback photo.
+    }
+  }
+  return null;
+}
+
+function drawRoundRect(context, x, y, width, height, radius) {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.arcTo(x + width, y, x + width, y + height, radius);
+  context.arcTo(x + width, y + height, x, y + height, radius);
+  context.arcTo(x, y + height, x, y, radius);
+  context.arcTo(x, y, x + width, y, radius);
+  context.closePath();
+}
+
+function canvasPngBlob(canvas) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("PNG 변환에 실패했습니다."))), "image/png");
+  });
+}
+
+async function renderCustomOrderSheetImage({ supplier, items, photos, date, page, pageCount, startNumber = 1 }) {
+  const fontFamily = getComputedStyle(document.body).fontFamily || "sans-serif";
+  const font = (size, weight = 700) => `${weight} ${size}px ${fontFamily}`;
+  const scale = 2;
+  const width = 900;
+  const pad = 28;
+  const cardPad = 18;
+  const photoWidth = 200;
+  const photoHeight = 150;
+  const labelWidth = 112;
+  const textLeft = pad + cardPad + 34 + photoWidth + 22;
+  const valueLeft = textLeft + labelWidth;
+  const valueWidth = width - pad - cardPad - valueLeft;
+  const measureCanvas = document.createElement("canvas").getContext("2d");
+  const layouts = items.map((item) => {
+    const lines = item.fields.map((field) => {
+      measureCanvas.font = font(field.emphasis ? 26 : 21, 800);
+      const wrapped = wrapSheetText(field.value, valueWidth, (text) => measureCanvas.measureText(text).width);
+      const lineHeight = field.emphasis ? 34 : 29;
+      return { ...field, wrapped, lineHeight, height: wrapped.length * lineHeight + 6 };
+    });
+    const textHeight = lines.reduce((sum, line) => sum + line.height, 0);
+    return { lines, height: Math.max(photoHeight, textHeight) + cardPad * 2 };
+  });
+  const headerHeight = 112;
+  const height = headerHeight + layouts.reduce((sum, layout) => sum + layout.height + 12, 0) + pad;
+  const canvas = document.createElement("canvas");
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) throw new Error("이미지 만들기 기능을 사용할 수 없습니다.");
+  context.scale(scale, scale);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.textBaseline = "top";
+
+  context.fillStyle = "#0f172a";
+  context.font = font(30, 900);
+  const title = pageCount > 1 ? `${supplier} (${page}/${pageCount})` : supplier;
+  const titleLines = wrapSheetText(title, width - pad * 2, (text) => context.measureText(text).width);
+  context.fillText(titleLines[0], pad, pad);
+  context.fillStyle = "#475569";
+  context.font = font(17, 700);
+  context.fillText(supplierSheetSummary(items, date), pad, pad + 44);
+  context.fillStyle = "#1e293b";
+  context.fillRect(pad, headerHeight - 16, width - pad * 2, 3);
+
+  let y = headerHeight;
+  items.forEach((item, index) => {
+    const layout = layouts[index];
+    const left = pad;
+    const cardWidth = width - pad * 2;
+    context.fillStyle = "#f8fafc";
+    drawRoundRect(context, left, y, cardWidth, layout.height, 12);
+    context.fill();
+    context.strokeStyle = "#cbd5e1";
+    context.lineWidth = 1.5;
+    context.stroke();
+
+    context.fillStyle = "#1d4ed8";
+    context.font = font(20, 900);
+    context.fillText(String(startNumber + index), left + cardPad, y + cardPad + 2);
+
+    const photoLeft = left + cardPad + 34;
+    const photoTop = y + cardPad;
+    context.fillStyle = "#ffffff";
+    drawRoundRect(context, photoLeft, photoTop, photoWidth, photoHeight, 8);
+    context.fill();
+    context.strokeStyle = "#e2e8f0";
+    context.stroke();
+    const photo = photos[index];
+    if (photo) {
+      const fit = Math.min(photoWidth / photo.width, photoHeight / photo.height);
+      const drawWidth = photo.width * fit;
+      const drawHeight = photo.height * fit;
+      context.save();
+      drawRoundRect(context, photoLeft, photoTop, photoWidth, photoHeight, 8);
+      context.clip();
+      context.drawImage(photo, photoLeft + (photoWidth - drawWidth) / 2, photoTop + (photoHeight - drawHeight) / 2, drawWidth, drawHeight);
+      context.restore();
+    } else {
+      context.fillStyle = "#94a3b8";
+      context.font = font(16, 800);
+      const label = "사진 없음";
+      context.fillText(label, photoLeft + (photoWidth - context.measureText(label).width) / 2, photoTop + photoHeight / 2 - 10);
+    }
+
+    let lineY = y + cardPad;
+    for (const line of layout.lines) {
+      context.fillStyle = "#64748b";
+      context.font = font(15, 800);
+      context.fillText(line.label, textLeft, lineY + (line.emphasis ? 9 : 6));
+      context.fillStyle = line.emphasis ? "#b91c1c" : "#0f172a";
+      context.font = font(line.emphasis ? 26 : 21, 800);
+      line.wrapped.forEach((text, lineIndex) => context.fillText(text, valueLeft, lineY + lineIndex * line.lineHeight));
+      lineY += line.height;
+    }
+    y += layout.height + 12;
+  });
+  return canvasPngBlob(canvas);
+}
+
+function downloadBlobAs(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function downloadCustomOrderSupplierSheet(button) {
+  const supplier = button.closest("[data-custom-order-supplier]")?.dataset.customOrderSupplier ?? "";
+  const rows = customOrderSheetRows(supplier);
+  if (!rows.length) {
+    toast("이 업체에 저장할 상품이 없습니다. (취소 건은 제외)");
+    return;
+  }
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "만드는 중…";
+  try {
+    if (document.fonts?.ready) await document.fonts.ready;
+    const items = rows.map((row) => {
+      const entry = state.customOrders.slipDrafts.get(row.operation.operation_id);
+      return supplierSheetItem(entry?.fields || customOrderEditableSlip(row), { photoCode: row.display?.sellpiaProductCode });
+    });
+    const photos = [];
+    for (let index = 0; index < items.length; index += 6) {
+      photos.push(...await Promise.all(items.slice(index, index + 6).map((item) => (item.photoCode ? loadCustomOrderSheetPhoto(item.photoCode) : null))));
+    }
+    const name = supplier || SUPPLIER_SHEET_UNKNOWN;
+    const pages = chunkSupplierSheetItems(items);
+    const fileNames = supplierSheetFileNames(name, pages.length);
+    const date = customOrderSheetToday();
+    let offset = 0;
+    for (let index = 0; index < pages.length; index += 1) {
+      const pageItems = pages[index];
+      const blob = await renderCustomOrderSheetImage({
+        supplier: name, items: pageItems, photos: photos.slice(offset, offset + pageItems.length),
+        date, page: index + 1, pageCount: pages.length, startNumber: offset + 1,
+      });
+      offset += pageItems.length;
+      downloadBlobAs(blob, fileNames[index]);
+    }
+    const missing = photos.filter((photo) => !photo).length;
+    toast(`${fileNames.join(", ")} 저장 (${items.length}건${missing ? ` · 사진 없음 ${missing}건` : ""})`);
+  } catch (error) {
+    toast(`사진 다운로드 실패: ${error?.message || error}`);
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
 function renderCustomOrderSupplierGroups(rows) {
   // A supplier is a destination, never a heading attached to a moving card.
   const groups = groupCustomOrderRows(rows);
@@ -6251,6 +6473,7 @@ function renderCustomOrderSupplierGroups(rows) {
     return `<section class="custom-order-supplier-group" data-custom-order-supplier="${escapeHtml(group.supplierCellRaw)}" aria-labelledby="${headerId}">
       <h3 id="${headerId}" class="custom-order-supplier-group-head">
         <strong>${escapeHtml(group.supplierCellRaw || "매입처 미확인")}</strong>
+        <button class="btn mini custom-order-sheet-btn" type="button" data-supplier-sheet-download title="이 업체 상품을 사진 파일(PNG)로 저장합니다. 파일 이름 = 업체 이름">사진 다운로드</button>
         <span>${escapeHtml(summary)}</span>
       </h3>
       <div class="custom-order-supplier-group-items">${group.rows.map(renderCustomOrderRow).join("")}</div>
@@ -11146,6 +11369,13 @@ function bindEvents() {
     if (!event.target.matches("[data-slip-field], [data-slip-memo]")) return;
     const id = event.target.closest("[data-operation-id]")?.dataset.operationId;
     void saveInlineSlip(id);
+  });
+  // 업체별 사진 다운로드: 읽기 전용이어도 사용 가능.
+  els.customOrdersList?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-supplier-sheet-download]");
+    if (!button || button.disabled) return;
+    event.preventDefault();
+    void downloadCustomOrderSupplierSheet(button);
   });
   els.customOrdersList?.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && event.target.matches("[data-slip-field], [data-slip-memo]")) {

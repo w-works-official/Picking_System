@@ -272,3 +272,357 @@ body.purchase-workspace {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ---- 원격 실행 버튼 (2026-10-28): 원격 실행 보드와 같은 검정·회색 디자인 ---- */
+.purchase-panel-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+}
+
+.remote-board {
+  --rb-line: #e3e6ea;
+  --rb-sub: #6b7280;
+  --rb-ok: #16a34a;
+  --rb-bad: #dc2626;
+  --rb-run: #d97706;
+  --rb-wait: #6b7280;
+  max-width: 1100px;
+  border: 1px solid var(--rb-line);
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+  font-size: 13.5px;
+}
+
+.rb-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #111827;
+  color: #ffffff;
+}
+
+.rb-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.rb-runners {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #374151;
+  color: #e5e7eb;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.rb-runners:empty {
+  display: none;
+}
+
+.rb-runner-on,
+.rb-runner-busy {
+  color: #d1fae5;
+}
+
+.rb-runner-off {
+  opacity: .6;
+}
+
+.rb-refreshed {
+  color: #cbd5e1;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.rb-head-btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  background: #374151;
+  color: #ffffff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rb-head-btn:hover:not(:disabled) {
+  background: #4b5563;
+}
+
+.rb-body {
+  padding: 2px 14px 10px;
+}
+
+.rb-group + .rb-group {
+  margin-top: 16px;
+}
+
+.rb-row {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  column-gap: 14px;
+  align-items: center;
+  min-height: 42px;
+  border-bottom: 1px dashed var(--rb-line);
+}
+
+.rb-group > .rb-row:last-child {
+  border-bottom: 0;
+}
+
+.rb-group-head {
+  min-height: 52px;
+  padding-top: 8px;
+  border-bottom: 0;
+}
+
+.rb-job {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rb-group-head .rb-job {
+  justify-content: space-between;
+}
+
+.rb-group-head h4 {
+  margin: 0;
+  padding-left: 7px;
+  border-left: 3px solid #111827;
+  color: #111827;
+  font-size: 13px;
+}
+
+.rb-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-desc {
+  margin-left: 6px;
+  color: var(--rb-sub);
+  font-size: 11.5px;
+}
+
+.rb-sub .rb-name {
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.rb-sub .rb-name::before {
+  content: "└";
+  margin-right: 5px;
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.rb-btn {
+  display: inline-block;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 12px;
+  background: #9ca3af;
+  color: #ffffff;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rb-btn:hover:not(:disabled) {
+  background: #6b7280;
+}
+
+.rb-btn:disabled {
+  cursor: progress;
+  opacity: .6;
+}
+
+.rb-btn-dark {
+  background: #111827;
+}
+
+.rb-btn-dark:hover:not(:disabled) {
+  background: #374151;
+}
+
+.rb-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  color: var(--rb-sub);
+  font-size: 12.5px;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.rb-chip {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-right: 10px;
+  padding: 8px 0 2px;
+}
+
+.rb-chip-b {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding-right: 8px;
+}
+
+.rb-st {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #9ca3af;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+.rb-st-대기 { background: var(--rb-wait); }
+.rb-st-실행중, .rb-st-중지요청 { background: var(--rb-run); }
+.rb-st-완료 { background: var(--rb-ok); }
+.rb-st-실패 { background: var(--rb-bad); }
+.rb-st-중지 { background: #cbd5e1; color: #374151; }
+
+.rb-x {
+  position: absolute;
+  top: -8px;
+  right: -4px;
+  width: 19px;
+  height: 19px;
+  padding: 0;
+  border: 1px solid #ffffff;
+  border-radius: 50%;
+  background: var(--rb-bad);
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 17px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.rb-t {
+  display: block;
+  margin-top: 2px;
+  color: var(--rb-sub);
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.rb-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rb-files a,
+.rb-files span {
+  display: inline-block;
+  max-width: 160px;
+  overflow: hidden;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #374151;
+  color: #ffffff;
+  font-size: 11px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-files span {
+  background: #cbd5e1;
+  color: #374151;
+}
+
+.rb-setup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+}
+
+.rb-setup label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.rb-setup input {
+  width: 180px;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+
+.rb-setup small {
+  flex-basis: 100%;
+  color: var(--rb-sub);
+}
+
+.rb-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--rb-bad);
+  font-weight: 700;
+}
+
+.rb-empty {
+  padding: 22px 16px;
+  color: var(--rb-sub);
+  text-align: center;
+}
+
+.purchase-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 50;
+  transform: translateX(-50%);
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .2);
+}
+
+.purchase-toast[hidden] {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .rb-row {
+    grid-template-columns: 1fr;
+    padding: 4px 0;
+  }
+
+  .rb-head {
+    flex-wrap: wrap;
+  }
+}
+

@@ -2596,7 +2596,7 @@ function renderInspectionItemHeader(includeLabelNo = false, totalQty = null) {
     <span>수량${totalQtyLabel}</span>
     <span>상품명</span>
     <span>금액</span>
-    <span>자사코드 / 셀피아코드</span>
+    <span class="workflow-code-stack-head">자사코드 / 셀피아코드</span>
     <span>부족수량</span>
     <span>셀피아 주문메모</span>
     <span>상품 확인메모</span>

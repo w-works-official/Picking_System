@@ -6744,6 +6744,26 @@ button.metric-toggle {
   text-align: left;
 }
 
+/* 검품 표 코드 칸 (2026-10-28 대표님 요청): 셀피아코드 글자 35% 키움(11px → 14.85px),
+   자사코드·셀피아코드와 머리글을 칸 가운데 정렬. 색은 그대로. 작업완료·CS 표는 그대로. */
+.workflow-code-stack {
+  align-items: center;
+}
+
+.workflow-code-stack > .workflow-code-cell,
+.workflow-code-stack > .workflow-sellpia-cell {
+  max-width: 100%;
+  text-align: center;
+}
+
+.workflow-code-stack > .workflow-sellpia-cell {
+  font-size: 14.85px;
+}
+
+.workflow-code-stack-head {
+  text-align: center;
+}
+
 /* 화면 정리 (2026-10-27 대표님 요청)
    1) 왼쪽 메뉴와 오른쪽 작업영역 사이 여백 절반: 칸 사이 8→4px, 메뉴 오른쪽 안쪽여백 8→4px, 메뉴 스크롤바 얇게
    2) 피킹 카드 서랍번호 칸: "서랍" 글씨는 숨기고(화면읽기용으로만 유지) 높이를 옆 미송 칸(50px)과 맞춤,

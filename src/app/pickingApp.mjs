@@ -39,7 +39,7 @@ import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/busi
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
-import { PHOTO_REQUEST_CLOSED_TEXT, PHOTO_REQUEST_CONTENT_TYPE, PHOTO_REQUEST_FOLDER, buildPhotoRequestRecord, isOpenPhotoRequestEntry, parsePhotoRequestRecord, photoRequestFileName, photoRequestPath, productCodeFromPhotoUrl, serializePhotoRequestRecord, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261027-photo-request-csv1";
+import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261028-photo-request-drive1";
 import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-all1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
@@ -315,7 +315,7 @@ const state = {
   },
   inventoryCountExportRunning: false,
   missingPhotoExportRunning: false,
-  photoRequests: { loaded: false, loading: false, open: false, fileNames: new Set(), records: [], error: "", note: "" },
+  photoRequests: { loaded: false, loading: false, open: false, codes: new Set(), records: [], error: "", note: "" },
 };
 
 const els = {
@@ -1266,18 +1266,18 @@ async function exportMissingPhotoList() {
   }
 }
 
-// ---- 사진 요청 (2026-10-27) -------------------------------------------------
-// 요청은 공유 버킷 system-v3-shared/photo-requests/<셀피아코드>.csv 파일로 저장합니다(버킷이 CSV만 허용).
-// 정리·취소된 요청은 삭제가 막혀 있어도 되도록 "closed" 표시 파일로 덮어씁니다.
+// ---- 사진 요청 (2026-10-27, 2026-10-28 구글 시트로 변경) ---------------------------
+// 요청은 대표님 구글드라이브 A_총괄 폴더의 시트 "System V3 사진요청"에 저장됩니다(시트 웹앱 PHOTO_REQUEST_ENDPOINT).
+// 줄은 지우지 않고 상태(요청/취소/완료)만 바꿉니다.
 function photoRequestIsOpen(code) {
-  return state.photoRequests.fileNames.has(photoRequestFileName(code));
+  return state.photoRequests.codes.has(normalizePhotoRequestCode(code));
 }
 
 function paintPhotoRequestButton(button) {
   const requested = photoRequestIsOpen(button.dataset.photoRequestCode);
   button.classList.toggle("is-requested", requested);
   button.textContent = requested ? "요청됨" : "사진 요청";
-  button.title = requested ? "대시보드 › 상품 사진 관리 › [사진 요청]에서 확인" : "이 상품 사진을 요청 목록에 올립니다";
+  button.title = requested ? "대시보드 › 상품 사진 관리 › [사진요청보기]에서 확인" : "이 상품 사진을 요청 목록(구글 시트)에 올립니다";
 }
 
 function paintAllPhotoRequestButtons() {
@@ -1304,43 +1304,51 @@ function showPhotoRequestButton(image) {
 
 function renderPhotoRequestCount() {
   if (!els.dashboardPhotoRequestCount) return;
-  const count = state.photoRequests.fileNames.size;
+  const count = state.photoRequests.codes.size;
   els.dashboardPhotoRequestCount.textContent = state.photoRequests.loaded && count ? String(count) : "";
 }
 
-async function listPhotoRequestFileNames() {
-  const names = [];
-  for (let offset = 0; ; offset += 1000) {
-    const { data, error } = await db.storage.from(RECEIVING_LABEL_BUCKET).list(PHOTO_REQUEST_FOLDER, {
-      limit: 1000,
-      offset,
-      sortBy: { column: "name", order: "asc" },
-    });
-    if (error) throw error;
-    names.push(...(data || []).filter(isOpenPhotoRequestEntry).map((file) => String(file.name)));
-    if (!data || data.length < 1000) break;
-  }
-  return names;
+function photoRequestEndpointReady() {
+  return /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(PHOTO_REQUEST_ENDPOINT);
 }
 
-async function loadPhotoRequests({ withDetails = false } = {}) {
+async function callPhotoRequestSheet(payload = null) {
+  if (!photoRequestEndpointReady()) throw new Error("사진 요청 시트(구글드라이브) 연결 전입니다.");
+  const response = payload
+    ? await fetch(PHOTO_REQUEST_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    })
+    : await fetch(`${PHOTO_REQUEST_ENDPOINT}?action=list&t=${Date.now()}`, { cache: "no-store" });
+  if (!response.ok) throw new Error(`사진 요청 시트 응답 오류 (${response.status})`);
+  let json;
+  try {
+    json = await response.json();
+  } catch {
+    throw new Error("사진 요청 시트 응답을 읽지 못했습니다. 웹앱 배포 설정(액세스: 모든 사용자)을 확인하세요.");
+  }
+  return parsePhotoRequestResponse(json);
+}
+
+function applyPhotoRequestRecords(records) {
   const requests = state.photoRequests;
+  requests.records = sortPhotoRequests(records);
+  requests.codes = new Set(requests.records.map((record) => record.code));
+}
+
+async function loadPhotoRequests() {
+  const requests = state.photoRequests;
+  if (!photoRequestEndpointReady()) {
+    requests.error = "사진 요청 시트(구글드라이브) 연결 전입니다.";
+    paintAllPhotoRequestButtons();
+    return;
+  }
   requests.loading = true;
   try {
-    const names = await listPhotoRequestFileNames();
-    requests.fileNames = new Set(names);
-    if (withDetails) {
-      const records = [];
-      for (let index = 0; index < names.length; index += 6) {
-        const chunk = await Promise.all(names.slice(index, index + 6).map(async (name) => {
-          const { data, error } = await db.storage.from(RECEIVING_LABEL_BUCKET).download(`${PHOTO_REQUEST_FOLDER}/${name}`);
-          if (error || !data) return null;
-          return parsePhotoRequestRecord(await data.text(), name);
-        }));
-        records.push(...chunk.filter(Boolean));
-      }
-      requests.records = sortPhotoRequests(records);
-    }
+    const { records } = await callPhotoRequestSheet();
+    applyPhotoRequestRecords(records);
     requests.loaded = true;
     requests.error = "";
   } catch (error) {
@@ -1365,46 +1373,32 @@ async function productPhotoExists(code) {
   return false;
 }
 
-function photoRequestUpload(path, text) {
-  const file = new Blob([text], { type: PHOTO_REQUEST_CONTENT_TYPE });
-  return db.storage.from(RECEIVING_LABEL_BUCKET).upload(path, file, { upsert: true, contentType: PHOTO_REQUEST_CONTENT_TYPE, cacheControl: "0" });
+async function closePhotoRequests(codes, reason) {
+  const payload = photoRequestClosePayload(codes, reason);
+  if (!payload.codes.length) return;
+  const { records } = await callPhotoRequestSheet(payload);
+  applyPhotoRequestRecords(records);
 }
 
-// Delete may be refused silently (storage returns the objects it actually removed),
-// so anything not removed is overwritten with the "closed" marker = "정리된 요청".
-async function removePhotoRequestFiles(fileNames = []) {
-  if (!fileNames.length) return;
-  const paths = fileNames.map((name) => `${PHOTO_REQUEST_FOLDER}/${name}`);
-  const { data, error } = await db.storage.from(RECEIVING_LABEL_BUCKET).remove(paths);
-  const removed = new Set((error ? [] : data || []).map((entry) => String(entry?.name || "")));
-  for (const path of paths) {
-    if (removed.has(path)) continue;
-    const { error: clearError } = await photoRequestUpload(path, PHOTO_REQUEST_CLOSED_TEXT);
-    if (clearError) throw clearError;
-  }
-}
-
-// 사진이 들어온 요청은 목록에서 자동으로 뺍니다(쓰기 모드면 요청 파일도 정리).
+// 사진이 들어온 요청은 목록에서 자동으로 뺍니다(쓰기 모드면 시트 상태도 "완료"로).
 async function settleFulfilledPhotoRequests() {
   const requests = state.photoRequests;
   const fulfilled = [];
   for (let index = 0; index < requests.records.length; index += 6) {
     const chunk = requests.records.slice(index, index + 6);
     const found = await Promise.all(chunk.map((record) => productPhotoExists(record.code)));
-    chunk.forEach((record, i) => { if (found[i]) fulfilled.push(record); });
+    chunk.forEach((record, i) => { if (found[i]) fulfilled.push(record.code); });
   }
   if (!fulfilled.length) return 0;
-  const names = fulfilled.map((record) => record.fileName || photoRequestFileName(record.code));
   if (allowWrites) {
     try {
-      await removePhotoRequestFiles(names);
+      await closePhotoRequests(fulfilled, "완료");
     } catch {
-      // Keep the files; they are hidden below and retried next time.
+      // The sheet keeps them; hidden below and retried next time.
     }
   }
-  const done = new Set(names);
-  requests.records = requests.records.filter((record) => !done.has(record.fileName || photoRequestFileName(record.code)));
-  names.forEach((name) => requests.fileNames.delete(name));
+  const done = new Set(fulfilled);
+  applyPhotoRequestRecords(requests.records.filter((record) => !done.has(record.code)));
   return fulfilled.length;
 }
 
@@ -1414,27 +1408,21 @@ async function requestProductPhoto(code, title = "") {
     return;
   }
   const record = buildPhotoRequestRecord({ code, title, source: state.activeTab });
-  const path = photoRequestPath(record.code);
-  const { error } = await photoRequestUpload(path, serializePhotoRequestRecord(record));
-  if (error) throw error;
-  state.photoRequests.fileNames.add(photoRequestFileName(record.code));
-  state.photoRequests.records = sortPhotoRequests([
-    { ...record, fileName: photoRequestFileName(record.code) },
-    ...state.photoRequests.records.filter((entry) => entry.code !== record.code),
-  ]);
+  const { records } = await callPhotoRequestSheet(photoRequestAddPayload(record));
+  applyPhotoRequestRecords(records);
+  state.photoRequests.loaded = true;
+  state.photoRequests.error = "";
   paintAllPhotoRequestButtons();
   if (state.photoRequests.open) renderPhotoRequestPanel();
   toast(`사진 요청 등록: ${record.code}`);
 }
 
-async function cancelPhotoRequest(fileName) {
+async function cancelPhotoRequest(code) {
   if (!allowWrites) {
     toast("읽기전용입니다. URL에 write=1을 붙여야 요청을 취소할 수 있습니다.");
     return;
   }
-  await removePhotoRequestFiles([fileName]);
-  state.photoRequests.fileNames.delete(fileName);
-  state.photoRequests.records = state.photoRequests.records.filter((record) => record.fileName !== fileName);
+  await closePhotoRequests([code], "취소");
   paintAllPhotoRequestButtons();
   renderPhotoRequestPanel();
   toast("사진 요청을 취소했습니다.");
@@ -1469,7 +1457,7 @@ function renderPhotoRequestPanel() {
         <td class="photo-request-code">${escapeHtml(record.code)}</td>
         <td>${productNameHtml(productNameForPhotoCode(record.code) || "")}${productNameForPhotoCode(record.code) ? "<br>" : ""}<small>${escapeHtml(record.title || "-")}</small></td>
         <td class="photo-request-time">${escapeHtml(formatPhotoRequestTime(record.requestedAt))}</td>
-        <td><button class="btn mini" data-photo-request-cancel="${escapeHtml(record.fileName)}" type="button">요청 취소</button></td>
+        <td><button class="btn mini" data-photo-request-cancel="${escapeHtml(record.code)}" type="button">요청 취소</button></td>
       </tr>`)
     .join("");
   const status = requests.loading
@@ -1496,7 +1484,7 @@ async function refreshPhotoRequestPanel() {
   requests.loading = true;
   renderPhotoRequestPanel();
   try {
-    await loadPhotoRequests({ withDetails: true });
+    await loadPhotoRequests();
     requests.loading = true;
     renderPhotoRequestPanel();
     const removed = await settleFulfilledPhotoRequests();

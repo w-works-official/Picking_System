@@ -4524,7 +4524,10 @@ function renderInspectionPanels(options = {}) {
               <strong class="workflow-code-cell">${escapeHtml(item.ownCode || "-")}</strong>
               <span class="workflow-sellpia-cell">${escapeHtml(item.sellpiaProductCode || "-")}</span>
             </div>
-            ${shortageQtyInput(selected, item, shortage, "workflow-shortage-cell compact")}
+            <div class="shortage-stack">
+              ${shortageQtyInput(selected, item, shortage, "workflow-shortage-cell compact")}
+              ${shortageClearButton(selected, item, shortage)}
+            </div>
             <label class="inspection-memo-cell ${sellpiaOrderMemo ? "has-value" : ""}">
               <textarea data-inspection-memo-field="sellpia-order" data-order-group="${escapeHtml(itemSourceOrderGroupNo)}" data-item-no="${escapeHtml(item.sellpiaItemNo)}" rows="2" placeholder="셀피아 주문메모" ${memoReadonly}${memoHint}>${escapeHtml(sellpiaOrderMemo)}</textarea>
             </label>
@@ -8272,6 +8275,13 @@ function onShortageInputChange(event) {
 
 function shortageQtyInput(invoice, item, value = shortageQty(item), extraClass = "") {
   return `<input class="shortage-input ${extraClass}" data-shortage-input data-action="shortage-set" type="text" value="${escapeHtml(itemManagementMemo2(item, value))}" data-order-group="${escapeHtml(sourceOrderGroupNo(invoice, item))}" data-item-no="${escapeHtml(item.sellpiaItemNo)}" aria-label="관리메모2" ${itemIsEffectivelyCancelled(invoice, item) ? "disabled" : ""}>`;
+}
+
+// 검품 표 부족수량 칸 밑 [수량삭제] (2026-10-28): 칸을 비우고 Enter 친 것과 똑같이 저장합니다.
+function shortageClearButton(invoice, item, value = shortageQty(item)) {
+  const hasValue = Boolean(String(itemManagementMemo2(item, value) || "").trim());
+  const disabled = !allowWrites || !hasValue || itemIsEffectivelyCancelled(invoice, item);
+  return `<button class="shortage-clear-btn" type="button" data-action="shortage-clear" data-order-group="${escapeHtml(sourceOrderGroupNo(invoice, item))}" data-item-no="${escapeHtml(item.sellpiaItemNo)}" title="부족수량(관리메모2)을 지웁니다" ${disabled ? "disabled" : ""}>수량삭제</button>`;
 }
 
 function firstRawText(source, ...keys) {
@@ -12205,6 +12215,12 @@ function bindEvents() {
     if (itemRow) selectInspectionItem(itemRow.dataset.inspectionItemKey);
     const button = event.target.closest("[data-action]");
     if (!button) return;
+    if (button.dataset.action === "shortage-clear") {
+      if (button.disabled) return;
+      button.disabled = true;
+      setShortageQty(button.dataset.orderGroup, button.dataset.itemNo, "").catch(showError);
+      return;
+    }
     if (button.dataset.action === "inspection-complete") {
       return;
     }

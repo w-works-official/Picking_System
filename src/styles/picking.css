@@ -6943,3 +6943,37 @@ button.metric-toggle {
   opacity: .6;
   cursor: progress;
 }
+
+/* 검품 표 부족수량 칸 밑 [수량삭제] 버튼 (2026-10-28 대표님 요청) */
+.shortage-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.shortage-clear-btn {
+  width: 100%;
+  min-height: 24px;
+  padding: 2px 4px;
+  border: 1px solid #ef9a86;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #b42318;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shortage-clear-btn:hover:not(:disabled) {
+  background: #fff1ee;
+}
+
+.shortage-clear-btn:disabled {
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: default;
+}
+

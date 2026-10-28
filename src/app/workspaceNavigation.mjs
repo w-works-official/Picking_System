@@ -1,6 +1,8 @@
 // Cross-document navigation only. The picking app keeps its existing default
 // permissions, session handling, keyboard events, and business state.
 const MODE_FLAGS = ["write", "events", "reorder"];
+// 상위 업무 화면: 피킹시스템(루트) · CS 관리(cs/) · 사입 관리(purchase/, 2026-10-28)
+const WORKSPACE_PATHS = { picking: "", cs: "cs/", purchase: "purchase/" };
 
 export function safeWorkspaceSearch(search = "") {
   const input = new URLSearchParams(search);
@@ -16,20 +18,24 @@ export function safeWorkspaceSearch(search = "") {
   return query ? `?${query}` : "";
 }
 
-export function workspaceHref(workspace, search = "") {
-  if (workspace !== "picking" && workspace !== "cs") throw new Error("Unknown workspace");
-  return `${workspace === "cs" ? "./cs/" : "./"}${safeWorkspaceSearch(search)}`;
+// base = path from the current page to the app root ("./" on the picking page, "../" inside purchase/).
+export function workspaceHref(workspace, search = "", base = "./") {
+  if (!Object.hasOwn(WORKSPACE_PATHS, workspace)) throw new Error("Unknown workspace");
+  const root = base === "../" ? "../" : "./";
+  return `${root}${WORKSPACE_PATHS[workspace]}${safeWorkspaceSearch(search)}`;
 }
 
 export function configureWorkspaceNavigation(document, search = "") {
-  const picking = document.getElementById("workspace-picking-link");
-  const cs = document.getElementById("workspace-cs-link");
-  if (picking) picking.setAttribute("href", workspaceHref("picking", search));
-  if (cs) cs.setAttribute("href", workspaceHref("cs", search));
+  const nav = document.querySelector(".workspace-navigation");
+  const base = nav?.dataset?.workspaceBase || "./";
+  for (const workspace of Object.keys(WORKSPACE_PATHS)) {
+    const link = document.getElementById(`workspace-${workspace}-link`);
+    if (link) link.setAttribute("href", workspaceHref(workspace, search, base));
+  }
   // The operational app reserves Tab/arrows/Space globally. Within this new
   // navigation, retain native link keyboard behavior without changing those
   // existing shortcuts anywhere else in the picking workflow.
-  cs?.closest(".workspace-navigation")?.addEventListener("keydown", (event) => event.stopPropagation());
+  nav?.addEventListener("keydown", (event) => event.stopPropagation());
 }
 
 if (typeof document !== "undefined") {

@@ -72,5 +72,6 @@
   "photoRequests.mock.test.mjs",
   "customOrderSupplierSheet.mock.test.mjs",
   "inspectionShortageClear.contract.test.mjs",
-  "inspectionHoldFocus.contract.test.mjs"
+  "inspectionHoldFocus.contract.test.mjs",
+  "purchaseWorkspace.mock.test.mjs"
 ]

@@ -1,0 +1,274 @@
+/* 사입 관리 (2026-10-28 대표님 요청)
+   피킹시스템과 같은 화면 틀. 버튼 테마 = 초록, 배경 = 연한 노랑. 피킹 화면 CSS와는 따로 둡니다. */
+:root {
+  --purchase-bg: #fff8dc;
+  --purchase-panel: #ffffff;
+  --purchase-line: #e7dcae;
+  --purchase-line-soft: #f1e9c8;
+  --purchase-text: #111827;
+  --purchase-muted: #6b6a55;
+  --purchase-green: #15945b;
+  --purchase-green-dark: #0f7a4a;
+  --purchase-green-soft: #e8f8ef;
+  --purchase-shadow: 0 1px 2px rgba(68, 56, 10, 0.08);
+}
+
+html {
+  height: 100%;
+}
+
+body.purchase-workspace {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--purchase-bg);
+  color: var(--purchase-text);
+  font-family: "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.purchase-workspace button {
+  font: inherit;
+}
+
+.purchase-shell {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 7px;
+  padding: 7px;
+  padding: calc(7px + env(safe-area-inset-top, 0px)) 7px calc(7px + env(safe-area-inset-bottom, 0px));
+}
+
+.purchase-topbar,
+.purchase-sidebar,
+.purchase-panel {
+  background: var(--purchase-panel);
+  border: 1px solid var(--purchase-line);
+  border-radius: 8px;
+  box-shadow: var(--purchase-shadow);
+}
+
+.purchase-topbar {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+}
+
+/* 피킹시스템처럼 상위 업무 버튼이 가운데쯤 오도록 오른쪽 자리를 비워 둠 */
+.purchase-toolbar {
+  min-width: 190px;
+}
+
+.purchase-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 190px;
+  flex-shrink: 0;
+}
+
+.purchase-brand-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #111827;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.purchase-brand h1 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.purchase-brand p {
+  margin: 2px 0 0;
+  color: var(--purchase-muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 상위 업무 버튼: 사입 관리 화면에서는 초록 테마 */
+.purchase-workspace .workspace-navigation {
+  border-color: var(--purchase-line);
+  background: #fffdf2;
+}
+
+.purchase-workspace .workspace-navigation .workspace-link:hover {
+  background: var(--purchase-green-soft);
+  color: var(--purchase-green-dark);
+}
+
+.purchase-workspace .workspace-navigation .workspace-link.is-current {
+  background: var(--purchase-green);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(21, 148, 91, 0.25);
+}
+
+.purchase-workspace .workspace-navigation .workspace-link:focus-visible {
+  outline-color: #86d6ad;
+}
+
+.purchase-main {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 286px 1fr;
+  gap: 8px;
+}
+
+.purchase-main.sidebar-collapsed {
+  grid-template-columns: 42px 1fr;
+}
+
+.purchase-sidebar {
+  min-height: 0;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.purchase-sidebar.collapsed {
+  padding: 6px;
+}
+
+.purchase-sidebar.collapsed .purchase-tabs {
+  display: none;
+}
+
+.purchase-sidebar-toggle {
+  width: 100%;
+  height: 30px;
+  margin-bottom: 8px;
+  border: 1px solid var(--purchase-line);
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--purchase-muted);
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.purchase-tabs {
+  display: grid;
+  gap: 6px;
+}
+
+.purchase-tab {
+  height: 42px;
+  border: 1px solid var(--purchase-line);
+  border-radius: 7px;
+  text-align: left;
+  padding: 0 14px;
+  font-weight: 900;
+  background: #fffdf5;
+  color: var(--purchase-text);
+  cursor: pointer;
+}
+
+.purchase-tab:hover {
+  border-color: #c9b978;
+}
+
+.purchase-tab.active {
+  background: var(--purchase-green);
+  border-color: var(--purchase-green);
+  color: #ffffff;
+}
+
+.purchase-tab:focus-visible,
+.purchase-sidebar-toggle:focus-visible {
+  outline: 3px solid #86d6ad;
+  outline-offset: 2px;
+}
+
+.purchase-panel {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+.purchase-panel[hidden] {
+  display: none;
+}
+
+.purchase-panel-head {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--purchase-line-soft);
+}
+
+.purchase-panel-head h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.purchase-panel-head p {
+  margin: 3px 0 0;
+  color: var(--purchase-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.purchase-empty {
+  align-self: start;
+  display: grid;
+  gap: 6px;
+  margin: 14px;
+  padding: 28px 18px;
+  border: 1px dashed #d9cb8f;
+  border-radius: 8px;
+  background: #fffdf2;
+  color: var(--purchase-muted);
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.purchase-empty strong {
+  color: var(--purchase-text);
+  font-size: 15px;
+}
+
+@media (max-width: 720px) {
+  .purchase-topbar {
+    flex-wrap: wrap;
+  }
+
+  .purchase-topbar > .workspace-navigation {
+    margin-left: auto;
+    max-width: 100%;
+  }
+
+  .purchase-main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .purchase-main.sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .purchase-tabs {
+    grid-template-columns: 1fr 1fr;
+  }
+}

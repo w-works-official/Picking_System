@@ -10448,6 +10448,17 @@ async function toggleSelectedInspectionHold(orderGroupNo = state.selectedInspect
   state.selectedInspectionGroup = invoice.orderGroupNo;
   renderWorkflowSurfaces();
   toast(holdOn ? "보류 해제되었습니다." : "배송보류 ON 처리되었습니다.");
+  focusInspectionInvoiceInputForNextScan();
+}
+
+// 검품 배송보류 ON/해제가 끝나면 송장입력창으로 이동 + 전체 선택 → 다음 송장을 바로 찍을 수 있게 (2026-10-28).
+function focusInspectionInvoiceInputForNextScan() {
+  window.setTimeout(() => {
+    const input = els.inspectionSearchInput;
+    if (!input || state.activeTab !== "inspection" || !input.isConnected) return;
+    input.focus({ preventScroll: true });
+    input.select();
+  }, 0);
 }
 
 async function toggleCsShippingHold(orderGroupNo) {

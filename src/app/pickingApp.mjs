@@ -521,6 +521,19 @@ function inspectionInvoiceNumbers() {
   return inspectionSourceInvoices().map((invoice) => invoice.invoiceNo).filter(Boolean);
 }
 
+// 검품: 바코드(숫자 13자리 이상)가 찍히고 나면 입력칸을 전체 선택(Ctrl+A) 상태로 둡니다.
+// 다음 스캔이 앞 번호 뒤에 붙지 않고 덮어씁니다. 목록에 없는 송장번호여도 같습니다(2026-10-28).
+let inspectionScanSelectTimer = 0;
+function selectInspectionScanAfterSettle() {
+  clearTimeout(inspectionScanSelectTimer);
+  inspectionScanSelectTimer = window.setTimeout(() => {
+    const input = els.inspectionSearchInput;
+    if (!input || document.activeElement !== input) return;
+    if (!/^\d{13,}$/.test(String(input.value || "").trim())) return;
+    input.select();
+  }, BARCODE_SCAN_SETTLE_MS + 30);
+}
+
 function scheduleInvoiceScan(input, onSettled, { dedupe = false, extraInvoiceNumbers = null } = {}) {
   const scanState = invoiceScanState(input);
   clearTimeout(scanState.timer);
@@ -11684,6 +11697,7 @@ function bindEvents() {
       }
       renderInspectionPanels();
     }, { dedupe: true, extraInvoiceNumbers: inspectionInvoiceNumbers });
+    selectInspectionScanAfterSettle();
   });
   els.csDateTabs?.addEventListener("click", (event) => {
     const alimtalkAction = event.target.closest("[data-cs-alimtalk-action]");

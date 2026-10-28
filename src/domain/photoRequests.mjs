@@ -44,12 +44,13 @@ export function productCodeFromPhotoUrl(src) {
   return stem.trim();
 }
 
-export function buildPhotoRequestRecord({ code, title = "", requestedAt = new Date().toISOString(), source = "" } = {}) {
+export function buildPhotoRequestRecord({ code, title = "", productName = "", requestedAt = new Date().toISOString(), source = "" } = {}) {
   const normalizedCode = normalizePhotoRequestCode(code);
   if (!normalizedCode) throw new Error("셀피아코드가 없는 상품은 사진 요청을 할 수 없습니다.");
   return {
     code: normalizedCode,
     title: clean(title, TITLE_LIMIT),
+    productName: clean(productName, TITLE_LIMIT),
     requestedAt: String(requestedAt || ""),
     source: clean(source, 40),
   };
@@ -57,7 +58,22 @@ export function buildPhotoRequestRecord({ code, title = "", requestedAt = new Da
 
 // Body sent to the sheet web app. Sent as text/plain so the browser does not need a preflight.
 export function photoRequestAddPayload(record) {
-  return { action: "add", code: record.code, title: record.title, source: record.source, requestedAt: record.requestedAt };
+  return { action: "add", code: record.code, title: record.title, productName: record.productName || "", source: record.source, requestedAt: record.requestedAt };
+}
+
+// 상품명이 비어 있는 요청 줄만 채웁니다(2026-10-28, 이미 있는 이름·시각은 그대로).
+export function photoRequestFillNamesPayload(entries = []) {
+  const seen = new Set();
+  const items = [];
+  for (const entry of entries || []) {
+    const code = normalizePhotoRequestCode(entry?.code);
+    const productName = clean(entry?.productName, TITLE_LIMIT);
+    if (!code || !productName || seen.has(code)) continue;
+    seen.add(code);
+    items.push({ code, productName });
+    if (items.length >= 50) break;
+  }
+  return { action: "fill", items };
 }
 
 export function photoRequestClosePayload(codes = [], reason = "취소") {
@@ -78,6 +94,7 @@ export function parsePhotoRequestResponse(json) {
     records.push({
       code,
       title: clean(entry.title, TITLE_LIMIT),
+      productName: clean(entry.productName, TITLE_LIMIT),
       requestedAt: String(entry.requestedAt || ""),
       source: clean(entry.source, 40),
     });

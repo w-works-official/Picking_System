@@ -39,7 +39,7 @@ import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/busi
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
-import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261028-photo-request-drive2";
+import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, photoRequestFillNamesPayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261028-photo-request-name1";
 import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-all1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
@@ -1407,7 +1407,7 @@ async function requestProductPhoto(code, title = "") {
     toast("읽기전용입니다. URL에 write=1을 붙여야 사진 요청을 저장할 수 있습니다.");
     return;
   }
-  const record = buildPhotoRequestRecord({ code, title, source: state.activeTab });
+  const record = buildPhotoRequestRecord({ code, title, productName: productNameForPhotoCode(normalizePhotoRequestCode(code)), source: state.activeTab });
   const { records } = await callPhotoRequestSheet(photoRequestAddPayload(record));
   applyPhotoRequestRecords(records);
   state.photoRequests.loaded = true;
@@ -1415,6 +1415,23 @@ async function requestProductPhoto(code, title = "") {
   paintAllPhotoRequestButtons();
   if (state.photoRequests.open) renderPhotoRequestPanel();
   toast(`사진 요청 등록: ${record.code}`);
+}
+
+// 시트에 상품명이 비어 있는 요청은 앱이 아는 상품명으로 채웁니다(쓰기 모드, 실패해도 무시).
+async function fillMissingPhotoRequestNames() {
+  if (!allowWrites) return;
+  const missing = state.photoRequests.records
+    .filter((record) => !record.productName)
+    .map((record) => ({ code: record.code, productName: productNameForPhotoCode(record.code) }))
+    .filter((entry) => entry.productName);
+  const payload = photoRequestFillNamesPayload(missing);
+  if (!payload.items.length) return;
+  try {
+    const { records } = await callPhotoRequestSheet(payload);
+    applyPhotoRequestRecords(records);
+  } catch {
+    // Older sheet script without "fill": names stay empty, nothing else changes.
+  }
 }
 
 async function cancelPhotoRequest(code) {
@@ -1455,7 +1472,7 @@ function renderPhotoRequestPanel() {
   const rows = requests.records
     .map((record) => `<tr>
         <td class="photo-request-code">${escapeHtml(record.code)}</td>
-        <td>${productNameHtml(productNameForPhotoCode(record.code) || "")}${productNameForPhotoCode(record.code) ? "<br>" : ""}<small>${escapeHtml(record.title || "-")}</small></td>
+        <td>${productNameHtml(productNameForPhotoCode(record.code) || record.productName || "")}${productNameForPhotoCode(record.code) || record.productName ? "<br>" : ""}<small>${escapeHtml(record.title || "-")}</small></td>
         <td class="photo-request-time">${escapeHtml(formatPhotoRequestTime(record.requestedAt))}</td>
         <td><button class="btn mini" data-photo-request-cancel="${escapeHtml(record.code)}" type="button">요청 취소</button></td>
       </tr>`)
@@ -1485,6 +1502,7 @@ async function refreshPhotoRequestPanel() {
   renderPhotoRequestPanel();
   try {
     await loadPhotoRequests();
+    await fillMissingPhotoRequestNames();
     requests.loading = true;
     renderPhotoRequestPanel();
     const removed = await settleFulfilledPhotoRequests();

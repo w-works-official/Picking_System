@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (권한을 "이 시트 하나"로만 제한)
  *
- * System V3 사진 요청 시트 (2026-10-28)
+ * System V3 사진 요청 시트 (2026-10-28, 상품명 칸 추가 v2)
  * 구글드라이브 A_총괄 폴더의 시트 "System V3 사진요청" > 확장 프로그램 > Apps Script 에 붙여넣고
  * 배포 > 새 배포 > 유형: 웹 앱 / 실행: 나 / 액세스 권한: 모든 사용자 로 배포합니다.
  *
@@ -9,10 +9,12 @@
  *   - 목록 보기: 상태가 "요청"인 줄만 돌려줍니다.
  *   - 요청 추가: 같은 셀피아코드가 이미 "요청" 상태면 줄을 늘리지 않고 시각만 바꿉니다.
  *   - 요청 닫기: 줄을 지우지 않고 상태를 "취소" 또는 "완료"로 바꿉니다.
+ *   - 상품명 채우기: 상품명 칸이 비어 있는 "요청" 줄만 채웁니다.
  * 시트의 다른 탭·다른 파일은 건드리지 않습니다.
  */
 var SHEET_NAME = '사진요청';
-var HEADER = ['셀피아코드', '상품', '요청 화면', '요청 시각', '상태', '처리 시각'];
+var HEADER = ['셀피아코드', '상품', '요청 화면', '요청 시각', '상태', '처리 시각', '상품명'];
+var MAX_FILL_PER_CALL = 50;
 var OPEN = '요청';
 var MAX_CODES_PER_CALL = 200;
 
@@ -34,6 +36,8 @@ function doPost(e) {
         changed = addRequest_(sheet, body);
       } else if (body.action === 'close') {
         changed = closeRequests_(sheet, body.codes, body.reason === '완료' ? '완료' : '취소');
+      } else if (body.action === 'fill') {
+        changed = fillNames_(sheet, body.items);
       } else {
         return { ok: false, error: '알 수 없는 요청입니다.' };
       }
@@ -64,6 +68,9 @@ function sheet_() {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(HEADER);
     sheet.setFrozenRows(1);
+  } else if (String(sheet.getRange(1, HEADER.length).getValue()) === '') {
+    // 처음 버전 시트(6칸)에 '상품명' 머리글만 추가. 기존 줄은 그대로.
+    sheet.getRange(1, HEADER.length).setValue(HEADER[HEADER.length - 1]);
   }
   return sheet;
 }
@@ -100,6 +107,7 @@ function openRequests_(sheet) {
       title: plain_(rows[i][1]),
       source: plain_(rows[i][2]),
       requestedAt: isoTime_(rows[i][3]),
+      productName: plain_(rows[i][6]),
     });
   }
   return list;
@@ -110,15 +118,17 @@ function addRequest_(sheet, body) {
   if (!code) throw new Error('셀피아코드가 없습니다.');
   var title = clean_(body.title, 300);
   var source = clean_(body.source, 40);
+  var productName = clean_(body.productName, 300);
   var now = new Date();
   var rows = rows_(sheet);
   for (var i = 0; i < rows.length; i++) {
     if (plain_(rows[i][0]) === plain_(code) && String(rows[i][4]) === OPEN) {
       sheet.getRange(i + 2, 2, 1, 3).setValues([[title || clean_(rows[i][1], 300), source || clean_(rows[i][2], 40), now]]);
+      if (productName) sheet.getRange(i + 2, 7).setValue(productName);
       return 1;
     }
   }
-  sheet.appendRow([code, title, source, now, OPEN, '']);
+  sheet.appendRow([code, title, source, now, OPEN, '', productName]);
   return 1;
 }
 
@@ -135,6 +145,25 @@ function closeRequests_(sheet, codes, status) {
   for (var i = 0; i < rows.length; i++) {
     if (String(rows[i][4]) !== OPEN || !wanted[plain_(rows[i][0])]) continue;
     sheet.getRange(i + 2, 5, 1, 2).setValues([[status, now]]);
+    changed++;
+  }
+  return changed;
+}
+
+function fillNames_(sheet, items) {
+  var names = {};
+  var list = Array.isArray(items) ? items.slice(0, MAX_FILL_PER_CALL) : [];
+  for (var n = 0; n < list.length; n++) {
+    var key = plain_(clean_(list[n] && list[n].code, 80));
+    var name = clean_(list[n] && list[n].productName, 300);
+    if (key && name) names[key] = name;
+  }
+  var rows = rows_(sheet);
+  var changed = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var code = plain_(rows[i][0]);
+    if (String(rows[i][4]) !== OPEN || !names[code] || String(rows[i][6] || '') !== '') continue;
+    sheet.getRange(i + 2, 7).setValue(names[code]);
     changed++;
   }
   return changed;

@@ -8,6 +8,7 @@ import {
   parsePhotoRequestResponse,
   photoRequestAddPayload,
   photoRequestClosePayload,
+  photoRequestFillNamesPayload,
   productCodeFromPhotoUrl,
   sortPhotoRequests,
 } from "../src/domain/photoRequests.mjs";
@@ -24,7 +25,10 @@ assert.equal(productCodeFromPhotoUrl(`${base}SKU%20A.__priority.jpg`), "SKU A");
 assert.equal(productCodeFromPhotoUrl("https://example.com/a.png"), "");
 
 const record = buildPhotoRequestRecord({ code: " 1000-1 ", title: "[P] A-01-09 ] · 실버", requestedAt: "2026-10-28T09:00:00.000Z", source: "picking" });
-assert.deepEqual(record, { code: "1000-1", title: "[P] A-01-09 ] · 실버", requestedAt: "2026-10-28T09:00:00.000Z", source: "picking" });
+assert.deepEqual(record, { code: "1000-1", title: "[P] A-01-09 ] · 실버", productName: "", requestedAt: "2026-10-28T09:00:00.000Z", source: "picking" });
+assert.equal(buildPhotoRequestRecord({ code: "1", productName: " 뽀띠 블룸\n피어싱 " }).productName, "뽀띠 블룸 피어싱");
+assert.deepEqual(photoRequestFillNamesPayload([{ code: "1", productName: "a" }, { code: "1", productName: "b" }, { code: "2", productName: "" }, { code: "", productName: "x" }]), { action: "fill", items: [{ code: "1", productName: "a" }] });
+assert.equal(photoRequestFillNamesPayload(Array.from({ length: 80 }, (_, i) => ({ code: String(i), productName: "n" }))).items.length, 50);
 assert.throws(() => buildPhotoRequestRecord({ code: "" }));
 assert.equal(normalizePhotoRequestCode(" a\nb "), "a b");
 assert.deepEqual(photoRequestAddPayload(record), { action: "add", ...record });
@@ -32,7 +36,7 @@ assert.deepEqual(photoRequestClosePayload(["1", " 1 ", "", "2"], "완료"), { ac
 assert.equal(photoRequestClosePayload(["1"], "아무거나").reason, "취소");
 
 assert.deepEqual(parsePhotoRequestResponse({ ok: true, requests: [{ code: "1", title: "t", requestedAt: "x", source: "s" }, { code: "1" }, { code: "" }] }).records,
-  [{ code: "1", title: "t", requestedAt: "x", source: "s" }], "duplicates and empty codes dropped");
+  [{ code: "1", title: "t", productName: "", requestedAt: "x", source: "s" }], "duplicates and empty codes dropped");
 assert.throws(() => parsePhotoRequestResponse({ ok: false, error: "거절" }), /거절/);
 assert.throws(() => parsePhotoRequestResponse(null));
 
@@ -50,6 +54,8 @@ assert.doesNotMatch(block, /db\.storage|imageDb|\.upload\(/);
 assert.match(block, /"Content-Type": "text\/plain;charset=utf-8"/, "simple request, no preflight");
 assert.match(block, /closePhotoRequests\(fulfilled, "완료"\)/);
 assert.match(block, /closePhotoRequests\(\[code\], "취소"\)/);
+assert.match(block, /productName: productNameForPhotoCode\(normalizePhotoRequestCode\(code\)\)/, "product name sent with each request");
+assert.match(app, /await loadPhotoRequests\(\);\s*await fillMissingPhotoRequestNames\(\);/, "missing names are filled when the list is opened");
 assert.match(app, /data-photo-request-cancel="\$\{escapeHtml\(record\.code\)\}"/);
 assert.match(app, /if \(image\.closest\("\.custom-order-slip-card, \.custom-order-row-primary"\)\) return;/, "no request button inside the 주문제작 capture area");
 
@@ -68,6 +74,8 @@ function fakeSheet() {
       return {
         getValues: () => data.slice(row - 1, row - 1 + rows).map((r) => Array.from({ length: cols }, (_, i) => r[col - 1 + i] ?? "")),
         setValues: (values) => values.forEach((vals, r) => vals.forEach((v, c) => { data[row - 1 + r][col - 1 + c] = v; })),
+        getValue: () => data[row - 1]?.[col - 1] ?? "",
+        setValue: (v) => { data[row - 1][col - 1] = v; },
       };
     },
   };
@@ -84,8 +92,10 @@ const post = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.string
 const get = () => JSON.parse(ctx.doGet({}).text);
 assert.deepEqual(get(), { ok: true, requests: [] });
 assert.equal(sheet.getName(), "사진요청");
-assert.deepEqual(Array.from(sheet.data[0]), ["셀피아코드", "상품", "요청 화면", "요청 시각", "상태", "처리 시각"]);
-let res = post({ action: "add", code: "1000-1", title: "실버 피어싱", source: "picking" });
+assert.deepEqual(Array.from(sheet.data[0]), ["셀피아코드", "상품", "요청 화면", "요청 시각", "상태", "처리 시각", "상품명"]);
+let res = post({ action: "add", code: "1000-1", title: "실버 피어싱", source: "picking", productName: "뽀띠 블룸 피어싱" });
+assert.equal(sheet.data[1][6], "뽀띠 블룸 피어싱");
+assert.equal(res.requests[0].productName, "뽀띠 블룸 피어싱");
 assert.equal(res.ok, true);
 assert.deepEqual(Array.from(res.requests.map((r) => r.code)), ["1000-1"]);
 res = post({ action: "add", code: "1000-1", title: "실버 피어싱 2", source: "inspection" });
@@ -103,7 +113,30 @@ res = post({ action: "close", codes: ["2000-2"], reason: "완료" });
 assert.equal(sheet.data[3][4], "완료");
 res = post({ action: "add", code: "1000-1", title: "다시" });
 assert.equal(sheet.data.length, 5, "a cancelled code can be requested again as a new row");
+// fill: only empty names on open rows; existing names and closed rows untouched.
+post({ action: "add", code: "3000-3", title: "x" });
+post({ action: "add", code: "4000-4", title: "y", productName: "원래 이름" });
+res = post({ action: "fill", items: [{ code: "3000-3", productName: "새 이름" }, { code: "4000-4", productName: "덮어쓰기 안 됨" }, { code: "2000-2", productName: "닫힌 줄" }] });
+assert.equal(res.changed, 1);
+assert.equal(sheet.data.find((r) => r[0] === "4000-4")[6], "원래 이름", "existing name kept");
+assert.equal(sheet.data[1][6], "뽀띠 블룸 피어싱", "closed row keeps its name");
+assert.equal(sheet.data.find((r) => r[0] === "3000-3")[6], "새 이름");
+assert.equal(sheet.data[3][6] ?? "", "", "closed row untouched");
 assert.equal(post({ action: "delete" }).ok, false);
+
+// A first-version sheet (6 header cells, existing rows) gets only the new header cell.
+const old = fakeSheet();
+old.setName("사진요청");
+old.data.push(["셀피아코드", "상품", "요청 화면", "요청 시각", "상태", "처리 시각"], ["11546-1", "[SA-03-04_4] · 원타입", "inspection", "t", "요청", ""]);
+const ctx2 = { ...ctx, SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: () => old, getSheets: () => [old] }) } };
+vm.createContext(ctx2);
+vm.runInContext(gs, ctx2);
+const got = JSON.parse(ctx2.doGet({}).text);
+assert.equal(old.data[0][6], "상품명");
+assert.deepEqual(Array.from(old.data[1]).slice(0, 6), ["11546-1", "[SA-03-04_4] · 원타입", "inspection", "t", "요청", ""], "existing row unchanged");
+assert.equal(got.requests[0].productName, "");
+JSON.parse(ctx2.doPost({ postData: { contents: JSON.stringify({ action: "fill", items: [{ code: "11546-1", productName: "원터치 링" }] }) } }).text);
+assert.equal(old.data[1][6], "원터치 링");
 assert.equal(post({ action: "add", code: "" }).ok, false);
 assert.equal(JSON.parse(ctx.doPost({ postData: { contents: "not json" } }).text).ok, false);
 assert.doesNotMatch(gs, /deleteRow|deleteRows|clear\(|DriveApp|UrlFetchApp|MailApp|GmailApp/, "the script only reads/writes this sheet");

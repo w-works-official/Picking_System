@@ -154,9 +154,10 @@
       "patch": "2026-10-28 System V3: 원본 빌드에서 두 군데만 수정 — 링크 주소표에 purchase(../purchase/) 추가, 상위 업무 메뉴에 사입 관리 링크 추가"
     },
     {
-      "path": "assets/index-wmp_m_en.css",
-      "bytes": 71878,
-      "sha256": "9ae97e82e26af491cb253d9a2fa713c8e5acd0abe7f3f1dc06f2d974b8eb1df5"
+      "path": "assets/index-wmp_m_en-p1.css",
+      "bytes": 71874,
+      "sha256": "94dbeef346be09362a9d552130d2ac010a64c88e01093bca2e396fdbe3699d35",
+      "patch": "2026-10-28 System V3: 원본 빌드에서 한 군데만 수정 — 상위 업무 메뉴의 현재 화면(CS 관리) 버튼 색 파랑 → 진한 핑크(#be185d)"
     },
     {
       "path": "captures/README.txt",

@@ -185,4 +185,9 @@ g1 = L.single_instance()
 assert g1 is not None and L.single_instance() is None
 g1.close()
 
+# 9) 비밀번호 붙여넣기 정리
+assert L.clean_token('  "abcd1234efgh"  ') == "abcd1234efgh"
+assert L.clean_token("COLLECTOR_TOKEN = 0123456789abcdef01234567") == "0123456789abcdef01234567"
+assert L.clean_token("") == ""
+
 print("g1V3Link.test: OK")

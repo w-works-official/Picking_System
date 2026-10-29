@@ -13,15 +13,15 @@
   · 테스트 수집 결과는 시트에 올리지 않음
   · 수집기 창에서 수집 중일 때 웹 수집 요청이 오면 브라우저가 겹쳐 실패할 수 있음 → 실패로 표시하고 끝냄(재시도는 웹에서)
 
-처음 한 번: ▶G1수집기_5_웹연결.bat 실행 → 웹앱 주소와 수집기 비밀번호(COLLECTOR_TOKEN) 입력 (이 PC에만 암호화 저장)
+처음 한 번: ▶G1수집기_5_웹연결.bat 실행 → 웹앱 주소와 수집기 비밀번호(COLLECTOR_TOKEN) 붙여넣기 (이 PC에만 암호화 저장)
 """
-import os, sys, json, time, glob, socket, datetime, traceback, getpass
+import os, sys, json, time, glob, socket, datetime, traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.0 (2026-10-29)"
+LINK_VER = "1.1 (2026-10-29)"
 POLL_SEC = 15
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
@@ -56,13 +56,24 @@ def setup():
     url = input("웹앱 주소 (https://script.google.com/macros/s/.../exec): ").strip()
     if not (url.startswith(URL_RE) and url.endswith("/exec")):
         print("주소 모양이 다릅니다. 다시 실행해 주세요."); return False
-    tok = getpass.getpass("수집기 비밀번호 COLLECTOR_TOKEN (입력해도 화면에 안 보입니다): ").strip()
+    # 숨김 입력(getpass)은 창에 따라 붙여넣기가 안 되는 경우가 있어 보이는 입력으로 받음 (이 PC에만 암호화 저장)
+    print("수집기 비밀번호 COLLECTOR_TOKEN 을 붙여넣고 Enter (마우스 오른쪽 클릭 또는 Ctrl+V)")
+    tok = clean_token(input("COLLECTOR_TOKEN: "))
     if len(tok) < 8:
-        print("비밀번호가 너무 짧습니다."); return False
+        print(f"비밀번호가 너무 짧습니다 (받은 글자 {len(tok)}자). 실행 로그의 COLLECTOR_TOKEN = 뒤의 값을 다시 붙여넣어 주세요."); return False
+    os.system("cls" if os.name == "nt" else "clear")   # 입력한 비밀번호가 화면에 남지 않게
     d.update(endpoint=url, token_enc=G.enc_secret(tok))
     save_link(d)
     print("저장했습니다 (이 PC에만 암호화 저장).")
     return True
+
+
+def clean_token(raw):
+    """붙여넣은 값 정리: 앞뒤 공백·따옴표, 'COLLECTOR_TOKEN = ' 같은 머리말까지 붙여넣은 경우도 값만"""
+    t = str(raw or "").strip().strip('"').strip("'").strip()
+    if "=" in t:
+        t = t.split("=")[-1].strip().strip('"').strip("'").strip()
+    return "".join(t.split())
 
 
 class Link:

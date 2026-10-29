@@ -30,6 +30,8 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
   const book = sheets || [fakeSheet()];
   const properties = { ...props };
   const calls = [];
+  const logs = [];
+  const fetchAllCalls = [];
   let timeZone = "America/New_York";
   const ctx = {
     SpreadsheetApp: {
@@ -49,22 +51,38 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
         setProperty: (k, v) => { properties[k] = String(v); },
       }),
     },
-    Utilities: { formatDate: (date) => date.toISOString().slice(0, 10).replace(/-/g, "") },
+    Utilities: {
+      // 한국 시간 기준 간단한 날짜 글자 (yyyyMMdd / yyyy-MM-dd / yyMMddHHmmss)
+      formatDate: (date, tz, fmt) => {
+        const k = new Date(date.getTime() + 9 * 3600 * 1000).toISOString();
+        const p = { yyyy: k.slice(0, 4), yy: k.slice(2, 4), MM: k.slice(5, 7), dd: k.slice(8, 10), HH: k.slice(11, 13), mm: k.slice(14, 16), ss: k.slice(17, 19) };
+        return fmt.replace(/yyyy|yy|MM|dd|HH|mm|ss/g, (t) => p[t]);
+      },
+      getUuid: () => `${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`,
+    },
+    Logger: { log: (m) => logs.push(String(m)) },
     UrlFetchApp: {
       fetch(url, options) {
-        const payload = JSON.parse(options.payload);
-        calls.push({ url, headers: options.headers, payload });
-        const reply = claude ? claude(payload) : { status: 200, text: JSON.stringify(["답변 하나", "답변 둘"]) };
-        return {
-          getResponseCode: () => reply.status ?? 200,
-          getContentText: () => JSON.stringify({ content: [{ type: "text", text: reply.text }] }),
-        };
+        return reply(url, options);
+      },
+      fetchAll(requests) {
+        fetchAllCalls.push(requests.length);
+        return requests.map((r) => reply(r.url, r));
       },
     },
   };
+  function reply(url, options) {
+    const payload = JSON.parse(options.payload);
+    calls.push({ url, headers: options.headers, payload });
+    const answer = claude ? claude(payload) : { status: 200, text: JSON.stringify(["답변 하나", "답변 둘"]) };
+    return {
+      getResponseCode: () => answer.status ?? 200,
+      getContentText: () => JSON.stringify({ content: [{ type: "text", text: answer.text }], usage: { input_tokens: 1000, output_tokens: 400 } }),
+    };
+  }
   vm.createContext(ctx);
   vm.runInContext(source, ctx);
   const post = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text);
   const get = () => JSON.parse(ctx.doGet({}).text);
-  return { ctx, post, get, sheets: book, sheet: () => book.find((s) => s.getName() === "CS문의"), properties, calls, timeZone: () => timeZone };
+  return { ctx, post, get, sheets: book, sheet: () => book.find((s) => s.getName() === "CS문의"), jobs: () => book.find((s) => s.getName() === "요청"), properties, calls, logs, fetchAllCalls, timeZone: () => timeZone };
 }

@@ -27,7 +27,15 @@ export const CS_STATUS = {
   picked: "채택",
   held: "보류",
   closed: "종료",
+  requested: "등록요청",
+  registered: "등록완료",
 };
+
+// 수집기(g1_register.SUPPORTED)가 자동 등록할 수 있는 게시판 — 나머지는 복사·바로가기로 직접 등록
+export const CS_REGISTER_SUPPORTED = ["스마트스토어|상품문의", "스마트스토어|고객문의"];
+
+// 웹에서 수집기 PC에 보내는 요청 종류 (시트 JOB_KINDS 와 같음)
+export const CS_JOB_KINDS = { collect: "게시판 수집", reviews: "리뷰 수집", test: "테스트 수집", testReviews: "테스트 리뷰 수집", register: "등록" };
 
 export function isCsBoardTokenValid(token) {
   return /^[A-Za-z0-9_-]{8,128}$/.test(String(token ?? "").trim());
@@ -75,8 +83,10 @@ export function normalizeChoice(raw, draftCount = Infinity) {
   return choice;
 }
 
-export function csStatusOf({ closed = false, drafts = [], choice = emptyChoice() } = {}) {
+export function csStatusOf({ closed = false, drafts = [], choice = emptyChoice(), reg = null } = {}) {
+  if (reg?.state === "완료") return CS_STATUS.registered;
   if (closed) return CS_STATUS.closed;
+  if (reg?.state === "요청") return CS_STATUS.requested;
   if (choice.hold) return CS_STATUS.held;
   if (choice.pick >= 0) return CS_STATUS.picked;
   return drafts.length ? CS_STATUS.drafted : CS_STATUS.waiting;
@@ -93,10 +103,16 @@ export function normalizeCsRow(raw = {}) {
     .filter((draft) => draft.text.trim());
   const choice = normalizeChoice(raw.choice, drafts.length);
   const closed = raw.closed === true;
+  const reg = raw.reg && typeof raw.reg === "object" && ["요청", "완료", "확인 필요", "건너뜀"].includes(raw.reg.state)
+    ? { state: raw.reg.state, at: line(raw.reg.at, 40), note: line(raw.reg.note, 300), text: text(raw.reg.text) }
+    : null;
+  const board = line(raw.board, 40);
   return {
     key: line(raw.key, 200),
     vendor: line(raw.vendor, 40),
-    board: line(raw.board, 40),
+    board,
+    kind: inquiry.kind === "리뷰" || board === "리뷰" ? "리뷰" : "문의",
+    noReply: inquiry.noReply === true,
     id: line(raw.id, 120),
     date: line(raw.date, 40),
     product: line(raw.product, 300),
@@ -118,22 +134,96 @@ export function normalizeCsRow(raw = {}) {
     drafts,
     choice,
     closed,
+    reg,
     version: Math.max(0, Math.trunc(Number(raw.version) || 0)),
     editor: line(raw.editor, 40),
     editedAt: line(raw.editedAt, 40),
     collectedAt: line(raw.collectedAt, 40),
-    status: csStatusOf({ closed, drafts, choice }),
+    status: csStatusOf({ closed, drafts, choice, reg }),
   };
+}
+
+// 이 카드에서 더 고칠 수 없는 상태 (등록 요청 중·끝난 문의)
+export function isCsRowLocked(row) {
+  return row.closed || row.reg?.state === "요청" || row.reg?.state === "완료";
+}
+
+export function isRegisterSupported(row) {
+  return CS_REGISTER_SUPPORTED.includes(`${row.vendor}|${row.board}`);
+}
+
+// 📤 등록 확인 창: 채택된 문의를 자동 등록(스마트스토어)·직접 등록(나머지)으로 나눔
+export function registerCandidates(rows = []) {
+  const picked = rows.filter((row) => row.kind === "문의" && !isCsRowLocked(row) && !row.choice.hold && row.choice.pick >= 0 && pickedText(row).trim());
+  return { auto: picked.filter(isRegisterSupported), manual: picked.filter((row) => !isRegisterSupported(row)) };
+}
+
+export function normalizeCsJob(raw = {}) {
+  const result = raw.result && typeof raw.result === "object" ? raw.result : {};
+  return {
+    id: line(raw.id, 40),
+    kind: line(raw.kind, 20),
+    label: CS_JOB_KINDS[raw.kind] || line(raw.kind, 20),
+    status: line(raw.status, 10),
+    by: line(raw.by, 40),
+    at: line(raw.at, 40),
+    started: line(raw.started, 40),
+    ended: line(raw.ended, 40),
+    pc: line(raw.pc, 60),
+    message: line(result.message, 300),
+    count: Number(raw.body?.count ?? (raw.body?.items || []).length) || 0,
+  };
+}
+
+export function isJobActive(job) {
+  return job.status === "대기" || job.status === "실행중";
+}
+
+// 수집기 PC 연결 프로그램 상태: 15초마다 알림 → 1분 안 = 켜짐, 5분 안 = 늦음, 그 밖 = 꺼짐
+export function collectorStatus(raw = {}, nowMs = Date.now()) {
+  const seen = new Date(raw?.seenAt || "").getTime();
+  const ago = Number.isFinite(seen) ? Math.max(0, Math.round((nowMs - seen) / 1000)) : Infinity;
+  const state = ago < 60 ? "on" : ago < 300 ? "late" : "off";
+  const vendors = (info) => Object.entries(info?.vendors || {}).map(([vendor, v]) => ({ vendor: line(vendor, 20), state: line(v?.state, 20), count: Number(v?.count) || 0, note: line(v?.note, 200) }));
+  return {
+    state,
+    ago,
+    pc: line(raw?.pc, 60),
+    version: line(raw?.version, 60),
+    busy: raw?.busy === true,
+    last: raw?.last ? { at: line(raw.last.at, 40), count: Number(raw.last.count) || 0, vendors: vendors(raw.last) } : null,
+    reviewLast: raw?.reviewLast ? { at: line(raw.reviewLast.at, 40), count: Number(raw.reviewLast.count) || 0, vendors: vendors(raw.reviewLast) } : null,
+  };
+}
+
+export function csRequestPayload(kind, { vendors = [], reviewDays = 0 } = {}, editor = "") {
+  if (!Object.hasOwn(CS_JOB_KINDS, kind) || kind === "register") throw new Error("알 수 없는 요청입니다.");
+  const options = { vendors: [...new Set(vendors.map((v) => line(v, 20)).filter(Boolean))].slice(0, 4) };
+  const days = Math.trunc(Number(reviewDays));
+  if ((kind === "reviews" || kind === "testReviews") && days >= 1 && days <= 365) options.reviewDays = days;
+  return { action: "request", kind, options, editor: line(editor, 40) };
+}
+
+export function csRegisterPayload(rows = [], editor = "") {
+  return { action: "request", kind: "register", keys: rows.map((row) => row.key).slice(0, 100), editor: line(editor, 40) };
+}
+
+// AI 사용량: 그 달 날짜별 [{day, n, won}] + 합계
+export function usageForMonth(usage = {}, year, month) {
+  const prefix = `${year}-${String(month).padStart(2, "0")}-`;
+  const days = Object.entries(usage || {})
+    .filter(([day]) => day.startsWith(prefix))
+    .map(([day, v]) => ({ day, n: Number(v?.n) || 0, won: Number(v?.won) || 0 }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+  return { days, n: days.reduce((sum, d) => sum + d.n, 0), won: Math.round(days.reduce((sum, d) => sum + d.won, 0) * 10) / 10 };
 }
 
 export function parseCsBoardResponse(json) {
   if (!json || typeof json !== "object") throw new Error("CS 시트 응답을 읽지 못했습니다.");
   if (json.ok !== true) {
     const error = new Error(String(json.error || "CS 시트가 요청을 거절했습니다."));
-    if (json.conflict) {
-      error.conflict = true;
-      error.row = json.row ? normalizeCsRow(json.row) : null;
-    }
+    if (json.conflict) error.conflict = true;
+    if (json.row) error.row = normalizeCsRow(json.row); // 충돌·종료·등록 중이면 시트의 최신 줄을 같이 돌려줌
     if (json.denied) error.denied = true;
     throw error;
   }
@@ -148,6 +238,12 @@ export function parseCsBoardResponse(json) {
   return {
     rows,
     row: json.row ? normalizeCsRow(json.row) : null,
+    jobs: Array.isArray(json.jobs) ? json.jobs.map(normalizeCsJob) : null,
+    job: json.job ? normalizeCsJob(json.job) : null,
+    duplicate: json.duplicate === true,
+    collector: json.collector ? json.collector : null,
+    usage: json.usage && typeof json.usage === "object" ? json.usage : null,
+    hasRows: Array.isArray(json.rows),
     aiEnabled: json.aiEnabled === true,
     added: Math.max(0, Number(json.added) || 0),
     serverTime: line(json.serverTime, 40),
@@ -233,8 +329,8 @@ export function csSuggestPayload(row) {
   return { action: "suggest", key: row.key };
 }
 
-export function csBoardSummary(rows = []) {
-  const open = rows.filter((row) => !row.closed);
+export function csBoardSummary(rows = [], kind = "문의") {
+  const open = rows.filter((row) => !row.closed && (!kind || row.kind === kind));
   return {
     total: open.length,
     picked: open.filter((row) => row.status === CS_STATUS.picked).length,
@@ -245,10 +341,11 @@ export function csBoardSummary(rows = []) {
 
 export const CS_BOARD_FILTERS = ["전체", "미선택", "채택", "보류"];
 
-export function filterCsRows(rows = [], { vendor = "", status = "전체", search = "" } = {}) {
+export function filterCsRows(rows = [], { vendor = "", status = "전체", search = "", kind = "문의" } = {}) {
   const needle = String(search || "").trim().toLowerCase();
   return rows.filter((row) => {
-    if (row.closed) return false;
+    if (kind && row.kind !== kind) return false;
+    if (row.closed && row.reg?.state !== "완료") return false;
     if (vendor && row.vendor !== vendor) return false;
     if (status === "미선택" && !(row.status === CS_STATUS.waiting || row.status === CS_STATUS.drafted)) return false;
     if (status === "채택" && row.status !== CS_STATUS.picked) return false;
@@ -263,8 +360,8 @@ export function sortCsRows(rows = []) {
   return [...rows].sort((a, b) => String(b.date).localeCompare(String(a.date)) || a.vendor.localeCompare(b.vendor, "ko") || a.id.localeCompare(b.id, "en", { numeric: true }));
 }
 
-export function csVendors(rows = []) {
-  return [...new Set(rows.filter((row) => !row.closed).map((row) => row.vendor).filter(Boolean))];
+export function csVendors(rows = [], kind = "문의") {
+  return [...new Set(rows.filter((row) => !row.closed && (!kind || row.kind === kind)).map((row) => row.vendor).filter(Boolean))];
 }
 
 // 바로가기: 수집기가 준 글 주소 우선, 없으면 업체 관리 화면(가게 주소가 필요 없는 공통 화면만)

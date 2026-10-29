@@ -122,6 +122,7 @@ try {
         { 업체: "지그재그", 게시판: "주문문의", id: "z1", 날짜: "2026-10-29 10:00", 상품명: "가상 상품 A", 문의: "바 변경 되나요?", 답변안: ["안 1", "안 2", "안 3"] },
         { 업체: "메이크샵", 게시판: "Q&A", id: "m1", 날짜: "2026-10-29 09:00", 상품명: "가상 상품 B", 문의: "불량인가요?" },
       ],
+      autoSuggest: false,
     });
     const requests = [];
     const context = await browser.newContext({ viewport: { width: 1500, height: 1000 }, serviceWorkers: "block", permissions: ["clipboard-read", "clipboard-write"] });
@@ -181,6 +182,81 @@ try {
     await page.locator("#cs-toast", { hasText: "복사" }).waitFor();
     await page.waitForFunction(() => /자동 저장됨/.test(document.querySelector("#cs-summary").textContent));
     await page.screenshot({ path: path.join(output, "cs-board-connected.png") });
+
+    // ---------- 수집기 PC 연결 ----------
+    const reload = async () => { await page.locator("#cs-reload").click(); await page.waitForFunction(() => !/불러오는 중/.test(document.body.textContent)); };
+    assert.match(await page.locator("#cs-collector").textContent(), /수집기 PC ○/, "no signal yet");
+    assert.match(await page.locator("#cs-jobs").textContent(), /○ 꺼짐[\s\S]*웹연결\.bat/);
+    gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC", version: "9.1 / 연결 1.0", busy: true }); // 연결 프로그램 신호
+    await reload();
+    await page.waitForFunction(() => /수집기 PC ●/.test(document.querySelector("#cs-collector").textContent));
+    const collectButton = page.locator('[data-left-panel="main"] [data-job="collect"]');
+    assert.equal(await collectButton.isDisabled(), false, "unlocked once connected");
+    assert.notEqual(await collectButton.evaluate((el) => getComputedStyle(el).color), "rgb(220, 38, 38)");
+    assert.equal(await page.locator('[data-left-panel="main"] button', { hasText: "🔑 로그인" }).isDisabled(), true, "login stays red (needs a person at the PC)");
+    // 업체 끄기 → 요청에 반영
+    await page.locator('#cs-vendor-grid [data-vendor="메이크샵"] strong').click();
+    assert.equal(await page.locator('#cs-vendor-grid [data-vendor="메이크샵"]').evaluate((el) => el.classList.contains("is-off")), true);
+    await collectButton.click();
+    await page.locator("#cs-toast", { hasText: "게시판 수집 요청을 보냈습니다" }).waitFor();
+    const sentRequest = requests.filter((r) => r.action === "request").at(-1);
+    assert.deepEqual(sentRequest.options.vendors, ["스마트스토어", "지그재그", "에이블리"]);
+    assert.match(await page.locator("#cs-jobs").textContent(), /대기[\s\S]*게시판 수집/);
+    // 수집기 PC가 가져가 실행 → 결과 올림 → 끝
+    const collectJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    assert.equal(collectJob.kind, "collect");
+    gas.post({ action: "ingest", token: COLLECTOR, autoSuggest: false, rows: [
+      { 업체: "지그재그", 게시판: "주문문의", id: "z1", 날짜: "2026-10-29 10:00", 상품명: "가상 상품 A", 문의: "바 변경 되나요?" },
+      { 업체: "메이크샵", 게시판: "Q&A", id: "m1", 날짜: "2026-10-29 09:00", 상품명: "가상 상품 B", 문의: "불량인가요?" },
+      { 업체: "스마트스토어", 게시판: "상품문의", id: "s1", 날짜: "2026-10-29 11:00", 상품명: "가상 상품 C", 문의: "언제 와요?", 답변안: ["내일 출고됩니다", "확인 후 안내드릴게요"] },
+    ], snapshot: { kind: "문의", vendors: { 스마트스토어: { 상태: "ok", 건수: 1 }, 지그재그: { 상태: "ok", 건수: 1 }, 에이블리: { 상태: "로그인 필요", 건수: 0, 메모: "다시 로그인" } }, days: 7, collectedAt: "2026-10-29 12:00" } });
+    gas.post({ action: "finish", token: COLLECTOR, id: collectJob.id, ok: true, message: "수집_261029_1200.json · 3건", count: 3 });
+    await reload();
+    await page.locator('[data-card="스마트스토어_상품문의_s1"]').waitFor();
+    assert.match(await page.locator("#cs-jobs").textContent(), /완료[\s\S]*수집_261029_1200\.json/);
+    assert.match(await page.locator('[data-vendor-status="에이블리"]').textContent(), /로그인 필요/);
+    assert.match(await page.locator('[data-left-panel="main"] [data-log="warn"]').textContent(), /에이블리: 로그인 필요[\s\S]*\[🔑 로그인\]/);
+    await page.screenshot({ path: path.join(output, "cs-board-collector.png") });
+
+    // 📤 등록: 채택한 스마트스토어 문의만 자동, 나머지는 직접 등록 안내
+    const ss = page.locator('[data-card="스마트스토어_상품문의_s1"]');
+    await ss.locator('[data-act="pick"][data-box="0"]').click();
+    await page.waitForFunction(() => /자동 저장됨/.test(document.querySelector("#cs-summary").textContent) && !/저장 중|저장 대기/.test(document.body.textContent));
+    await page.locator("#cs-register-open").click();
+    await page.locator("#cs-modal:not([hidden])").waitFor();
+    assert.match(await page.locator("#cs-modal-body").textContent(), /자동 등록 1건[\s\S]*직접 등록 2건/);
+    assert.equal(await page.locator("#cs-modal-ok").textContent(), "1건 등록 요청");
+    await page.screenshot({ path: path.join(output, "cs-board-register.png") });
+    await page.locator("#cs-modal-ok").click();
+    await page.locator("#cs-toast", { hasText: "등록 요청 1건" }).waitFor();
+    await page.locator('[data-card="스마트스토어_상품문의_s1"] .cs-reg-badge', { hasText: "등록 요청됨" }).waitFor();
+    assert.equal(await page.locator('[data-card="스마트스토어_상품문의_s1"] [data-act="pick"]').first().isDisabled(), true, "locked while registering");
+    const regJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    assert.deepEqual(regJob.body.items.map((i) => [i.key, i.text]), [["스마트스토어_상품문의_s1", "내일 출고됩니다"]]);
+    gas.post({ action: "finish", token: COLLECTOR, id: regJob.id, ok: true, message: "등록 1건", results: [{ key: "스마트스토어_상품문의_s1", state: "등록완료" }] });
+    await reload();
+    await page.locator('[data-card="스마트스토어_상품문의_s1"] .cs-reg-badge', { hasText: "등록완료" }).waitFor();
+
+    // ⭐ 리뷰: 시트의 실제 리뷰 (새 리뷰는 AI 답변안이 미리 달림)
+    gas.post({ action: "ingest", token: COLLECTOR, rows: [{ 업체: "지그재그", 게시판: "리뷰", id: "r1", 날짜: "2026-10-29 08:00", 상품명: "가상 상품 A", 별점: 5, 내용: "예뻐요" }], snapshot: { kind: "리뷰", vendors: { 지그재그: { 상태: "ok" } }, days: 30, collectedAt: "2026-10-29 12:30" } });
+    await reload();
+    await page.locator('[data-right-tab="review"]').click();
+    assert.equal(await page.locator("#cs-review-banner").isVisible(), false);
+    const rv = page.locator('#cs-review-list [data-card="지그재그_리뷰_r1"]');
+    await rv.waitFor();
+    assert.equal(await rv.locator("textarea").first().inputValue(), "AI가 만든 답 1");
+    await rv.locator('[data-act="pick"][data-box="1"]').click();
+    await page.waitForFunction(() => /채택 1/.test(document.querySelector("#cs-review-summary").textContent) && /자동 저장됨/.test(document.querySelector("#cs-review-summary").textContent));
+    assert.equal(gas.post({ action: "list", token: TOKEN }).rows.find((r) => r.key === "지그재그_리뷰_r1").choice.pick, 1);
+    assert.equal(await page.locator('[data-right-panel="review"] [data-job="reviews"]').isDisabled(), false);
+    assert.equal(await page.locator('[data-right-panel="review"] button', { hasText: "업로드" }).isDisabled(), true, "review posting stays red");
+    await page.screenshot({ path: path.join(output, "cs-board-review-live.png") });
+    await page.locator('[data-right-tab="board"]').click();
+
+    // AI 사용량
+    await page.locator('[data-left-tab="settings"]').click();
+    await page.waitForFunction(() => /AI 추천 \d+회/.test(document.querySelector("#cs-usage-sum").textContent));
+    assert.match(await page.locator("#cs-usage-sum").textContent(), /AI 추천 2회/);
 
     // 틀린 비밀번호 → 저장된 비밀번호 지움
     await page.locator('[data-left-tab="settings"]').click();

@@ -16,3 +16,7 @@ node_modules/
 /outputs/screenshots/
 /outputs/reports/
 /_site/
+
+# Python 캐시 (시험 실행 때 생김)
+__pycache__/
+*.pyc

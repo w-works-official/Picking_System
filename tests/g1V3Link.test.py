@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """docs/g1_v3_link.py 시험 (수집기·시트 없이 가짜로) — python3 tests/g1V3Link.test.py"""
-import json, os, sys, tempfile, time, types
+import datetime, json, os, sys, tempfile, time, types
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 tmp = tempfile.mkdtemp()
@@ -249,5 +249,174 @@ su = poll["setup"]
 assert poll["version"].endswith("· 창 없이") and su["bg"] is True and su["api"] == "own" and su["claude"] is True and su["login_ok"] is True
 assert su["vendors"] == ["스마트스토어", "지그재그", "에이블리", "메이크샵"] and su["dir"] == L.HERE
 assert "secret" not in json.dumps(poll, ensure_ascii=False) and "enc:key" not in json.dumps(poll, ensure_ascii=False)
+
+# 14) 잠금(RSA-OAEP SHA-256): 웹 브라우저(crypto.subtle)로 잠근 값을 이 PC가 풂 — node 로 확인
+import subprocess
+d14 = {}
+L._RSA.clear()
+key = L.rsa_key(d14)
+assert d14["rsa_enc"].startswith("enc:") and key["n"].bit_length() == 2048
+pub = L.rsa_public(key)
+js = """
+const [n, text] = process.argv.slice(1);
+const k = await crypto.subtle.importKey("jwk", { kty: "RSA", n, e: "AQAB", alg: "RSA-OAEP-256", ext: true }, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]);
+const c = new Uint8Array(await crypto.subtle.encrypt({ name: "RSA-OAEP" }, k, new TextEncoder().encode(text)));
+console.log(Buffer.from(c).toString("base64url"));
+"""
+secret_text = "핑크로켓!pw#2026"
+token = subprocess.run(["node", "--input-type=module", "-e", js, pub, secret_text], capture_output=True, text=True, check=True).stdout.strip()
+assert L.rsa_decrypt(key, token) == secret_text
+L._RSA.clear()
+assert L.rsa_decrypt(L.rsa_key(d14), token) == secret_text, "key comes back from v3link.json"
+try:
+    L.rsa_decrypt(key, token[:-4] + "AAAA"); raise AssertionError("tampered value must fail")
+except ValueError:
+    pass
+
+
+def lock(text):
+    return subprocess.run(["node", "--input-type=module", "-e", js, pub, text], capture_output=True, text=True, check=True).stdout.strip()
+
+
+# 15) 로그인: 이미 로그인 / 웹 비밀번호로 로그인→이 PC에 저장 / 저장 비번 없음 / 2단계 인증 대기 안내
+import threading as _th
+
+
+class FakePage:
+    def __init__(self, vendor):
+        self.vendor = vendor; self.closed = False
+    def goto(self, url, **kw):
+        self.url = url
+    def wait_for_timeout(self, ms):
+        time.sleep(0.01)
+    def close(self):
+        self.closed = True
+
+
+state15 = {"logged": {"메이크샵": True}, "typed": [], "after_fill": {}}
+
+
+class FakeBrowser:
+    def __init__(self, show=False):
+        assert show is True, "login window is visible on the PC"
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        return False
+    def page(self):
+        return FakePage(state15.setdefault("order", []).append(1) or len(state15["order"]))
+
+
+G.Browser = FakeBrowser
+G.RUN_LOCK = _th.Lock()
+pages = {}
+cur = {}
+
+
+def fake_logged_in(pg):
+    v = cur["v"]
+    return state15["logged"].get(v, False)
+
+
+def fake_fill(pg, uid, pw):
+    state15["typed"].append((cur["v"], uid, pw))
+    if pw == "good":
+        state15["logged"][cur["v"]] = True
+
+
+L.page_logged_in = fake_logged_in
+L.fill_login = fake_fill
+L.page_captcha = lambda pg: False
+G.ably_autologin = lambda pg: "아이디/비번이 채워져 있지 않음"
+L.LOGIN_WAIT_SEC = 0.4
+orig_goto = FakePage.goto
+
+
+def goto(self, url, **kw):
+    cur["v"] = [v for v, u in L.LOGIN_URL.items() if u == url][0]
+    self.url = url
+
+
+FakePage.goto = goto
+G.save_cfg = lambda c: None
+prog = []
+job = {"id": "JL", "kind": "login", "body": {"vendors": ["메이크샵", "지그재그", "에이블리"], "creds": {"지그재그": {"id": lock("pinkrocket"), "pw": lock("good")}}}}
+ok, msg, data = L.run_login_job(job, cfg, say, prog.append, d14)
+st = data["login"]
+assert st["메이크샵"]["state"] == "ok" and st["지그재그"]["state"] == "ok" and st["에이블리"]["state"] == "need_password", st
+assert ("지그재그", "pinkrocket", "good") in state15["typed"]
+assert L.saved_logins(d14) == ["지그재그"] and L.load_cred(d14, "지그재그") == {"id": "pinkrocket", "pw": "good"}, "saved on this PC only after success"
+assert d14["logins"]["지그재그"].startswith("enc:"), "password goes through DPAPI (enc_secret)"
+assert not ok and "에이블리 비밀번호 필요" in msg, msg
+# 다음 로그인은 이 PC에 저장된 비밀번호로
+state15["logged"]["지그재그"] = False
+state15["typed"].clear()
+ok, msg, data = L.run_login_job({"id": "JL2", "kind": "login", "body": {"vendors": ["지그재그"]}}, cfg, say, prog.append, d14)
+assert ok and state15["typed"] == [("지그재그", "pinkrocket", "good")]
+# 틀린 비밀번호 → 2단계 인증 안내 후 실패, 저장 안 함
+state15["logged"]["에이블리"] = False
+prog.clear()
+L.LOGIN_WAIT_SEC = 7.5
+ok, msg, data = L.run_login_job({"id": "JL3", "kind": "login", "body": {"vendors": ["에이블리"], "creds": {"에이블리": {"id": lock("a"), "pw": lock("bad")}}}}, cfg, say, prog.append, d14)
+assert not ok and data["login"]["에이블리"]["state"] == "fail" and "에이블리" not in L.saved_logins(d14)
+assert any("휴대폰에서 [확인]" in m for m in prog), prog
+L.LOGIN_WAIT_SEC = 0.4
+# 수집 중이면 로그인 창을 열지 않음
+G.RUN_LOCK.acquire()
+ok, msg, data = L.run_login_job({"id": "JL4", "kind": "login", "body": {"vendors": ["지그재그"]}}, cfg, say, prog.append, d14)
+assert not ok and "수집 중" in msg
+G.RUN_LOCK.release()
+
+# 16) 설정 저장: 아는 칸만, 업체는 합침
+saved = {}
+G.load_cfg = lambda: json.loads(json.dumps({**cfg, "days": 7, "vendors": {"스마트스토어": True, "지그재그": True, "에이블리": True, "메이크샵": True}}))
+G.save_cfg = lambda c: saved.update(c)
+ok, msg, data = L.run_settings_job({"body": {"settings": {"days": 14, "auto_on": True, "auto_start": "10:00", "interval": 30, "vendors": {"메이크샵": False, "없는업체": True}, "ss_secret_enc": "x"}}}, say)
+assert ok and saved["days"] == 14 and saved["auto_on"] is True and saved["vendors"]["메이크샵"] is False and "없는업체" not in saved["vendors"]
+assert saved.get("ss_secret_enc") != "x", "only known settings"
+assert "수집 기간" in msg and "자동 수집" in msg
+
+# 17) 자동 수집 시각
+G.next_run = lambda now, hhmm, iv: now.replace(hour=int(hhmm[:2]), minute=int(hhmm[3:]), second=0, microsecond=0)
+assert L.next_auto({"auto_on": False}) is None
+assert L.next_auto({"auto_on": True, "auto_start": "10:00", "interval": 30}).hour == 10
+
+# 18) API 키 저장(잠겨 옴) → 테스트, IP, 파일 목록
+calls18 = []
+
+
+class FakeSS:
+    def __init__(self, cid, sec):
+        calls18.append((cid, sec))
+    def token(self):
+        pass
+    def get(self, path, **params):
+        calls18.append(path)
+
+
+G.SmartStore = FakeSS
+G.load_cfg = lambda: dict(cfg)
+ok, msg, data = L.run_api_key_job({"body": {"clientId": lock("my-client"), "secret": lock("$2a$04$secret")}}, cfg, say, d14)
+assert ok and saved["ss_client_id"] == "my-client" and saved["ss_secret_enc"] == "enc:$2a$04$secret" and calls18[0] == ("my-client", "$2a$04$secret")
+assert "/v1/contents/qnas" in calls18 and data["api"]["ok"] is True
+G.SmartStore = lambda cid, sec: (_ for _ in ()).throw(RuntimeError("HTTP 403 IP not allowed"))
+ok, msg, data = L.run_api_test({"ss_client_id": "c", "ss_secret_enc": "enc:s"})
+assert not ok and "공인 IP" in msg
+ok, msg, data = L.run_files_job({"out_dir": out_dir})
+assert ok and data["files"] and all(set(f) == {"name", "size", "at"} for f in data["files"])
+
+# 19) handle 이 종류별로 나눠 실행하고 data 를 함께 보고
+link = FakeLink()
+L.handle(link, {"id": "JF", "kind": "files", "body": {}}, {"out_dir": out_dir}, say, d14)
+assert link.sent[-1][0] == "finish" and link.sent[-1][1]["data"]["files"]
+L.public_ip = lambda: "1.2.3.4"
+L.handle(link, {"id": "JI", "kind": "ip", "body": {}}, cfg, say, d14)
+assert link.sent[-1][1]["data"] == {"ip": "1.2.3.4"}
+
+# 20) 처음 설정 상태에 공개키·저장된 로그인·자동 수집 (비밀값 없음)
+L._SETUP_CACHE["info"] = None
+su = L.setup_info({**cfg, "auto_on": True}, True, d14, datetime.datetime(2026, 10, 29, 10, 0))
+assert su["pub_key"] == pub and su["saved_logins"] == ["지그재그"] and su["auto_on"] is True and su["next_auto"] == "10-29 10:00"
+assert "good" not in json.dumps(su, ensure_ascii=False) and "rsa" not in json.dumps(su)
 
 print("g1V3Link.test: OK")

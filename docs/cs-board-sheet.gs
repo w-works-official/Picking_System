@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-10-29 v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-10-29 v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -26,6 +26,10 @@
  *   - close    (수집기) 이미 답변된 문의를 "종료"로
  *   - poll     (수집기) 살아 있음 알림 + 대기 중 요청 1개 가져가기(실행중으로 표시) + 처음 설정 상태(있다/없다만, 비밀값 없음)
  *   - finish   (수집기) 요청 결과 기록, 등록 결과를 문의 줄에 표시(등록완료면 종료)
+ *   - progress (수집기) 실행 중 요청의 진행 안내 (예: "휴대폰에서 [확인]을 눌러 주세요")
+ *   - selfJob  (수집기) 수집기 PC가 스스로 시작한 자동 수집을 [요청] 탭에 기록
+ * 로그인 비밀번호·API 키는 화면에서 수집기 PC 공개키로 잠근(암호화) 값만 지나가고,
+ * 수집기 PC가 가져가는 순간 [요청] 탭에서 "(전달됨)"으로 지웁니다. 풀 수 있는 건 수집기 PC뿐입니다.
  * 줄은 절대 지우지 않습니다. 시트의 다른 탭·다른 파일은 건드리지 않습니다.
  */
 var SHEET_NAME = 'CS문의';
@@ -34,7 +38,13 @@ var HEADER = ['키', '업체', '게시판', '문의ID', '문의시각', '상품�
 var COL = { key: 1, vendor: 2, board: 3, id: 4, date: 5, product: 6, status: 7, inquiry: 8, drafts: 9, choice: 10, version: 11, editor: 12, editedAt: 13, collectedAt: 14, closed: 15, reg: 16 };
 var JOB_HEADER = ['ID', '종류', '상태', '요청자', '요청시각', '시작시각', '끝시각', '내용', '결과', 'PC'];
 var JOB = { id: 1, kind: 2, status: 3, by: 4, at: 5, started: 6, ended: 7, body: 8, result: 9, pc: 10 };
-var JOB_KINDS = { collect: '게시판 수집', reviews: '리뷰 수집', test: '테스트 수집', register: '등록' };
+var JOB_KINDS = { collect: '게시판 수집', reviews: '리뷰 수집', test: '테스트 수집', testReviews: '테스트 리뷰 수집', register: '등록',
+  login: '로그인', settings: '설정 저장', apiTest: 'API 연결 테스트', apiKey: 'API 키 저장', ip: '공인 IP 확인', files: '수집 파일 목록', auto: '자동 수집' };
+var STAFF_KINDS = ['collect', 'reviews', 'test', 'testReviews', 'register', 'login', 'settings', 'apiTest', 'apiKey', 'ip', 'files'];
+var REPLACE_KINDS = ['login', 'settings', 'apiKey']; // 대기 중인 같은 종류는 새 요청으로 바꿈
+var SECRET_KINDS = ['login', 'apiKey'];               // 가져가면 [요청] 탭의 암호문을 지움
+var BOARD_VENDORS = ['스마트스토어', '지그재그', '에이블리', '메이크샵'];
+var REVIEW_VENDORS = ['지그재그', '에이블리', '메이크샵'];
 var REGISTER_SUPPORTED = { '스마트스토어|상품문의': true, '스마트스토어|고객문의': true }; // 수집기 g1_register.SUPPORTED 와 같음
 var MAX_INGEST = 300;
 var MAX_DRAFTS = 40;
@@ -87,7 +97,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 3 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 4 });
 }
 
 function doPost(e) {
@@ -124,7 +134,7 @@ function sameToken_(given, expected) {
 function route_(body) {
   var action = String(body.action || '');
   var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage'];
-  var collector = ['ingest', 'close', 'poll', 'finish'];
+  var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
   } else if (collector.indexOf(action) >= 0) {
@@ -146,6 +156,8 @@ function route_(body) {
   }
   if (action === 'close') return withLock_(function () { return close_(sheet_(), body.keys, '수집기 종료'); });
   if (action === 'poll') return withLock_(function () { return poll_(body); });
+  if (action === 'progress') return withLock_(function () { return progress_(body); });
+  if (action === 'selfJob') return withLock_(function () { return selfJob_(body); });
   return withLock_(function () { return finish_(body); });
 }
 
@@ -379,6 +391,7 @@ function cleanSetup_(raw) {
     vendors: list(raw.vendors), reviewVendors: list(raw.review_vendors),
     loginOk: b(raw.login_ok), api: t(raw.api, 10), claude: b(raw.claude), parts: b(raw.parts), icon: b(raw.icon),
     autostart: b(raw.autostart), bg: b(raw.bg), collector: t(raw.collector, 40), link: t(raw.link, 40),
+    pubKey: t(raw.pub_key, 800), autoOn: b(raw.auto_on), nextAuto: t(raw.next_auto, 20), savedLogins: list(raw.saved_logins),
   };
 }
 
@@ -647,6 +660,7 @@ function recentJobs_(n) {
   for (var i = all.length - 1; i >= 0 && out.length < n; i--) {
     var job = jobOut_(all[i]);
     if (job.kind === 'register') job.body = { count: (job.body.items || []).length };
+    if (SECRET_KINDS.indexOf(job.kind) >= 0) job.body = redact_(job.kind, job.body);
     out.push(job);
   }
   return out;
@@ -654,30 +668,96 @@ function recentJobs_(n) {
 
 function request_(body) {
   var kind = String(body.kind || '');
-  if (!JOB_KINDS[kind]) return { ok: false, error: '알 수 없는 요청 종류입니다.' };
+  if (!JOB_KINDS[kind] || STAFF_KINDS.indexOf(kind) < 0) return { ok: false, error: '알 수 없는 요청 종류입니다.' };
   var jobs = jobValues_();
   for (var i = 0; i < jobs.rows.length; i++) {
     var j = jobOut_(jobs.rows[i]);
-    if (j.kind === kind && (j.status === '대기' || j.status === '실행중') && kind !== 'register') {
-      return { ok: true, job: j, duplicate: true, jobs: recentJobs_(10) };
+    if (j.kind !== kind || kind === 'register') continue;
+    if (REPLACE_KINDS.indexOf(kind) >= 0 && j.status === '대기') {        // 새 요청으로 바꿈 (예전 암호문은 지움)
+      jobs.sheet.getRange(i + 2, JOB.status, 1, 1).setValues([['취소']]);
+      jobs.sheet.getRange(i + 2, JOB.ended, 1, 1).setValues([[new Date()]]);
+      jobs.sheet.getRange(i + 2, JOB.body, 1, 1).setValues([[stringify_(redact_(kind, j.body))]]);
+      jobs.sheet.getRange(i + 2, JOB.result, 1, 1).setValues([[stringify_({ message: '새 요청으로 바꿈' })]]);
+      continue;
     }
+    if (j.status === '대기' || j.status === '실행중') return { ok: true, job: j, duplicate: true, jobs: recentJobs_(10) };
   }
   var content = {};
   var by = plain_(clean_(body.editor, 40));
+  var options = body.options && typeof body.options === 'object' ? body.options : {};
   if (kind === 'register') {
     var made = registerItems_(body.keys, by);
     if (made.error) return { ok: false, error: made.error };
     content = { items: made.items };
-  } else {
-    var options = body.options && typeof body.options === 'object' ? body.options : {};
+  } else if (kind === 'login') {
+    content = loginContent_(options);
+    if (content.error) return { ok: false, error: content.error };
+  } else if (kind === 'settings') {
+    content = { settings: cleanSettings_(options.settings) };
+    if (!Object.keys(content.settings).length) return { ok: false, error: '바꿀 설정이 없습니다.' };
+  } else if (kind === 'apiKey') {
+    var cid = cipher_(options.clientId), sec = cipher_(options.secret);
+    if (!cid || !sec) return { ok: false, error: '잠긴(암호화) Client ID·Secret 이 필요합니다. 화면을 새로고침해 주세요.' };
+    content = { clientId: cid, secret: sec };
+  } else if (kind === 'collect' || kind === 'test' || kind === 'reviews' || kind === 'testReviews') {
     var vendors = Array.isArray(options.vendors) ? options.vendors.map(function (v) { return plain_(clean_(v, 20)); }).filter(String) : [];
     content = { vendors: vendors.slice(0, 4) };
     var days = Math.floor(Number(options.reviewDays));
-    if (kind === 'reviews' && days >= 1 && days <= 365) content.reviewDays = days;
+    if ((kind === 'reviews' || kind === 'testReviews') && days >= 1 && days <= 365) content.reviewDays = days;
   }
   var id = 'J' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
   jobs.sheet.appendRow([id, kind, '대기', clean_(body.editor, 40), new Date(), '', '', stringify_(content), '', '']);
-  return { ok: true, job: jobOut_([id, kind, '대기', by, new Date(), '', '', JSON.stringify(content), '', '']), jobs: recentJobs_(10), rows: kind === 'register' ? openRows_(sheet_()) : undefined };
+  var shown = SECRET_KINDS.indexOf(kind) >= 0 ? redact_(kind, content) : content;
+  return { ok: true, job: jobOut_([id, kind, '대기', by, new Date(), '', '', JSON.stringify(shown), '', '']), jobs: recentJobs_(10), rows: kind === 'register' ? openRows_(sheet_()) : undefined };
+}
+
+// 잠긴 값(수집기 PC 공개키 RSA-OAEP 로 암호화한 base64url): 모양만 확인하고 그대로 전달
+function cipher_(value) {
+  var v = String(value || '');
+  return /^[A-Za-z0-9_-]{100,700}$/.test(v) ? v : '';
+}
+
+function loginContent_(options) {
+  var vendors = (Array.isArray(options.vendors) ? options.vendors : []).map(function (v) { return plain_(clean_(v, 20)); })
+    .filter(function (v) { return BOARD_VENDORS.indexOf(v) >= 0; });
+  if (!vendors.length) return { error: '로그인할 업체를 고르세요.' };
+  var creds = {};
+  var raw = options.creds && typeof options.creds === 'object' ? options.creds : {};
+  vendors.forEach(function (v) {
+    var c = raw[v];
+    if (c && cipher_(c.id) && cipher_(c.pw)) creds[v] = { id: cipher_(c.id), pw: cipher_(c.pw) };
+  });
+  return { vendors: vendors.slice(0, 4), creds: creds, collectAfter: options.collectAfter === true };
+}
+
+function redact_(kind, body) {
+  var b = JSON.parse(JSON.stringify(body || {}));
+  if (kind === 'login' && b.creds) Object.keys(b.creds).forEach(function (v) { b.creds[v] = '(전달됨)'; });
+  if (kind === 'apiKey') { if (b.clientId) b.clientId = '(전달됨)'; if (b.secret) b.secret = '(전달됨)'; }
+  return b;
+}
+
+// 화면에서 바꿀 수 있는 수집기 설정만 (값 범위 확인)
+function cleanSettings_(raw) {
+  var s = raw && typeof raw === 'object' ? raw : {};
+  var out = {};
+  var int = function (v, lo, hi) { var n = Math.floor(Number(v)); return n >= lo && n <= hi ? n : null; };
+  if (int(s.days, 1, 90) !== null) out.days = int(s.days, 1, 90);
+  if (int(s.review_days, 1, 365) !== null) out.review_days = int(s.review_days, 1, 365);
+  if (typeof s.zz_slug === 'string' && /^[a-z0-9-]{2,40}$/.test(s.zz_slug)) out.zz_slug = s.zz_slug;
+  if (typeof s.show_browser === 'boolean') out.show_browser = s.show_browser;
+  if (typeof s.auto_on === 'boolean') out.auto_on = s.auto_on;
+  if (typeof s.auto_start === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s.auto_start)) out.auto_start = s.auto_start;
+  if (int(s.interval, 10, 1440) !== null) out.interval = int(s.interval, 10, 1440);
+  var flags = function (obj, names) {
+    if (!obj || typeof obj !== 'object') return null;
+    var o = {};
+    names.forEach(function (n) { if (typeof obj[n] === 'boolean') o[n] = obj[n]; });
+    return Object.keys(o).length ? o : null;
+  };
+  if (flags(s.vendors, BOARD_VENDORS)) out.vendors = flags(s.vendors, BOARD_VENDORS);
+  if (flags(s.review_vendors, REVIEW_VENDORS)) out.review_vendors = flags(s.review_vendors, REVIEW_VENDORS);
+  return out;
 }
 
 // 등록 요청: 채택 문안을 그대로 찍어 둠(요청 뒤에는 고칠 수 없음). 자동 등록 안 되는 업체는 받지 않음
@@ -717,6 +797,7 @@ function cancel_(body) {
     jobs.sheet.getRange(i + 2, JOB.status, 1, 1).setValues([['취소']]);
     jobs.sheet.getRange(i + 2, JOB.ended, 1, 1).setValues([[new Date()]]);
     if (job.kind === 'register') releaseRegister_(job.body.items || [], null);
+    if (SECRET_KINDS.indexOf(job.kind) >= 0) jobs.sheet.getRange(i + 2, JOB.body, 1, 1).setValues([[stringify_(redact_(job.kind, job.body))]]);
     return { ok: true, jobs: recentJobs_(10) };
   }
   return { ok: false, error: '요청을 찾지 못했습니다.' };
@@ -772,6 +853,7 @@ function poll_(body) {
       jobs.sheet.getRange(k + 2, JOB.status, 1, 1).setValues([['실행중']]);
       jobs.sheet.getRange(k + 2, JOB.started, 1, 1).setValues([[new Date()]]);
       jobs.sheet.getRange(k + 2, JOB.pc, 1, 1).setValues([[clean_(state.pc, 60)]]);
+      if (SECRET_KINDS.indexOf(w.kind) >= 0) jobs.sheet.getRange(k + 2, JOB.body, 1, 1).setValues([[stringify_(redact_(w.kind, w.body))]]);
       w.status = '실행중';
       job = w;
       state.busy = true;
@@ -791,6 +873,10 @@ function finish_(body) {
     if (job.status !== '실행중') return { ok: false, error: '실행 중인 요청이 아닙니다.' };
     var results = Array.isArray(body.results) ? body.results.slice(0, 100) : [];
     var result = { message: plain_(clean_(body.message, 500)), count: Number(body.count) || 0 };
+    if (body.data && typeof body.data === 'object') {
+      var data = JSON.stringify(body.data);
+      if (data.length <= 20000) result.data = JSON.parse(data);
+    }
     if (job.kind === 'register') {
       result.done = results.filter(function (r) { return r && r.state === '등록완료'; }).length;
       result.check = results.filter(function (r) { return r && r.state === '확인 필요'; }).length;
@@ -806,6 +892,42 @@ function finish_(body) {
     return { ok: true };
   }
   return { ok: false, error: '요청을 찾지 못했습니다.' };
+}
+
+// 실행 중 요청의 진행 안내 (화면 [요청 현황]에 바로 보임)
+function progress_(body) {
+  var id = plain_(clean_(body.id, 40));
+  var jobs = jobValues_();
+  for (var i = 0; i < jobs.rows.length; i++) {
+    var job = jobOut_(jobs.rows[i]);
+    if (job.id !== id) continue;
+    if (job.status !== '실행중') return { ok: false, error: '실행 중인 요청이 아닙니다.' };
+    jobs.sheet.getRange(i + 2, JOB.result, 1, 1).setValues([[stringify_({ message: plain_(clean_(body.message, 300)), progress: true })]]);
+    var state = parse_(prop_('COLLECTOR_STATE'), {});
+    state.seenAt = new Date().toISOString();
+    setProp_('COLLECTOR_STATE', JSON.stringify(state));
+    return { ok: true, cancel: false };
+  }
+  return { ok: false, error: '요청을 찾지 못했습니다.' };
+}
+
+// 수집기 PC가 스스로 시작한 자동 수집 기록 (실행중으로 한 줄 → 끝나면 finish)
+function selfJob_(body) {
+  var kind = String(body.kind || '');
+  if (kind !== 'auto') return { ok: false, error: '알 수 없는 요청 종류입니다.' };
+  var jobs = jobValues_();
+  for (var i = 0; i < jobs.rows.length; i++) {
+    if (plain_(jobs.rows[i][JOB.status - 1]) === '실행중') return { ok: false, busy: true, error: '다른 요청이 실행 중입니다.' };
+  }
+  var vendors = Array.isArray(body.vendors) ? body.vendors.map(function (v) { return plain_(clean_(v, 20)); }).filter(String).slice(0, 4) : [];
+  var id = 'A' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
+  var now = new Date();
+  jobs.sheet.appendRow([id, kind, '실행중', '자동', now, now, '', stringify_({ vendors: vendors }), '', clean_(body.pc, 60)]);
+  var state = parse_(prop_('COLLECTOR_STATE'), {});
+  state.busy = true;
+  state.seenAt = now.toISOString();
+  setProp_('COLLECTOR_STATE', JSON.stringify(state));
+  return { ok: true, job: { id: id, kind: kind } };
 }
 
 // ---------- 수집기: 문의 넣기·종료 ----------

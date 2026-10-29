@@ -327,7 +327,7 @@ def fake_fill(pg, uid, pw):
 L.page_logged_in = fake_logged_in
 L.fill_login = fake_fill
 L.page_captcha = lambda pg: False
-G.ably_autologin = lambda pg: "아이디/비번이 채워져 있지 않음"
+L.autologin_saved = lambda pg: "아이디/비번이 채워져 있지 않음"
 L.LOGIN_WAIT_SEC = 0.4
 orig_goto = FakePage.goto
 

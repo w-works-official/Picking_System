@@ -34,7 +34,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.3 (2026-10-29)"
+LINK_VER = "1.3.1 (2026-10-29)"
 POLL_SEC = 15
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
@@ -408,7 +408,66 @@ def fill_login(pg, uid, pw):
     typed(box, uid)
     typed(pg.locator("input[type=password]").first, pw)
     pg.wait_for_timeout(300)
-    pg.locator("button:has-text('로그인'), button[type=submit], input[type=submit]").first.click(timeout=5000)
+    submit_login(pg)
+
+
+SUBMIT_SEL = ("button:has-text('로그인'), button[type=submit], input[type=submit], input[type=image], input[type=button][value*='로그인'], "
+              "a:has-text('로그인'), [onclick*='login' i]")
+NOT_SUBMIT = ("로그아웃", "찾기", "회원가입", "입점", "간편", "카카오", "네이버로", "QR")
+
+
+def submit_login(pg):
+    """[로그인] 누르기 — 버튼 모양이 업체마다 달라서(메이크샵은 일반 버튼·링크형) 비밀번호 칸이 있는 양식 안에서 먼저 찾고,
+    못 찾으면 비밀번호 칸에서 Enter (1.3.1)"""
+    for scope in (pg.locator("form:has(input[type=password])").first, pg):
+        try:
+            cands = scope.locator(SUBMIT_SEL)
+            for i in range(min(cands.count(), 10)):
+                el = cands.nth(i)
+                if not el.is_visible():
+                    continue
+                tag = el.evaluate("e => e.tagName")
+                label = ((el.get_attribute("value") or el.get_attribute("alt") or "") if tag == "INPUT" else el.inner_text(timeout=500)).strip()
+                if any(w in label for w in NOT_SUBMIT):
+                    continue
+                el.click(timeout=3000)
+                return f"[{label or '로그인'}] 누름"
+        except Exception:
+            continue
+    try:                                        # 글자 없는 그림 버튼 (양식 안에서만)
+        img = pg.locator("form:has(input[type=password]) a:has(img), form:has(input[type=password]) img[onclick]")
+        for i in range(min(img.count(), 4)):
+            if img.nth(i).is_visible():
+                img.nth(i).click(timeout=3000)
+                return "[로그인 그림] 누름"
+    except Exception:
+        pass
+    pg.locator("input[type=password]").first.press("Enter")
+    return "Enter 로 로그인"
+
+
+def autologin_saved(pg):
+    """브라우저(수집기 프로필)가 아이디·비밀번호를 채워 둔 경우에만 [로그인] (값은 입력하지 않음) — 수집기 ably_autologin 과 같은 방식, 버튼 찾기만 넓힘"""
+    try:
+        pg.wait_for_selector("input[type=password]", timeout=6000)
+    except Exception:
+        return "로그인 화면 아님"
+    pw = pg.locator("input[type=password]").first
+    try:
+        if not pw.input_value():
+            ids = pg.locator("input[type=text], input[type=email], input:not([type])")
+            if ids.count():
+                ids.first.click()
+            pw.click()
+        for _ in range(20):
+            if pw.input_value():
+                break
+            pg.wait_for_timeout(100)
+        if not pw.input_value():
+            return "아이디/비번이 채워져 있지 않음"
+        return "저장된 비밀번호로 " + submit_login(pg)
+    except Exception as e:
+        return f"자동 로그인 실패: {str(e)[:120]}"
 
 
 def saved_logins(d):
@@ -459,9 +518,9 @@ def run_login_job(job, cfg, say, progress, d):
                     if use:
                         fill_login(pg, use[0], use[1]); how = "웹에서 받은 비밀번호" if given else "이 PC에 저장된 비밀번호"
                     else:
-                        how = G.ably_autologin(pg)            # 브라우저가 채워 둔 경우 [로그인]만 누름
+                        how = autologin_saved(pg)             # 브라우저가 채워 둔 경우 [로그인]만 누름
                     say(f"🔑 {v}: {how}")
-                    if not use and "채워져 있지 않음" in str(how):
+                    if not use and ("채워져 있지 않음" in str(how) or "자동 로그인 실패" in str(how)):
                         out[v] = dict(state="need_password", note="저장된 비밀번호 없음 — 웹에서 아이디·비밀번호를 한 번 넣어 주세요"); continue
                     t0, told = time.time(), False
                     while time.time() - t0 < LOGIN_WAIT_SEC:

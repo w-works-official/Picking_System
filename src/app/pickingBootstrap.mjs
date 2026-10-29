@@ -19,6 +19,7 @@ window.PickingAuth = {
   }),
 };
 function lock() {
+  document.documentElement.classList.remove("picking-auth-restoring");
   clearTimeout(expiryTimer);
   app.inert = true;
   app.hidden = true;
@@ -36,6 +37,7 @@ async function unlock() {
   gate.hidden = true;
   app.hidden = false;
   app.inert = false;
+  document.documentElement.classList.remove("picking-auth-restoring");
 }
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

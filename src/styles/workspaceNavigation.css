@@ -60,3 +60,43 @@
     padding: 7px 10px;
   }
 }
+
+/* 2026-10-28 대표님 요청: 피킹시스템·CS 관리·사입 관리 어느 화면에서든 상위 업무 버튼이 같은 자리에.
+   왼쪽 제목 칸을 252px 로 고정하고 바로 옆(12px)에 버튼 묶음, 나머지 도구는 오른쪽 끝으로.
+   CS 관리(따로 빌드된 화면)는 cs/assets/*-p2.css 끝에 같은 값을 넣었습니다. */
+@media (min-width: 721px) {
+  .topbar,
+  .purchase-topbar {
+    justify-content: flex-start;
+    column-gap: 12px;
+  }
+
+  .topbar > .brand,
+  .purchase-topbar > .purchase-brand {
+    flex: 0 0 252px;
+    width: 252px;
+    min-width: 0;
+  }
+
+  .topbar > .workspace-navigation,
+  .purchase-topbar > .workspace-navigation {
+    margin-left: 0;
+  }
+
+  .topbar > .toolbar,
+  .purchase-topbar > .purchase-toolbar {
+    margin-left: auto;
+  }
+
+  /* 창이 좁을 때 오른쪽 도구 버튼 글자가 두 줄로 찌그러지지 않게: 그대로 두고 가로로 밀어 보기.
+     상단 띠 너비는 화면에 맞춤(도구 버튼 때문에 띠가 화면 밖으로 늘어나지 않게) */
+  .app-shell > .topbar {
+    contain: inline-size;
+  }
+
+  .topbar > .toolbar > * {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+

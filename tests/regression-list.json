@@ -74,5 +74,6 @@
   "inspectionShortageClear.contract.test.mjs",
   "inspectionHoldFocus.contract.test.mjs",
   "purchaseWorkspace.mock.test.mjs",
-  "remoteBoard.mock.test.mjs"
+  "remoteBoard.mock.test.mjs",
+  "workspaceNavSpot.contract.test.mjs"
 ]

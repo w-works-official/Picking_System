@@ -9,3 +9,5 @@
 .picking-login-card button:disabled { opacity: .6; cursor: wait; }
 .picking-login-card #picking-login-status { min-height: 1.5rem; color: #b91c1c; }
 .picking-login-card :focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+/* 2026-10-29: 저장된 세션을 확인하는 동안에는 로그인 화면을 숨김(반짝임 방지) */
+.picking-auth-restoring #picking-login-gate { visibility: hidden; }

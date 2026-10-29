@@ -14,17 +14,25 @@
   · 수집기 창에서 수집 중일 때 웹 수집 요청이 오면 브라우저가 겹쳐 실패할 수 있음 → 실패로 표시하고 끝냄(재시도는 웹에서)
 
 처음 한 번: ▶G1수집기_5_웹연결.bat 실행 → 웹앱 주소와 수집기 비밀번호(COLLECTOR_TOKEN) 붙여넣기 (이 PC에만 암호화 저장)
+
+창 없이(백그라운드) 돌리기 (1.2, 2026-10-29)
+  · G1웹연결_백그라운드_등록.bat → Windows 로그인 때 자동 시작 (pythonw g1_v3_link.py --bg, 죽으면 30초 뒤 다시)
+  · 상태는 %APPDATA%\\G1CS\\v3link_beat.json 에 10초마다 기록 → 원격보드 러너 트레이 아이콘 오른쪽 반쪽 색으로 보임
+  · 기록은 %APPDATA%\\G1CS\\v3link_log.txt · 중지: G1웹연결_중지.bat (%TEMP%\\G1_weblink_stop.flag)
 """
-import os, sys, json, time, glob, socket, datetime, traceback
+import os, sys, json, time, glob, socket, datetime, traceback, threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.1 (2026-10-29)"
+LINK_VER = "1.2 (2026-10-29)"
 POLL_SEC = 15
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
+BEAT_SEC = 10
+STOP_FLAG = os.path.join(os.environ.get("TEMP") or os.environ.get("TMP") or HERE, "G1_weblink_stop.flag")
+LOG_MAX = 1_000_000
 
 
 def _G():
@@ -247,6 +255,84 @@ def handle(link, job, cfg, say):
     say(f"■ 요청 {job['id']} {'완료' if ok else '실패'} — {msg}")
 
 
+# ───────── 상태 신호 (트레이 아이콘용) ─────────
+def beat_path():
+    return os.path.join(_G().BASE, "v3link_beat.json")
+
+
+def pid_path():
+    return os.path.join(_G().BASE, "v3link.pid")
+
+
+def log_file():
+    return os.path.join(_G().BASE, "v3link_log.txt")
+
+
+class Beat:
+    """상태(idle 대기 · busy 요청 실행 중 · error 시트 연결 안 됨/설정 필요 · off 꺼짐)를 파일로 남김.
+    요청 실행이 몇 분 걸려도 신호가 끊기지 않게 별도 스레드가 10초마다 다시 적음"""
+
+    def __init__(self, path=None):
+        self.path = path or beat_path()
+        self.info = dict(state="idle", note="", job="", ver=LINK_VER, pc=socket.gethostname(), dir=HERE, pid=os.getpid())
+        self.lock = threading.Lock()
+        self._stop = threading.Event()
+
+    def set(self, state, note="", job=""):
+        with self.lock:
+            self.info.update(state=state, note=str(note)[:120], job=job)
+        self.write()
+
+    def write(self):
+        with self.lock:
+            d = dict(self.info, ts=time.time(), time=f"{datetime.datetime.now():%H:%M:%S}")
+        try:
+            tmp = self.path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(d, f, ensure_ascii=False)
+            os.replace(tmp, self.path)
+        except Exception:
+            pass
+
+    def start(self):
+        def run():
+            while not self._stop.wait(BEAT_SEC):
+                self.write()
+        threading.Thread(target=run, daemon=True).start()
+        return self
+
+    def stop(self, note="종료"):
+        self._stop.set()
+        self.set("off", note)
+
+
+def stop_requested():
+    return os.path.exists(STOP_FLAG)
+
+
+def wait_or_stop(sec):
+    """sec 초 기다림. 중지 표시(G1_weblink_stop.flag)가 생기면 바로 True"""
+    end = time.time() + sec
+    while time.time() < end:
+        if stop_requested():
+            return True
+        time.sleep(1)
+    return stop_requested()
+
+
+def to_log_file():
+    """창 없이 돌 때 print 를 기록 파일로 (1MB 넘으면 _old 로 넘김)"""
+    p = log_file()
+    try:
+        if os.path.exists(p) and os.path.getsize(p) > LOG_MAX:
+            os.replace(p, p.replace(".txt", "_old.txt"))
+    except Exception:
+        pass
+    f = open(p, "a", encoding="utf-8", buffering=1)
+    sys.stdout = sys.stderr = f
+    return f
+
+
 def single_instance():
     """한 PC에서 연결 프로그램은 하나만 (두 개면 수집이 겹침)"""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -257,41 +343,100 @@ def single_instance():
         return None
 
 
-def main_loop(once=False):
+def main_loop(once=False, bg=False):
     G = _G()
     guard = single_instance()
     if guard is None:
-        print("이미 이 PC에서 연결 프로그램이 실행 중입니다. 이 창은 닫아도 됩니다."); return
-    d = load_link()
-    if not d.get("endpoint") or not d.get("token_enc"):
-        if not setup():
+        if bg:                                  # 감시 루프가 30초마다 다시 띄우므로 기록을 남기지 않고 조용히 끝냄
             return
+        print("이미 이 PC에서 연결 프로그램이 실행 중입니다 (창 없이 도는 중일 수 있음 — 시계 옆 트레이 아이콘 확인). 이 창은 닫아도 됩니다."); return
+    say = lambda m: print(f"{datetime.datetime.now():%m-%d %H:%M:%S} {m}", flush=True)
+    beat = Beat().start()
+    try:
+        with open(pid_path(), "w") as f:
+            f.write(str(os.getpid()))
+    except Exception:
+        pass
+    try:
+        _loop(G, say, beat, once, bg)
+    except BaseException as e:
+        say(f"⚠ 연결 프로그램 종료: {e!r}")
+        if not isinstance(e, (KeyboardInterrupt, SystemExit)):
+            say(traceback.format_exc())
+        raise
+    finally:
+        beat.stop("중지됨" if stop_requested() else "종료")
+        try:
+            os.remove(pid_path())
+        except Exception:
+            pass
+
+
+def _loop(G, say, beat, once, bg):
+    d = load_link()
+    while not d.get("endpoint") or not d.get("token_enc"):
+        if not bg:
+            if not setup():
+                return
+        else:                                   # 창이 없으니 입력을 받을 수 없음 → 상태만 알리고 기다림
+            beat.set("error", "처음 설정 필요 — ▶G1수집기_5_웹연결.bat 을 한 번 실행하세요")
+            say("처음 설정이 없습니다 — ▶G1수집기_5_웹연결.bat 을 한 번 실행하세요. 60초마다 다시 확인합니다.")
+            if wait_or_stop(60):
+                return
         d = load_link()
     link = Link(d["endpoint"], G.dec_secret(d["token_enc"]))
     pc = socket.gethostname()
-    say = lambda m: print(f"{datetime.datetime.now():%H:%M:%S} {m}", flush=True)
-    say(f"System V3 연결 시작 — {pc} · 연결 {LINK_VER} · 수집기 {G.VER}")
-    say("이 창을 켜 두면 웹(System V3 > CS 관리)의 수집·등록 요청을 이 PC에서 실행합니다. 끄려면 창을 닫으세요.")
+    say(f"System V3 연결 시작 — {pc} · 연결 {LINK_VER} · 수집기 {G.VER}" + (" · 창 없이(백그라운드)" if bg else ""))
+    if not bg:
+        say("이 창을 켜 두면 웹(System V3 > CS 관리)의 수집·등록 요청을 이 PC에서 실행합니다. 끄려면 창을 닫으세요.")
+    if stop_requested() and not bg:
+        try:
+            os.remove(STOP_FLAG)                # 창으로 직접 켠 경우: 예전 중지 표시는 지우고 시작
+        except Exception:
+            pass
+    fails = 0
     while True:
+        if stop_requested():
+            say("중지 요청(G1_weblink_stop.flag) — 끝냅니다")
+            return
         cfg = G.load_cfg()
         try:
             push_new_files(link, cfg["out_dir"], d, say)
             save_link(d)
             js = link.call("poll", pc=pc, version=f"{G.VER} / 연결 {LINK_VER}", busy=False)
+            if fails:
+                say("✓ 시트 연결 다시 됨")
+            fails = 0
+            beat.set("idle", "웹 요청 기다리는 중")
             job = js.get("job")
             if job:
-                handle(link, job, cfg, say)
+                beat.set("busy", job.get("id", ""), JOB_LABEL.get(job.get("kind"), job.get("kind", "")))
+                try:
+                    handle(link, job, cfg, say)
+                finally:
+                    beat.set("idle", "웹 요청 기다리는 중")
                 push_new_files(link, cfg["out_dir"], d, say)
                 save_link(d)
         except Exception as e:
-            say(f"⚠ {e}")
+            fails += 1
+            beat.set("error", f"시트 연결 안 됨: {e}")
+            if fails == 1 or fails % 20 == 0:   # 같은 오류로 기록이 넘치지 않게
+                say(f"⚠ {e}")
         if once:
             return
-        time.sleep(POLL_SEC)
+        if wait_or_stop(POLL_SEC):
+            say("중지 요청(G1_weblink_stop.flag) — 끝냅니다")
+            return
+
+
+JOB_LABEL = {"collect": "게시판 수집", "test": "테스트 수집", "reviews": "리뷰 수집", "testReviews": "리뷰 테스트", "register": "📤 등록"}
 
 
 if __name__ == "__main__":
+    BG = "--bg" in sys.argv or sys.stdout is None      # pythonw 로 켜지면 창이 없음
+    if BG:
+        to_log_file()
     if "--setup" in sys.argv:
         setup()
     else:
-        main_loop(once="--once" in sys.argv)
+        main_loop(once="--once" in sys.argv, bg=BG)

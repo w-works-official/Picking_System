@@ -190,4 +190,44 @@ assert L.clean_token('  "abcd1234efgh"  ') == "abcd1234efgh"
 assert L.clean_token("COLLECTOR_TOKEN = 0123456789abcdef01234567") == "0123456789abcdef01234567"
 assert L.clean_token("") == ""
 
+# 10) 상태 신호 파일 (트레이 아이콘이 읽음)
+b = L.Beat()
+b.set("busy", "J9", "게시판 수집")
+bj = json.load(open(L.beat_path(), encoding="utf-8"))
+assert bj["state"] == "busy" and bj["job"] == "게시판 수집" and bj["dir"] == L.HERE and abs(bj["ts"] - time.time()) < 5
+b.stop("중지됨")
+assert json.load(open(L.beat_path(), encoding="utf-8"))["state"] == "off"
+
+# 11) 창 없이: 설정이 없으면 입력을 기다리지 않고 상태만 알림, 중지 표시가 있으면 끝냄
+L.STOP_FLAG = os.path.join(tmp, "stop.flag")
+os.remove(L.link_path())
+open(L.STOP_FLAG, "w").close()
+b = L.Beat()
+logs = []
+L._loop(G, logs.append, b, once=False, bg=True)
+assert json.load(open(L.beat_path(), encoding="utf-8"))["state"] == "error" and "처음 설정" in logs[0]
+assert L.wait_or_stop(5) is True
+os.remove(L.STOP_FLAG)
+assert L.wait_or_stop(0) is False
+
+# 12) 한 번 돌기: 시트 연결 실패 → error, 성공 → idle
+L.save_link({"endpoint": "https://script.google.com/macros/s/X/exec", "token_enc": G.enc_secret("collector-token")})
+G.load_cfg = lambda: cfg
+G.run_collect = run_collect
+
+
+class BadLink(FakeLink):
+    def call(self, action, **body):
+        raise RuntimeError("시트 응답 HTTP 500")
+
+
+orig = L.Link
+L.Link = lambda ep, tok, say=print: BadLink()
+L._loop(G, logs.append, b, once=True, bg=True)
+assert json.load(open(L.beat_path(), encoding="utf-8"))["state"] == "error"
+L.Link = lambda ep, tok, say=print: FakeLink()
+L._loop(G, logs.append, b, once=True, bg=True)
+assert json.load(open(L.beat_path(), encoding="utf-8"))["state"] == "idle"
+L.Link = orig
+
 print("g1V3Link.test: OK")

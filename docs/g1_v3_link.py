@@ -877,7 +877,8 @@ def _loop(G, say, beat, once, bg):
             return
 
 
-JOB_LABEL = {"collect": "게시판 수집", "test": "테스트 수집", "reviews": "리뷰 수집", "testReviews": "리뷰 테스트", "register": "📤 등록"}
+JOB_LABEL = {"collect": "게시판 수집", "test": "테스트 수집", "reviews": "리뷰 수집", "testReviews": "리뷰 테스트", "register": "📤 등록",
+             "login": "🔑 로그인", "settings": "설정 저장", "apiTest": "API 테스트", "apiKey": "API 키 저장", "ip": "공인 IP", "files": "파일 목록"}
 
 
 if __name__ == "__main__":

@@ -171,7 +171,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 2 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 3 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -378,5 +378,41 @@ v1.data.push(["키", "업체", "게시판", "문의ID", "문의시각", "상품�
 const old = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN }, sheets: [v1] });
 old.post({ action: "list", token: TOKEN });
 assert.equal(v1.data[0][15], "등록");
+
+// 수집기 PC 처음 설정 상태 (연결 1.2): poll 로 받아 정해진 칸만 저장 → 화면 안내창 ✅/⬜
+res = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC", version: "9.4 (2026-10-29) / 연결 1.2 (2026-10-29) · 창 없이", setup: {
+  dir: "C:\\x\\G1_CS수집기", out_dir: "C:\\x\\수집", days: 7, zz_slug: "pink-rocket", show_browser: false, vendors: ["지그재그"], review_vendors: [],
+  login_ok: true, api: "own", claude: false, parts: true, icon: true, autostart: true, bg: true, link: "1.2 (2026-10-29)", ss_secret: "SHOULD-NOT-STAY",
+} });
+res = gas.post({ action: "list", token: TOKEN });
+assert.equal(res.collector.version, "9.4 (2026-10-29) / 연결 1.2 (2026-10-29) · 창 없이", "longer version kept");
+assert.equal(res.collector.setup.outDir, "C:\\x\\수집");
+assert.equal(res.collector.setup.bg, true);
+assert.equal(JSON.stringify(res.collector).includes("SHOULD-NOT-STAY"), false, "unknown fields are dropped");
+const live = collectorStatus({ ...res.collector, seenAt: new Date().toISOString() });
+assert.equal(live.setup.api, "own");
+assert.deepEqual(live.setup.vendors, ["지그재그"]);
+assert.equal(collectorStatus({}).setup, null);
+
+const { setupSteps, setupProgress, guideStepsHtml, collectorSettingsView } = await import("../src/app/csSetupGuide.mjs");
+let steps = setupSteps({});
+assert.equal(steps.length, 9);
+assert.equal(steps[0].done, false, "web not connected");
+assert.equal(steps[1].done, null, "unknown before the collector reports");
+assert.equal(setupProgress(steps).next.key, "web");
+steps = setupSteps({ connected: true, aiEnabled: true, collector: live });
+assert.deepEqual(steps.map((x) => x.done), [true, true, true, true, true, true, true, true, true], "everything reported done");
+assert.equal(setupProgress(steps).next, null);
+assert.match(steps[6].copy[0].text, /^"C:\\x\\G1_CS수집기\\▶G1수집기_5_웹연결\.bat"$/, "Win+R path uses the collector folder it reported");
+const guideHtml = guideStepsHtml(steps, { live: false, focus: "first" });
+assert.match(guideHtml, /data-guide-step="first"[^>]*>/);
+assert.match(guideHtml, /is-focus/);
+assert.match(guideHtml, /data-guide-act="job:collect" disabled/, "job buttons wait for a live connection");
+assert.match(guideHtml, /커머스API센터 ↗/);
+assert.equal(collectorSettingsView(live).zzSlug, "pink-rocket");
+assert.equal(collectorSettingsView(null), null);
+const offline = setupSteps({ connected: true, collector: collectorStatus({ ...res.collector, seenAt: "2026-01-01T00:00:00Z", last: { at: "x", vendors: { 에이블리: { state: "로그인 필요" } } } }) });
+assert.equal(offline.find((x) => x.key === "link").done, false, "collector off");
+assert.equal(offline.find((x) => x.key === "login").done, false, "login needed from the last collection");
 
 console.log("csBoard.mock.test: OK");

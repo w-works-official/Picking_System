@@ -1375,3 +1375,184 @@ body.cs-board-workspace {
 .cs-reg-list li.is-manual {
   background: #f9fafb;
 }
+
+/* ---------- 🚀 처음 설정 안내 (수집기 [설정] 탭 원터치 설정 + 떠 있는 안내창 모양 그대로) ---------- */
+.cs-onetouch {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  background: #eef2ff;
+}
+
+.cs-onetouch strong {
+  display: block;
+  color: #3730a3;
+  font-size: 13px;
+}
+
+.cs-onetouch p {
+  margin: 2px 0 8px;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+.cs-btn-indigo {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.cs-btn-indigo:hover {
+  background: #4338ca;
+}
+
+.cs-guide {
+  position: fixed;
+  top: 64px;
+  right: 16px;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100vh - 80px);
+  max-height: calc(100dvh - 80px);
+  border: 1px solid var(--cs-line);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.18);
+}
+
+.cs-guide[hidden] {
+  display: none;
+}
+
+.cs-guide-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 0;
+}
+
+.cs-guide-top strong {
+  font-size: 15px;
+}
+
+.cs-guide-top .cs-btn-mini {
+  margin-left: auto;
+}
+
+.cs-guide-sub {
+  margin: 2px 14px 8px;
+}
+
+.cs-guide-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px;
+}
+
+.cs-guide-step {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.cs-guide-step.is-done {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.cs-guide-step.is-focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px #c7d2fe;
+}
+
+.cs-guide-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.cs-guide-mark {
+  flex: 0 0 auto;
+  width: 20px;
+  text-align: center;
+}
+
+.cs-guide-unknown {
+  color: #9ca3af;
+}
+
+.cs-guide-desc {
+  margin: 4px 0 4px 26px;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.cs-guide-detail {
+  margin: 0 0 4px 26px;
+  color: var(--cs-blue-dark);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cs-guide-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 4px 0 4px 26px;
+}
+
+.cs-guide-copy code {
+  flex: 1 1 100%;
+  order: 2;
+  padding: 4px 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #ffffff;
+  font-size: 11px;
+  word-break: break-all;
+  user-select: all;
+}
+
+.cs-guide-copy .cs-btn-mini {
+  order: 1;
+}
+
+.cs-guide-buttons,
+.cs-guide-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 4px 0 2px 26px;
+}
+
+.cs-guide-links a {
+  color: var(--cs-blue);
+  font-size: 12px;
+}
+
+.cs-guide-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--cs-line-soft);
+}
+
+@media (max-width: 640px) {
+  .cs-guide {
+    top: 8px;
+    right: 8px;
+    width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+}

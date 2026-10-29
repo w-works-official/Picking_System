@@ -193,6 +193,22 @@ export function collectorStatus(raw = {}, nowMs = Date.now()) {
     busy: raw?.busy === true,
     last: raw?.last ? { at: line(raw.last.at, 40), count: Number(raw.last.count) || 0, vendors: vendors(raw.last) } : null,
     reviewLast: raw?.reviewLast ? { at: line(raw.reviewLast.at, 40), count: Number(raw.reviewLast.count) || 0, vendors: vendors(raw.reviewLast) } : null,
+    setup: normalizeCollectorSetup(raw?.setup),
+  };
+}
+
+// 수집기 PC 처음 설정 상태 (연결 1.2 부터 보냄). 모르면 null — 안내창에서 "확인 못 함"
+export function normalizeCollectorSetup(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const flag = (v) => (v === true ? true : v === false ? false : null);
+  const num = (v) => (Number.isFinite(Number(v)) ? Math.max(0, Math.round(Number(v))) : 0);
+  const list = (v) => (Array.isArray(v) ? v.map((x) => line(x, 20)).filter(Boolean).slice(0, 6) : []);
+  return {
+    dir: line(raw.dir, 200), outDir: line(raw.outDir, 200), days: num(raw.days), reviewDays: num(raw.reviewDays), zzSlug: line(raw.zzSlug, 40),
+    showBrowser: flag(raw.showBrowser), autoStart: line(raw.autoStart, 10), interval: num(raw.interval),
+    vendors: list(raw.vendors), reviewVendors: list(raw.reviewVendors),
+    loginOk: flag(raw.loginOk), api: line(raw.api, 10), claude: flag(raw.claude), parts: flag(raw.parts), icon: flag(raw.icon),
+    autostart: flag(raw.autostart), bg: flag(raw.bg), collector: line(raw.collector, 40), link: line(raw.link, 40),
   };
 }
 

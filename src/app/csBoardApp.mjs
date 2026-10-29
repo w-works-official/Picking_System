@@ -37,8 +37,9 @@ import {
   withEdit,
   withHold,
   withPick,
-} from "../domain/csBoard.mjs?v=20261029-cs-endpoint1";
+} from "../domain/csBoard.mjs?v=20261029-cs-guide1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
+import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261029-cs-guide1";
 
 const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
 const REVIEW_VENDORS = ["지그재그", "에이블리", "메이크샵"];
@@ -307,6 +308,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     vendorSel: readVendorSel(storage),
     pollTimer: null,
     requesting: false,
+    guideFocus: "",
   };
 
   // ---------- 알림·로그 ----------
@@ -441,6 +443,68 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     box.innerHTML = live() ? jobsHtml(state.jobs, state.collector) : `<p class="cs-note">${state.sample ? "가상셋팅 중에는 요청을 보내지 않습니다." : "시트 연결 후 보입니다."}</p>`;
   }
 
+  // ---------- 🚀 처음 설정 안내 (수집기 [설정] 탭 원터치 설정 + 떠 있는 안내창을 웹으로) ----------
+  function guideContext() {
+    return { connected: state.connected && !state.sample, token: state.token, aiEnabled: state.aiEnabled, collector: state.sample ? null : state.collector };
+  }
+
+  function renderSetup() {
+    const steps = setupSteps(guideContext());
+    const { done, total } = setupProgress(steps);
+    const progress = $("#cs-guide-progress");
+    if (progress) progress.textContent = `${done}/${total} 완료`;
+    const count = $("#cs-guide-count");
+    if (count) count.textContent = `${done}/${total} 완료`;
+    const body = $("#cs-guide-body");
+    if (body && !$("#cs-guide")?.hidden) body.innerHTML = guideStepsHtml(steps, { live: live() && !state.requesting, focus: state.guideFocus });
+    const view = collectorSettingsView(state.sample ? null : state.collector);
+    const note = $("#cs-set-note");
+    if (note) note.textContent = view ? `${view.note} — 바꾸기는 수집기 창 [설정] 탭` : "수집기 PC가 연결되면 현재 값이 보입니다 (연결 1.2 이상). 바꾸기는 수집기 창 [설정] 탭.";
+    // 수집기 PC가 알려 준 값은 검은 글씨(읽기 전용)로, 모를 때는 빨간 미작동 칸 그대로
+    const fill = (selector, value) => {
+      const el = $(selector);
+      if (!el) return;
+      el.classList.toggle("is-pending", !view);
+      el.title = view ? "수집기 PC 현재 값 — 바꾸기는 수집기 창 [설정] 탭" : "";
+      if (view) el.value = value;
+    };
+    fill("#cs-set-outdir", view?.outDir);
+    fill("#cs-set-days", view?.days);
+    fill("#cs-set-slug", view?.zzSlug);
+    const browser = $("#cs-set-browser");
+    if (browser && view) browser.checked = view.showBrowser;
+  }
+
+  function openGuide(focusNext = false) {
+    const box = $("#cs-guide");
+    if (!box) return;
+    const steps = setupSteps(guideContext());
+    state.guideFocus = focusNext ? setupProgress(steps).next?.key || "" : "";
+    box.hidden = false;
+    renderSetup();
+    if (state.guideFocus) {
+      const el = box.querySelector(`[data-guide-step="${state.guideFocus}"]`);
+      el?.scrollIntoView?.({ block: "nearest" });
+      toast(setupProgress(steps).next ? `다음 할 일: ${setupProgress(steps).next.title}` : "처음 설정이 모두 끝났습니다 ✅");
+    }
+  }
+
+  function onGuideClick(event) {
+    const copy = event.target.closest("[data-guide-copy]");
+    if (copy) {
+      Promise.resolve(window.navigator?.clipboard?.writeText(copy.dataset.guideCopy))
+        .then(() => toast("복사했습니다 — 수집기 PC에서 Win+R 에 붙여넣고 Enter"))
+        .catch(() => toast("복사하지 못했습니다 — 글자를 직접 선택해 복사해 주세요."));
+      return;
+    }
+    const button = event.target.closest("[data-guide-act]");
+    if (!button || button.disabled) return;
+    const act = button.dataset.guideAct;
+    if (act === "close") { $("#cs-guide").hidden = true; state.guideFocus = ""; }
+    else if (act === "focus-token") { showLeft("settings"); $("#cs-token-input")?.focus(); }
+    else if (act.startsWith("job:")) requestJob(act.slice(4));
+  }
+
   // ---------- 목록 ----------
   function viewFor(row) {
     let view = state.views.get(row.key);
@@ -510,6 +574,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     renderConnection();
     renderLiveControls();
     renderJobs();
+    renderSetup();
     if (!state.sample && !state.connected) {
       list.innerHTML = `<div class="cs-empty">${emptyText()}</div>`;
     } else {
@@ -1000,11 +1065,18 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-register-open")?.addEventListener("click", openRegister);
     $("#cs-modal-cancel")?.addEventListener("click", closeModal);
     $("#cs-modal")?.addEventListener("click", (e) => { if (e.target.id === "cs-modal") closeModal(); });
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#cs-modal")?.hidden) closeModal(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      if (!$("#cs-modal")?.hidden) closeModal();
+      else if ($("#cs-guide") && !$("#cs-guide").hidden) $("#cs-guide").hidden = true;
+    });
     $("#cs-usage-prev")?.addEventListener("click", () => shiftMonth(-1));
     $("#cs-usage-next")?.addEventListener("click", () => shiftMonth(1));
     $("#cs-usage-reload")?.addEventListener("click", loadUsage);
     $("#cs-msn-demo")?.addEventListener("click", addDemoSlot);
+    $("#cs-onetouch")?.addEventListener("click", () => openGuide(true));
+    $("#cs-guide-open")?.addEventListener("click", () => openGuide(false));
+    $("#cs-guide")?.addEventListener("click", onGuideClick);
     $("#cs-msn-slots")?.addEventListener("click", onSlotClick);
     $("#cs-msn-slots")?.addEventListener("input", (e) => {
       const index = e.target.dataset?.msnAnswer;
@@ -1062,7 +1134,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     } else renderBoard();
   }
 
-  return { state, start, load, setSample, suggest, flushSave, renderBoard, addDemoSlot, requestJob, openRegister };
+  return { state, start, load, setSample, suggest, flushSave, renderBoard, addDemoSlot, requestJob, openRegister, openGuide };
 }
 
 if (typeof document !== "undefined" && document.getElementById("cs-board-app")) {

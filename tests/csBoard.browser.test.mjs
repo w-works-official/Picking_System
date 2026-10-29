@@ -280,6 +280,31 @@ try {
     await page.waitForFunction(() => /AI 추천 \d+회/.test(document.querySelector("#cs-usage-sum").textContent));
     assert.match(await page.locator("#cs-usage-sum").textContent(), /AI 추천 2회/);
 
+    // 🚀 처음 설정 안내: 수집기 PC(연결 1.2)가 알려 준 상태로 ✅/⬜, 수집기 설정 칸에 현재 값
+    assert.match(await page.locator("#cs-guide-progress").textContent(), /\d\/9 완료/);
+    gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC", version: "9.4 / 연결 1.2 · 창 없이", setup: {
+      dir: "C:\\Users\\M\\내 드라이브\\V_회계\\2_CS_게시판_정리\\G1_CS수집기", out_dir: "C:\\Users\\M\\수집", days: 7, zz_slug: "pink-rocket", show_browser: true,
+      vendors: ["스마트스토어", "지그재그"], login_ok: true, api: "own", claude: false, parts: true, icon: false, autostart: false, bg: false, link: "1.2 (2026-10-29)",
+    } });
+    await reload();
+    await page.waitForFunction(() => document.querySelector("#cs-set-slug").value === "pink-rocket", null, { timeout: 5000 }).catch(async () => {
+      throw new Error("settings not filled: " + (await page.locator("#cs-set-note").textContent()) + " / " + JSON.stringify(gas.post({ action: "list", token: TOKEN }).collector).slice(0, 300));
+    });
+    assert.equal(await page.locator("#cs-set-browser").isChecked(), true);
+    assert.match(await page.locator("#cs-set-note").textContent(), /OFFICE-PC[\s\S]*스마트스토어·지그재그/);
+    await page.locator("#cs-onetouch").click();
+    await page.locator("#cs-guide:not([hidden])").waitFor();
+    assert.equal(await page.locator(".cs-guide-step.is-focus").getAttribute("data-guide-step"), "icon", "one-touch jumps to the first unfinished step");
+    assert.equal(await page.locator('[data-guide-step="parts"] .cs-guide-mark').textContent(), "✅");
+    assert.equal(await page.locator('[data-guide-step="login"] .cs-guide-mark').textContent(), "⬜", "에이블리 needed a login in the last collection");
+    assert.match(await page.locator('[data-guide-step="auto"]').textContent(), /검은 창으로 도는 중 · 자동시작 없음/);
+    await page.locator('[data-guide-step="auto"] [data-guide-copy]').click();
+    await page.locator("#cs-toast", { hasText: "Win+R" }).waitFor();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), '"C:\\Users\\M\\내 드라이브\\V_회계\\2_CS_게시판_정리\\G1_CS수집기\\G1웹연결_백그라운드_등록.bat"');
+    await page.screenshot({ path: path.join(output, "cs-board-setup-guide.png") });
+    await page.locator('.cs-guide-foot [data-guide-act="close"]').click();
+    assert.equal(await page.locator("#cs-guide").isHidden(), true);
+
     // 틀린 비밀번호 → 저장된 비밀번호 지움
     await page.locator('[data-left-tab="settings"]').click();
     await page.locator("#cs-token-input").fill("wrong-token-1");

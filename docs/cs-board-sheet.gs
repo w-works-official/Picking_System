@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-10-29 v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-10-29 v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -24,7 +24,7 @@
  *   - ingest   (수집기) 수집한 문의·리뷰 추가·갱신. 이미 있는 줄의 선택·답변안은 건드리지 않음.
  *                       정상 수집된 업체에서 사라진(=답변된) 문의는 "종료" — 다시 나타나면 다시 열림
  *   - close    (수집기) 이미 답변된 문의를 "종료"로
- *   - poll     (수집기) 살아 있음 알림 + 대기 중 요청 1개 가져가기(실행중으로 표시)
+ *   - poll     (수집기) 살아 있음 알림 + 대기 중 요청 1개 가져가기(실행중으로 표시) + 처음 설정 상태(있다/없다만, 비밀값 없음)
  *   - finish   (수집기) 요청 결과 기록, 등록 결과를 문의 줄에 표시(등록완료면 종료)
  * 줄은 절대 지우지 않습니다. 시트의 다른 탭·다른 파일은 건드리지 않습니다.
  */
@@ -87,7 +87,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 2 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 3 });
 }
 
 function doPost(e) {
@@ -362,6 +362,23 @@ function collectorState_() {
     busy: !!state.busy,
     last: state.last || null,
     reviewLast: state.reviewLast || null,
+    setup: state.setup || null,
+  };
+}
+
+// 수집기 PC 처음 설정 상태: 정해진 칸만, 짧게 (비밀값은 원래 오지 않음 — 있다/없다만)
+function cleanSetup_(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  var b = function (v) { return v === true ? true : v === false ? false : null; };
+  var n = function (v) { var x = Number(v); return isFinite(x) ? Math.max(0, Math.min(100000, Math.round(x))) : 0; };
+  var t = function (v, len) { return plain_(clean_(v, len)); };
+  var list = function (v) { return Array.isArray(v) ? v.slice(0, 6).map(function (x) { return t(x, 20); }) : []; };
+  return {
+    dir: t(raw.dir, 200), outDir: t(raw.out_dir, 200), days: n(raw.days), reviewDays: n(raw.review_days), zzSlug: t(raw.zz_slug, 40),
+    showBrowser: b(raw.show_browser), autoStart: t(raw.auto_start, 10), interval: n(raw.interval),
+    vendors: list(raw.vendors), reviewVendors: list(raw.review_vendors),
+    loginOk: b(raw.login_ok), api: t(raw.api, 10), claude: b(raw.claude), parts: b(raw.parts), icon: b(raw.icon),
+    autostart: b(raw.autostart), bg: b(raw.bg), collector: t(raw.collector, 40), link: t(raw.link, 40),
   };
 }
 
@@ -731,8 +748,9 @@ function releaseRegister_(items, results) {
 function poll_(body) {
   var state = parse_(prop_('COLLECTOR_STATE'), {});
   state.pc = plain_(clean_(body.pc, 60));
-  state.version = plain_(clean_(body.version, 40));
+  state.version = plain_(clean_(body.version, 60));
   state.seenAt = new Date().toISOString();
+  if (body.setup) state.setup = cleanSetup_(body.setup);
   state.busy = body.busy === true;
   var jobs = jobValues_();
   var job = null;

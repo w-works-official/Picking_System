@@ -1,0 +1,1209 @@
+/* CS 관리 · CS 자동화 (2026-10-29) — G1 CS 수집기 화면을 웹으로 옮긴 모양.
+   왼쪽 = 수집기 탭, 오른쪽 = 게시판·리뷰·메신저 답변. 아직 작동하지 않는 버튼은 빨간 글씨 + 누를 수 없음(.is-pending).
+   피킹 화면 CSS와는 따로 둡니다. */
+:root {
+  --cs-bg: #f6f7f9;
+  --cs-card: #ffffff;
+  --cs-line: #e1e4ea;
+  --cs-line-soft: #eef0f4;
+  --cs-text: #111827;
+  --cs-sub: #667085;
+  --cs-pink: #be185d;
+  --cs-blue: #2563eb;
+  --cs-blue-dark: #1d4ed8;
+  --cs-green: #16a34a;
+  --cs-orange: #ea8a00;
+  --cs-yellow: #fde047;
+  --cs-red: #dc2626;
+  --cs-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+
+html {
+  height: 100%;
+}
+
+body.cs-board-workspace {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  font-family: "Pretendard", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+.cs-board-workspace button,
+.cs-board-workspace input,
+.cs-board-workspace select,
+.cs-board-workspace textarea {
+  font: inherit;
+}
+
+.cs-shell {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 7px;
+  padding: 7px;
+}
+
+/* ---------- 상단 (피킹·사입 관리와 같은 자리: 제목 칸 252px + 12px) ---------- */
+.cs-topbar,
+.cs-left,
+.cs-right {
+  background: var(--cs-card);
+  border: 1px solid var(--cs-line);
+  border-radius: 8px;
+  box-shadow: var(--cs-shadow);
+}
+
+.cs-topbar {
+  box-sizing: border-box;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+}
+
+.cs-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 252px;
+  width: 252px;
+  min-width: 0;
+}
+
+.cs-brand-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--cs-pink);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 1000;
+}
+
+.cs-brand h1 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.cs-brand p {
+  margin: 2px 0 0;
+  color: var(--cs-sub);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cs-board-workspace .workspace-navigation .workspace-link {
+  box-sizing: border-box;
+  width: 80px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.cs-board-workspace .workspace-navigation .workspace-link.is-current {
+  background: var(--cs-pink);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(190, 24, 93, 0.25);
+}
+
+.cs-toolbar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cs-legend {
+  color: var(--cs-sub);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.cs-legend-red {
+  color: var(--cs-red);
+}
+
+.cs-connection {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  background: #f1f2f4;
+  color: var(--cs-sub);
+}
+
+.cs-connection.is-on {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.cs-connection.is-error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.cs-connection.is-sample {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+/* ---------- 본문: 왼쪽 수집기 · 접기 손잡이 · 오른쪽 답변 ---------- */
+.cs-main {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 440px 15px minmax(0, 1fr);
+  gap: 4px;
+}
+
+/* 접으면 왼쪽 창이 빠지므로 손잡이 + 오른쪽 두 칸만 */
+.cs-main.left-folded {
+  grid-template-columns: 15px minmax(0, 1fr);
+}
+
+.cs-main.left-folded .cs-left {
+  display: none;
+}
+
+.cs-fold {
+  align-self: center;
+  width: 15px;
+  height: 120px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 7px 7px 0;
+  background: #9ca3af;
+  color: #ffffff;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.cs-fold:hover {
+  background: #6b7280;
+}
+
+.cs-main.left-folded .cs-fold {
+  border-radius: 7px 0 0 7px;
+}
+
+.cs-left {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.cs-left-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 8px 0;
+}
+
+.cs-left-tab {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 7px 7px 0 0;
+  background: #e5e9f0;
+  color: var(--cs-text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cs-left-tab.active {
+  background: var(--cs-blue);
+  color: #ffffff;
+}
+
+.cs-left-body {
+  min-height: 0;
+  overflow-y: auto;
+  border-top: 3px solid var(--cs-blue);
+  margin: 0 8px;
+}
+
+.cs-left-panel {
+  display: grid;
+  gap: 8px;
+  padding: 10px 2px 12px;
+}
+
+.cs-left-panel[hidden],
+.cs-right-panel[hidden] {
+  display: none;
+}
+
+.cs-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cs-row-split {
+  justify-content: space-between;
+}
+
+.cs-row-end {
+  justify-content: flex-end;
+}
+
+.cs-flex {
+  flex: 1 1 auto;
+}
+
+.cs-small {
+  font-size: 12px;
+}
+
+.cs-small label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cs-note {
+  margin: 0;
+  color: var(--cs-sub);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.cs-box {
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--cs-line);
+  border-radius: 7px;
+  display: grid;
+  gap: 8px;
+}
+
+.cs-box legend {
+  padding: 0 4px;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.cs-box legend small {
+  color: var(--cs-sub);
+  font-weight: 500;
+}
+
+.cs-box-live {
+  border-color: #f9a8d4;
+  background: #fff7fb;
+}
+
+.cs-form {
+  display: grid;
+  gap: 6px;
+}
+
+.cs-form label {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cs-form label.cs-check {
+  display: flex;
+  font-weight: 500;
+}
+
+.cs-form input[type="text"],
+.cs-form input[type="password"],
+.cs-form input[type="number"] {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.cs-input-num {
+  width: 64px;
+  padding: 3px 6px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+}
+
+/* ---------- 버튼 ---------- */
+.cs-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 4px 12px;
+  border: 1px solid var(--cs-line);
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--cs-text);
+  font-weight: 800;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cs-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.cs-btn-primary {
+  background: var(--cs-blue);
+  border-color: var(--cs-blue);
+  color: #ffffff;
+}
+
+.cs-btn-primary:hover:not(:disabled) {
+  background: var(--cs-blue-dark);
+}
+
+.cs-btn-green {
+  background: var(--cs-green);
+  border-color: var(--cs-green);
+  color: #ffffff;
+}
+
+.cs-btn-orange {
+  background: var(--cs-orange);
+  border-color: var(--cs-orange);
+  color: #ffffff;
+}
+
+/* 🧪 테스트 버튼: 수집기 v9.1 과 같은 흰 바탕 + 회색 글씨 */
+.cs-btn-test,
+.cs-btn-sample {
+  background: #ffffff;
+  border-color: var(--cs-line);
+  color: #374151;
+}
+
+.cs-btn-test:hover:not(:disabled),
+.cs-btn-sample:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.cs-btn-sample[aria-pressed="true"] {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+}
+
+.cs-btn-excel {
+  background: var(--cs-yellow);
+  border-color: var(--cs-yellow);
+  color: #111827;
+}
+
+.cs-btn-white {
+  background: #ffffff;
+}
+
+.cs-btn-tall {
+  min-height: 40px;
+  font-size: 13px;
+}
+
+.cs-btn-mini {
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.cs-btn-ai {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+  color: #6d28d9;
+}
+
+.cs-btn-link {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+  min-height: 22px;
+  padding: 1px 8px;
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.cs-btn:focus-visible,
+.cs-left-tab:focus-visible,
+.cs-right-tab:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+
+/* 아직 작동 안 함: 빨간 글씨 + 누를 수 없음 (개발되면 is-pending·disabled 를 떼면 원래 색으로) */
+.cs-board-workspace .is-pending,
+.cs-board-workspace .is-pending:hover {
+  background: #fff5f5 !important;
+  border: 1px dashed #fca5a5 !important;
+  color: var(--cs-red) !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+.cs-board-workspace input.is-pending::placeholder {
+  color: #f87171;
+}
+
+.cs-pending-text {
+  color: var(--cs-red);
+  font-size: 12px;
+}
+
+/* ---------- 업체 카드 (수집기 VCOLOR) ---------- */
+.cs-vendor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cs-vendor-grid-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cs-vendor-card {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 4px 8px;
+  border-radius: 7px;
+  text-align: center;
+}
+
+.cs-vendor-card strong {
+  font-size: 13px;
+}
+
+.cs-vendor-check {
+  font-size: 11px;
+}
+
+.cs-vendor-card .cs-btn {
+  width: calc(100% - 8px);
+  min-height: 26px;
+  padding: 2px 4px;
+  font-size: 11px;
+}
+
+.cs-vendor-card[data-vendor="스마트스토어"] { background: #2db400; color: #ffffff; }
+.cs-vendor-card[data-vendor="지그재그"] { background: #ffd400; color: #111111; }
+.cs-vendor-card[data-vendor="에이블리"] { background: #111111; color: #ffffff; }
+.cs-vendor-card[data-vendor="메이크샵"] { background: #1e6bff; color: #ffffff; }
+
+.cs-vendor-status {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  color: var(--cs-sub);
+  font-size: 11px;
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* ---------- 로그 ---------- */
+.cs-log-area {
+  display: grid;
+  gap: 4px;
+}
+
+.cs-log-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.cs-log-warn-head {
+  color: #b91c1c;
+}
+
+.cs-log {
+  min-height: 60px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px 9px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cs-log.collapsed {
+  max-height: 72px;
+}
+
+.cs-log-warn {
+  min-height: 40px;
+  max-height: 120px;
+  background: #fffbeb;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+/* ---------- 오른쪽: 답변 ---------- */
+.cs-right {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.cs-right-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 0;
+}
+
+.cs-right-tab {
+  padding: 8px 18px;
+  border: 0;
+  border-radius: 9px 9px 0 0;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.cs-right-tab.tab-board { background: #dbeafe; color: #2563eb; }
+.cs-right-tab.tab-review { background: #ffedd5; color: #ea8a00; }
+.cs-right-tab.tab-msn { background: #dcfce7; color: #16a34a; }
+.cs-right-tab.tab-board.active { background: #2563eb; color: #ffffff; }
+.cs-right-tab.tab-review.active { background: #ea8a00; color: #ffffff; }
+.cs-right-tab.tab-msn.active { background: #16a34a; color: #ffffff; }
+
+.cs-right-line {
+  height: 3px;
+  margin: 0 10px;
+  background: #2563eb;
+}
+
+.cs-right-panel {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.cs-answer-top,
+.cs-answer-filter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 0;
+}
+
+.cs-answer-filter {
+  padding-bottom: 6px;
+}
+
+.cs-answer-title {
+  margin-right: 8px;
+  font-size: 15px;
+}
+
+.tone-board { color: #2563eb; }
+.tone-review { color: #ea8a00; }
+.tone-msn { color: #16a34a; }
+
+.cs-answer-filter select,
+.cs-answer-filter input[type="search"] {
+  min-height: 30px;
+  padding: 3px 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.cs-answer-filter input[type="search"] {
+  width: 180px;
+}
+
+.cs-seg {
+  display: inline-flex;
+  border: 1px solid var(--cs-line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.cs-seg button {
+  min-height: 28px;
+  padding: 2px 10px;
+  border: 0;
+  border-right: 1px solid var(--cs-line);
+  background: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cs-seg button:last-child {
+  border-right: 0;
+}
+
+.cs-seg button.active {
+  background: #111827;
+  color: #ffffff;
+}
+
+.cs-summary {
+  color: var(--cs-sub);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cs-sample-banner {
+  margin: 0 12px 6px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: #fef9c3;
+  color: #854d0e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.cs-sample-banner[hidden] {
+  display: none;
+}
+
+.cs-card-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 12px 12px;
+  background: var(--cs-bg);
+  border-top: 1px solid var(--cs-line-soft);
+}
+
+.cs-empty {
+  margin: 30px auto;
+  max-width: 520px;
+  color: var(--cs-sub);
+  text-align: center;
+  line-height: 1.6;
+}
+
+/* ---------- 문의 카드 (수집기 [📋 게시판] 카드와 같은 배치) ---------- */
+.cs-card {
+  margin-top: 10px;
+  border: 1px solid var(--cs-line);
+  border-radius: 8px;
+  background: var(--cs-card);
+}
+
+.cs-card.is-picked {
+  border-color: #16a34a;
+}
+
+.cs-card.is-held {
+  border-color: #bdbdbd;
+}
+
+.cs-card-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px 4px;
+}
+
+.cs-card-no {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f2f4;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cs-vendor-chip {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.cs-vendor-chip[data-vendor="스마트스토어"] { background: #2db400; color: #ffffff; }
+.cs-vendor-chip[data-vendor="지그재그"] { background: #ffd400; color: #111111; }
+.cs-vendor-chip[data-vendor="에이블리"] { background: #111111; color: #ffffff; }
+.cs-vendor-chip[data-vendor="메이크샵"] { background: #1e6bff; color: #ffffff; }
+
+.cs-card-meta {
+  color: var(--cs-sub);
+  font-size: 11.5px;
+}
+
+.cs-card-result {
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: 5px;
+  background: #f1f2f4;
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.cs-card-result.is-picked { background: #c6efce; color: #006100; }
+.cs-card-result.is-held { background: #d9d9d9; color: #555555; }
+
+.cs-card-body {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 2fr) minmax(0, 3fr);
+  gap: 12px;
+  padding: 0 10px 10px;
+}
+
+.cs-card-product {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.cs-card-photo {
+  width: 196px;
+  max-height: 250px;
+  object-fit: contain;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.cs-card-nophoto {
+  width: 196px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #f1f2f4;
+  color: var(--cs-sub);
+  font-size: 12px;
+}
+
+.cs-card-product a,
+.cs-card-product span {
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.cs-card-product a {
+  color: var(--cs-blue);
+}
+
+.cs-card-question {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cs-question-text {
+  min-height: 110px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #f8fafc;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cs-question-title {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 800;
+}
+
+.cs-check-box {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.cs-context {
+  border: 1px solid var(--cs-line-soft);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.cs-context summary {
+  padding: 5px 9px;
+  color: var(--cs-sub);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cs-context-item {
+  padding: 6px 9px;
+  border-top: 1px solid var(--cs-line-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cs-context-item b {
+  color: var(--cs-sub);
+}
+
+.cs-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.cs-photos img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border: 1px solid var(--cs-line);
+  border-radius: 5px;
+}
+
+.cs-card-answers {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cs-answer-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 62px;
+  gap: 6px;
+  align-items: start;
+}
+
+.cs-pick {
+  width: 40px;
+  height: 36px;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  background: #eef2ff;
+  color: var(--cs-blue);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.cs-pick[aria-pressed="true"] {
+  background: #a7e3bc;
+  border-color: #16a34a;
+  color: #065f46;
+}
+
+.cs-answer-text {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 74px;
+  padding: 6px 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  resize: vertical;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.cs-answer-text:focus {
+  outline: 2px solid #93c5fd;
+  border-color: var(--cs-blue);
+}
+
+.cs-answer-text.is-edited {
+  background: #fffdf2;
+}
+
+.cs-answer-side {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+}
+
+.cs-cycle {
+  width: 62px;
+  min-height: 38px;
+  padding: 2px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: #f1f5f9;
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: pre-line;
+}
+
+.cs-cycle:disabled {
+  color: #9ca3af;
+  cursor: default;
+}
+
+.cs-count {
+  color: var(--cs-sub);
+  font-size: 10.5px;
+}
+
+.cs-draft-from {
+  color: #6d28d9;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cs-answer-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.cs-answer-foot label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cs-answer-empty {
+  padding: 18px 10px;
+  border-radius: 6px;
+  background: #f5f5f5;
+  color: var(--cs-sub);
+  text-align: center;
+}
+
+/* ---------- 메신저 슬롯 ---------- */
+.cs-msn-state {
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #f1f2f4;
+  color: var(--cs-sub);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cs-msn-slots {
+  min-height: 0;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  overflow-x: auto;
+  padding: 4px 12px 12px;
+}
+
+.cs-msn-empty {
+  color: var(--cs-sub);
+  padding: 20px 10px;
+}
+
+.cs-slot {
+  flex: 0 0 300px;
+  display: grid;
+  grid-template-rows: auto auto minmax(120px, 1fr) auto auto;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.cs-slot-head {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cs-slot-head .cs-vendor-chip {
+  margin: 0 auto;
+}
+
+.cs-slot-sub {
+  text-align: center;
+  color: var(--cs-sub);
+  font-size: 11px;
+}
+
+.cs-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #f3f5f8;
+  overflow-y: auto;
+}
+
+.cs-bubble {
+  max-width: 85%;
+  padding: 6px 9px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.cs-bubble.them {
+  align-self: flex-start;
+  background: #ffffff;
+  border-top-left-radius: 2px;
+}
+
+.cs-bubble.me {
+  align-self: flex-end;
+  background: #dbeafe;
+  border-top-right-radius: 2px;
+}
+
+.cs-bubble small {
+  display: block;
+  color: var(--cs-sub);
+  font-size: 10px;
+}
+
+.cs-slot-sugg {
+  display: grid;
+  gap: 4px;
+}
+
+.cs-sugg {
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+.cs-sugg p {
+  margin: 0;
+  padding: 5px 7px;
+  line-height: 1.45;
+}
+
+.cs-sugg-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 4px;
+}
+
+.cs-slot-send textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 56px;
+  padding: 5px 7px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  resize: vertical;
+  font-size: 12px;
+}
+
+/* ---------- 알림 ---------- */
+.cs-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12.5px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+  z-index: 50;
+}
+
+.cs-toast[hidden] {
+  display: none;
+}
+
+/* ---------- 좁은 화면 ---------- */
+@media (max-width: 1180px) {
+  .cs-card-body {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+
+  .cs-card-photo,
+  .cs-card-nophoto {
+    width: 146px;
+  }
+
+  .cs-card-answers {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 980px) {
+  .cs-shell {
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .cs-main,
+  .cs-main.left-folded {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-fold {
+    display: none;
+  }
+
+  .cs-main.left-folded .cs-left {
+    display: grid;
+  }
+
+  /* 휴대폰·좁은 창: 답변 화면을 먼저, 수집기 탭은 아래로 */
+  .cs-right {
+    order: -1;
+    min-height: 70vh;
+  }
+}
+
+@media (max-width: 720px) {
+  .cs-topbar {
+    flex-wrap: wrap;
+  }
+
+  .cs-brand {
+    flex-basis: auto;
+    width: auto;
+  }
+
+  .cs-toolbar {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
+
+  .cs-card-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cs-vendor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cs-form label {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

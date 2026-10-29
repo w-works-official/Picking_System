@@ -18,10 +18,11 @@ export function safeWorkspaceSearch(search = "") {
   return query ? `?${query}` : "";
 }
 
-// base = path from the current page to the app root ("./" on the picking page, "../" inside purchase/).
+// base = path from the current page to the app root ("./" on the picking page, "../" inside purchase/,
+// "../../" inside cs/board/ — 2026-10-29 CS 자동화 화면). Anything else falls back to "./".
 export function workspaceHref(workspace, search = "", base = "./") {
   if (!Object.hasOwn(WORKSPACE_PATHS, workspace)) throw new Error("Unknown workspace");
-  const root = base === "../" ? "../" : "./";
+  const root = /^(\.\.\/){1,3}$/.test(base) ? base : "./";
   return `${root}${WORKSPACE_PATHS[workspace]}${safeWorkspaceSearch(search)}`;
 }
 

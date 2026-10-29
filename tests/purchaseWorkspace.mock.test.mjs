@@ -34,13 +34,13 @@ for (const ref of page.matchAll(/(?:src|href)="(\.\.\/[^"?#]+)/g)) {
   assert.ok(existsSync(new URL(`../purchase/${ref[1]}`, import.meta.url)), `missing ${ref[1]}`);
 }
 assert.match(page, /data-workspace-base="\.\.\/"/);
-assert.match(page, /id="workspace-purchase-link" class="workspace-link is-current"[^>]*aria-current="page">사입 관리</);
+assert.match(page, /id="workspace-purchase-link" class="workspace-link is-current"[^>]*aria-current="page">상품 관리</);
 assert.match(page, /data-purchase-tab="order"[^>]*>발주</);
 assert.match(page, /data-purchase-tab="receiving">입고</);
 assert.doesNotMatch(page, /supabase|pickingAuth|pickingApp\.mjs/, "screen frame only: no data access yet");
 
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
-assert.match(index, /id="workspace-cs-link"[^\n]*\n\s*<a id="workspace-purchase-link" class="workspace-link" href="\.\/purchase\/\?write=0&amp;events=0">사입 관리<\/a>/);
+assert.match(index, /id="workspace-cs-link"[^\n]*\n\s*<a id="workspace-purchase-link" class="workspace-link" href="\.\/purchase\/\?write=0&amp;events=0">상품 관리<\/a>/);
 const build = await readFile(new URL("../scripts/build-pages.mjs", import.meta.url), "utf8");
 assert.match(build, /"cs","purchase"\]/);
 

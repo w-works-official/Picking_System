@@ -130,7 +130,7 @@ try {
   await csReady(page);
   // 2026-10-28: 사입 관리 링크가 CS 화면에서도 보여야 함 (같은 안전 쿼리만 전달)
   const csPurchaseLink = new URL(await page.locator("#workspace-purchase-link").getAttribute("href"), page.url());
-  assert.equal(await page.locator("#workspace-purchase-link").innerText(), "사입 관리");
+  assert.equal(await page.locator("#workspace-purchase-link").innerText(), "상품 관리");
   assert.equal(csPurchaseLink.pathname, "/Picking_System/purchase/");
   assert.equal(csPurchaseLink.search, "?write=1&events=0&reorder=1");
   const backLink = new URL(await page.locator("#workspace-picking-link").getAttribute("href"), page.url());

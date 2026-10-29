@@ -1,7 +1,7 @@
 // Cross-document navigation only. The picking app keeps its existing default
 // permissions, session handling, keyboard events, and business state.
 const MODE_FLAGS = ["write", "events", "reorder"];
-// 상위 업무 화면: 피킹시스템(루트) · CS 관리(cs/) · 사입 관리(purchase/, 2026-10-28)
+// 상위 업무 화면: 피킹시스템(루트) · CS 관리(cs/) · 상품 관리(purchase/, 2026-10-28 사입 관리 → 2026-10-29 이름 바꿈)
 const WORKSPACE_PATHS = { picking: "", cs: "cs/", purchase: "purchase/" };
 
 export function safeWorkspaceSearch(search = "") {

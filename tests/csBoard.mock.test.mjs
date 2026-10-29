@@ -159,7 +159,7 @@ assert.deepEqual(collectorStatus({ last: { at: "2026-10-29 13:00", count: 3, ven
 const job = normalizeCsJob({ id: "J1", kind: "register", status: "대기", body: { count: 2 }, result: { message: "m" } });
 assert.equal(job.label, "등록");
 assert.equal(job.count, 2);
-assert.match(jobsHtml([job], collectorStatus({ seenAt: "2026-10-29T04:00:00Z", pc: "OFFICE" }, t0)), /○ 꺼짐[\s\S]*웹연결\.bat[\s\S]*data-job-cancel="J1"/);
+assert.match(jobsHtml([job], collectorStatus({ seenAt: "2026-10-29T04:00:00Z", pc: "OFFICE" }, t0)), /○ 꺼짐[\s\S]*자동으로 같이 켜짐[\s\S]*data-job-cancel="J1"/);
 assert.deepEqual(usageForMonth({ "2026-10-01": { n: 2, won: 1.5 }, "2026-10-29": { n: 1, won: 0.7 }, "2026-11-01": { n: 9, won: 9 } }, 2026, 10), { days: [{ day: "2026-10-01", n: 2, won: 1.5 }, { day: "2026-10-29", n: 1, won: 0.7 }], n: 3, won: 2.2 });
 const lockedCard = cardHtml(requested, 1, initialView(requested), { aiReady: true });
 assert.match(lockedCard, /📤 등록 요청됨/);

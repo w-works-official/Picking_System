@@ -27,14 +27,18 @@
   · 설정 저장(기간·업체·지그재그 주소명·브라우저 보이기·자동 수집), 자동 수집(시작 시각·간격 — 이 프로그램이 직접 실행)
   · 스마트스토어 API 키 저장(잠겨 옴)·연결 테스트·이 PC 공인 IP 확인·수집 파일 목록
   · 잠금: 이 PC에서 만든 RSA-2048 키(개인키는 DPAPI 로 v3link.json 에). 순수 파이썬 RSA-OAEP(SHA-256) — 추가 설치 없음
+
+웹연결 업데이트 (1.4, 2026-10-29) — V3 [설정] 탭 [웹연결 업데이트]
+  · 저장소(w-works-official/Picking_System)의 정해진 커밋 파일만 받음 → 해시 확인 → 문법 확인 → 지금 파일은 _patch 폴더에 백업
+    → 같은 자리에서 바꿔 씀(드라이브 이름 겹침 (1) 안 생김) → 이 프로그램 종료 → 감시 루프가 30초 뒤 새 버전으로 다시 켬
 """
-import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets
+import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.3.1 (2026-10-29)"
+LINK_VER = "1.4 (2026-10-29)"
 POLL_SEC = 15
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
@@ -643,6 +647,52 @@ def run_files_job(cfg):
     return True, f"{out_dir} · 최근 {len(files)}개", {"files": files, "dir": out_dir}
 
 
+# ───────── 웹연결 업데이트 ─────────
+UPDATE_URL_RE = re.compile(r"^https://raw\.githubusercontent\.com/w-works-official/Picking_System/[0-9a-f]{40}/docs/g1_v3_link\.py$")
+UPDATE_BACKUP_DIR = "_patch"            # 수집기 폴더 안 (이미 있는 폴더)
+
+
+def fetch_bytes(url):
+    import requests
+    r = requests.get(url, timeout=60)
+    if r.status_code != 200:
+        raise RuntimeError(f"받기 실패 HTTP {r.status_code}")
+    return r.content
+
+
+def run_update_job(job, say, fetch=None):
+    body = job.get("body") or {}
+    url, want = str(body.get("url") or ""), str(body.get("sha256") or "").lower()
+    if not UPDATE_URL_RE.match(url) or not re.fullmatch(r"[0-9a-f]{64}", want):
+        return False, "업데이트 주소·확인값이 맞지 않아 받지 않았습니다", {}
+    data = (fetch or fetch_bytes)(url)
+    got = hashlib.sha256(data).hexdigest()
+    if got != want:
+        return False, "받은 파일 확인값이 다릅니다 — 바꾸지 않았습니다 (다시 시도)", {}
+    src = data.decode("utf-8")
+    compile(src, "g1_v3_link.py", "exec")                 # 문법 오류면 여기서 멈춤 (바꾸지 않음)
+    m = re.search(r'LINK_VER = "([^"]+)"', src)
+    if not m:
+        return False, "웹연결 파일이 아닙니다 — 바꾸지 않았습니다", {}
+    new_ver = m.group(1)
+    me = os.path.abspath(__file__)
+    old = open(me, "rb").read()
+    if hashlib.sha256(old).hexdigest() == got:
+        return True, f"이미 최신입니다 ({LINK_VER})", {"update": {"same": True}}
+    bdir = os.path.join(HERE, UPDATE_BACKUP_DIR)
+    if not os.path.isdir(bdir):
+        bdir = HERE
+    stamp = f"{datetime.datetime.now():%y%m%d_%H%M%S}"
+    backup = os.path.join(bdir, f"g1_v3_link_{LINK_VER.split()[0]}_{stamp}.py.bak")
+    shutil.copy2(me, backup)
+    tmp = me + ".new"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, me)                                    # 같은 파일을 바꿔 씀 (드라이브에 새 파일이 생기지 않음)
+    say(f"⬆ 웹연결 {LINK_VER} → {new_ver} (백업: {os.path.basename(backup)})")
+    return True, f"{LINK_VER.split()[0]} → {new_ver.split()[0]} 바꿈 · 30초 안에 새 버전으로 다시 켜짐", {"update": {"from": LINK_VER, "to": new_ver, "backup": os.path.basename(backup)}}
+
+
 def handle(link, job, cfg, say, d=None):
     say(f"▶ 요청 {job['id']} ({job['kind']}) 시작")
     results, count, data = [], 0, {}
@@ -674,6 +724,8 @@ def handle(link, job, cfg, say, d=None):
             ip = public_ip(); ok, msg, data = True, f"이 PC 공인 IP: {ip} — 커머스API센터 > 애플리케이션 > API 호출 IP 에 추가", {"ip": ip}
         elif kind == "files":
             ok, msg, data = run_files_job(cfg)
+        elif kind == "update":
+            ok, msg, data = run_update_job(job, say)
         else:
             ok, msg, count = run_collect_job(job, cfg, say)
     except Exception as e:
@@ -681,6 +733,7 @@ def handle(link, job, cfg, say, d=None):
         say(traceback.format_exc())
     link.call("finish", id=job["id"], ok=ok, message=msg, results=results, count=count, data=data)
     say(f"■ 요청 {job['id']} {'완료' if ok else '실패'} — {msg}")
+    return bool(ok and (data.get("update") or {}).get("to"))   # True = 새 버전으로 바꿨으니 다시 켜야 함
 
 
 def run_auto(link, cfg, say, pc):
@@ -916,12 +969,18 @@ def _loop(G, say, beat, once, bg):
             job = js.get("job")
             if job:
                 beat.set("busy", job.get("id", ""), JOB_LABEL.get(job.get("kind"), job.get("kind", "")))
+                restart = False
                 try:
-                    handle(link, job, cfg, say, d)
+                    restart = handle(link, job, cfg, say, d)
                     if job.get("kind") in ("settings", "apiKey"):
                         nxt = None                      # 자동 수집 시각 다시 계산
                 finally:
                     beat.set("idle", "웹 요청 기다리는 중")
+                if restart:
+                    save_link(d)
+                    beat.set("busy", "업데이트", "다시 켜는 중")
+                    say("새 버전으로 다시 켜려고 끝냅니다" + (" — 감시 루프가 30초 안에 다시 켭니다" if bg else " — 이 창을 닫고 다시 실행해 주세요"))
+                    return
                 push_new_files(link, cfg["out_dir"], d, say)
                 save_link(d)
         except Exception as e:
@@ -937,7 +996,8 @@ def _loop(G, say, beat, once, bg):
 
 
 JOB_LABEL = {"collect": "게시판 수집", "test": "테스트 수집", "reviews": "리뷰 수집", "testReviews": "리뷰 테스트", "register": "📤 등록",
-             "login": "🔑 로그인", "settings": "설정 저장", "apiTest": "API 테스트", "apiKey": "API 키 저장", "ip": "공인 IP", "files": "파일 목록"}
+             "login": "🔑 로그인", "settings": "설정 저장", "apiTest": "API 테스트", "apiKey": "API 키 저장", "ip": "공인 IP", "files": "파일 목록",
+             "update": "웹연결 업데이트"}
 
 
 if __name__ == "__main__":

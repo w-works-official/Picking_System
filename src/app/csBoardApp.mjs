@@ -9,7 +9,11 @@ import {
   CS_BOARD_SAVE_DELAY_MS,
   CS_BOARD_STORAGE_KEY,
   CS_LOGIN_VENDORS,
+  LINK_REPO,
   autoSettings,
+  linkRawUrl,
+  linkVersionNewer,
+  linkVersionOf,
   csPcPayload,
   latestJob,
   canCycleBox,
@@ -41,11 +45,11 @@ import {
   withEdit,
   withHold,
   withPick,
-} from "../domain/csBoard.mjs?v=20261029-cs-full1";
+} from "../domain/csBoard.mjs?v=20261029-cs-update1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
-import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261029-cs-full1";
-import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-full1";
-import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261029-cs-full1";
+import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261029-cs-update1";
+import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
+import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261029-cs-update1";
 
 const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
 const REVIEW_VENDORS = ["지그재그", "에이블리", "메이크샵"];
@@ -315,6 +319,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     pollTimer: null,
     requesting: false,
     guideFocus: "",
+    update: null,
   };
 
   // ---------- 알림·로그 ----------
@@ -339,6 +344,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $$("[data-left-tab]").forEach((b) => { const on = b.dataset.leftTab === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
     $$("[data-left-panel]").forEach((p) => { p.hidden = p.dataset.leftPanel !== tab; });
     if (tab === "settings" && state.connected && !state.sample) loadUsage();
+    if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
   }
 
   const RIGHT_COLORS = { board: "#2563eb", review: "#ea8a00", msn: "#16a34a" };
@@ -480,6 +486,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     fill("#cs-set-slug", view?.zzSlug);
     fill("#cs-set-browser", view?.showBrowser);
     renderPcPanels();
+    renderUpdate();
   }
 
   // ---------- 수집기 PC에 시키는 일 (로그인·설정·자동 수집·API·IP·파일) ----------
@@ -555,6 +562,60 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       if (lastFiles) files.innerHTML = `<div class="cs-note">${escapeHtml(lastFiles.message)} · ${escapeHtml(shortDate(lastFiles.ended || lastFiles.at))} 기준</div>`
         + (list.length ? `<table class="cs-files-table"><thead><tr><th>파일</th><th>크기</th><th>시각</th></tr></thead><tbody>${list.map((f) => `<tr><td>${escapeHtml(f.name)}</td><td>${Math.max(1, Math.round((Number(f.size) || 0) / 1024))}KB</td><td>${escapeHtml(f.at)}</td></tr>`).join("")}</tbody></table>` : "");
     }
+  }
+
+  // ⬆ 웹연결 업데이트: 저장소 main 의 최신 커밋 파일 → 확인값(sha256)·버전 → 수집기 PC에 요청
+  function currentLinkVersion() {
+    const su = setupNow();
+    if (su?.link) return su.link;
+    return (String(state.collector?.version || "").match(/연결 ([0-9.]+(?: \([^)]*\))?)/) || [])[1] || "";
+  }
+
+  async function checkUpdate({ quiet = false } = {}) {
+    try {
+      const commit = await doFetch(`https://api.github.com/repos/${LINK_REPO}/commits/main`, { headers: { Accept: "application/vnd.github+json" } }).then((r) => {
+        if (!r.ok) throw new Error(`GitHub 응답 ${r.status}`);
+        return r.json();
+      });
+      const url = linkRawUrl(commit.sha);
+      const bytes = new Uint8Array(await doFetch(url).then((r) => {
+        if (!r.ok) throw new Error(`파일 받기 ${r.status}`);
+        return r.arrayBuffer();
+      }));
+      const digest = new Uint8Array(await window.crypto.subtle.digest("SHA-256", bytes));
+      const sha256 = [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
+      const ver = linkVersionOf(new TextDecoder().decode(bytes));
+      if (!ver) throw new Error("웹연결 파일이 아닙니다");
+      state.update = { url, sha256, ver, commit: commit.sha.slice(0, 7), at: clock() };
+      if (!quiet) toast(`최신 웹연결: ${ver.split(" ")[0]}`);
+    } catch (error) {
+      state.update = { error: error.message, at: clock() };
+      if (!quiet) toast(`최신 버전 확인 실패: ${error.message}`);
+    }
+    renderUpdate();
+  }
+
+  function renderUpdate() {
+    const note = $("#cs-update-state");
+    const run = $("#cs-update-run");
+    if (!note || !run) return;
+    const cur = currentLinkVersion();
+    const u = state.update;
+    const busy = state.jobs.find((j) => j.kind === "update" && isJobActive(j));
+    const newer = !!(u?.ver && cur && linkVersionNewer(u.ver, cur));
+    note.textContent = `수집기 PC 버전: ${cur ? cur.split(" ")[0] : "확인 전 (수집기 PC 연결 후)"}`
+      + (u?.error ? ` · 최신 확인 실패 (${u.error})` : u?.ver ? ` · 최신: ${u.ver.split(" ")[0]} (${u.commit}, ${u.at} 확인)${newer ? " — 새 버전 있음" : " — 최신입니다"}` : "")
+      + (busy ? ` · 업데이트 ${busy.status}…` : "");
+    const on = live() && newer && !busy && !state.requesting;
+    run.disabled = !on;
+    run.classList.toggle("is-pending", !on);
+    run.textContent = newer ? `⬆ 업데이트 (${cur.split(" ")[0]} → ${u.ver.split(" ")[0]})` : "⬆ 업데이트";
+  }
+
+  function runUpdate() {
+    const u = state.update;
+    if (!u?.sha256) return;
+    requestPc("update", { url: u.url, sha256: u.sha256, ver: u.ver }, `웹연결 ${u.ver.split(" ")[0]} 업데이트 요청을 보냈습니다`);
   }
 
   function saveSettings() {
@@ -1332,6 +1393,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-login")?.addEventListener("click", (e) => { if (e.target.id === "cs-login") closeLogin(); });
     $("#cs-excel-file")?.addEventListener("change", (e) => importExcel(e.target.files?.[0]));
     $("#cs-set-save")?.addEventListener("click", saveSettings);
+    $("#cs-update-check")?.addEventListener("click", () => checkUpdate());
+    $("#cs-update-run")?.addEventListener("click", runUpdate);
     $("#cs-auto-toggle")?.addEventListener("click", () => saveAuto(!setupNow()?.autoOn));
     ["#cs-auto-hour", "#cs-auto-minute", "#cs-auto-interval", "#cs-set-days", "#cs-set-review-days", "#cs-set-slug", "#cs-set-browser"].forEach((sel) => {
       $(sel)?.addEventListener("input", (e) => { e.target.dataset.dirty = "1"; });

@@ -440,7 +440,32 @@ try {
       console.log("  (엑셀 시험 건너뜀 — 이 PC에 xlsx 부품 없음)");
     }
     const stillRed = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => el.textContent.trim()));
-    assert.deepEqual(stillRed.sort(), ["감시 시작", "업로드"].sort(), "only messenger watch and review upload stay red");
+    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["감시 시작", "업로드"].sort(), "only messenger watch and review upload stay red (update waits for a newer version)");
+
+    // ⬆ 웹연결 업데이트: 저장소 main 최신 커밋 파일 → 확인값 → 수집기 PC에 요청
+    const fakeCommit = "d".repeat(40);
+    const fakeLink = 'LINK_VER = "9.9 (2099-01-01)"\nprint("hi")\n';
+    await context.route("https://api.github.com/repos/w-works-official/Picking_System/commits/main", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ sha: fakeCommit }), headers: { "Access-Control-Allow-Origin": "*" } }));
+    await context.route(`https://raw.githubusercontent.com/w-works-official/Picking_System/${fakeCommit}/docs/g1_v3_link.py`, (route) => route.fulfill({ status: 200, contentType: "text/plain", body: fakeLink, headers: { "Access-Control-Allow-Origin": "*" } }));
+    await page.locator('[data-left-tab="settings"]').click();
+    await page.locator("#cs-update-check").click();
+    await waitText("#cs-update-state", /수집기 PC 버전: 1\.3 · 최신: 9\.9 \(ddddddd[\s\S]*새 버전 있음/);
+    assert.equal(await page.locator("#cs-update-run").isDisabled(), false);
+    assert.match(await page.locator("#cs-update-run").textContent(), /1\.3 → 9\.9/);
+    await page.locator("#cs-update-run").click();
+    await page.locator("#cs-toast", { hasText: "업데이트 요청을 보냈습니다" }).waitFor();
+    const upReq = lastRequest("update");
+    const { createHash } = await import("node:crypto");
+    assert.equal(upReq.options.sha256, createHash("sha256").update(fakeLink).digest("hex"));
+    assert.equal(upReq.options.url, `https://raw.githubusercontent.com/w-works-official/Picking_System/${fakeCommit}/docs/g1_v3_link.py`);
+    const upJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    assert.equal(upJob.kind, "update");
+    gas.post({ action: "finish", token: COLLECTOR, id: upJob.id, ok: true, message: "1.3 → 9.9 바꿈 · 30초 안에 새 버전으로 다시 켜짐" });
+    pollSetup({ link: "9.9 (2099-01-01)" });
+    await reload();
+    await waitText("#cs-update-state", /수집기 PC 버전: 9\.9[\s\S]*최신입니다/);
+    assert.equal(await page.locator("#cs-update-run").isDisabled(), true);
+    await page.screenshot({ path: path.join(output, "cs-board-update.png") });
 
     // 틀린 비밀번호 → 저장된 비밀번호 지움
     await page.locator('[data-left-tab="settings"]').click();

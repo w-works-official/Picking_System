@@ -171,7 +171,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 4 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 5 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -504,6 +504,43 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(cs4.setup.autoOn, true);
   assert.deepEqual(cs4.setup.savedLogins, ["지그재그"]);
   assert.equal(JSON.stringify(cs4).includes("NO"), false);
+}
+
+// ---------- v5: 웹연결 업데이트 요청 · 상품명 요청 ----------
+{
+  const { csPcPayload, linkRawUrl, linkVersionOf, linkVersionNewer } = await import("../src/domain/csBoard.mjs");
+  const commit = "b".repeat(40);
+  const url = linkRawUrl(commit);
+  assert.equal(url, `https://raw.githubusercontent.com/w-works-official/Picking_System/${commit}/docs/g1_v3_link.py`);
+  assert.throws(() => linkRawUrl("main"), /커밋/);
+  assert.equal(linkVersionOf('LINK_VER = "1.4 (2026-10-29)"'), "1.4 (2026-10-29)");
+  assert.equal(linkVersionNewer("1.4 (x)", "1.3.1 (y)"), true);
+  assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
+  assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
+  const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
+  assert.equal(g5.get().version, 5);
+  const sha = "c".repeat(64);
+  assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
+  assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
+  const ur = g5.post({ ...csPcPayload("update", { url, sha256: sha, ver: "1.4 (2026-10-29)" }, "시험"), token: TOKEN });
+  assert.equal(ur.ok, true);
+  const uj = g5.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+  assert.deepEqual(JSON.parse(JSON.stringify(uj.body)), { url, sha256: sha, ver: "1.4 (2026-10-29)" });
+  // 상품명 요청: 규칙 탭(A1)을 만들고, 고치면 그 규칙으로
+  assert.equal(g5.post({ action: "name", token: COLLECTOR, keywords: "x" }).denied, true, "screen token only");
+  assert.equal(g5.post({ action: "name", token: TOKEN, keywords: " " }).ok, false);
+  const nr = g5.post({ action: "name", token: TOKEN, keywords: "써지컬 볼 피어싱 0.8mm 20종", count: 2, editor: "시험" });
+  assert.equal(nr.ok, true);
+  assert.deepEqual(Array.from(nr.names), ["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]);
+  const rulesSheet = g5.sheets.find((x) => x.getName() === "상품명 규칙");
+  assert.match(String(rulesSheet.data[0][0]), /임시/);
+  rulesSheet.data[0][0] = "새 규칙: 반드시 '핑크로켓' 으로 시작";
+  g5.post({ action: "name", token: TOKEN, keywords: "하트 귀걸이" });
+  assert.match(g5.calls.at(-1).payload.system[0].text, /^새 규칙: 반드시/, "edited rules are used right away");
+  assert.match(g5.calls.at(-1).payload.messages[0].content, /하트 귀걸이[\s\S]*5개/, "default 5 names");
+  const logSheet = g5.sheets.find((x) => x.getName() === "상품명 요청");
+  assert.equal(logSheet.data.length, 3, "header + 2 requests kept");
+  assert.equal(g5.post({ action: "usage", token: TOKEN }).usage[Object.keys(g5.post({ action: "usage", token: TOKEN }).usage)[0]].kinds["상품명"], 2);
 }
 
 // ---------- 엑셀 내려받기 / 적용 ----------

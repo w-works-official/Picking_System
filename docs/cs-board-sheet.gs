@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-10-29 v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -21,6 +21,7 @@
  *   - request  (화면)   수집·리뷰 수집·테스트 수집·등록 요청을 [요청] 탭에 한 줄 추가 (같은 종류가 이미 대기 중이면 추가 안 함)
  *   - cancel   (화면)   아직 시작 안 한 요청 취소
  *   - usage    (화면)   날짜별 AI 사용량
+ *   - name     (화면)   상품명 요청: 키워드·메모 → AI 상품명 후보 (규칙은 [상품명 규칙] 탭 A1 — 거기서 고치면 바로 반영, 요청·결과는 [상품명 요청] 탭에 기록)
  *   - ingest   (수집기) 수집한 문의·리뷰 추가·갱신. 이미 있는 줄의 선택·답변안은 건드리지 않음.
  *                       정상 수집된 업체에서 사라진(=답변된) 문의는 "종료" — 다시 나타나면 다시 열림
  *   - close    (수집기) 이미 답변된 문의를 "종료"로
@@ -39,9 +40,25 @@ var COL = { key: 1, vendor: 2, board: 3, id: 4, date: 5, product: 6, status: 7, 
 var JOB_HEADER = ['ID', '종류', '상태', '요청자', '요청시각', '시작시각', '끝시각', '내용', '결과', 'PC'];
 var JOB = { id: 1, kind: 2, status: 3, by: 4, at: 5, started: 6, ended: 7, body: 8, result: 9, pc: 10 };
 var JOB_KINDS = { collect: '게시판 수집', reviews: '리뷰 수집', test: '테스트 수집', testReviews: '테스트 리뷰 수집', register: '등록',
-  login: '로그인', settings: '설정 저장', apiTest: 'API 연결 테스트', apiKey: 'API 키 저장', ip: '공인 IP 확인', files: '수집 파일 목록', auto: '자동 수집' };
-var STAFF_KINDS = ['collect', 'reviews', 'test', 'testReviews', 'register', 'login', 'settings', 'apiTest', 'apiKey', 'ip', 'files'];
-var REPLACE_KINDS = ['login', 'settings', 'apiKey']; // 대기 중인 같은 종류는 새 요청으로 바꿈
+  login: '로그인', settings: '설정 저장', apiTest: 'API 연결 테스트', apiKey: 'API 키 저장', ip: '공인 IP 확인', files: '수집 파일 목록', auto: '자동 수집',
+  update: '웹연결 업데이트' };
+var STAFF_KINDS = ['collect', 'reviews', 'test', 'testReviews', 'register', 'login', 'settings', 'apiTest', 'apiKey', 'ip', 'files', 'update'];
+var REPLACE_KINDS = ['login', 'settings', 'apiKey', 'update']; // 대기 중인 같은 종류는 새 요청으로 바꿈
+// 웹연결 업데이트: 이 저장소의 정해진 커밋 파일만 (주소·해시는 수집기 PC가 다시 확인)
+var UPDATE_URL_RE = /^https:\/\/raw\.githubusercontent\.com\/w-works-official\/Picking_System\/[0-9a-f]{40}\/docs\/g1_v3_link\.py$/;
+var NAME_RULES_SHEET = '상품명 규칙';
+var NAME_LOG_SHEET = '상품명 요청';
+var NAME_LOG_HEADER = ['요청시각', '요청자', '키워드·메모', '개수', '결과'];
+var DEFAULT_NAME_RULES = '당신은 피어싱·귀걸이 쇼핑몰 \'핑크로켓\'의 상품명 담당자입니다. 주신 키워드·메모로 판매용 상품명 후보를 만듭니다.\n' +
+  '\n' +
+  '규칙 (임시 — 대표님 규칙으로 바꿔 쓰세요. 이 칸(A1)을 고치면 바로 반영됩니다)\n' +
+  '- 지금 쓰는 상품명 모양을 따름: 소재 → 특징 → 상품 종류 → 두께·길이 → 종류 수 → 착용 부위 순서로 띄어쓰기로 나열\n' +
+  '  예) 써지컬피어싱 데일리 미니 피어싱 바벨 얇은 바변경 100종 1 귓볼 귓바퀴 이너컨츠 아웃컨츠\n' +
+  '  예) 실버 925 미니 큐빅 볼 피어싱 얇은 0.8mm 120종\n' +
+  '- 검색에 쓰이는 낱말 위주, 특수문자·이모지·과장 표현(최고, 1위 등) 쓰지 않기\n' +
+  '- 50자 안팎, 같은 낱말 반복하지 않기\n' +
+  '- 키워드에 없는 소재·수치는 지어내지 않기';
+
 var SECRET_KINDS = ['login', 'apiKey'];               // 가져가면 [요청] 탭의 암호문을 지움
 var BOARD_VENDORS = ['스마트스토어', '지그재그', '에이블리', '메이크샵'];
 var REVIEW_VENDORS = ['지그재그', '에이블리', '메이크샵'];
@@ -97,7 +114,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 4 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 5 });
 }
 
 function doPost(e) {
@@ -133,7 +150,7 @@ function sameToken_(given, expected) {
 
 function route_(body) {
   var action = String(body.action || '');
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -148,6 +165,7 @@ function route_(body) {
   if (action === 'request') return withLock_(function () { return request_(body); });
   if (action === 'cancel') return withLock_(function () { return cancel_(body); });
   if (action === 'usage') return { ok: true, usage: usage_() };
+  if (action === 'name') return name_(body);
   if (action === 'ingest') {
     var result = withLock_(function () { return ingest_(sheet_(), body.rows, body.snapshot); });
     if (result.ok && result.newKeys && result.newKeys.length && body.autoSuggest !== false) result.suggested = autoSuggest_(result.newKeys);
@@ -683,6 +701,10 @@ function request_(body) {
     var cid = cipher_(options.clientId), sec = cipher_(options.secret);
     if (!cid || !sec) return { ok: false, error: '잠긴(암호화) Client ID·Secret 이 필요합니다. 화면을 새로고침해 주세요.' };
     content = { clientId: cid, secret: sec };
+  } else if (kind === 'update') {
+    var url = String(options.url || ''), sha = String(options.sha256 || '').toLowerCase(), ver = plain_(clean_(options.ver, 40));
+    if (!UPDATE_URL_RE.test(url) || !/^[0-9a-f]{64}$/.test(sha)) return { ok: false, error: '업데이트 파일 주소·확인값이 맞지 않습니다.' };
+    content = { url: url, sha256: sha, ver: ver };
   } else if (kind === 'collect' || kind === 'test' || kind === 'reviews' || kind === 'testReviews') {
     var vendors = Array.isArray(options.vendors) ? options.vendors.map(function (v) { return plain_(clean_(v, 20)); }).filter(String) : [];
     content = { vendors: vendors.slice(0, 4) };
@@ -826,6 +848,53 @@ function releaseRegister_(items, results) {
     }
     sheet.getRange(found.index, COL.status, 1, 1).setValues([[statusOf_(state === '완료' || row.closed, row.drafts, row.choice, reg)]]);
   }
+}
+
+// ---------- 화면: 상품명 요청 (AI) ----------
+function nameRules_() {
+  var book = book_();
+  var sheet = book.getSheetByName(NAME_RULES_SHEET);
+  if (!sheet) {
+    sheet = book.insertSheet(NAME_RULES_SHEET);
+    sheet.appendRow([DEFAULT_NAME_RULES]);
+  }
+  var text = String(sheet.getRange(1, 1, 1, 1).getValues()[0][0] || '').trim();
+  return text || DEFAULT_NAME_RULES;
+}
+
+function name_(body) {
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
+  var keywords = body_(body.keywords, 2000).trim();
+  if (!keywords) return { ok: false, error: '키워드·메모를 넣어 주세요.' };
+  var count = Math.max(1, Math.min(10, Math.floor(Number(body.count)) || 5));
+  var reserved = reserveAi_(1);
+  if (!reserved.allow) return { ok: false, error: '오늘 AI 사용 한도(' + reserved.limit + '회)를 다 썼습니다.' };
+  var model = prop_('CLAUDE_MODEL') || DEFAULT_MODEL;
+  var payload = {
+    model: model,
+    max_tokens: 1500,
+    system: [{ type: 'text', text: nameRules_() + '\n\n출력은 JSON 문자열 배열 하나만. 다른 설명 없이: ["상품명1", "상품명2", ...]', cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: '키워드·메모:\n' + keywords + '\n\n상품명 후보 ' + count + '개를 서로 다르게 만들어 주세요.' }],
+  };
+  var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, payload: JSON.stringify(payload),
+  });
+  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+  var data = parse_(response.getContentText(), {});
+  var text = '';
+  (Array.isArray(data.content) ? data.content : []).forEach(function (c) { if (c && c.type === 'text') text += c.text; });
+  recordUsage_(data.usage, model, '상품명');
+  var names = answersFrom_(text, count).map(function (n) { return body_(n, 200).trim(); }).filter(String);
+  if (!names.length) return { ok: false, error: 'AI 가 상품명을 만들지 못했습니다. 다시 눌러 주세요.' };
+  withLock_(function () {
+    var book = book_();
+    var log = book.getSheetByName(NAME_LOG_SHEET);
+    if (!log) { log = book.insertSheet(NAME_LOG_SHEET); log.appendRow(NAME_LOG_HEADER); log.setFrozenRows(1); }
+    log.appendRow([new Date(), clean_(body.editor, 40), clean_(keywords, 2000), count, clean_(names.join('\n'), 5000)]);
+  });
+  return { ok: true, names: names };
 }
 
 // ---------- 수집기: 요청 가져가기·결과 ----------

@@ -419,4 +419,39 @@ su = L.setup_info({**cfg, "auto_on": True}, True, d14, datetime.datetime(2026, 1
 assert su["pub_key"] == pub and su["saved_logins"] == ["지그재그"] and su["auto_on"] is True and su["next_auto"] == "10-29 10:00"
 assert "good" not in json.dumps(su, ensure_ascii=False) and "rsa" not in json.dumps(su)
 
+# 21) 웹연결 업데이트: 저장소 커밋 파일만 · 해시 확인 · 문법 확인 · 백업 후 같은 자리 교체 · 다시 켜기 신호
+import hashlib, shutil
+up = os.path.join(tmp, "upd")
+os.makedirs(os.path.join(up, "_patch"))
+me = os.path.join(up, "g1_v3_link.py")
+shutil.copy2(os.path.join(ROOT, "docs", "g1_v3_link.py"), me)
+L.__file__, L.HERE = me, up
+URL = "https://raw.githubusercontent.com/w-works-official/Picking_System/" + "a" * 40 + "/docs/g1_v3_link.py"
+newsrc = open(me, encoding="utf-8").read().replace(L.LINK_VER, "9.9 (2099-01-01)").encode("utf-8")
+sha = hashlib.sha256(newsrc).hexdigest()
+job = lambda **b: {"id": "JU", "kind": "update", "body": dict(url=URL, sha256=sha, **b)}
+ok, msg, data = L.run_update_job({"body": {"url": URL.replace("w-works-official", "evil"), "sha256": sha}}, say, fetch=lambda u: newsrc)
+assert not ok and "받지 않았습니다" in msg, "only this repository"
+ok, msg, data = L.run_update_job(job(), say, fetch=lambda u: newsrc + b"#")
+assert not ok and "확인값" in msg and open(me, "rb").read() != newsrc, "hash mismatch keeps the old file"
+broken = b"def x(:\n"
+try:
+    L.run_update_job({"body": {"url": URL, "sha256": hashlib.sha256(broken).hexdigest()}}, say, fetch=lambda u: broken)
+    raise AssertionError("syntax errors must stop the update")
+except SyntaxError:
+    pass
+assert b"9.9 (2099" not in open(me, "rb").read()
+ok, msg, data = L.run_update_job(job(), say, fetch=lambda u: newsrc)
+assert ok and data["update"]["to"] == "9.9 (2099-01-01)" and open(me, "rb").read() == newsrc
+baks = os.listdir(os.path.join(up, "_patch"))
+assert len(baks) == 1 and baks[0].startswith("g1_v3_link_") and baks[0].endswith(".py.bak"), baks
+assert not os.path.exists(me + ".new")
+# handle 가 다시 켜기 신호를 돌려줌
+link = FakeLink()
+open(me, "wb").write(open(os.path.join(ROOT, "docs", "g1_v3_link.py"), "rb").read())
+L.fetch_bytes = lambda u: newsrc
+assert L.handle(link, job(), cfg, say, d14) is True and link.sent[-1][1]["ok"] is True
+assert L.handle(link, job(), cfg, say, d14) is False, "already the same file → no restart"
+assert "이미 최신" in link.sent[-1][1]["message"]
+
 print("g1V3Link.test: OK")

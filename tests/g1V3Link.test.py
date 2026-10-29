@@ -230,4 +230,24 @@ L._loop(G, logs.append, b, once=True, bg=True)
 assert json.load(open(L.beat_path(), encoding="utf-8"))["state"] == "idle"
 L.Link = orig
 
+# 13) 처음 설정 상태 요약 — 비밀값은 안 보냄
+seen = []
+
+
+class SpyLink(FakeLink):
+    def call(self, action, **body):
+        seen.append((action, body)); return {"ok": True}
+
+
+L.Link = lambda ep, tok, say=print: SpyLink()
+cfg["ss_client_id"], cfg["ss_secret_enc"], cfg["claude_key"], cfg["login_ok"] = "cid", "enc:secret", "enc:key", True
+L._SETUP_CACHE["info"] = None
+L._loop(G, logs.append, b, once=True, bg=True)
+L.Link = orig
+poll = [b2 for a, b2 in seen if a == "poll"][0]
+su = poll["setup"]
+assert poll["version"].endswith("· 창 없이") and su["bg"] is True and su["api"] == "own" and su["claude"] is True and su["login_ok"] is True
+assert su["vendors"] == ["스마트스토어", "지그재그", "에이블리", "메이크샵"] and su["dir"] == L.HERE
+assert "secret" not in json.dumps(poll, ensure_ascii=False) and "enc:key" not in json.dumps(poll, ensure_ascii=False)
+
 print("g1V3Link.test: OK")

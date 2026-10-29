@@ -255,6 +255,40 @@ def handle(link, job, cfg, say):
     say(f"■ 요청 {job['id']} {'완료' if ok else '실패'} — {msg}")
 
 
+# ───────── 처음 설정 상태 (웹 [설정] 탭 안내창의 ✅/⬜ 용) ─────────
+STARTUP_VBS = os.path.join(os.environ.get("APPDATA") or "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "G1웹연결_백그라운드.vbs")
+_SETUP_CACHE = {"at": 0, "info": None, "lnk": None}
+
+
+def setup_info(cfg, bg=False):
+    """수집기 PC 준비 상태 요약 (비밀값은 보내지 않음 — 있다/없다만). 1분에 한 번만 다시 계산"""
+    if _SETUP_CACHE["info"] is not None and time.time() - _SETUP_CACHE["at"] < 60:
+        return dict(_SETUP_CACHE["info"], bg=bool(bg))
+    G = _G()
+    parts, icon = None, None
+    try:
+        import g1_setup as SU
+        parts = not SU.missing_parts() and SU.has_pw_browser()
+        if _SETUP_CACHE["lnk"] is None:
+            _SETUP_CACHE["lnk"] = SU.desktop_lnk()
+        icon = os.path.exists(_SETUP_CACHE["lnk"])
+    except Exception:
+        pass
+    api = "own" if (cfg.get("ss_client_id") and cfg.get("ss_secret_enc")) else (
+        "e1" if os.path.exists(os.path.join(getattr(G, "E1_DIR", ""), "api_common.py")) else "")
+    info = dict(
+        dir=HERE, out_dir=str(cfg.get("out_dir") or "")[:160], days=int(cfg.get("days") or 0),
+        review_days=int(cfg.get("review_days") or 0), zz_slug=str(cfg.get("zz_slug") or "")[:40],
+        show_browser=bool(cfg.get("show_browser")), auto_start=str(cfg.get("auto_start") or ""), interval=int(cfg.get("interval") or 0),
+        vendors=[v for v, on in (cfg.get("vendors") or {}).items() if on],
+        review_vendors=[v for v, on in (cfg.get("review_vendors") or {}).items() if on],
+        login_ok=bool(cfg.get("login_ok")), api=api, claude=bool(cfg.get("claude_key")),
+        parts=parts, icon=icon, autostart=os.path.exists(STARTUP_VBS), collector=str(G.VER), link=LINK_VER,
+    )
+    _SETUP_CACHE.update(at=time.time(), info=info)
+    return dict(info, bg=bool(bg))
+
+
 # ───────── 상태 신호 (트레이 아이콘용) ─────────
 def beat_path():
     return os.path.join(_G().BASE, "v3link_beat.json")
@@ -403,7 +437,8 @@ def _loop(G, say, beat, once, bg):
         try:
             push_new_files(link, cfg["out_dir"], d, say)
             save_link(d)
-            js = link.call("poll", pc=pc, version=f"{G.VER} / 연결 {LINK_VER}", busy=False)
+            js = link.call("poll", pc=pc, version=f"{G.VER} / 연결 {LINK_VER}{' · 창 없이' if bg else ''}", busy=False,
+                           setup=setup_info(cfg, bg))
             if fails:
                 say("✓ 시트 연결 다시 됨")
             fails = 0

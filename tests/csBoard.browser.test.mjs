@@ -44,7 +44,7 @@ try {
     await context.route("**/*", (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort("blockedbyclient")));
     const page = await context.newPage();
     page.on("pageerror", (e) => pageErrors.push(e.message));
-    await page.goto(`${origin}/cs/board/`);
+    await page.goto(`${origin}/cs/`);
     await page.locator("#cs-board-list [data-card]").first().waitFor();
     assert.equal(await page.locator("#cs-connection").textContent(), "🧪 가상셋팅");
     assert.equal(await page.locator("#cs-board-list [data-card]").count(), 4);
@@ -55,8 +55,9 @@ try {
     assert.deepEqual(boxes.map((b) => [b[2], b[3]]), [[80, 32], [80, 32], [80, 32]]);
     assert.ok(Math.abs(boxes[0][0] - 288) <= 1 && Math.abs(boxes[0][1] - 19) <= 1, `nav spot ${boxes[0]}`);
     assert.equal(await page.locator("#workspace-cs-link").evaluate((el) => getComputedStyle(el).backgroundColor), "rgb(190, 24, 93)");
-    assert.equal(await page.locator("#workspace-picking-link").getAttribute("href"), "../../");
-    assert.equal(await page.locator("#workspace-purchase-link").getAttribute("href"), "../../purchase/");
+    assert.equal(await page.locator("#workspace-picking-link").getAttribute("href"), "../");
+    assert.equal(await page.locator("#workspace-purchase-link").getAttribute("href"), "../purchase/");
+    assert.equal(await page.locator(".cs-legacy-link").getAttribute("href"), "./legacy.html");
 
     // 빨간 미작동 버튼: 모두 disabled, 빨간 글씨, 이유 표시
     const pending = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => ({ disabled: el.disabled, color: getComputedStyle(el).color, title: el.title, text: el.textContent.trim() })));
@@ -141,7 +142,7 @@ try {
     });
     const page = await context.newPage();
     page.on("pageerror", (e) => pageErrors.push(e.message));
-    await page.goto(`${origin}/cs/board/`);
+    await page.goto(`${origin}/cs/`);
     await page.locator("#cs-board-list [data-card]").first().waitFor();
     assert.equal(await page.locator("#cs-connection").textContent(), "연결됨 · 2건");
     assert.equal(requests[0].action, "list");

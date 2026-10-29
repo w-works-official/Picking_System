@@ -24,7 +24,14 @@ async function pickingReady(page) {
   await page.waitForFunction(() => document.querySelectorAll("#order-list [data-slot-key]").length > 0);
 }
 
+// 2026-10-29: CS 관리 첫 화면 = CS 자동화(cs/index.html). 기존 CS 화면은 cs/legacy.html 로 보관
 async function csReady(page) {
+  await page.locator("#cs-board-app").waitFor();
+  await page.locator("#cs-board-list [data-card]").first().waitFor();
+  assert.equal(await page.locator("#order-list").count(), 0, "Picking runtime must not share the CS DOM");
+}
+
+async function legacyCsReady(page) {
   await page.locator('[data-testid="company-workspace"]').waitFor();
   await page.locator("[data-inquiry-id]").first().waitFor();
   assert.equal(await page.locator("#order-list").count(), 0, "Picking runtime must not share the CS DOM");
@@ -171,6 +178,16 @@ try {
     await clickAndWait(page, "#workspace-picking-link", "/Picking_System/"); await pickingReady(page);
   }
   pass("desktop-tablet-mobile-navigation-and-independent-cs-layout");
+
+  // 보관된 기존 CS 화면: 그대로 열리고, 상단 버튼이 같은 곳으로 감
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await page.goto(`${url}cs/legacy.html?write=1&events=0`, { waitUntil: "networkidle" });
+  await legacyCsReady(page);
+  const legacyLinks = await page.evaluate(() => ["picking", "cs", "purchase"].map(id => new URL(document.getElementById(`workspace-${id}-link`).getAttribute("href"), location.href).pathname));
+  assert.deepEqual(legacyLinks, ["/Picking_System/", "/Picking_System/cs/", "/Picking_System/purchase/"]);
+  await screenshot(page, "cs-legacy.png");
+  await clickAndWait(page, "#workspace-cs-link", "/Picking_System/cs/"); await csReady(page);
+  pass("legacy-cs-screen-kept-at-cs-legacy-html");
 
   assert.deepEqual(report.externalRequests, [], "All integrated preview resources must stay local");
   assert.deepEqual(report.businessRequests, [], "Browser must attempt zero business API requests");

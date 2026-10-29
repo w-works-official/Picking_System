@@ -28,7 +28,7 @@ import { loadCsBoardScript } from "./helpers/csBoardFakeSheet.mjs";
 
 // 공개 저장소: 주소는 비어 있거나 Apps Script 웹앱 주소만, 토큰·키는 코드에 없음
 assert.ok(CS_BOARD_ENDPOINT === "" || /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(CS_BOARD_ENDPOINT));
-for (const file of ["../src/domain/csBoard.mjs", "../src/app/csBoardApp.mjs", "../docs/cs-board-sheet.gs", "../cs/board/index.html", "../src/domain/csBoardSamples.mjs"]) {
+for (const file of ["../src/domain/csBoard.mjs", "../src/app/csBoardApp.mjs", "../docs/cs-board-sheet.gs", "../cs/index.html", "../src/domain/csBoardSamples.mjs"]) {
   const text = await readFile(new URL(file, import.meta.url), "utf8");
   assert.doesNotMatch(text, /sk-ant-[A-Za-z0-9]/, `${file}: no API key`);
 }
@@ -112,11 +112,13 @@ assert.equal(escapeHtml(`"'&`), "&quot;&#39;&amp;");
 assert.match(slotHtml({ messenger: "톡톡", vendor: "스마트스토어", customer: "김**", at: "10:00", history: [{ who: "them", text: "<b>" }], picks: ["a", "b"], used: { A: 0, B: 1, next: 2 }, answer: "" }, 0), /is-pending" disabled title="개발 예정 — 실제 메신저 전송">↵ 보내기/);
 
 // 화면: 작동 안 하는 버튼은 모두 disabled + is-pending (빨간 글씨)
-const page = await readFile(new URL("../cs/board/index.html", import.meta.url), "utf8");
+const page = await readFile(new URL("../cs/index.html", import.meta.url), "utf8");
 const pendingButtons = page.match(/<button[^>]*is-pending[^>]*>/g) || [];
 assert.ok(pendingButtons.length >= 20, "mockup buttons present");
 for (const tag of pendingButtons) assert.match(tag, /\sdisabled(\s|>)/, `pending button must be disabled: ${tag}`);
-assert.match(page, /data-workspace-base="\.\.\/\.\.\/"/);
+assert.match(page, /data-workspace-base="\.\.\/"/);
+assert.match(page, /href="\.\/legacy\.html"/, "old CS screen kept and linked");
+assert.doesNotMatch(page, /\.\.\/\.\.\//, "cs/index.html is one level down");
 assert.match(page, /📥 엑셀 적용/, "matches collector v9.1 buttons");
 assert.doesNotMatch(page, /<button[^>]*>📄 답변안 엑셀 열기/, "v9.1 removed the left excel/approve buttons");
 

@@ -215,9 +215,11 @@
       "sha256": "e6d2e59b7b5bbb0342e0fb496dfc262decbfe4426bbb7b047aec8d467d1dc6f7"
     },
     {
-      "path": "index.html",
+      "path": "legacy.html",
       "bytes": 665,
-      "sha256": "2c9a3d3a8a5d6df35a3c41b1520fa1e5d78572e949207ea0189c967c97a16780"
+      "sha256": "2c9a3d3a8a5d6df35a3c41b1520fa1e5d78572e949207ea0189c967c97a16780",
+      "patch": "2026-10-29 System V3: CS 관리 첫 화면을 CS 자동화(cs/index.html)로 바꾸면서 이 빌드의 index.html 을 legacy.html 로 이름만 바꿔 보관(같은 폴더라 assets·링크 경로 그대로). 10-28~29 Pretendard 글꼴 링크 추가분 포함"
     }
-  ]
+  ],
+  "legacyEntry": "legacy.html"
 }

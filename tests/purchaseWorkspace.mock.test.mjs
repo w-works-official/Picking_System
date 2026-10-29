@@ -11,11 +11,7 @@ assert.equal(workspaceHref("purchase", "?write=1&token=x"), "./purchase/?write=1
 assert.equal(workspaceHref("picking", "", "../"), "../");
 assert.equal(workspaceHref("cs", "?events=1", "../"), "../cs/?events=1");
 assert.equal(workspaceHref("purchase", "", "../"), "../purchase/");
-assert.equal(workspaceHref("purchase", "", "https://evil.invalid/"), "./purchase/", "base is limited to ./ or ../ (up to 3)");
-assert.equal(workspaceHref("picking", "?write=1", "../../"), "../../?write=1", "cs/board/ is two levels down");
-assert.equal(workspaceHref("cs", "", "../../"), "../../cs/");
-assert.equal(workspaceHref("cs", "", "../../../../"), "./cs/");
-assert.equal(workspaceHref("cs", "", "..//"), "./cs/");
+assert.equal(workspaceHref("purchase", "", "https://evil.invalid/"), "./purchase/", "base is limited to ./ or ../");
 assert.throws(() => workspaceHref("hub"));
 assert.equal(safeWorkspaceSearch("?write=1&write=0&returnUrl=x"), "?write=0");
 

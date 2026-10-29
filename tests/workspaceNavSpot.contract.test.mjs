@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const read = (p) => readFile(new URL(`../${p}`, import.meta.url), "utf8");
 const [navCss, csHtml, index, purchase, boot, loginCss, manifest] = await Promise.all([
-  read("src/styles/workspaceNavigation.css"), read("cs/index.html"), read("index.html"), read("purchase/index.html"),
+  read("src/styles/workspaceNavigation.css"), read("cs/legacy.html"), read("index.html"), read("purchase/index.html"),
   read("src/app/pickingBootstrap.mjs"), read("src/styles/pickingLogin.css"), read("cs/artifact-manifest.json"),
 ]);
 
@@ -18,7 +18,11 @@ assert.match(csCss, /\.company-sample \.topbar\{justify-content:flex-start;colum
 assert.match(csCss, /company-workspace-nav a\[aria-current=page\]\{background:#be185d;/, "CS 관리 = 진한 핑크 유지");
 assert.ok(JSON.parse(manifest).files.some((f) => f.path === `assets/${cssName}`), "manifest points at the served CSS");
 // 같은 글꼴
-for (const html of [index, csHtml, purchase]) assert.match(html, /pretendard\/1\.3\.9\/static\/pretendard\.css/);
+// 2026-10-29: CS 관리 첫 화면 = CS 자동화(cs/index.html), 기존 화면은 cs/legacy.html 로 보관
+const csNew = await read("cs/index.html");
+assert.match(csNew, /href="\.\/legacy\.html"/);
+assert.ok(JSON.parse(manifest).files.some((f) => f.path === "legacy.html"), "manifest records the kept entry");
+for (const html of [index, csHtml, csNew, purchase]) assert.match(html, /pretendard\/1\.3\.9\/static\/pretendard\.css/);
 assert.match(index, /workspaceNavigation\.css\?v=20261029-equal-width1/);
 assert.match(purchase, /workspaceNavigation\.css\?v=20261029-equal-width1/);
 // 세 버튼 같은 폭

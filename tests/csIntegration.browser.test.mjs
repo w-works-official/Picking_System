@@ -27,7 +27,7 @@ async function pickingReady(page) {
 // 2026-10-29: CS 관리 첫 화면 = CS 자동화(cs/index.html). 기존 CS 화면은 cs/legacy.html 로 보관
 async function csReady(page) {
   await page.locator("#cs-board-app").waitFor();
-  await page.locator("#cs-board-list [data-card]").first().waitFor();
+  await page.locator("#cs-board-list [data-card], #cs-board-list .cs-empty").first().waitFor(); // 시트 주소 등록 후에는 비밀번호 안내가 먼저 보임
   assert.equal(await page.locator("#order-list").count(), 0, "Picking runtime must not share the CS DOM");
 }
 

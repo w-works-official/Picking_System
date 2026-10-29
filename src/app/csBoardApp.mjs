@@ -37,7 +37,7 @@ import {
   withEdit,
   withHold,
   withPick,
-} from "../domain/csBoard.mjs?v=20261029-cs-link1";
+} from "../domain/csBoard.mjs?v=20261029-cs-endpoint1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 
 const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];

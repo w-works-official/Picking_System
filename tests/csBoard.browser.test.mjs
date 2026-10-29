@@ -14,6 +14,8 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".mjs": "text/javascript; c
 const ENDPOINT = "https://script.google.com/macros/s/TEST_CS_BOARD/exec";
 const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
+// 시험에서는 실제 시트 대신 가짜 주소(또는 빈 주소 = 시트 연결 전)로 바꿔서 띄움
+const withEndpoint = (source, url) => source.replace(/export const CS_BOARD_ENDPOINT = "[^"]*";/, `export const CS_BOARD_ENDPOINT = "${url}";`);
 
 const server = createServer(async (req, res) => {
   try {
@@ -42,6 +44,8 @@ try {
   {
     const context = await browser.newContext({ viewport: { width: 1500, height: 1000 }, serviceWorkers: "block" });
     await context.route("**/*", (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort("blockedbyclient")));
+    const domainSource = await readFile(path.join(root, "src/domain/csBoard.mjs"), "utf8");
+    await context.route("**/src/domain/csBoard.mjs*", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: withEndpoint(domainSource, "") }));
     const page = await context.newPage();
     page.on("pageerror", (e) => pageErrors.push(e.message));
     await page.goto(`${origin}/cs/`);
@@ -114,6 +118,24 @@ try {
     await context.close();
   }
 
+  // ---------- 1-2) 실제 시트 주소 + 비밀번호 없음 → 비밀번호 안내, 시트에 요청 안 보냄 ----------
+  {
+    const context = await browser.newContext({ viewport: { width: 1500, height: 1000 }, serviceWorkers: "block" });
+    const outside = [];
+    await context.route("**/*", (route) => { const u = new URL(route.request().url()); if (u.origin === origin) return route.continue(); outside.push(u.href); return route.abort("blockedbyclient"); });
+    const page = await context.newPage();
+    page.on("pageerror", (e) => pageErrors.push(e.message));
+    await page.goto(`${origin}/cs/`);
+    await page.locator("#cs-board-list .cs-empty").waitFor();
+    assert.match(await page.locator("#cs-board-list").textContent(), /\[설정\] 탭에서 비밀번호/);
+    assert.equal(await page.locator("#cs-connection").textContent(), "비밀번호 필요");
+    await page.locator('[data-left-tab="settings"]').click();
+    assert.equal(await page.locator("#cs-token-input").isDisabled(), false, "password box usable");
+    assert.match(await page.locator("#cs-endpoint-note").textContent(), /등록됨/);
+    assert.deepEqual(outside.filter((u) => u.includes("script.google.com")), [], "no sheet call without a password");
+    await context.close();
+  }
+
   // ---------- 2) 가짜 시트 연결 ----------
   {
     const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key" }, claude: () => ({ status: 200, text: JSON.stringify(["AI가 만든 답 1", "AI가 만든 답 2"]) }) });
@@ -133,7 +155,7 @@ try {
       return url.origin === origin ? route.continue() : route.abort("blockedbyclient");
     });
     const domain = await readFile(path.join(root, "src/domain/csBoard.mjs"), "utf8");
-    await context.route("**/src/domain/csBoard.mjs*", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: domain.replace('export const CS_BOARD_ENDPOINT = "";', `export const CS_BOARD_ENDPOINT = "${ENDPOINT}";`) }));
+    await context.route("**/src/domain/csBoard.mjs*", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: withEndpoint(domain, ENDPOINT) }));
     await context.route(`${ENDPOINT}*`, async (route) => {
       const body = JSON.parse(route.request().postData() || "{}");
       requests.push(body);

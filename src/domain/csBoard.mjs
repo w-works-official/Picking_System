@@ -5,7 +5,7 @@
 // 이 파일은 화면·네트워크에 손대지 않는 순수 계산만 담당합니다(그리기는 csBoardApp.mjs).
 
 // 대표님이 시트 스크립트를 배포한 뒤 알려주시는 웹앱 주소를 넣습니다. 비어 있으면 기능이 꺼진 상태입니다.
-export const CS_BOARD_ENDPOINT = "";
+export const CS_BOARD_ENDPOINT = "https://script.google.com/macros/s/AKfycbxnqdvAQCrWSHO6NbmJZJQJHqH8WAwhF084t3im5lY4RIdRi7pyC0pJjD03o3ryNJxd/exec";
 export const CS_BOARD_STORAGE_KEY = "system_v3_cs_board";
 export const CS_BOARD_SAVE_DELAY_MS = 800; // 수집기와 같은 자동 저장 간격
 export const CS_BOARD_VIEW_SIZE = 2; // 화면에 보이는 답변 칸 A·B

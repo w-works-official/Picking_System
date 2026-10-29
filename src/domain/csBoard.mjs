@@ -35,7 +35,13 @@ export const CS_STATUS = {
 export const CS_REGISTER_SUPPORTED = ["스마트스토어|상품문의", "스마트스토어|고객문의"];
 
 // 웹에서 수집기 PC에 보내는 요청 종류 (시트 JOB_KINDS 와 같음)
-export const CS_JOB_KINDS = { collect: "게시판 수집", reviews: "리뷰 수집", test: "테스트 수집", testReviews: "테스트 리뷰 수집", register: "등록" };
+export const CS_JOB_KINDS = {
+  collect: "게시판 수집", reviews: "리뷰 수집", test: "테스트 수집", testReviews: "테스트 리뷰 수집", register: "등록",
+  login: "🔑 로그인", settings: "설정 저장", apiTest: "API 연결 테스트", apiKey: "API 키 저장", ip: "공인 IP 확인", files: "수집 파일 목록", auto: "⏰ 자동 수집",
+};
+// 수집기 PC에 시키는 일 (수집·등록 말고) — 로그인·설정·API·IP·파일 목록
+export const CS_PC_KINDS = ["login", "settings", "apiTest", "apiKey", "ip", "files"];
+export const CS_LOGIN_VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
 
 export function isCsBoardTokenValid(token) {
   return /^[A-Za-z0-9_-]{8,128}$/.test(String(token ?? "").trim());
@@ -171,8 +177,43 @@ export function normalizeCsJob(raw = {}) {
     ended: line(raw.ended, 40),
     pc: line(raw.pc, 60),
     message: line(result.message, 300),
+    progress: result.progress === true,
     count: Number(raw.body?.count ?? (raw.body?.items || []).length) || 0,
+    data: result.data && typeof result.data === "object" ? result.data : null,
   };
+}
+
+// 수집기 PC 일 요청 (로그인 비밀번호·API 키는 이미 잠근 값만 받음)
+export function csPcPayload(kind, options = {}, editor = "") {
+  if (!CS_PC_KINDS.includes(kind)) throw new Error("알 수 없는 요청입니다.");
+  const out = { action: "request", kind, options: {}, editor: line(editor, 40) };
+  if (kind === "login") {
+    const vendors = [...new Set((options.vendors || []).filter((v) => CS_LOGIN_VENDORS.includes(v)))];
+    if (!vendors.length) throw new Error("로그인할 업체를 고르세요.");
+    const creds = {};
+    for (const [v, c] of Object.entries(options.creds || {})) {
+      if (vendors.includes(v) && /^[A-Za-z0-9_-]{100,700}$/.test(c?.id || "") && /^[A-Za-z0-9_-]{100,700}$/.test(c?.pw || "")) creds[v] = { id: c.id, pw: c.pw };
+    }
+    out.options = { vendors, creds, collectAfter: options.collectAfter === true };
+  } else if (kind === "settings") {
+    out.options = { settings: { ...(options.settings || {}) } };
+  } else if (kind === "apiKey") {
+    out.options = { clientId: String(options.clientId || ""), secret: String(options.secret || "") };
+  }
+  return out;
+}
+
+// 가장 최근에 끝난 그 종류 요청 (API 테스트·IP·파일 목록 결과 보여 주기)
+export function latestJob(jobs = [], kind) {
+  return jobs.find((job) => job.kind === kind && !isJobActive(job)) || null;
+}
+
+// 자동 수집 설정 화면 값 → 설정 저장 요청용
+export function autoSettings({ on, hour, minute, interval }) {
+  const hh = String(Math.min(23, Math.max(0, Math.trunc(Number(hour) || 0)))).padStart(2, "0");
+  const mm = String(Math.min(59, Math.max(0, Math.trunc(Number(minute) || 0)))).padStart(2, "0");
+  const iv = Math.min(1440, Math.max(10, Math.trunc(Number(interval) || 60)));
+  return { auto_on: !!on, auto_start: `${hh}:${mm}`, interval: iv };
 }
 
 export function isJobActive(job) {
@@ -209,6 +250,8 @@ export function normalizeCollectorSetup(raw) {
     vendors: list(raw.vendors), reviewVendors: list(raw.reviewVendors),
     loginOk: flag(raw.loginOk), api: line(raw.api, 10), claude: flag(raw.claude), parts: flag(raw.parts), icon: flag(raw.icon),
     autostart: flag(raw.autostart), bg: flag(raw.bg), collector: line(raw.collector, 40), link: line(raw.link, 40),
+    pubKey: /^[A-Za-z0-9_-]{300,800}$/.test(String(raw.pubKey || "")) ? String(raw.pubKey) : "",
+    autoOn: flag(raw.autoOn), nextAuto: line(raw.nextAuto, 20), savedLogins: list(raw.savedLogins),
   };
 }
 

@@ -8,6 +8,10 @@ import {
   CS_BOARD_FILTERS,
   CS_BOARD_SAVE_DELAY_MS,
   CS_BOARD_STORAGE_KEY,
+  CS_LOGIN_VENDORS,
+  autoSettings,
+  csPcPayload,
+  latestJob,
   canCycleBox,
   collectorStatus,
   csAdminLink,
@@ -37,9 +41,11 @@ import {
   withEdit,
   withHold,
   withPick,
-} from "../domain/csBoard.mjs?v=20261029-cs-guide1";
+} from "../domain/csBoard.mjs?v=20261029-cs-full1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
-import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261029-cs-guide1";
+import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261029-cs-full1";
+import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-full1";
+import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261029-cs-full1";
 
 const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
 const REVIEW_VENDORS = ["지그재그", "에이블리", "메이크샵"];
@@ -259,7 +265,7 @@ export function slotHtml(slot, index) {
 
 export function jobsHtml(jobs = [], collector = null) {
   const head = collector
-    ? `<p class="cs-note">수집기 PC: <b class="cs-collector-${collector.state}">${collector.state === "on" ? "● 연결됨" : collector.state === "late" ? "◐ 늦음" : "○ 꺼짐"}</b>${collector.pc ? ` · ${escapeHtml(collector.pc)}` : ""} · ${agoText(collector.ago)}${collector.state === "off" ? " — 수집기 PC에서 ▶G1수집기_5_웹연결.bat 을 켜 주세요" : ""}</p>`
+    ? `<p class="cs-note">수집기 PC: <b class="cs-collector-${collector.state}">${collector.state === "on" ? "● 연결됨" : collector.state === "late" ? "◐ 늦음" : "○ 꺼짐"}</b>${collector.pc ? ` · ${escapeHtml(collector.pc)}` : ""} · ${agoText(collector.ago)}${collector.state === "off" ? " — 수집기 PC가 꺼져 있거나 잠들었습니다 (켜지면 웹연결이 자동으로 같이 켜짐)" : ""}</p>`
     : "";
   if (!jobs.length) return `${head}<p class="cs-note">아직 요청이 없습니다.</p>`;
   return `${head}<ul class="cs-job-list">${jobs.slice(0, 6).map((job) => `
@@ -433,7 +439,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const items = [...(state.collector?.last?.vendors || []).map((v) => ({ ...v, kind: "" })), ...(state.collector?.reviewLast?.vendors || []).map((v) => ({ ...v, kind: " 리뷰" }))]
       .filter((v) => v.state && v.state !== "ok" && v.state !== "미지원");
     const text = items.map((v) => `${v.vendor}${v.kind}: ${v.state}${v.note ? ` (${v.note})` : ""}`).join(" / ");
-    if (text && text !== warned) log(`수집기 확인 필요 — ${text}${items.some((v) => v.state === "로그인 필요") ? " → 수집기 PC에서 [🔑 로그인]" : ""}`, true);
+    if (text && text !== warned) log(`수집기 확인 필요 — ${text}${items.some((v) => v.state === "로그인 필요") ? " → [🔑 로그인] (이 화면에서)" : ""}`, true);
     warned = text;
   }
 
@@ -459,20 +465,262 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (body && !$("#cs-guide")?.hidden) body.innerHTML = guideStepsHtml(steps, { live: live() && !state.requesting, focus: state.guideFocus });
     const view = collectorSettingsView(state.sample ? null : state.collector);
     const note = $("#cs-set-note");
-    if (note) note.textContent = view ? `${view.note} — 바꾸기는 수집기 창 [설정] 탭` : "수집기 PC가 연결되면 현재 값이 보입니다 (연결 1.2 이상). 바꾸기는 수집기 창 [설정] 탭.";
-    // 수집기 PC가 알려 준 값은 검은 글씨(읽기 전용)로, 모를 때는 빨간 미작동 칸 그대로
+    if (note) note.textContent = view ? `${view.note} — [설정 저장]을 누르면 수집기 PC 설정이 바뀝니다` : "수집기 PC가 연결되면 현재 값이 보입니다. [설정 저장]을 누르면 수집기 PC 설정이 바뀝니다.";
+    // 수집기 PC가 알려 준 현재 값으로 채움 (고치는 중인 칸은 그대로)
     const fill = (selector, value) => {
       const el = $(selector);
-      if (!el) return;
-      el.classList.toggle("is-pending", !view);
-      el.title = view ? "수집기 PC 현재 값 — 바꾸기는 수집기 창 [설정] 탭" : "";
-      if (view) el.value = value;
+      if (!el || !view || el.dataset.dirty) return;
+      if (el.type === "checkbox") el.checked = !!value;
+      else el.value = value ?? "";
     };
-    fill("#cs-set-outdir", view?.outDir);
+    const outDir = $("#cs-set-outdir");
+    if (outDir && view) { outDir.value = view.outDir; outDir.classList.remove("is-pending"); outDir.title = "결과 저장 폴더는 수집기 PC 위치라 보기만 합니다"; }
     fill("#cs-set-days", view?.days);
+    fill("#cs-set-review-days", view?.reviewDays);
     fill("#cs-set-slug", view?.zzSlug);
-    const browser = $("#cs-set-browser");
-    if (browser && view) browser.checked = view.showBrowser;
+    fill("#cs-set-browser", view?.showBrowser);
+    renderPcPanels();
+  }
+
+  // ---------- 수집기 PC에 시키는 일 (로그인·설정·자동 수집·API·IP·파일) ----------
+  const setupNow = () => (state.sample ? null : state.collector?.setup) || null;
+
+  async function requestPc(kind, options = {}, done = "") {
+    if (!live() || state.requesting) return null;
+    let payload;
+    try { payload = csPcPayload(kind, options, state.editor); } catch (error) { toast(error.message); return null; }
+    state.requesting = true;
+    renderLiveControls();
+    try {
+      const result = await post(payload);
+      applyJobs(result);
+      const label = result.job?.label || kind;
+      const offline = state.collector?.state === "off";
+      toast(result.duplicate ? `이미 ${label} 요청이 있습니다 — 끝날 때까지 기다려 주세요.` : `${done || `${label} 요청을 보냈습니다`}${offline ? " — 수집기 PC가 꺼져 있어 켜지면 실행합니다" : " — 수집기 PC가 곧 실행합니다"}.`);
+      log(`${label} 요청${result.duplicate ? " — 이미 대기 중" : ""}`);
+      return result;
+    } catch (error) {
+      if (error.denied) handleDenied(error);
+      toast(`요청 실패: ${error.message}`);
+      log(`요청 실패: ${error.message}`, true);
+      return null;
+    } finally {
+      state.requesting = false;
+      renderBoard();
+    }
+  }
+
+  const AUTO_INTERVALS = [10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 720, 1440];
+  function fillSelect(el, values, label) {
+    if (!el || el.options.length) return;
+    el.innerHTML = values.map((v) => `<option value="${v}">${label(v)}</option>`).join("");
+  }
+
+  function renderPcPanels() {
+    const su = setupNow();
+    // 자동 수집
+    const hour = $("#cs-auto-hour"), minute = $("#cs-auto-minute"), interval = $("#cs-auto-interval");
+    fillSelect(hour, Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")), (v) => v);
+    fillSelect(minute, Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0")), (v) => v);
+    fillSelect(interval, AUTO_INTERVALS, (v) => (v >= 60 && v % 60 === 0 ? `${v / 60}시간` : `${v}분`));
+    if (su?.autoStart && hour && !hour.dataset.dirty) {
+      const [hh, mm] = su.autoStart.split(":");
+      hour.value = hh; if (minute && !minute.dataset.dirty) minute.value = String(Math.round(Number(mm) / 5) * 5 % 60).padStart(2, "0");
+    }
+    if (su?.interval && interval && !interval.dataset.dirty) interval.value = String(AUTO_INTERVALS.includes(su.interval) ? su.interval : 60);
+    const toggle = $("#cs-auto-toggle");
+    if (toggle) toggle.textContent = su?.autoOn ? "자동 수집 끄기" : "자동 수집 켜기";
+    const autoNote = $("#cs-auto-note");
+    if (autoNote) {
+      autoNote.textContent = !su ? "자동 수집: 수집기 PC 연결 후 켜고 끌 수 있습니다 (수집기 PC 웹연결이 창 없이 실행)"
+        : su.autoOn ? `자동 수집: 켜짐 · 다음 수집 ${su.nextAuto || "계산 중"} · ${su.autoStart} 시작 ${su.interval}분 간격 (수집기 PC 웹연결이 실행 — 수집기 창은 안 열어도 됨)`
+          : "자동 수집: 꺼짐 — 시작 시간·간격을 고르고 [자동 수집 켜기]";
+      autoNote.classList.toggle("cs-auto-on", !!su?.autoOn);
+    }
+    // API
+    const apiState = $("#cs-api-state");
+    if (apiState) apiState.textContent = !su ? "저장된 키: 수집기 PC 연결 후 확인" : su.api === "own" ? "저장된 키: ✓ 수집기 PC에 저장된 키 사용 중" : su.api === "e1" ? "저장된 키: E_1 스마트스토어 API 설정 사용 중 (여기서 새로 저장하면 그 키를 씁니다)" : "저장된 키: 없음 — 아래에 넣고 [저장]";
+    const apiResult = $("#cs-api-result");
+    if (apiResult) {
+      const last = [latestJob(state.jobs, "apiKey"), latestJob(state.jobs, "apiTest"), latestJob(state.jobs, "ip")].filter(Boolean).sort((a, b) => String(b.ended || b.at).localeCompare(String(a.ended || a.at)))[0];
+      const running = state.jobs.find((j) => ["apiKey", "apiTest", "ip"].includes(j.kind) && isJobActive(j));
+      apiResult.textContent = running ? `${running.label} ${running.status}…${running.message ? ` ${running.message}` : ""}` : last ? `${last.label}: ${last.message}` : "";
+    }
+    // 파일 목록
+    const files = $("#cs-files");
+    const lastFiles = latestJob(state.jobs, "files");
+    if (files) {
+      const list = lastFiles?.data?.files || [];
+      files.hidden = !lastFiles;
+      if (lastFiles) files.innerHTML = `<div class="cs-note">${escapeHtml(lastFiles.message)} · ${escapeHtml(shortDate(lastFiles.ended || lastFiles.at))} 기준</div>`
+        + (list.length ? `<table class="cs-files-table"><thead><tr><th>파일</th><th>크기</th><th>시각</th></tr></thead><tbody>${list.map((f) => `<tr><td>${escapeHtml(f.name)}</td><td>${Math.max(1, Math.round((Number(f.size) || 0) / 1024))}KB</td><td>${escapeHtml(f.at)}</td></tr>`).join("")}</tbody></table>` : "");
+    }
+  }
+
+  function saveSettings() {
+    const num = (sel) => Number($(sel)?.value);
+    const settings = {};
+    if (num("#cs-set-days") >= 1) settings.days = Math.trunc(num("#cs-set-days"));
+    if (num("#cs-set-review-days") >= 1) settings.review_days = Math.trunc(num("#cs-set-review-days"));
+    const slug = String($("#cs-set-slug")?.value || "").trim();
+    if (slug) settings.zz_slug = slug;
+    settings.show_browser = !!$("#cs-set-browser")?.checked;
+    requestPc("settings", { settings }, "설정 저장 요청을 보냈습니다").then((r) => {
+      if (r) ["#cs-set-days", "#cs-set-review-days", "#cs-set-slug", "#cs-set-browser"].forEach((sel) => { const el = $(sel); if (el) delete el.dataset.dirty; });
+    });
+  }
+
+  function saveAuto(on) {
+    const settings = autoSettings({ on, hour: $("#cs-auto-hour")?.value, minute: $("#cs-auto-minute")?.value, interval: $("#cs-auto-interval")?.value });
+    requestPc("settings", { settings }, on ? `자동 수집 켜기 요청을 보냈습니다 (${settings.auto_start} 시작 ${settings.interval}분 간격)` : "자동 수집 끄기 요청을 보냈습니다").then((r) => {
+      if (r) ["#cs-auto-hour", "#cs-auto-minute", "#cs-auto-interval"].forEach((sel) => { const el = $(sel); if (el) delete el.dataset.dirty; });
+    });
+  }
+
+  async function saveApiKey() {
+    const idBox = $("#cs-api-id"), secretBox = $("#cs-api-secret");
+    const id = String(idBox?.value || "").trim(), secret = String(secretBox?.value || "").trim();
+    if (!id || !secret) { toast("Client ID 와 Client Secret 을 둘 다 넣어 주세요."); return; }
+    try {
+      const pub = setupNow()?.pubKey;
+      const options = { clientId: await lockForPc(pub, id), secret: await lockForPc(pub, secret) };
+      idBox.value = ""; secretBox.value = "";
+      await requestPc("apiKey", options, "API 키를 잠가서 보냈습니다 (수집기 PC에만 저장)");
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+
+  // 🔑 로그인 창
+  function openLogin(vendor = "") {
+    const box = $("#cs-login");
+    if (!box || !live()) return;
+    const su = setupNow();
+    const last = state.collector?.last?.vendors || [];
+    const needs = last.filter((v) => v.state === "로그인 필요").map((v) => v.vendor);
+    const pick = vendor ? [vendor] : needs;
+    const canLock = !!su?.pubKey;
+    $("#cs-login-body").innerHTML = CS_LOGIN_VENDORS.map((v) => {
+      const lastState = last.find((x) => x.vendor === v)?.state;
+      const saved = su?.savedLogins?.includes(v);
+      return `<div class="cs-login-row" data-login-row="${escapeHtml(v)}">
+        <label class="cs-check"><input type="checkbox" data-login-pick value="${escapeHtml(v)}"${pick.includes(v) ? " checked" : ""}> <b>${escapeHtml(v)}</b></label>
+        <span class="cs-note">${lastState ? `지난 수집: ${escapeHtml(lastState === "ok" ? "✓ 로그인 상태" : lastState)}` : "수집 기록 없음"}${saved ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
+        <details${pick.includes(v) && !saved && lastState === "로그인 필요" ? " open" : ""}><summary>새 아이디·비밀번호 넣기${saved ? " (바뀌었을 때만)" : ""}</summary>
+          ${canLock ? `<div class="cs-form cs-login-creds">
+            <label>아이디 <input type="text" data-login-id autocomplete="off"></label>
+            <label>비밀번호 <input type="password" data-login-pw autocomplete="new-password"></label>
+          </div>` : `<p class="cs-note">수집기 PC 웹연결 1.3 이상이 켜져 있어야 비밀번호를 잠가 보낼 수 있습니다.</p>`}
+        </details>
+      </div>`;
+    }).join("");
+    $("#cs-login-collect").checked = false;
+    box.hidden = false;
+  }
+
+  function closeLogin() {
+    const box = $("#cs-login");
+    if (!box) return;
+    box.querySelectorAll("input[data-login-id], input[data-login-pw]").forEach((el) => { el.value = ""; });
+    box.hidden = true;
+  }
+
+  async function submitLogin() {
+    const box = $("#cs-login");
+    const vendors = [...box.querySelectorAll("[data-login-pick]:checked")].map((el) => el.value);
+    if (!vendors.length) { toast("로그인할 업체를 고르세요."); return; }
+    const creds = {};
+    try {
+      for (const v of vendors) {
+        const row = box.querySelector(`[data-login-row="${v}"]`);
+        const id = String(row?.querySelector("[data-login-id]")?.value || "").trim();
+        const pw = String(row?.querySelector("[data-login-pw]")?.value || "");
+        if (!id && !pw) continue;
+        if (!id || !pw) { toast(`${v}: 아이디와 비밀번호를 둘 다 넣어 주세요.`); return; }
+        const pub = setupNow()?.pubKey;
+        creds[v] = { id: await lockForPc(pub, id), pw: await lockForPc(pub, pw) };
+      }
+    } catch (error) {
+      toast(error.message); return;
+    }
+    const collectAfter = !!$("#cs-login-collect")?.checked;
+    closeLogin();
+    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}`);
+  }
+
+  // 엑셀 내려받기 / 📥 엑셀 적용 (SheetJS — 피킹 화면과 같은 라이브러리)
+  let xlsxPromise = null;
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    if (xlsxPromise) return xlsxPromise;
+    xlsxPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+      script.async = true;
+      script.addEventListener("load", () => (window.XLSX ? resolve(window.XLSX) : reject(new Error("엑셀 부품을 불러오지 못했습니다."))), { once: true });
+      script.addEventListener("error", () => reject(new Error("엑셀 부품을 불러오지 못했습니다 — 인터넷 연결을 확인하세요.")), { once: true });
+      document.head.appendChild(script);
+    }).catch((error) => { xlsxPromise = null; throw error; });
+    return xlsxPromise;
+  }
+
+  async function exportExcel(kind) {
+    try {
+      const sheet = csExcelSheet(state.rows, kind);
+      if (!sheet.count) { toast(`내려받을 ${kind}가 없습니다.`); return; }
+      const XLSX = await loadXlsx();
+      const ws = XLSX.utils.aoa_to_sheet([sheet.header, ...sheet.body]);
+      ws["!cols"] = sheet.header.map((h) => ({ wch: /문의|문안|답변안/.test(h) ? 40 : h.startsWith("키") ? 30 : 12 }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, kind === "리뷰" ? "리뷰" : "게시판");
+      const d = new Date(now());
+      const stamp = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}_${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+      const bytes = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const url = window.URL.createObjectURL(new window.Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `CS_${kind === "리뷰" ? "리뷰" : "게시판"}_답변안_${stamp}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+      toast(`엑셀 ${sheet.count}건을 내려받았습니다 — "채택"(A~J)·"최종 문안"·"보류"만 고쳐서 [📥 엑셀 적용]`);
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+
+  let importKind = "문의";
+  async function importExcel(file) {
+    if (!file) return;
+    try {
+      const XLSX = await loadXlsx();
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const records = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", raw: false });
+      const { changes, locked, unknown, bad } = csExcelChanges(state.rows.filter((r) => r.kind === importKind), records);
+      const notes = [locked && `등록 중·완료라 건너뜀 ${locked}건`, unknown && `화면에 없는 줄 ${unknown}건`, bad && `채택 글자 오류 ${bad}건`].filter(Boolean).join(" · ");
+      if (!changes.length) { toast(`바뀐 내용이 없습니다${notes ? ` (${notes})` : ""}.`); return; }
+      const preview = changes.slice(0, 8).map((c) => `· ${findRow(c.key)?.vendor} ${findRow(c.key)?.id}: ${c.summary}`).join("\n");
+      if (!window.confirm(`엑셀 내용 ${changes.length}건을 적용할까요?\n${preview}${changes.length > 8 ? "\n…" : ""}${notes ? `\n(${notes})` : ""}`)) return;
+      for (const c of changes) setChoice(c.key, c.choice);
+      renderBoard();
+      toast(`엑셀 ${changes.length}건을 적용했습니다 — 자동 저장 중`);
+      log(`📥 엑셀 적용 ${changes.length}건${notes ? ` (${notes})` : ""}`);
+    } catch (error) {
+      toast(`엑셀 적용 실패: ${error.message}`);
+    }
+  }
+
+  function onPcClick(event) {
+    const button = event.target.closest("[data-pc], [data-excel]");
+    if (!button || button.disabled) return;
+    const act = button.dataset.pc;
+    if (act === "login") openLogin(button.dataset.loginVendor || "");
+    else if (act === "api-tab") showLeft("api");
+    else if (act === "apiKey") saveApiKey();
+    else if (act === "apiTest" || act === "ip" || act === "files") requestPc(act);
+    else if (button.dataset.excel === "export") exportExcel(button.dataset.excelKind);
+    else if (button.dataset.excel === "import") { importKind = button.dataset.excelKind; const f = $("#cs-excel-file"); if (f) { f.value = ""; f.click(); } }
   }
 
   function openGuide(focusNext = false) {
@@ -502,6 +750,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const act = button.dataset.guideAct;
     if (act === "close") { $("#cs-guide").hidden = true; state.guideFocus = ""; }
     else if (act === "focus-token") { showLeft("settings"); $("#cs-token-input")?.focus(); }
+    else if (act === "open-login") openLogin();
+    else if (act.startsWith("tab:")) showLeft(act.slice(4));
     else if (act.startsWith("job:")) requestJob(act.slice(4));
   }
 
@@ -1068,6 +1318,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (!$("#cs-modal")?.hidden) closeModal();
+      else if (!$("#cs-login")?.hidden) closeLogin();
       else if ($("#cs-guide") && !$("#cs-guide").hidden) $("#cs-guide").hidden = true;
     });
     $("#cs-usage-prev")?.addEventListener("click", () => shiftMonth(-1));
@@ -1075,6 +1326,20 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-usage-reload")?.addEventListener("click", loadUsage);
     $("#cs-msn-demo")?.addEventListener("click", addDemoSlot);
     $("#cs-onetouch")?.addEventListener("click", () => openGuide(true));
+    document.addEventListener("click", onPcClick);
+    $("#cs-login-cancel")?.addEventListener("click", closeLogin);
+    $("#cs-login-ok")?.addEventListener("click", submitLogin);
+    $("#cs-login")?.addEventListener("click", (e) => { if (e.target.id === "cs-login") closeLogin(); });
+    $("#cs-excel-file")?.addEventListener("change", (e) => importExcel(e.target.files?.[0]));
+    $("#cs-set-save")?.addEventListener("click", saveSettings);
+    $("#cs-auto-toggle")?.addEventListener("click", () => saveAuto(!setupNow()?.autoOn));
+    ["#cs-auto-hour", "#cs-auto-minute", "#cs-auto-interval", "#cs-set-days", "#cs-set-review-days", "#cs-set-slug", "#cs-set-browser"].forEach((sel) => {
+      $(sel)?.addEventListener("input", (e) => { e.target.dataset.dirty = "1"; });
+      $(sel)?.addEventListener("change", (e) => {
+        e.target.dataset.dirty = "1";
+        if (sel.startsWith("#cs-auto") && setupNow()?.autoOn) saveAuto(true);       // 켜져 있으면 바꾼 시각·간격 바로 적용
+      });
+    });
     $("#cs-guide-open")?.addEventListener("click", () => openGuide(false));
     $("#cs-guide")?.addEventListener("click", onGuideClick);
     $("#cs-msn-slots")?.addEventListener("click", onSlotClick);
@@ -1134,7 +1399,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     } else renderBoard();
   }
 
-  return { state, start, load, setSample, suggest, flushSave, renderBoard, addDemoSlot, requestJob, openRegister, openGuide };
+  return { state, start, load, setSample, suggest, flushSave, renderBoard, addDemoSlot, requestJob, openRegister, openGuide, openLogin, requestPc };
 }
 
 if (typeof document !== "undefined" && document.getElementById("cs-board-app")) {

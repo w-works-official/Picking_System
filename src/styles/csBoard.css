@@ -1556,3 +1556,62 @@ body.cs-board-workspace {
     max-height: calc(100dvh - 16px);
   }
 }
+
+/* ---------- 수집기 PC 일: 로그인 창·자동 수집·파일 목록 (2026-10-29) ---------- */
+.cs-login-row {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.cs-login-row details summary {
+  cursor: pointer;
+  color: var(--cs-blue);
+  font-size: 12px;
+}
+
+.cs-login-creds {
+  margin-top: 6px;
+}
+
+.cs-auto-on {
+  color: var(--cs-green);
+  font-weight: 700;
+}
+
+.cs-files {
+  margin: 6px 0 10px;
+  padding: 8px;
+  border: 1px solid var(--cs-line);
+  border-radius: 6px;
+  background: #ffffff;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.cs-files[hidden] {
+  display: none;
+}
+
+.cs-files-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.cs-files-table th,
+.cs-files-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--cs-line-soft);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cs-files-table td:first-child {
+  white-space: normal;
+  word-break: break-all;
+}

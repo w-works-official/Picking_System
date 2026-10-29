@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261029-equal-width1">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261029-cs-guide1">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261029-cs-full1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -51,7 +51,7 @@
             <div class="cs-left-panel" data-left-panel="main">
               <div class="cs-row cs-row-split">
                 <div class="cs-row">
-                  <button type="button" class="cs-btn cs-btn-primary is-pending" disabled data-pending="수집기 PC 앞에서만 — 쇼핑몰 로그인은 사람이 수집기 PC 브라우저에서 직접">🔑 로그인</button>
+                  <button type="button" class="cs-btn cs-btn-primary is-pending" disabled data-pc="login" data-live data-pending="시트 연결 후 작동">🔑 로그인</button>
                   <button type="button" class="cs-btn cs-btn-test is-pending" disabled data-job="test" data-pending="시트 연결 후 작동">🧪 테스트용</button>
                 </div>
                 <button type="button" class="cs-btn is-pending" disabled data-job="collect" data-pending="시트 연결 후 작동">⟳ 재수집 시작</button>
@@ -60,13 +60,13 @@
               <fieldset class="cs-box">
                 <legend>자동 수집</legend>
                 <div class="cs-row cs-row-split">
-                  <button type="button" class="cs-btn is-pending" disabled data-pending="수집기 PC 앞에서만 — 수집기 창에서 켜고 끕니다">자동 수집 켜기</button>
+                  <button type="button" id="cs-auto-toggle" class="cs-btn is-pending" disabled data-live data-pending="시트 연결 후 작동">자동 수집 켜기</button>
                   <div class="cs-row cs-small">
-                    <label>시작 시간 <select disabled class="is-pending"><option>09</option></select>시 <select disabled class="is-pending"><option>30</option></select>분</label>
-                    <label>수집 간격 <select disabled class="is-pending"><option>60분</option></select></label>
+                    <label>시작 시간 <select id="cs-auto-hour" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></select>시 <select id="cs-auto-minute" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></select>분</label>
+                    <label>수집 간격 <select id="cs-auto-interval" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></select></label>
                   </div>
                 </div>
-                <p class="cs-note">자동 수집: 수집기 PC 화면에서 켜고 끕니다</p>
+                <p class="cs-note" id="cs-auto-note">자동 수집: 수집기 PC 웹연결(창 없이)이 시각에 맞춰 수집합니다 — 수집기 창은 열지 않아도 됩니다</p>
               </fieldset>
 
               <fieldset class="cs-box">
@@ -75,22 +75,22 @@
                   <div class="cs-vendor-card" data-vendor="스마트스토어">
                     <strong>스마트스토어</strong>
                     <span class="cs-vendor-check">☑ 수집</span>
-                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pending="수집기 PC 앞에서만 — API 키는 수집기 PC에만 저장">API 설정</button>
+                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="api-tab" data-live data-pending="시트 연결 후 작동">API 설정</button>
                   </div>
                   <div class="cs-vendor-card" data-vendor="지그재그">
                     <strong>지그재그</strong>
                     <span class="cs-vendor-check">☑ 수집</span>
-                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pending="수집기 PC 앞에서만 — 업체 로그인은 사람이 직접">🔗 연결</button>
+                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="지그재그" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
                   </div>
                   <div class="cs-vendor-card" data-vendor="에이블리">
                     <strong>에이블리</strong>
                     <span class="cs-vendor-check">☑ 수집</span>
-                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pending="수집기 PC 앞에서만 — 업체 로그인은 사람이 직접">🔗 연결</button>
+                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="에이블리" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
                   </div>
                   <div class="cs-vendor-card" data-vendor="메이크샵">
                     <strong>메이크샵</strong>
                     <span class="cs-vendor-check">☑ 수집</span>
-                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pending="수집기 PC 앞에서만 — 업체 로그인은 사람이 직접">🔗 연결</button>
+                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="메이크샵" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
                   </div>
                   <span class="cs-vendor-status" data-vendor-status="스마트스토어">아직 수집 전</span>
                   <span class="cs-vendor-status" data-vendor-status="지그재그">아직 수집 전</span>
@@ -102,8 +102,9 @@
 
               <!-- 수집기 v9.1: 답변안 엑셀 열기·테스트 엑셀·승인 완료/업로드·테스트 승인은 오른쪽 탭 버튼과 겹쳐서 뺌 -->
               <div class="cs-row cs-row-end">
-                <button type="button" class="cs-btn is-pending" disabled data-pending="수집기 PC 앞에서만 — 탐색기 폴더 열기">📂 수집 폴더 열기</button>
+                <button type="button" class="cs-btn is-pending" disabled data-pc="files" data-live data-pending="시트 연결 후 작동">📂 수집 파일 목록</button>
               </div>
+              <div id="cs-files" class="cs-files" hidden></div>
               <fieldset class="cs-box">
                 <legend>웹 요청 현황 <small>(수집기 PC의 웹연결 프로그램이 실행)</small></legend>
                 <div id="cs-jobs" class="cs-jobs"><p class="cs-note">시트 연결 후 보입니다.</p></div>
@@ -153,16 +154,19 @@
 
             <!-- 스마트스토어 API -->
             <div class="cs-left-panel" data-left-panel="api" hidden>
-              <p class="cs-note">커머스API 정보는 <b>수집기 PC에만</b> 암호화 저장합니다. 이 웹 화면에서는 입력하지 않습니다(허용된 IP의 수집기 PC만 API 호출 가능).</p>
-              <div class="cs-form">
-                <label>Client ID <input type="text" disabled class="is-pending" placeholder="수집기 PC에서 입력"></label>
-                <label>Client Secret <input type="password" disabled class="is-pending" placeholder="수집기 PC에서 입력"></label>
-              </div>
+              <p class="cs-note">커머스API센터 애플리케이션의 정보를 입력하세요. <b>수집기 PC 공개키로 잠가서</b> 보내고, 수집기 PC에만 Windows 암호화로 저장합니다 (시트·이 화면에는 남지 않음).</p>
+              <p class="cs-note" id="cs-api-state">저장된 키: 확인 중…</p>
+              <form id="cs-api-form" class="cs-form" autocomplete="off">
+                <label>Client ID <input id="cs-api-id" type="text" autocomplete="off" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></label>
+                <label>Client Secret <input id="cs-api-secret" type="password" autocomplete="new-password" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></label>
+              </form>
               <div class="cs-row">
-                <button type="button" class="cs-btn is-pending" disabled data-pending="수집기 PC 앞에서만 — API 키는 수집기 PC에만 저장">저장</button>
-                <button type="button" class="cs-btn is-pending" disabled data-pending="수집기 PC 앞에서만 — API 연결 테스트">연결 테스트</button>
-                <button type="button" class="cs-btn is-pending" disabled data-pending="수집기 PC 앞에서만 — 그 PC의 인터넷 주소 확인">이 PC 공인 IP 확인</button>
+                <button type="button" class="cs-btn is-pending" disabled data-pc="apiKey" data-live data-pending="시트 연결 후 작동">저장</button>
+                <button type="button" class="cs-btn is-pending" disabled data-pc="apiTest" data-live data-pending="시트 연결 후 작동">연결 테스트</button>
+                <button type="button" class="cs-btn is-pending" disabled data-pc="ip" data-live data-pending="시트 연결 후 작동">이 PC 공인 IP 확인</button>
               </div>
+              <p class="cs-note" id="cs-api-result"></p>
+              <p class="cs-note">→ 이 PC 공인 IP를 커머스API센터 &gt; 애플리케이션 &gt; API 호출 IP 에 추가해야 수집기 PC에서 조회됩니다. <a href="https://apicenter.commerce.naver.com" target="_blank" rel="noopener">커머스API센터 ↗</a></p>
             </div>
 
             <!-- 설정 -->
@@ -193,14 +197,15 @@
 
               <fieldset class="cs-box">
                 <legend>수집기 설정 (수집기 PC 전용)</legend>
-                <p id="cs-set-note" class="cs-note">수집기 PC가 연결되면 현재 값이 보입니다 (연결 1.2 이상). 바꾸기는 수집기 창 [설정] 탭.</p>
+                <p id="cs-set-note" class="cs-note">수집기 PC가 연결되면 현재 값이 보입니다. [설정 저장]을 누르면 수집기 PC 설정이 바뀝니다.</p>
                 <div class="cs-form">
                   <label>결과 저장 폴더 <input id="cs-set-outdir" type="text" disabled class="is-pending" placeholder="수집기 PC에서 설정"></label>
-                  <label>수집 기간(일) <input id="cs-set-days" type="number" disabled class="is-pending cs-input-num" value="7"></label>
-                  <label>지그재그 스토어 주소명 <input id="cs-set-slug" type="text" disabled class="is-pending" placeholder="수집기 PC에서 설정"></label>
-                  <label class="cs-check"><input id="cs-set-browser" type="checkbox" disabled> <span class="cs-pending-text">수집할 때 브라우저 창 보이기 (문제 확인용)</span></label>
+                  <label>수집 기간(일) <input id="cs-set-days" type="number" min="1" max="90" disabled class="is-pending cs-input-num" value="7" data-live data-pending="시트 연결 후 작동"></label>
+                  <label>리뷰 기간(일) <input id="cs-set-review-days" type="number" min="1" max="365" disabled class="is-pending cs-input-num" value="30" data-live data-pending="시트 연결 후 작동"></label>
+                  <label>지그재그 스토어 주소명 <input id="cs-set-slug" type="text" disabled class="is-pending" placeholder="수집기 PC에서 설정" data-live data-pending="시트 연결 후 작동"></label>
+                  <label class="cs-check"><input id="cs-set-browser" type="checkbox" disabled data-live data-pending="시트 연결 후 작동"> <span>수집할 때 브라우저 창 보이기 (문제 확인용)</span></label>
                 </div>
-                <button type="button" class="cs-btn is-pending" disabled data-pending="수집기 PC 앞에서만 — 수집기 창 [설정] 탭">설정 저장</button>
+                <button type="button" id="cs-set-save" class="cs-btn cs-btn-primary is-pending" disabled data-live data-pending="시트 연결 후 작동">설정 저장</button>
               </fieldset>
 
               <fieldset class="cs-box">
@@ -254,11 +259,11 @@
           <div class="cs-right-panel" data-right-panel="board">
             <div class="cs-answer-top">
               <strong class="cs-answer-title tone-board">📋 게시판 답변</strong>
-              <button type="button" class="cs-btn is-pending" disabled data-pending="수집기 PC 앞에서만 — 쇼핑몰 로그인은 사람이 직접">🔑 로그인</button>
+              <button type="button" class="cs-btn is-pending" disabled data-pc="login" data-live data-pending="시트 연결 후 작동">🔑 로그인</button>
               <button type="button" class="cs-btn cs-btn-primary is-pending" disabled data-job="collect" data-pending="시트 연결 후 작동">▶ 수집 시작</button>
               <button type="button" id="cs-register-open" class="cs-btn cs-btn-green is-pending" disabled data-live data-pending="시트 연결 후 작동">📤 등록</button>
-              <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-pending="수집기 PC 앞에서만 — 웹에서는 엑셀 없이 이 화면에서 바로 고릅니다">엑셀</button>
-              <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-pending="수집기 PC 앞에서만 — 엑셀에서 고친 내용 적용">📥 엑셀 적용</button>
+              <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-excel="export" data-excel-kind="문의" data-live data-pending="시트 연결 후 작동">엑셀</button>
+              <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-excel="import" data-excel-kind="문의" data-live data-pending="시트 연결 후 작동">📥 엑셀 적용</button>
               <span class="cs-flex"></span>
               <button type="button" class="cs-btn cs-btn-sample" id="cs-sample-toggle" aria-pressed="false">🧪 가상셋팅</button>
             </div>
@@ -278,11 +283,11 @@
           <div class="cs-right-panel" data-right-panel="review" hidden>
             <div class="cs-answer-top">
               <strong class="cs-answer-title tone-review">⭐ 리뷰 답글</strong>
-              <button type="button" class="cs-btn is-pending" disabled data-pending="수집기 PC 앞에서만 — 쇼핑몰 로그인은 사람이 직접">🔑 로그인</button>
+              <button type="button" class="cs-btn is-pending" disabled data-pc="login" data-live data-pending="시트 연결 후 작동">🔑 로그인</button>
               <button type="button" class="cs-btn cs-btn-orange is-pending" disabled data-job="reviews" data-pending="시트 연결 후 작동">▶ 수집 시작</button>
               <button type="button" class="cs-btn cs-btn-green is-pending" disabled data-pending="개발 예정 — 리뷰 답글 등록은 수집기에도 아직 없음">업로드</button>
-              <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-pending="수집기 PC 앞에서만 — 엑셀">엑셀</button>
-              <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-pending="수집기 PC 앞에서만 — 엑셀에서 고친 내용 적용">📥 엑셀 적용</button>
+              <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-excel="export" data-excel-kind="리뷰" data-live data-pending="시트 연결 후 작동">엑셀</button>
+              <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-excel="import" data-excel-kind="리뷰" data-live data-pending="시트 연결 후 작동">📥 엑셀 적용</button>
               <span class="cs-flex"></span>
               <span id="cs-review-summary" class="cs-summary"></span>
             </div>
@@ -317,8 +322,22 @@
         </div>
       </div>
     </div>
+    <div id="cs-login" class="cs-modal" hidden>
+      <div class="cs-modal-box" role="dialog" aria-modal="true" aria-labelledby="cs-login-title">
+        <h2 id="cs-login-title">🔑 판매자센터 로그인 (수집기 PC에서)</h2>
+        <p class="cs-note">수집기 PC가 로그인 창을 열고 <b>그 PC에 저장된 아이디·비밀번호</b>로 로그인합니다. 휴대폰 2단계 인증이 오면 휴대폰에서 [확인]만 누르세요 (3분 기다림).</p>
+        <div id="cs-login-body"></div>
+        <label class="cs-check"><input type="checkbox" id="cs-login-collect"> 로그인되면 바로 게시판 수집</label>
+        <p class="cs-note">※ 메이크샵은 같은 계정 동시 로그인 불가 — 다른 PC에서 쓰는 중이면 그쪽이 로그아웃됩니다.<br>※ 새 비밀번호는 수집기 PC 공개키로 잠가서 보내고, 로그인에 성공하면 그 PC에만 Windows 암호화로 저장합니다.</p>
+        <div class="cs-row cs-row-end">
+          <button type="button" class="cs-btn" id="cs-login-cancel">닫기</button>
+          <button type="button" class="cs-btn cs-btn-primary" id="cs-login-ok">로그인 요청</button>
+        </div>
+      </div>
+    </div>
+    <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261029-cs-guide1"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261029-cs-full1"></script>
   </body>
 </html>

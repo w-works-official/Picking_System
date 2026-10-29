@@ -669,27 +669,11 @@ function recentJobs_(n) {
 function request_(body) {
   var kind = String(body.kind || '');
   if (!JOB_KINDS[kind] || STAFF_KINDS.indexOf(kind) < 0) return { ok: false, error: '알 수 없는 요청 종류입니다.' };
-  var jobs = jobValues_();
-  for (var i = 0; i < jobs.rows.length; i++) {
-    var j = jobOut_(jobs.rows[i]);
-    if (j.kind !== kind || kind === 'register') continue;
-    if (REPLACE_KINDS.indexOf(kind) >= 0 && j.status === '대기') {        // 새 요청으로 바꿈 (예전 암호문은 지움)
-      jobs.sheet.getRange(i + 2, JOB.status, 1, 1).setValues([['취소']]);
-      jobs.sheet.getRange(i + 2, JOB.ended, 1, 1).setValues([[new Date()]]);
-      jobs.sheet.getRange(i + 2, JOB.body, 1, 1).setValues([[stringify_(redact_(kind, j.body))]]);
-      jobs.sheet.getRange(i + 2, JOB.result, 1, 1).setValues([[stringify_({ message: '새 요청으로 바꿈' })]]);
-      continue;
-    }
-    if (j.status === '대기' || j.status === '실행중') return { ok: true, job: j, duplicate: true, jobs: recentJobs_(10) };
-  }
   var content = {};
   var by = plain_(clean_(body.editor, 40));
   var options = body.options && typeof body.options === 'object' ? body.options : {};
-  if (kind === 'register') {
-    var made = registerItems_(body.keys, by);
-    if (made.error) return { ok: false, error: made.error };
-    content = { items: made.items };
-  } else if (kind === 'login') {
+  // 1) 내용 먼저 확인 (틀리면 아무것도 안 바꿈)
+  if (kind === 'login') {
     content = loginContent_(options);
     if (content.error) return { ok: false, error: content.error };
   } else if (kind === 'settings') {
@@ -705,7 +689,26 @@ function request_(body) {
     var days = Math.floor(Number(options.reviewDays));
     if ((kind === 'reviews' || kind === 'testReviews') && days >= 1 && days <= 365) content.reviewDays = days;
   }
-  var id = 'J' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
+  // 2) 같은 종류: 대기 중이면 새 요청으로 바꾸거나(로그인·설정·API 키) 그대로 둠
+  var jobs = jobValues_();
+  for (var i = 0; i < jobs.rows.length; i++) {
+    var j = jobOut_(jobs.rows[i]);
+    if (j.kind !== kind || kind === 'register') continue;
+    if (REPLACE_KINDS.indexOf(kind) >= 0 && j.status === '대기') {
+      jobs.sheet.getRange(i + 2, JOB.status, 1, 1).setValues([['취소']]);
+      jobs.sheet.getRange(i + 2, JOB.ended, 1, 1).setValues([[new Date()]]);
+      jobs.sheet.getRange(i + 2, JOB.body, 1, 1).setValues([[stringify_(redact_(kind, j.body))]]);
+      jobs.sheet.getRange(i + 2, JOB.result, 1, 1).setValues([[stringify_({ message: '새 요청으로 바꿈' })]]);
+      continue;
+    }
+    if (j.status === '대기' || j.status === '실행중') return { ok: true, job: j, duplicate: true, jobs: recentJobs_(10) };
+  }
+  if (kind === 'register') {
+    var made = registerItems_(body.keys, by);
+    if (made.error) return { ok: false, error: made.error };
+    content = { items: made.items };
+  }
+  var id = 'J' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyMMddHHmmss') + '-' + Utilities.getUuid().slice(0, 8); // 같은 초에 여러 요청이 와도 겹치지 않게
   jobs.sheet.appendRow([id, kind, '대기', clean_(body.editor, 40), new Date(), '', '', stringify_(content), '', '']);
   var shown = SECRET_KINDS.indexOf(kind) >= 0 ? redact_(kind, content) : content;
   return { ok: true, job: jobOut_([id, kind, '대기', by, new Date(), '', '', JSON.stringify(shown), '', '']), jobs: recentJobs_(10), rows: kind === 'register' ? openRows_(sheet_()) : undefined };
@@ -920,7 +923,7 @@ function selfJob_(body) {
     if (plain_(jobs.rows[i][JOB.status - 1]) === '실행중') return { ok: false, busy: true, error: '다른 요청이 실행 중입니다.' };
   }
   var vendors = Array.isArray(body.vendors) ? body.vendors.map(function (v) { return plain_(clean_(v, 20)); }).filter(String).slice(0, 4) : [];
-  var id = 'A' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyMMddHHmmss') + Math.floor(Math.random() * 90 + 10);
+  var id = 'A' + Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyMMddHHmmss') + '-' + Utilities.getUuid().slice(0, 8);
   var now = new Date();
   jobs.sheet.appendRow([id, kind, '실행중', '자동', now, now, '', stringify_({ vendors: vendors }), '', clean_(body.pc, 60)]);
   var state = parse_(prop_('COLLECTOR_STATE'), {});

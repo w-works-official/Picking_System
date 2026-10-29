@@ -1,6 +1,7 @@
 // CS 관리 [설정] 탭 · 🚀 처음 설정 안내 (2026-10-29)
 // G1 CS 수집기 [설정] 탭의 "원터치 설정 + 떠 있는 안내창(단계별 ✅/⬜ · 버튼 · 바로가기 링크)"을 웹으로 옮긴 것.
-// 바뀐 점: 웹은 수집기 PC 프로그램을 직접 설치·실행할 수 없으므로, 수집기 PC에서 할 일은 Win+R 에 붙여넣을 경로로 안내하고,
+// 바뀐 점: 수집기 창은 쓰지 않음 — 로그인·API·설정·자동 수집은 V3 에서 하고 수집기 PC(웹연결, 창 없이)가 실행.
+//          처음 설치처럼 그 PC에서만 되는 일은 Win+R 에 붙여넣을 경로로 안내하고,
 //          ✅/⬜ 는 시트(웹 연결)·수집기 PC 연결 프로그램(1.2 이상)이 알려 주는 상태로 자동 체크한다. 모르면 ❔.
 
 export const COLLECTOR_DIR_DEFAULT = "C:\\Users\\M\\내 드라이브\\V_회계\\2_CS_게시판_정리\\G1_CS수집기";
@@ -45,27 +46,29 @@ export function setupSteps(ctx = {}) {
       copy: [{ label: "Win+R 에 붙여넣기", text: winPath(dir, "▶G1수집기_1_설치(처음한번).bat") }],
     },
     {
-      key: "icon", title: "3. 바탕화면 아이콘 (수집기 PC)", done: unknown(su?.icon),
-      desc: "수집기 창 [설정] 탭 → [🚀 원터치 설정] 한 번이면 부품 → 바탕화면 [G1 CS 수집기] 아이콘 → 로그인 창까지 자동으로 진행합니다. 다음부터는 이 아이콘만 더블클릭.",
-      copy: [{ label: "수집기 켜기 (Win+R)", text: winPath(dir, "▶G1수집기_2_실행.bat") }],
+      key: "auto", title: "3. 자동 수집 (V3 메인보드)", done: su ? !!su.autoOn : null,
+      desc: "[메인보드] → 시작 시간·수집 간격 고르고 [자동 수집 켜기]. 수집기 PC 웹연결이 창 없이 시각에 맞춰 수집합니다 (예전처럼 수집기 창을 열어 둘 필요 없음).",
+      detail: su?.autoOn ? `켜짐 · 다음 수집 ${su.nextAuto || "계산 중"} · ${su.interval}분 간격` : su ? "꺼짐" : "",
+      buttons: [{ label: "메인보드로", act: "tab:main", main: false }],
     },
     {
-      key: "login", title: "4. 판매자센터 로그인 (수집기 PC · 비밀번호만 입력)", done: loginDone,
-      desc: "수집기 창 [🔑 로그인] → 탭 4개가 열림 → 탭마다 아이디·비밀번호 입력 → 로그인.\n'비밀번호 저장?' → [저장] 누르면 다음부터 자동입니다.\n모든 탭이 로그인되면 창이 저절로 닫히고 수집이 시작됩니다.\n· 메이크샵은 같은 계정 동시 로그인 불가 (다른 PC에서 쓰는 중이면 나중에)\n· 스마트스토어는 2단계 인증이면 휴대폰에서 [확인]\n· 로그인은 수집기 PC 브라우저에 저장됩니다 — 아래 링크는 이 기기에서 열리는 확인용",
-      detail: lastVendors.length ? `지난 수집: ${lastVendors.map((v) => `${v.vendor} ${v.state === "ok" ? "✓" : v.state}`).join(" · ")}` : "",
+      key: "login", title: "4. 판매자센터 로그인 (V3 [🔑 로그인])", done: loginDone,
+      desc: "V3 [🔑 로그인] → 업체 고르기 → 수집기 PC가 로그인 창을 열고 저장된 비밀번호로 로그인합니다.\n처음이거나 비밀번호가 바뀌었으면 [새 아이디·비밀번호 넣기]에 입력 — 잠가서 보내고, 성공하면 그 PC에만 저장되어 다음부터 자동입니다.\n· 휴대폰 2단계 인증이면 휴대폰에서 [확인] (3분 기다림)\n· 자동입력 방지 문자가 나오면 그때만 수집기 PC 앞에서\n· 메이크샵은 같은 계정 동시 로그인 불가 (다른 PC에서 쓰는 중이면 나중에)\n· 아래 링크는 이 기기에서 열리는 확인용 — 수집에 쓰이는 로그인은 수집기 PC 브라우저",
+      detail: [lastVendors.length ? `지난 수집: ${lastVendors.map((v) => `${v.vendor} ${v.state === "ok" ? "✓" : v.state}`).join(" · ")}` : "", su?.savedLogins?.length ? `PC에 저장된 비밀번호: ${su.savedLogins.join("·")}` : ""].filter(Boolean).join(" / "),
+      buttons: [{ label: "🔑 로그인", act: "open-login", main: true, live: true }],
       links: Object.entries(SETUP_LINKS).map(([k, v]) => ({ label: `${k} ↗`, url: v[0], title: v[1] })),
     },
     {
       key: "api", title: "5. 스마트스토어 API (관리자에게 ID·시크릿 받기)", done: su ? !!su.api : null,
-      desc: "수집기 창 [API] 탭 → [이 PC 공인 IP 확인] → 관리자가 커머스API센터에 IP 추가\n→ Client ID · Client Secret 붙여넣기 → [저장] → [연결 테스트]\n· 웹 [📤 등록]도 이 API로 수집기 PC에서 올립니다 (API 키는 수집기 PC에만 저장)",
+      desc: "V3 [스마트스토어 API] 탭 → [이 PC 공인 IP 확인] → 관리자가 커머스API센터에 IP 추가\n→ Client ID · Client Secret 붙여넣기 → [저장](잠가서 보냄) → [연결 테스트]\n· 웹 [📤 등록]도 이 API로 수집기 PC에서 올립니다 (API 키는 수집기 PC에만 저장)",
       detail: su?.api === "own" ? "수집기에 저장됨" : su?.api === "e1" ? "E_1 스마트스토어 API 설정 사용 중" : "",
+      buttons: [{ label: "API 탭 열기", act: "tab:api", main: true }],
       copy: [{ label: "설명서 (Win+R)", text: winPath(dir, "G1수집기_0_스마트스토어API_설정방법.md") }],
       links: [{ label: "커머스API센터 ↗", url: API_CENTER }],
     },
     {
       key: "claude", title: "6. Claude API 키 (웹 AI 추천)", done: ctx.connected ? !!ctx.aiEnabled : null,
-      desc: "웹 🤖 AI 추천은 시트 Apps Script → 프로젝트 설정(톱니바퀴) → 스크립트 속성 CLAUDE_KEY 에 키를 넣으면 켜집니다.\n· 수집기 메신저 추천 답변용 키는 따로 — 수집기 창 [설정] 탭 [Claude API 키] (선택)",
-      detail: su ? `수집기 메신저 키: ${su.claude ? "저장됨" : "없음 (선택)"}` : "",
+      desc: "웹 🤖 AI 추천은 시트 Apps Script → 프로젝트 설정(톱니바퀴) → 스크립트 속성 CLAUDE_KEY 에 키를 넣으면 켜집니다.",
       links: [{ label: "Claude 키 발급 페이지 ↗", url: CLAUDE_KEYS }],
     },
     {
@@ -75,7 +78,7 @@ export function setupSteps(ctx = {}) {
       copy: [{ label: "Win+R 에 붙여넣기", text: winPath(dir, "▶G1수집기_5_웹연결.bat") }],
     },
     {
-      key: "auto", title: "8. 컴퓨터와 같이 켜기 (창 없이 · 트레이 아이콘)", done: su ? !!(su.bg && su.autostart) : null,
+      key: "startup", title: "8. 컴퓨터와 같이 켜기 (창 없이 · 트레이 아이콘)", done: su ? !!(su.bg && su.autostart) : null,
       desc: "검은 창(웹연결)을 닫고 아래 파일을 한 번 실행 → Windows 로그인 때 창 없이 자동 시작, 멈추면 30초 뒤 다시 켜집니다.\n시계 옆 원격보드 동그라미의 오른쪽 반 = G1 웹연결 (초록 대기 · 파랑 실행 중 · 주황 연결 안 됨 · 회색 꺼짐). 둘 다 정상이면 동그라미 하나.",
       detail: su ? `${su.bg ? "창 없이 도는 중" : "검은 창으로 도는 중"} · 자동시작 ${su.autostart ? "등록됨" : "없음"}` : "",
       copy: [{ label: "Win+R 에 붙여넣기", text: winPath(dir, "G1웹연결_백그라운드_등록.bat") }],
@@ -124,6 +127,7 @@ export function collectorSettingsView(collector) {
     outDir: su.outDir || "",
     days: su.days || "",
     zzSlug: su.zzSlug || "",
+    reviewDays: su.reviewDays || "",
     showBrowser: su.showBrowser === true,
     note: `수집기 PC 현재 값${collector.pc ? ` (${collector.pc})` : ""} · 업체 ${su.vendors.join("·") || "없음"} · 자동 수집 ${su.autoStart || "-"} 시작 ${su.interval || "-"}분 간격 · 리뷰 ${su.reviewDays || "-"}일`,
   };

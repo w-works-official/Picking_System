@@ -171,7 +171,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 3 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 4 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -401,8 +401,8 @@ assert.equal(steps[0].done, false, "web not connected");
 assert.equal(steps[1].done, null, "unknown before the collector reports");
 assert.equal(setupProgress(steps).next.key, "web");
 steps = setupSteps({ connected: true, aiEnabled: true, collector: live });
-assert.deepEqual(steps.map((x) => x.done), [true, true, true, true, true, true, true, true, true], "everything reported done");
-assert.equal(setupProgress(steps).next, null);
+assert.deepEqual(steps.map((x) => x.done), [true, true, false, true, true, true, true, true, true], "auto collection is off in this fake");
+assert.equal(setupProgress(steps).next.key, "auto");
 assert.match(steps[6].copy[0].text, /^"C:\\x\\G1_CS수집기\\▶G1수집기_5_웹연결\.bat"$/, "Win+R path uses the collector folder it reported");
 const guideHtml = guideStepsHtml(steps, { live: false, focus: "first" });
 assert.match(guideHtml, /data-guide-step="first"[^>]*>/);
@@ -414,5 +414,124 @@ assert.equal(collectorSettingsView(null), null);
 const offline = setupSteps({ connected: true, collector: collectorStatus({ ...res.collector, seenAt: "2026-01-01T00:00:00Z", last: { at: "x", vendors: { 에이블리: { state: "로그인 필요" } } } }) });
 assert.equal(offline.find((x) => x.key === "link").done, false, "collector off");
 assert.equal(offline.find((x) => x.key === "login").done, false, "login needed from the last collection");
+
+// ---------- v4: 수집기 PC 일 (로그인·설정·API·IP·파일·자동 수집) ----------
+{
+  const { csPcPayload, latestJob, autoSettings, normalizeCsJob: nj } = await import("../src/domain/csBoard.mjs");
+  const { lockForPc } = await import("../src/app/csPcLock.mjs");
+  const pair = await crypto.subtle.generateKey({ name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["encrypt", "decrypt"]);
+  const pubN = (await crypto.subtle.exportKey("jwk", pair.publicKey)).n;
+  const sealed = await lockForPc(pubN, "비밀번호!123");
+  assert.match(sealed, /^[A-Za-z0-9_-]{340,350}$/);
+  const opened = new TextDecoder().decode(await crypto.subtle.decrypt({ name: "RSA-OAEP" }, pair.privateKey, Buffer.from(sealed, "base64url")));
+  assert.equal(opened, "비밀번호!123", "only the private key holder can open it");
+  await assert.rejects(() => lockForPc("", "x"), /잠금 키가 아직 없습니다/);
+  await assert.rejects(() => lockForPc(pubN, "x".repeat(191)), /너무 깁니다/);
+
+  // 화면 → 요청 모양
+  assert.throws(() => csPcPayload("collect"), /알 수 없는 요청/);
+  assert.throws(() => csPcPayload("login", { vendors: [] }), /업체를 고르세요/);
+  const loginBody = csPcPayload("login", { vendors: ["지그재그", "없는곳"], creds: { 지그재그: { id: sealed, pw: sealed }, 에이블리: { id: sealed, pw: sealed } }, collectAfter: true }, "시험");
+  assert.deepEqual(loginBody.options.vendors, ["지그재그"]);
+  assert.deepEqual(Object.keys(loginBody.options.creds), ["지그재그"], "creds only for chosen vendors");
+  assert.deepEqual(autoSettings({ on: true, hour: "9", minute: "5", interval: "5" }), { auto_on: true, auto_start: "09:05", interval: 10 });
+
+  // 시트: 잠긴 값만 받고, 수집기 PC가 가져가면 지움
+  const g4 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR } });
+  assert.equal(g4.post({ action: "request", token: TOKEN, kind: "auto" }).ok, false, "staff cannot fake an auto job");
+  assert.equal(g4.post({ action: "request", token: TOKEN, kind: "testReviews", options: { vendors: ["지그재그"], reviewDays: 7 } }).ok, true, "test review collection is accepted");
+  assert.equal(g4.post({ action: "request", token: TOKEN, kind: "login", options: { vendors: ["지그재그"], creds: { 지그재그: { id: "plain-password", pw: "plain" } } } }).job.body.creds["지그재그"], undefined, "plain text is not accepted as a locked value");
+  const lr = g4.post({ ...loginBody, token: TOKEN });
+  assert.equal(lr.ok, true);
+  assert.equal(lr.job.body.creds["지그재그"], "(전달됨)", "screen never gets the locked value back");
+  const sheetCell = () => JSON.stringify(g4.jobs().data);
+  assert.equal(sheetCell().includes(sealed), true, "locked value waits in the sheet only until taken");
+  assert.equal(g4.post({ action: "request", token: TOKEN, kind: "login", options: { vendors: ["에이블리"] } }).ok, true, "a new login replaces the waiting one");
+  assert.equal(sheetCell().includes(sealed), false, "replaced request is wiped");
+  assert.match(sheetCell(), /새 요청으로 바꿈/);
+  g4.post({ ...loginBody, token: TOKEN });
+  let taken = g4.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+  assert.equal(taken.kind, "testReviews");
+  g4.post({ action: "finish", token: COLLECTOR, id: taken.id, ok: true, message: "리뷰 0건" });
+  taken = g4.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+  assert.equal(taken.kind, "login");
+  assert.equal(taken.body.creds["지그재그"].pw, sealed, "the collector PC gets the locked value");
+  assert.equal(sheetCell().includes(sealed), false, "wiped from the sheet as soon as the PC takes it");
+  // 진행 안내 → 화면 요청 현황
+  assert.equal(g4.post({ action: "progress", token: COLLECTOR, id: taken.id, message: "지그재그: 휴대폰에서 [확인]을 눌러 주세요" }).ok, true);
+  let job = nj(g4.post({ action: "list", token: TOKEN }).jobs.find((j) => j.id === taken.id));
+  assert.equal(job.status, "실행중");
+  assert.equal(job.progress, true);
+  assert.match(job.message, /휴대폰에서/);
+  assert.equal(g4.post({ action: "progress", token: TOKEN, id: taken.id, message: "x" }).denied, true, "only the collector reports progress");
+  g4.post({ action: "finish", token: COLLECTOR, id: taken.id, ok: true, message: "지그재그 ✓", data: { login: { 지그재그: { state: "ok" } } } });
+  job = nj(g4.post({ action: "list", token: TOKEN }).jobs.find((j) => j.id === taken.id));
+  assert.equal(job.data.login["지그재그"].state, "ok");
+
+  // 설정: 아는 칸·범위만
+  const sr = g4.post({ action: "request", token: TOKEN, kind: "settings", options: { settings: { days: 500, review_days: 14, zz_slug: "Pink Rocket", auto_on: true, auto_start: "25:00", interval: 30, vendors: { 메이크샵: false, 없는곳: true }, ss_secret_enc: "x" } } });
+  assert.deepEqual(JSON.parse(JSON.stringify(sr.job.body.settings)), { review_days: 14, auto_on: true, interval: 30, vendors: { 메이크샵: false } });
+  assert.equal(g4.post({ action: "request", token: TOKEN, kind: "settings", options: { settings: { days: 0 } } }).ok, false, "nothing valid to change");
+  // API 키: 잠긴 값만
+  assert.equal(g4.post({ action: "request", token: TOKEN, kind: "apiKey", options: { clientId: "plain", secret: "plain" } }).ok, false);
+  const ak = g4.post({ action: "request", token: TOKEN, kind: "apiKey", options: { clientId: sealed, secret: sealed } });
+  assert.equal(ak.job.body.secret, "(전달됨)");
+  // 자동 수집: 수집기 PC가 스스로 기록. 다른 요청이 실행 중이면 안 함
+  g4.post({ action: "cancel", token: TOKEN, id: ak.job.id });
+  assert.equal(sheetCell().includes(sealed), false, "cancelled secret request is wiped");
+  const busyJob = g4.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+  assert.equal(g4.post({ action: "selfJob", token: COLLECTOR, kind: "auto", vendors: ["지그재그"], pc: "OFFICE-PC" }).busy, true);
+  g4.post({ action: "finish", token: COLLECTOR, id: busyJob.id, ok: true, message: "저장" });
+  const auto = g4.post({ action: "selfJob", token: COLLECTOR, kind: "auto", vendors: ["지그재그"], pc: "OFFICE-PC" });
+  assert.equal(auto.ok, true);
+  assert.equal(g4.post({ action: "selfJob", token: TOKEN, kind: "auto" }).denied, true);
+  g4.post({ action: "finish", token: COLLECTOR, id: auto.job.id, ok: true, message: "수집_1.json · 3건", count: 3 });
+  const jobs4 = g4.post({ action: "list", token: TOKEN }).jobs.map(nj);
+  const autoJob = jobs4.find((j) => j.kind === "auto");
+  assert.equal(autoJob.label, "⏰ 자동 수집");
+  assert.equal(autoJob.by, "자동");
+  assert.equal(autoJob.status, "완료");
+  // 파일 목록 결과
+  const fj = g4.post({ action: "request", token: TOKEN, kind: "files" }).job;
+  g4.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" });
+  g4.post({ action: "finish", token: COLLECTOR, id: fj.id, ok: true, message: "수집 · 최근 1개", data: { files: [{ name: "수집_1.json", size: 2048, at: "2026-10-29 15:00" }] } });
+  const latest = latestJob(g4.post({ action: "list", token: TOKEN }).jobs.map(nj), "files");
+  assert.equal(latest.data.files[0].name, "수집_1.json");
+  // 공개키·저장된 로그인·자동 수집 상태
+  g4.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC", setup: { pub_key: pubN, auto_on: true, next_auto: "10-29 16:00", saved_logins: ["지그재그"], rsa_enc: "NO" } });
+  const cs4 = collectorStatus({ ...g4.post({ action: "list", token: TOKEN }).collector, seenAt: new Date().toISOString() });
+  assert.equal(cs4.setup.pubKey, pubN);
+  assert.equal(cs4.setup.autoOn, true);
+  assert.deepEqual(cs4.setup.savedLogins, ["지그재그"]);
+  assert.equal(JSON.stringify(cs4).includes("NO"), false);
+}
+
+// ---------- 엑셀 내려받기 / 적용 ----------
+{
+  const { csExcelSheet, csExcelChanges, CS_EXCEL_KEY } = await import("../src/domain/csExcel.mjs");
+  const rowsX = [
+    normalizeCsRow({ key: "스마트스토어_상품문의_1", vendor: "스마트스토어", board: "상품문의", id: "1", kind: "문의", inquiry: { question: "언제?" }, drafts: ["안 A", "안 B"] }),
+    normalizeCsRow({ key: "지그재그_주문문의_2", vendor: "지그재그", board: "주문문의", id: "2", kind: "문의", inquiry: { question: "바 변경?" }, drafts: ["가능", "불가"], choice: { pick: 0 } }),
+    normalizeCsRow({ key: "지그재그_리뷰_3", vendor: "지그재그", board: "리뷰", id: "3", kind: "리뷰", inquiry: { question: "좋아요" }, drafts: ["감사"] }),
+    normalizeCsRow({ key: "스마트스토어_상품문의_4", vendor: "스마트스토어", board: "상품문의", id: "4", kind: "문의", drafts: ["x"], choice: { pick: 0 }, reg: { state: "요청" } }),
+  ];
+  const sheetX = csExcelSheet(rowsX, "문의");
+  assert.equal(sheetX.count, 3);
+  assert.deepEqual(sheetX.header.slice(-3), ["답변안 A", "답변안 B", CS_EXCEL_KEY]);
+  assert.equal(sheetX.body[1][6], "A", "current pick shown");
+  const rec = (row, patch) => Object.fromEntries(sheetX.header.map((h, i) => [h, patch[h] ?? row[i]]));
+  const { changes, locked } = csExcelChanges(rowsX, [
+    rec(sheetX.body[0], { 채택: "b", "최종 문안": "안 B (고침)" }),
+    rec(sheetX.body[1], { 보류: "O" }),
+    rec(sheetX.body[2], { 채택: "" }),
+    { [CS_EXCEL_KEY]: "없는키", 채택: "A" },
+  ]);
+  assert.equal(locked, 1, "registering rows are not touched");
+  assert.equal(changes.length, 2);
+  assert.equal(changes[0].choice.pick, 1);
+  assert.equal(changes[0].choice.edits[1], "안 B (고침)");
+  assert.equal(changes[1].choice.hold, true);
+  assert.equal(changes[1].choice.pick, -1);
+}
 
 console.log("csBoard.mock.test: OK");

@@ -5,6 +5,7 @@ import { createServer } from "node:http";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { chromium } from "playwright";
 import { loadCsBoardScript } from "./helpers/csBoardFakeSheet.mjs";
 
@@ -208,14 +209,14 @@ try {
     // ---------- 수집기 PC 연결 ----------
     const reload = async () => { await page.locator("#cs-reload").click(); await page.waitForFunction(() => !/불러오는 중/.test(document.body.textContent)); };
     assert.match(await page.locator("#cs-collector").textContent(), /수집기 PC ○/, "no signal yet");
-    assert.match(await page.locator("#cs-jobs").textContent(), /○ 꺼짐[\s\S]*웹연결\.bat/);
+    assert.match(await page.locator("#cs-jobs").textContent(), /○ 꺼짐[\s\S]*자동으로 같이 켜짐/);
     gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC", version: "9.1 / 연결 1.0", busy: true }); // 연결 프로그램 신호
     await reload();
     await page.waitForFunction(() => /수집기 PC ●/.test(document.querySelector("#cs-collector").textContent));
     const collectButton = page.locator('[data-left-panel="main"] [data-job="collect"]');
     assert.equal(await collectButton.isDisabled(), false, "unlocked once connected");
     assert.notEqual(await collectButton.evaluate((el) => getComputedStyle(el).color), "rgb(220, 38, 38)");
-    assert.equal(await page.locator('[data-left-panel="main"] button', { hasText: "🔑 로그인" }).isDisabled(), true, "login stays red (needs a person at the PC)");
+    assert.equal(await page.locator('[data-left-panel="main"] button', { hasText: "🔑 로그인" }).isDisabled(), false, "login works from V3 now");
     // 업체 끄기 → 요청에 반영
     await page.locator('#cs-vendor-grid [data-vendor="메이크샵"] strong').click();
     assert.equal(await page.locator('#cs-vendor-grid [data-vendor="메이크샵"]').evaluate((el) => el.classList.contains("is-off")), true);
@@ -294,16 +295,152 @@ try {
     assert.match(await page.locator("#cs-set-note").textContent(), /OFFICE-PC[\s\S]*스마트스토어·지그재그/);
     await page.locator("#cs-onetouch").click();
     await page.locator("#cs-guide:not([hidden])").waitFor();
-    assert.equal(await page.locator(".cs-guide-step.is-focus").getAttribute("data-guide-step"), "icon", "one-touch jumps to the first unfinished step");
+    assert.equal(await page.locator(".cs-guide-step.is-focus").getAttribute("data-guide-step"), "auto", "one-touch jumps to the first unfinished step");
     assert.equal(await page.locator('[data-guide-step="parts"] .cs-guide-mark').textContent(), "✅");
     assert.equal(await page.locator('[data-guide-step="login"] .cs-guide-mark').textContent(), "⬜", "에이블리 needed a login in the last collection");
-    assert.match(await page.locator('[data-guide-step="auto"]').textContent(), /검은 창으로 도는 중 · 자동시작 없음/);
-    await page.locator('[data-guide-step="auto"] [data-guide-copy]').click();
+    assert.match(await page.locator('[data-guide-step="startup"]').textContent(), /검은 창으로 도는 중 · 자동시작 없음/);
+    await page.locator('[data-guide-step="startup"] [data-guide-copy]').click();
     await page.locator("#cs-toast", { hasText: "Win+R" }).waitFor();
     assert.equal(await page.evaluate(() => navigator.clipboard.readText()), '"C:\\Users\\M\\내 드라이브\\V_회계\\2_CS_게시판_정리\\G1_CS수집기\\G1웹연결_백그라운드_등록.bat"');
     await page.screenshot({ path: path.join(output, "cs-board-setup-guide.png") });
     await page.locator('.cs-guide-foot [data-guide-act="close"]').click();
     assert.equal(await page.locator("#cs-guide").isHidden(), true);
+
+    // ---------- 빨간 메뉴 → V3 에서 (수집기 창 없이) ----------
+    const pair = await crypto.subtle.generateKey({ name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["encrypt", "decrypt"]);
+    const pubN = (await crypto.subtle.exportKey("jwk", pair.publicKey)).n;
+    const unlock = async (v) => new TextDecoder().decode(await crypto.subtle.decrypt({ name: "RSA-OAEP" }, pair.privateKey, Buffer.from(v, "base64url")));
+    const pollSetup = (extra = {}) => gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC", version: "9.4 / 연결 1.3 · 창 없이", busy: true, setup: {
+      dir: "C:\\x\\G1_CS수집기", out_dir: "C:\\x\\수집", days: 7, review_days: 30, zz_slug: "pink-rocket", show_browser: false, vendors: ["스마트스토어", "지그재그", "에이블리", "메이크샵"],
+      login_ok: false, api: "e1", parts: true, icon: true, autostart: true, bg: true, link: "1.3", pub_key: pubN, saved_logins: ["지그재그"], auto_on: false, auto_start: "09:30", interval: 60, ...extra,
+    } });
+    const waitText = (selector, re) => page.waitForFunction(([sel, src]) => new RegExp(src).test(document.querySelector(sel)?.textContent || ""), [selector, re.source], { timeout: 8000 });
+    const lastRequest = (kind) => requests.filter((r) => r.action === "request" && r.kind === kind).at(-1);
+    pollSetup();
+    await reload();
+    await page.locator('[data-left-tab="main"]').click();
+    // 🔑 로그인: 지난 수집에서 로그인 필요였던 에이블리가 미리 골라짐 → 새 비밀번호는 잠가서
+    const loginBtn = page.locator('[data-left-panel="main"] [data-pc="login"]').first();
+    assert.equal(await loginBtn.isDisabled(), false, "login is no longer red");
+    await loginBtn.click();
+    await page.locator("#cs-login:not([hidden])").waitFor();
+    assert.equal(await page.locator('[data-login-pick][value="에이블리"]').isChecked(), true);
+    assert.equal(await page.locator('[data-login-pick][value="지그재그"]').isChecked(), false);
+    assert.match(await page.locator('[data-login-row="지그재그"]').textContent(), /PC에 저장된 비밀번호 ✓/);
+    const ablyRow = page.locator('[data-login-row="에이블리"]');
+    await ablyRow.locator("[data-login-id]").fill("pink_ably");
+    await ablyRow.locator("[data-login-pw]").fill("Secret!234");
+    await page.locator('[data-login-pick][value="지그재그"]').check();
+    await page.locator("#cs-login-collect").check();
+    await page.screenshot({ path: path.join(output, "cs-board-login.png") });
+    await page.locator("#cs-login-ok").click();
+    await page.locator("#cs-toast", { hasText: "로그인 요청을 보냈습니다" }).waitFor();
+    assert.equal(await page.locator("#cs-login").isHidden(), true);
+    const loginReq = lastRequest("login");
+    assert.deepEqual(loginReq.options.vendors, ["지그재그", "에이블리"]);
+    assert.equal(loginReq.options.collectAfter, true);
+    assert.deepEqual(Object.keys(loginReq.options.creds), ["에이블리"], "only the vendor with a new password");
+    assert.equal(JSON.stringify(requests).includes("Secret!234"), false, "the password never leaves the browser in plain text");
+    assert.equal(await unlock(loginReq.options.creds["에이블리"].pw), "Secret!234", "only the collector PC key opens it");
+    assert.equal(await unlock(loginReq.options.creds["에이블리"].id), "pink_ably");
+    await loginBtn.click();
+    assert.equal(await page.locator('[data-login-row="에이블리"] [data-login-pw]').inputValue(), "", "typed password is not kept on screen");
+    await page.locator("#cs-login-cancel").click();
+    const lj = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    assert.equal(lj.kind, "login");
+    gas.post({ action: "progress", token: COLLECTOR, id: lj.id, message: "에이블리: 휴대폰 2단계 인증이면 휴대폰에서 [확인]을 눌러 주세요" });
+    await reload();
+    await waitText("#cs-jobs", /실행중[\s\S]*🔑 로그인[\s\S]*휴대폰에서 \[확인\]/);
+    gas.post({ action: "finish", token: COLLECTOR, id: lj.id, ok: true, message: "지그재그 ✓ · 에이블리 ✓", data: { login: { 지그재그: { state: "ok" }, 에이블리: { state: "ok" } } } });
+
+    // 자동 수집 켜기 (수집기 PC 웹연결이 실행)
+    await page.locator("#cs-auto-hour").selectOption("10");
+    await page.locator("#cs-auto-minute").selectOption("00");
+    await page.locator("#cs-auto-interval").selectOption("30");
+    await page.locator("#cs-auto-toggle").click();
+    await page.locator("#cs-toast", { hasText: "자동 수집 켜기 요청" }).waitFor();
+    assert.deepEqual(lastRequest("settings").options.settings, { auto_on: true, auto_start: "10:00", interval: 30 });
+    const sj = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    gas.post({ action: "finish", token: COLLECTOR, id: sj.id, ok: true, message: "저장: 자동 수집, 자동 시작 시각, 간격" });
+    pollSetup({ auto_on: true, auto_start: "10:00", interval: 30, next_auto: "10-30 10:00" });
+    await reload();
+    await waitText("#cs-auto-note", /켜짐 · 다음 수집 10-30 10:00/);
+    assert.equal(await page.locator("#cs-auto-toggle").textContent(), "자동 수집 끄기");
+
+    // 📂 수집 파일 목록
+    await page.locator('[data-pc="files"]').click();
+    await page.locator("#cs-toast", { hasText: "수집 파일 목록 요청" }).waitFor();
+    const fj = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    gas.post({ action: "finish", token: COLLECTOR, id: fj.id, ok: true, message: "C:\\x\\수집 · 최근 1개", data: { files: [{ name: "수집_261029_1200.json", size: 4096, at: "2026-10-29 12:00" }] } });
+    await reload();
+    await waitText("#cs-files", /수집_261029_1200\.json[\s\S]*4KB/);
+
+    // 스마트스토어 API: 카드 [API 설정] → API 탭, 키는 잠가서
+    await page.locator('#cs-vendor-grid [data-pc="api-tab"]').click();
+    assert.equal(await page.locator('[data-left-panel="api"]').isVisible(), true);
+    assert.match(await page.locator("#cs-api-state").textContent(), /E_1/);
+    await page.locator("#cs-api-id").fill("my-client-id");
+    await page.locator("#cs-api-secret").fill("$2a$04$my-secret");
+    await page.locator('[data-left-panel="api"] [data-pc="apiKey"]').click();
+    await page.locator("#cs-toast", { hasText: "API 키를 잠가서 보냈습니다" }).waitFor();
+    const ak = lastRequest("apiKey");
+    assert.equal(await unlock(ak.options.secret), "$2a$04$my-secret");
+    assert.equal(JSON.stringify(requests).includes("my-secret"), false);
+    assert.equal(await page.locator("#cs-api-secret").inputValue(), "");
+    const akJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    assert.equal(akJob.body.secret, ak.options.secret);
+    gas.post({ action: "finish", token: COLLECTOR, id: akJob.id, ok: true, message: "API 키 저장 · ✅ 연결 성공 (수집기 API 키)" });
+    await page.locator('[data-left-panel="api"] [data-pc="ip"]').click();
+    const ipJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    gas.post({ action: "finish", token: COLLECTOR, id: ipJob.id, ok: true, message: "이 PC 공인 IP: 1.2.3.4", data: { ip: "1.2.3.4" } });
+    await reload();
+    await waitText("#cs-api-result", /1\.2\.3\.4/);
+    await page.screenshot({ path: path.join(output, "cs-board-api.png") });
+
+    // 설정 저장
+    await page.locator('[data-left-tab="settings"]').click();
+    await page.locator("#cs-set-days").fill("14");
+    await page.locator("#cs-set-save").click();
+    await page.locator("#cs-toast", { hasText: "설정 저장 요청" }).waitFor();
+    assert.equal(lastRequest("settings").options.settings.days, 14);
+    assert.equal(lastRequest("settings").options.settings.zz_slug, "pink-rocket");
+    const setJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    gas.post({ action: "finish", token: COLLECTOR, id: setJob.id, ok: true, message: "저장: 수집 기간" });
+
+    // 엑셀 내려받기 → 고쳐서 📥 엑셀 적용
+    let xlsxPath = "";
+    try { xlsxPath = createRequire("/tmp/claude-0/scan/").resolve("xlsx/dist/xlsx.full.min.js"); } catch { xlsxPath = ""; }
+    if (xlsxPath) {
+      await context.route("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", async (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: await readFile(xlsxPath, "utf8") }));
+      await page.locator('[data-right-tab="board"]').click();
+      const [download] = await Promise.all([page.waitForEvent("download"), page.locator('[data-right-panel="board"] [data-excel="export"]').click()]);
+      // 시험용 헤드리스 크롬은 한글 파일 이름을 "download" 로 보고함 (실제 크롬은 그대로)
+      assert.match(download.suggestedFilename(), /^(CS_게시판_답변안_\d{6}_\d{4}\.xlsx|download)$/);
+      const XLSX = createRequire("/tmp/claude-0/scan/")("xlsx");
+      const wb = XLSX.read(await readFile(await download.path()));
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+      const head = aoa[0];
+      const zigLine = aoa.find((r) => r[head.indexOf("키 (고치지 마세요)")] === "지그재그_주문문의_z1");
+      zigLine[head.indexOf("채택")] = "B";
+      zigLine[head.indexOf("최종 문안")] = "엑셀에서 고친 답변";
+      const edited = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(edited, XLSX.utils.aoa_to_sheet(aoa), "게시판");
+      const editedFile = path.join(output, "cs-excel-edited.xlsx");
+      XLSX.writeFile(edited, editedFile);
+      page.once("dialog", (d) => d.accept());
+      const chooser = page.waitForEvent("filechooser");
+      await page.locator('[data-right-panel="board"] [data-excel="import"]').click();
+      await (await chooser).setFiles(editedFile);
+      await page.locator("#cs-toast", { hasText: "엑셀 1건을 적용" }).waitFor();
+      await page.waitForFunction(() => /자동 저장됨/.test(document.querySelector("#cs-summary").textContent) && !/저장 중|저장 대기/.test(document.body.textContent));
+      const zigSaved = gas.post({ action: "list", token: TOKEN }).rows.find((r) => r.key === "지그재그_주문문의_z1");
+      assert.equal(zigSaved.choice.pick, 1);
+      assert.equal(zigSaved.choice.edits[1], "엑셀에서 고친 답변");
+    } else {
+      console.log("  (엑셀 시험 건너뜀 — 이 PC에 xlsx 부품 없음)");
+    }
+    const stillRed = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => el.textContent.trim()));
+    assert.deepEqual(stillRed.sort(), ["감시 시작", "업로드"].sort(), "only messenger watch and review upload stay red");
 
     // 틀린 비밀번호 → 저장된 비밀번호 지움
     await page.locator('[data-left-tab="settings"]').click();

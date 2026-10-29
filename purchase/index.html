@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261029-equal-width1">
-    <link rel="stylesheet" href="../src/styles/purchase.css?v=20261028-remote-board2">
+    <link rel="stylesheet" href="../src/styles/purchase.css?v=20261029-names1">
   </head>
   <body class="purchase-workspace">
     <div id="purchase-app" class="purchase-shell">
@@ -35,6 +35,7 @@
           <nav class="purchase-tabs" aria-label="상품 관리 메뉴">
             <button class="purchase-tab active" type="button" data-purchase-tab="order" aria-current="page">발주</button>
             <button class="purchase-tab" type="button" data-purchase-tab="receiving">입고</button>
+            <button class="purchase-tab" type="button" data-purchase-tab="naming">상품명 요청</button>
           </nav>
         </aside>
 
@@ -61,11 +62,24 @@
             <div class="remote-board" data-remote-board="receiving"></div>
           </div>
         </section>
+
+        <section class="purchase-panel" data-purchase-panel="naming" aria-labelledby="purchase-naming-title" hidden>
+          <div class="purchase-panel-head">
+            <div>
+              <h2 id="purchase-naming-title">상품명 요청</h2>
+              <p>키워드 · 메모를 넣으면 AI 가 상품명 후보를 만듭니다</p>
+            </div>
+          </div>
+          <div class="purchase-panel-body">
+            <div class="product-names" data-product-names></div>
+          </div>
+        </section>
       </main>
     </div>
     <div id="purchase-toast" class="purchase-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261028-purchase1"></script>
-    <script type="module" src="../src/app/purchaseApp.mjs?v=20261028-purchase1"></script>
+    <script type="module" src="../src/app/purchaseApp.mjs?v=20261029-names1"></script>
     <script type="module" src="../src/app/remoteBoardPanel.mjs?v=20261028-remote-board1"></script>
+    <script type="module" src="../src/app/productNamePanel.mjs?v=20261029-names1"></script>
   </body>
 </html>

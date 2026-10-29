@@ -19,8 +19,11 @@ assert.match(csCss, /company-workspace-nav a\[aria-current=page\]\{background:#b
 assert.ok(JSON.parse(manifest).files.some((f) => f.path === `assets/${cssName}`), "manifest points at the served CSS");
 // 같은 글꼴
 for (const html of [index, csHtml, purchase]) assert.match(html, /pretendard\/1\.3\.9\/static\/pretendard\.css/);
-assert.match(index, /workspaceNavigation\.css\?v=20261029-same-spot1/);
-assert.match(purchase, /workspaceNavigation\.css\?v=20261029-same-spot1/);
+assert.match(index, /workspaceNavigation\.css\?v=20261029-equal-width1/);
+assert.match(purchase, /workspaceNavigation\.css\?v=20261029-equal-width1/);
+// 세 버튼 같은 폭
+assert.match(navCss, /\.workspace-navigation \.workspace-link \{\s*box-sizing: border-box;\s*width: 80px;/);
+assert.match(csCss, /\.company-sample \.company-workspace-nav a\{box-sizing:border-box;width:80px;/);
 
 // 로그인 화면 반짝임 방지: 저장된 세션 확인 중에만 숨김, 실패하면 lock() 이 다시 보이게, 8초 안전장치
 assert.match(index, /sessionStorage\.getItem\("system-v3-picking-session-v1"\)/);

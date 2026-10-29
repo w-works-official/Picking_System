@@ -100,3 +100,11 @@
   }
 }
 
+/* 2026-10-29: 세 버튼(피킹시스템·CS 관리·사입 관리) 폭을 똑같이 — 가장 긴 글자(피킹시스템) 기준 80px */
+.workspace-navigation .workspace-link {
+  box-sizing: border-box;
+  width: 80px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+

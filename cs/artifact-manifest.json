@@ -154,10 +154,10 @@
       "patch": "2026-10-28 System V3: 원본 빌드에서 두 군데만 수정 — 링크 주소표에 purchase(../purchase/) 추가, 상위 업무 메뉴에 사입 관리 링크 추가"
     },
     {
-      "path": "assets/index-wmp_m_en-p2.css",
-      "bytes": 72223,
-      "sha256": "3f84fc5f127c6f8fc791a8fd06f4238947fad762a47b3d0fd6255c2b1a662ca6",
-      "patch": "2026-10-28~29 System V3: 원본 빌드에서 두 군데만 수정 — ① 상위 업무 메뉴 현재 화면(CS 관리) 버튼 색 파랑 → 진한 핑크(#be185d) ② 파일 끝에 상위 업무 버튼 위치 고정 규칙(@media width>=721px: 제목 칸 252px + 12px 간격) 추가"
+      "path": "assets/index-wmp_m_en-p3.css",
+      "bytes": 72332,
+      "sha256": "adf1f88a8b7f678517ab8bd80893c7677dd71454f2121851a0be09710a5ea0d6",
+      "patch": "2026-10-28~29 System V3: 원본 빌드에서 세 군데만 수정 — ① 현재 화면(CS 관리) 버튼 색 진한 핑크(#be185d) ② 파일 끝에 상위 업무 버튼 위치 고정 규칙(@media width>=721px: 제목 칸 252px + 12px 간격) ③ 파일 끝에 세 버튼 같은 폭(80px)"
     },
     {
       "path": "captures/README.txt",

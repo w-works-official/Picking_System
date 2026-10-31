@@ -1615,3 +1615,18 @@ body.cs-board-workspace {
   white-space: normal;
   word-break: break-all;
 }
+
+/* 새 PC 설치 파일 (2026-10-31): 링크를 버튼 모양으로 */
+a.cs-btn {
+  text-decoration: none;
+}
+
+.cs-row-wrap {
+  flex-wrap: wrap;
+}
+
+.cs-install-steps {
+  margin: 8px 0 4px;
+  padding-left: 18px;
+  line-height: 1.6;
+}

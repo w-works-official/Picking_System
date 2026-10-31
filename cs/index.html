@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261029-equal-width1">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261029-cs-update1">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261031-install1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -193,6 +193,22 @@
                   </div>
                 </form>
                 <p class="cs-note">비밀번호는 이 기기 브라우저에만 저장됩니다. 공용 PC에서는 다 쓰고 [지우기]를 눌러 주세요.</p>
+              </fieldset>
+
+              <fieldset class="cs-box" id="cs-install">
+                <legend>💾 새 PC 설치 파일 <small>(이 PC를 수집기 PC로 쓸 때)</small></legend>
+                <div class="cs-row cs-row-wrap">
+                  <a class="cs-btn cs-btn-primary" id="cs-dl-start" href="https://drive.google.com/uc?export=download&amp;id=1qL1zAMl8DidneikJ8fPUA2dAb5MYszlL" target="_blank" rel="noopener">⬇ ① 설치 시작 파일 (.bat)</a>
+                  <a class="cs-btn" id="cs-dl-python" href="https://www.python.org/ftp/python/3.14.10/python-3.14.10-amd64.exe" target="_blank" rel="noopener">⬇ 파이썬 3.14 (Windows 64비트)</a>
+                  <a class="cs-btn" id="cs-dl-folder" href="https://drive.google.com/drive/folders/1lKrSiKHNWqvGwt7mWtwWHIw-tTjy0zXc" target="_blank" rel="noopener">📁 수집기 폴더 (드라이브)</a>
+                </div>
+                <ol class="cs-note cs-install-steps">
+                  <li><b>① 설치 시작 파일</b>을 받아 더블클릭 (「Windows의 PC 보호」 창 → <b>추가 정보 → 실행</b>)</li>
+                  <li>구글 드라이브 데스크톱이 없으면 자동 설치 → <b>w.works.official@gmail.com</b> 으로 로그인 → 공유 문서함 <b>2_CS_게시판_정리</b> 우클릭 → 바로가기 추가 → 내 드라이브</li>
+                  <li>폴더가 내려오면 <code>▶G1수집기_1_설치(처음한번).bat</code> 이 저절로 실행 — <b>파이썬·부품까지 자동 설치</b> (검은 창은 끝날 때까지 두기)</li>
+                  <li>끝나면 이 화면 <b>🚀 원터치 설정</b> 으로 이어서 (웹연결·로그인·자동 시작)</li>
+                </ol>
+                <p class="cs-note">파일은 대표님 구글 드라이브에서만 받아집니다 (공개 아님 — 크롬이 권한 있는 구글 계정으로 로그인돼 있어야 함). 파이썬은 설치 파일이 자동으로 깔기 때문에 <b>자동 설치가 안 될 때만</b> 직접 받으세요 (설치 첫 화면에서 <b>Add python.exe to PATH</b> 체크).</p>
               </fieldset>
 
               <fieldset class="cs-box">

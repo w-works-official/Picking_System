@@ -571,4 +571,17 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(changes[1].choice.pick, -1);
 }
 
+
+// 새 PC 설치 파일 (2026-10-31): 드라이브 설치 시작 bat · 파이썬 공식 설치 파일 · 수집기 폴더 — 링크만(비밀값 없음)
+{
+  const { readFile: rf } = await import("node:fs/promises");
+  const html = await rf(new URL("../cs/index.html", import.meta.url), "utf8");
+  const box = html.slice(html.indexOf('id="cs-install"'), html.indexOf("</fieldset>", html.indexOf('id="cs-install"')));
+  assert.match(box, /id="cs-dl-start" href="https:\/\/drive\.google\.com\/uc\?export=download&amp;id=1qL1zAMl8DidneikJ8fPUA2dAb5MYszlL" target="_blank" rel="noopener"/);
+  assert.match(box, /id="cs-dl-python" href="https:\/\/www\.python\.org\/ftp\/python\/3\.14\.10\/python-3\.14\.10-amd64\.exe"/);
+  assert.match(box, /id="cs-dl-folder" href="https:\/\/drive\.google\.com\/drive\/folders\/1lKrSiKHNWqvGwt7mWtwWHIw-tTjy0zXc"/);
+  assert.doesNotMatch(box, /data-live|disabled/, "설치 파일은 시트 연결 없이도 받을 수 있어야 함");
+  assert.ok(html.indexOf('id="cs-install"') < html.indexOf("수집기 설정 (수집기 PC 전용)"), "웹 연결 바로 아래");
+}
+
 console.log("csBoard.mock.test: OK");

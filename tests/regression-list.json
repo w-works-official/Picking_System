@@ -77,5 +77,6 @@
   "remoteBoard.mock.test.mjs",
   "workspaceNavSpot.contract.test.mjs",
   "csBoard.mock.test.mjs",
-  "productNames.mock.test.mjs"
+  "productNames.mock.test.mjs",
+  "tabletIos.contract.test.mjs"
 ]

@@ -6977,3 +6977,29 @@ button.metric-toggle {
   cursor: default;
 }
 
+
+/* 태블릿(아이패드) 화면 겹침 (2026-11-01): 제목이 필터 버튼 밑으로 깔리지 않게, 상단 버튼줄은 잘리지 않고 줄바꿈 */
+@media (max-width: 1280px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .panel-head > div:first-child {
+    flex: 0 0 auto;
+    max-width: 100%;
+  }
+
+  .panel-tools,
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+
+  .panel-tools {
+    overflow-x: visible;
+  }
+}

@@ -865,7 +865,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function emptyText() {
     if (state.loading) return "시트에서 불러오는 중…";
     if (!state.endpoint) return "아직 CS 시트가 연결되지 않았습니다.<br>오른쪽 위 <b>🧪 가상셋팅</b>으로 화면 모양을 미리 볼 수 있습니다.";
-    return "왼쪽 <b>[설정]</b> 탭에서 비밀번호를 입력하면 문의가 보입니다.";
+    return "<b>[설정]</b> 탭에서 비밀번호를 입력하면 문의가 보입니다. (휴대폰·태블릿은 화면 아래쪽)";
   }
 
   function renderBoard() {

@@ -498,12 +498,12 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   const latest = latestJob(g4.post({ action: "list", token: TOKEN }).jobs.map(nj), "files");
   assert.equal(latest.data.files[0].name, "수집_1.json");
   // 공개키·저장된 로그인·자동 수집 상태
-  g4.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC", setup: { pub_key: pubN, auto_on: true, next_auto: "10-29 16:00", saved_logins: ["지그재그"], rsa_enc: "NO" } });
+  g4.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC", setup: { pub_key: pubN, auto_on: true, next_auto: "10-29 16:00", saved_logins: ["지그재그"], rsa_enc: "RSA_ENC_SECRET_MUST_NOT_LEAK" } });
   const cs4 = collectorStatus({ ...g4.post({ action: "list", token: TOKEN }).collector, seenAt: new Date().toISOString() });
   assert.equal(cs4.setup.pubKey, pubN);
   assert.equal(cs4.setup.autoOn, true);
   assert.deepEqual(cs4.setup.savedLogins, ["지그재그"]);
-  assert.equal(JSON.stringify(cs4).includes("NO"), false);
+  assert.equal(JSON.stringify(cs4).includes("RSA_ENC_SECRET_MUST_NOT_LEAK"), false); // 무작위 공개키와 겹치지 않는 표시 (예전 "NO" 는 우연히 겹쳐 가끔 실패)
 }
 
 // ---------- v5: 웹연결 업데이트 요청 · 상품명 요청 ----------

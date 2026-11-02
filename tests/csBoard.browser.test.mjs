@@ -353,6 +353,35 @@ try {
     await waitText("#cs-jobs", /실행중[\s\S]*🔑 로그인[\s\S]*휴대폰에서 \[확인\]/);
     gas.post({ action: "finish", token: COLLECTOR, id: lj.id, ok: true, message: "지그재그 ✓ · 에이블리 ✓", data: { login: { 지그재그: { state: "ok" }, 에이블리: { state: "ok" } } } });
 
+    // 메이크샵 부운영자 (웹연결 1.5): [부운영자로 로그인] → 상점 URL 칸 → 아이디가 "부운영자|상점URL|아이디" 로 잠겨 감
+    await reload();
+    await loginBtn.click();
+    await page.locator("#cs-login:not([hidden])").waitFor();
+    const msRow = page.locator('[data-login-row="메이크샵"]');
+    await page.locator('[data-login-pick][value="메이크샵"]').check();
+    await msRow.locator("summary").click();
+    assert.equal(await msRow.locator("[data-login-shop-wrap]").isVisible(), false, "운영자 로그인이 기본");
+    await msRow.locator("[data-login-sub]").check();
+    assert.equal(await msRow.locator("[data-login-shop-wrap]").isVisible(), true);
+    await msRow.locator("[data-login-id]").fill("cs_auto");
+    await msRow.locator("[data-login-pw]").fill("Sub!pw77");
+    await page.locator("#cs-login-ok").click();
+    await page.locator("#cs-toast", { hasText: "상점 URL" }).waitFor();
+    await msRow.locator("[data-login-shop]").fill("https://pinkrocket.co.kr/");
+    await page.locator("#cs-login-ok").click();
+    await page.locator("#cs-toast", { hasText: "로그인 요청을 보냈습니다" }).waitFor();
+    const subReq = lastRequest("login");
+    assert.equal(await unlock(subReq.options.creds["메이크샵"].id), "부운영자|pinkrocket.co.kr|cs_auto");
+    assert.equal(await unlock(subReq.options.creds["메이크샵"].pw), "Sub!pw77");
+    assert.equal(JSON.stringify(requests).includes("Sub!pw77"), false);
+    assert.equal(await page.evaluate(() => localStorage.getItem("system_v3_cs_makeshop_shop")), "pinkrocket.co.kr", "상점 URL 은 다음에 다시 안 쓰게 기억(비밀값 아님)");
+    await loginBtn.click();
+    await page.locator("#cs-login:not([hidden])").waitFor();
+    assert.equal(await page.locator('[data-login-row="메이크샵"] [data-login-sub]').isChecked(), true, "다음에도 부운영자로");
+    await page.locator("#cs-login-cancel").click();
+    const msJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    gas.post({ action: "finish", token: COLLECTOR, id: msJob.id, ok: true, message: "메이크샵 ✓", data: { login: { 메이크샵: { state: "ok" } } } });
+
     // 자동 수집 켜기 (수집기 PC 웹연결이 실행)
     await page.locator("#cs-auto-hour").selectOption("10");
     await page.locator("#cs-auto-minute").selectOption("00");

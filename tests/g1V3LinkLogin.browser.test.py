@@ -39,6 +39,25 @@ with sync_playwright() as pw:
         page.wait_for_timeout(100)
         got = page.evaluate("window.__clicked || ''")
         assert got == "login:shop_id/pw!123", (name, got)
+    # 메이크샵 부운영자 (1.5): 운영자 탭이 기본 → [부운영자] 탭을 눌러야 상점 URL 칸이 나옴 (실제 메이크샵 화면과 같은 id·name)
+    page.set_content("""<html><body><form onsubmit="return false">
+      <button type="button" id="register-login-owner-tab" onclick="document.getElementById('sub').style.display='none';document.getElementById('register-login-id').name='id'">운영자</button>
+      <button type="button" id="register-login-sub-tab" onclick="document.getElementById('sub').style.display='block';document.getElementById('register-login-id').name='subid'">부운영자</button>
+      <div id="sub" style="display:none"><input id="register-login-url" name="shopurl" type="text" placeholder="상점 URL을 입력하세요."></div>
+      <input id="register-login-id" name="id" type="text"><input id="register-login-password" name="passwd" type="password">
+      <a href="#" onclick="window.__clicked='find';return false">아이디 찾기</a>
+      <button type="submit" onclick="window.__clicked='sub:'+document.getElementById('register-login-url').value+'/'+document.querySelector('[name=subid]')?.value+'/'+document.getElementById('register-login-password').value">로그인</button>
+    </form></body></html>""")
+    page.evaluate("window.__clicked = ''")
+    L.fill_login(page, "부운영자|pinkrocket.co.kr|cs_auto", "pw!123")
+    page.wait_for_timeout(100)
+    assert page.evaluate("window.__clicked || ''") == "sub:pinkrocket.co.kr/cs_auto/pw!123", page.evaluate("window.__clicked")
+    assert L.parse_sub("shop_id") is None
+    assert L.parse_sub("부운영자|a.com|b") == ("a.com", "b")
+    try:
+        L.parse_sub("부운영자||b"); raise AssertionError("빈 상점 URL 은 거절")
+    except RuntimeError:
+        pass
     # 브라우저가 채워 둔 값이 없으면 누르지 않음
     page.set_content("<form><input name=i><input type=password name=p><input type=button value='로그인' onclick=\"window.__clicked='x'\"></form>")
     page.evaluate("window.__clicked = ''")

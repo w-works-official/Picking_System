@@ -93,6 +93,15 @@ function readStored(storage) {
   }
 }
 
+const SHOP_KEY = "system_v3_cs_makeshop_shop"; // 메이크샵 부운영자 상점 URL (비밀값 아님 — 다음에 다시 안 쓰게)
+let shopStorage = null;
+function readShop() {
+  try { return String(shopStorage?.getItem(SHOP_KEY) || "").slice(0, 80); } catch { return ""; }
+}
+function writeShop(value) {
+  try { shopStorage?.setItem(SHOP_KEY, String(value || "").slice(0, 80)); } catch { /* 저장 못 해도 이번에는 그대로 */ }
+}
+
 function writeStored(storage, value) {
   try {
     if (!value.token && !value.editor) storage?.removeItem(CS_BOARD_STORAGE_KEY);
@@ -289,6 +298,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
   const doFetch = fetchImpl || ((...args) => window.fetch(...args));
+  shopStorage = storage;
   const sampleBoard = samples.board || CS_SAMPLE_BOARD_ROWS;
   const sampleReview = samples.review || CS_SAMPLE_REVIEW_ROWS;
   const sampleMessenger = samples.messenger || CS_SAMPLE_MESSENGER;
@@ -671,6 +681,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
         <span class="cs-note">${lastState ? `지난 수집: ${escapeHtml(lastState === "ok" ? "✓ 로그인 상태" : lastState)}` : "수집 기록 없음"}${saved ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
         <details${pick.includes(v) && !saved && lastState === "로그인 필요" ? " open" : ""}><summary>새 아이디·비밀번호 넣기${saved ? " (바뀌었을 때만)" : ""}</summary>
           ${canLock ? `<div class="cs-form cs-login-creds">
+            ${v === "메이크샵" ? `<label class="cs-check"><input type="checkbox" data-login-sub${readShop() ? " checked" : ""}> <span>부운영자로 로그인 <small>(운영자와 따로 로그인 — 동시 로그인으로 튕기지 않음)</small></span></label>
+            <label data-login-shop-wrap${readShop() ? "" : " hidden"}>상점 URL <input type="text" data-login-shop autocomplete="off" placeholder="예: pinkrocket.co.kr" value="${escapeHtml(readShop())}"></label>` : ""}
             <label>아이디 <input type="text" data-login-id autocomplete="off"></label>
             <label>비밀번호 <input type="password" data-login-pw autocomplete="new-password"></label>
           </div>` : `<p class="cs-note">수집기 PC 웹연결 1.3 이상이 켜져 있어야 비밀번호를 잠가 보낼 수 있습니다.</p>`}
@@ -700,8 +712,15 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
         const pw = String(row?.querySelector("[data-login-pw]")?.value || "");
         if (!id && !pw) continue;
         if (!id || !pw) { toast(`${v}: 아이디와 비밀번호를 둘 다 넣어 주세요.`); return; }
+        let plainId = id;
+        if (row?.querySelector("[data-login-sub]")?.checked) {    // 메이크샵 부운영자 (웹연결 1.5): 상점 URL 까지 함께 잠가 보냄
+          const shop = String(row.querySelector("[data-login-shop]")?.value || "").trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+          if (!shop || /[|\s]/.test(shop) || id.includes("|")) { toast(`${v}: 부운영자는 상점 URL 을 넣어 주세요 (예: pinkrocket.co.kr).`); return; }
+          plainId = `부운영자|${shop}|${id}`;
+          writeShop(shop);
+        }
         const pub = setupNow()?.pubKey;
-        creds[v] = { id: await lockForPc(pub, id), pw: await lockForPc(pub, pw) };
+        creds[v] = { id: await lockForPc(pub, plainId), pw: await lockForPc(pub, pw) };
       }
     } catch (error) {
       toast(error.message); return;
@@ -1392,6 +1411,11 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     document.addEventListener("click", onPcClick);
     $("#cs-login-cancel")?.addEventListener("click", closeLogin);
     $("#cs-login-ok")?.addEventListener("click", submitLogin);
+    $("#cs-login-body")?.addEventListener("change", (e) => {   // [부운영자로 로그인] 체크하면 상점 URL 칸 보이기
+      if (!e.target.matches?.("[data-login-sub]")) return;
+      const wrap = e.target.closest("[data-login-row]")?.querySelector("[data-login-shop-wrap]");
+      if (wrap) wrap.hidden = !e.target.checked;
+    });
     $("#cs-login")?.addEventListener("click", (e) => { if (e.target.id === "cs-login") closeLogin(); });
     $("#cs-excel-file")?.addEventListener("change", (e) => importExcel(e.target.files?.[0]));
     $("#cs-set-save")?.addEventListener("click", saveSettings);

@@ -31,6 +31,11 @@
 웹연결 업데이트 (1.4, 2026-10-29) — V3 [설정] 탭 [웹연결 업데이트]
   · 저장소(w-works-official/Picking_System)의 정해진 커밋 파일만 받음 → 해시 확인 → 문법 확인 → 지금 파일은 _patch 폴더에 백업
     → 같은 자리에서 바꿔 씀(드라이브 이름 겹침 (1) 안 생김) → 이 프로그램 종료 → 감시 루프가 30초 뒤 새 버전으로 다시 켬
+
+메이크샵 부운영자 로그인 (1.5, 2026-11-02)
+  · 웹 로그인 창에서 [부운영자로 로그인] + 상점 URL 을 넣으면 아이디가 "부운영자|상점URL|아이디" 모양으로 잠겨 옴
+  · 메이크샵 로그인 화면의 [부운영자] 탭을 누르고 상점 URL · 부운영자 아이디 · 비밀번호 3칸을 채워 로그인
+  · 운영자(대표) 계정과 다른 계정이라 동시 로그인으로 서로 튕기지 않음
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -38,7 +43,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.4 (2026-10-29)"
+LINK_VER = "1.5 (2026-11-02)"
 POLL_SEC = 15
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
@@ -393,8 +398,56 @@ def page_captcha(pg):
         return False
 
 
+SUB_PREFIX = "부운영자|"
+
+
+def parse_sub(uid):
+    """'부운영자|상점URL|아이디' → (상점URL, 아이디). 부운영자가 아니면 None"""
+    uid = str(uid or "")
+    if not uid.startswith(SUB_PREFIX):
+        return None
+    parts = uid.split("|", 2)
+    if len(parts) != 3 or not parts[1].strip() or not parts[2].strip():
+        raise RuntimeError("부운영자 상점 URL·아이디가 비어 있습니다")
+    return parts[1].strip(), parts[2].strip()
+
+
+def _typed(el, text):
+    el.click(); el.fill("")
+    try:
+        el.press_sequentially(text, delay=60)
+    except AttributeError:                      # 예전 playwright
+        el.type(text, delay=60)
+
+
+def fill_makeshop_sub(pg, shop, sid, pw):
+    """메이크샵 로그인 화면 [부운영자] 탭 → 상점 URL · 부운영자 아이디 · 비밀번호 → [로그인] (1.5)"""
+    tab = pg.locator("#register-login-sub-tab, button:has-text('부운영자')").first
+    tab.wait_for(state="visible", timeout=15000)
+    tab.click()
+    pg.wait_for_timeout(400)
+    url = pg.locator("#register-login-url, input[name=shopurl]").first
+    url.wait_for(state="visible", timeout=10000)
+    _typed(url, shop)
+    _typed(pg.locator("#register-login-id, input[name=subid]").first, sid)
+    _typed(pg.locator("input[type=password]").first, pw)
+    pg.wait_for_timeout(300)
+    btn = pg.locator("button.register-login__submit, form:has(#register-login-url) button[type=submit]").first
+    try:
+        if btn.count() and btn.is_visible():
+            btn.click(timeout=3000)
+            return "[로그인] 누름"
+    except Exception:
+        pass
+    return submit_login(pg)
+
+
 def fill_login(pg, uid, pw):
-    """아이디·비밀번호 칸에 사람처럼 한 글자씩 입력하고 [로그인]"""
+    """아이디·비밀번호 칸에 사람처럼 한 글자씩 입력하고 [로그인] (메이크샵 부운영자는 3칸)"""
+    sub = parse_sub(uid)
+    if sub:
+        fill_makeshop_sub(pg, sub[0], sub[1], pw)
+        return
     pg.wait_for_selector("input[type=password]", timeout=15000)
     ids = pg.locator("input#id, input[name=id], input[type=email], input[type=text]:not([readonly]), input:not([type])")
     box = None
@@ -403,21 +456,15 @@ def fill_login(pg, uid, pw):
             box = ids.nth(i); break
     if box is None:
         raise RuntimeError("아이디 칸을 찾지 못했습니다")
-    def typed(el, text):
-        el.click(); el.fill("")
-        try:
-            el.press_sequentially(text, delay=60)
-        except AttributeError:                  # 예전 playwright
-            el.type(text, delay=60)
-    typed(box, uid)
-    typed(pg.locator("input[type=password]").first, pw)
+    _typed(box, uid)
+    _typed(pg.locator("input[type=password]").first, pw)
     pg.wait_for_timeout(300)
     submit_login(pg)
 
 
 SUBMIT_SEL = ("button:has-text('로그인'), button[type=submit], input[type=submit], input[type=image], input[type=button][value*='로그인'], "
               "a:has-text('로그인'), [onclick*='login' i]")
-NOT_SUBMIT = ("로그아웃", "찾기", "회원가입", "입점", "간편", "카카오", "네이버로", "QR")
+NOT_SUBMIT = ("로그아웃", "찾기", "회원가입", "입점", "간편", "카카오", "네이버로", "QR", "운영자")
 
 
 def submit_login(pg):
@@ -520,7 +567,7 @@ def run_login_job(job, cfg, say, progress, d):
                     given = creds.get(v)
                     use = given or (lambda c: (c["id"], c["pw"]) if c else None)(load_cred(d, v))
                     if use:
-                        fill_login(pg, use[0], use[1]); how = "웹에서 받은 비밀번호" if given else "이 PC에 저장된 비밀번호"
+                        fill_login(pg, use[0], use[1]); how = ("웹에서 받은 비밀번호" if given else "이 PC에 저장된 비밀번호") + (" (부운영자)" if parse_sub(use[0]) else "")
                     else:
                         how = autologin_saved(pg)             # 브라우저가 채워 둔 경우 [로그인]만 누름
                     say(f"🔑 {v}: {how}")

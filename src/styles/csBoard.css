@@ -1650,3 +1650,8 @@ a.cs-btn {
     display: none;
   }
 }
+
+/* 메이크샵 부운영자 상점 URL 칸 (2026-11-02): 체크 전에는 숨김 */
+[data-login-shop-wrap][hidden] {
+  display: none !important;
+}

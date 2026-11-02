@@ -8,6 +8,8 @@ import {
   CS_BOARD_FILTERS,
   CS_BOARD_SAVE_DELAY_MS,
   CS_BOARD_STORAGE_KEY,
+  csPasswordKind,
+  csUnlockResult,
   CS_LOGIN_VENDORS,
   LINK_REPO,
   autoSettings,
@@ -45,11 +47,11 @@ import {
   withEdit,
   withHold,
   withPick,
-} from "../domain/csBoard.mjs?v=20261029-cs-update1";
+} from "../domain/csBoard.mjs?v=20261102-unlock1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
-import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261029-cs-update1";
+import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261102-unlock1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
-import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261029-cs-update1";
+import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261102-unlock1";
 
 const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
 const REVIEW_VENDORS = ["지그재그", "에이블리", "메이크샵"];
@@ -1415,10 +1417,26 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (editorInput) editorInput.value = state.editor;
     $("#cs-token-form")?.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const token = String($("#cs-token-input")?.value || "").trim();
+      let token = String($("#cs-token-input")?.value || "").trim();
       state.editor = String(editorInput?.value || "").trim().slice(0, 20);
       if (!state.endpoint) return;
-      if (token && !isCsBoardTokenValid(token)) { toast("비밀번호는 영문·숫자·-·_ 8자 이상입니다."); return; }
+      const kind = csPasswordKind(token);
+      if (kind === "short") { toast("비밀번호는 6자 이상입니다."); return; }
+      if (kind === "simple") {                     // 간단 비밀번호 → 시트가 확인하고 긴 키를 돌려줌 (v6)
+        try {
+          const response = await doFetch(state.endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({ action: "unlock", password: token }),
+          });
+          if (!response.ok) throw new Error(`시트 응답 오류 (${response.status})`);
+          token = csUnlockResult(await response.json());
+        } catch (error) {
+          toast(error.message || "비밀번호를 확인하지 못했습니다.");
+          return;
+        }
+      }
+      if (token && !isCsBoardTokenValid(token)) { toast("긴 키는 영문·숫자·-·_ 로 된 BOARD_TOKEN 입니다."); return; }
       if (token) state.token = token;
       if (!state.token) { writeStored(storage, { token: "", editor: state.editor }); toast("이름을 저장했습니다."); return; }
       if (state.sample) { state.sample = false; state.rows = []; }

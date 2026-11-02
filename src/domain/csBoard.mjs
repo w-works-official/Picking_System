@@ -63,6 +63,22 @@ export function linkVersionNewer(latest, current) {
 }
 export const CS_LOGIN_VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
 
+// 간단 비밀번호로 열기 (2026-11-02, 시트 v6): 20자보다 짧으면 간단 비밀번호로 보고 시트에 긴 키를 받아 옴
+export const CS_UNLOCK_MIN = 6;
+export const CS_TOKEN_MIN_LONG = 20;
+
+export function csPasswordKind(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "empty";
+  if (text.length >= CS_TOKEN_MIN_LONG) return "token";
+  return text.length >= CS_UNLOCK_MIN ? "simple" : "short";
+}
+
+export function csUnlockResult(json) {
+  if (json && json.ok === true && isCsBoardTokenValid(json.token)) return String(json.token).trim();
+  throw new Error(String(json?.error || "비밀번호를 확인하지 못했습니다."));
+}
+
 export function isCsBoardTokenValid(token) {
   return /^[A-Za-z0-9_-]{8,128}$/.test(String(token ?? "").trim());
 }

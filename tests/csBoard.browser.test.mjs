@@ -469,11 +469,30 @@ try {
 
     // 틀린 비밀번호 → 저장된 비밀번호 지움
     await page.locator('[data-left-tab="settings"]').click();
-    await page.locator("#cs-token-input").fill("wrong-token-1");
+    await page.locator("#cs-token-input").fill("wrong-token-1-long-key-xx");   // 20자 이상 = 긴 키로 취급
     await page.locator("#cs-token-save").click();
     await page.locator("#cs-toast", { hasText: "비밀번호가 맞지 않습니다" }).waitFor();
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("system_v3_cs_board") || "{}").token || ""), "");
     assert.equal(await page.locator("#cs-connection").textContent(), "비밀번호 필요");
+
+    // 간단 비밀번호(시트 v6 unlock): 설정 전 → 안내, 틀림 → 남은 횟수, 맞음 → 긴 키를 받아 연결·저장
+    await page.locator("#cs-token-input").fill("pk2611");
+    await page.locator("#cs-token-save").click();
+    await page.locator("#cs-toast", { hasText: "UNLOCK_PASSWORD" }).waitFor();
+    gas.properties.UNLOCK_PASSWORD = "pk2611";
+    await page.locator("#cs-token-input").fill("pk2699");
+    await page.locator("#cs-token-save").click();
+    await page.locator("#cs-toast", { hasText: "번 더 틀리면 잠깁니다" }).waitFor();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("system_v3_cs_board") || "{}").token || ""), "");
+    await page.locator("#cs-token-input").fill("12345");
+    await page.locator("#cs-token-save").click();
+    await page.locator("#cs-toast", { hasText: "6자 이상" }).waitFor();
+    await page.locator("#cs-token-input").fill("pk2611");
+    await page.locator("#cs-token-save").click();
+    await page.locator("#cs-toast", { hasText: "CS 시트에 연결했습니다" }).waitFor();
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem("system_v3_cs_board") || "{}").token), TOKEN, "긴 키가 이 기기에 저장됨");
+    assert.match(await page.locator("#cs-connection").textContent(), /^연결됨/);
+    assert.equal(await page.locator("#cs-token-input").inputValue(), "", "입력칸 비움");
     await context.close();
   }
 

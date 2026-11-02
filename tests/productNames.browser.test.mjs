@@ -37,6 +37,10 @@ try {
     if (url.href.startsWith(ENDPOINT)) {
       const body = JSON.parse(route.request().postData() || "{}");
       calls.push(body);
+      if (body.action === "unlock") {   // 시트 v6 간단 비밀번호
+        const ok = body.password === "pk2611";
+        return route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(ok ? { ok: true, token: TOKEN } : { ok: false, denied: true, error: "비밀번호가 맞지 않습니다 (4번 더 틀리면 잠깁니다)." }) });
+      }
       const json = body.token !== TOKEN ? { ok: false, denied: true, error: "비밀번호가 맞지 않습니다." }
         : { ok: true, names: Array.from({ length: body.count }, (_, i) => `써지컬 스틸 링 피어싱 ${i + 1}`) };
       return route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body: JSON.stringify(json) });
@@ -64,7 +68,7 @@ try {
   await page.waitForFunction(() => /비밀번호가 맞지 않습니다/.test(document.querySelector(".pn-state").textContent));
   assert.equal(await page.evaluate(() => localStorage.getItem("system_v3_cs_board")), null, "wrong password is not saved");
 
-  await page.fill("#pn-token", TOKEN);
+  await page.fill("#pn-token", "pk2611");   // 간단 비밀번호 → 긴 키를 받아 씀
   await page.selectOption("#pn-count", "3");
   await page.click("#pn-submit");
   await page.waitForSelector(".pn-item");

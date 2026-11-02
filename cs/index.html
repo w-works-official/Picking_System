@@ -193,7 +193,7 @@
                 <legend>웹 연결 (이 브라우저)</legend>
                 <p class="cs-note" id="cs-endpoint-note">CS 시트 주소: 확인 중…</p>
                 <form id="cs-token-form" class="cs-form" autocomplete="off">
-                  <label>비밀번호 <input id="cs-token-input" type="password" autocomplete="off" placeholder="시트 스크립트 BOARD_TOKEN"></label>
+                  <label>비밀번호 <input id="cs-token-input" type="password" autocomplete="off" placeholder="간단 비밀번호(6자 이상) 또는 긴 키 BOARD_TOKEN"></label>
                   <label>내 이름 <input id="cs-editor-input" type="text" maxlength="20" placeholder="예: 희진 (누가 골랐는지 표시)"></label>
                   <div class="cs-row">
                     <button id="cs-token-save" type="submit" class="cs-btn cs-btn-primary">연결</button>
@@ -201,7 +201,7 @@
                     <span id="cs-token-state" class="cs-note">저장된 비밀번호 없음</span>
                   </div>
                 </form>
-                <p class="cs-note">비밀번호는 이 기기 브라우저에만 저장됩니다. 공용 PC에서는 다 쓰고 [지우기]를 눌러 주세요.</p>
+                <p class="cs-note">간단 비밀번호를 넣으면 시트가 확인한 뒤 긴 키를 이 기기 브라우저에만 저장합니다. <b>5번 틀리면 15분 잠김</b>. 공용 PC에서는 다 쓰고 [지우기]를 눌러 주세요.</p>
               </fieldset>
 
               <fieldset class="cs-box" id="cs-install">
@@ -373,7 +373,7 @@
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261102-labels1"></script>
-    <script type="module" src="../src/app/workspaceStatus.mjs?v=20261103-status2"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261103-unlock2"></script>
+    <script type="module" src="../src/app/workspaceStatus.mjs?v=20261103-status3"></script>
   </body>
 </html>

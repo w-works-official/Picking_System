@@ -171,7 +171,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 5 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 6 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -518,7 +518,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 5);
+  assert.equal(g5.get().version, 6);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -582,6 +582,37 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.match(box, /id="cs-dl-folder" href="https:\/\/drive\.google\.com\/drive\/folders\/1lKrSiKHNWqvGwt7mWtwWHIw-tTjy0zXc"/);
   assert.doesNotMatch(box, /data-live|disabled/, "설치 파일은 시트 연결 없이도 받을 수 있어야 함");
   assert.ok(html.indexOf('id="cs-install"') < html.indexOf("수집기 설정 (수집기 PC 전용)"), "웹 연결 바로 아래");
+}
+
+// ---------- v6: 간단 비밀번호로 열기 (UNLOCK_PASSWORD → BOARD_TOKEN) ----------
+{
+  const noPw = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR } });
+  assert.match(noPw.post({ action: "unlock", password: "abc123" }).error, /UNLOCK_PASSWORD/, "설정 전에는 안 열림");
+  const shortPw = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, UNLOCK_PASSWORD: "12345" } });
+  assert.equal(shortPw.post({ action: "unlock", password: "12345" }).ok, false, "6자 미만 비밀번호는 쓰지 않음");
+  const g6 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, UNLOCK_PASSWORD: "pk2611" } });
+  const good = g6.post({ action: "unlock", password: "pk2611" });
+  assert.deepEqual(good, { ok: true, token: TOKEN }, "맞으면 긴 키를 돌려줌");
+  assert.equal(g6.post({ action: "list", token: good.token }).ok, true, "받은 키로 바로 연결");
+  assert.equal(g6.post({ action: "unlock", password: COLLECTOR }).ok, false, "수집기 키로는 안 열림");
+  for (let i = 1; i <= 3; i += 1) assert.match(g6.post({ action: "unlock", password: `wrong${i}` }).error, /번 더 틀리면 잠깁니다/);
+  assert.equal(g6.post({ action: "unlock", password: "pk2611" }).ok, true, "맞으면 틀린 횟수 초기화");
+  assert.equal(g6.properties.UNLOCK_FAILS, "0");
+  for (let i = 1; i <= 4; i += 1) g6.post({ action: "unlock", password: `wrong${i}` });
+  const fifth = g6.post({ action: "unlock", password: "nope!!" });
+  assert.equal(fifth.locked, true);
+  assert.match(fifth.error, /5번 틀려 15분 동안 잠급니다/);
+  const lockedTry = g6.post({ action: "unlock", password: "pk2611" });
+  assert.equal(lockedTry.ok, false, "잠긴 동안은 맞는 비밀번호도 안 됨");
+  assert.match(lockedTry.error, /분 뒤에 다시/);
+  assert.equal(JSON.stringify(lockedTry).includes(TOKEN), false);
+  g6.properties.UNLOCK_LOCK_UNTIL = String(Date.now() - 1000);   // 잠금 시간 지남
+  for (let i = 1; i <= 4; i += 1) g6.post({ action: "unlock", password: `again${i}` });
+  assert.match(g6.post({ action: "unlock", password: "again5" }).error, /30분 동안 잠급니다/, "두 번째 잠금은 2배");
+  g6.properties.UNLOCK_LOCK_UNTIL = "0";
+  assert.equal(g6.post({ action: "unlock", password: "pk2611" }).token, TOKEN);
+  assert.equal(g6.properties.UNLOCK_FAILS, "0");
+  assert.equal(g6.post({ action: "unlock" }).ok, false, "빈 값");
 }
 
 console.log("csBoard.mock.test: OK");

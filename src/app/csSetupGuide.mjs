@@ -36,7 +36,7 @@ export function setupSteps(ctx = {}) {
   return [
     {
       key: "web", title: "1. 웹 연결 (이 브라우저)", done: !!ctx.connected,
-      desc: "CS 시트 비밀번호(BOARD_TOKEN)를 아래 [웹 연결] 칸에 붙여넣고 [연결].\n· 비밀번호는 시트 Apps Script [처음설정] 실행 로그에 있습니다\n· 이 기기 브라우저에만 저장 — 공용 PC는 다 쓰고 [지우기]",
+      desc: "아래 [웹 연결] 칸에 간단 비밀번호(6자 이상)를 넣고 [연결].\n· 간단 비밀번호 = 시트 스크립트 속성 UNLOCK_PASSWORD (대표님이 정함, 5번 틀리면 15분 잠김)\n· 긴 키(BOARD_TOKEN)를 붙여넣어도 됩니다 — 시트 Apps Script [처음설정] 실행 로그에 있음\n· 이 기기 브라우저에만 저장 — 공용 PC는 다 쓰고 [지우기]",
       detail: ctx.connected ? "연결됨" : ctx.token ? "저장된 비밀번호로 연결 안 됨 — 다시 붙여넣기" : "",
       buttons: [{ label: "비밀번호 칸으로", act: "focus-token", main: !ctx.connected }],
     },

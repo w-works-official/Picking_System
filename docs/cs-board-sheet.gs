@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -13,8 +13,11 @@
  *   3) 프로젝트 설정(톱니바퀴) > 스크립트 속성 > CLAUDE_KEY 에 Claude API 키 추가
  *      (선택) CLAUDE_MODEL 기본 claude-haiku-5-5 / AI_DAILY_LIMIT 하루 AI 추천 최대 횟수, 기본 300
  *   4) 배포 > 새 배포 > 유형: 웹 앱 / 실행: 나 / 액세스 권한: 모든 사용자 → 웹앱 주소를 알려주세요
+ *   5) (v6, 선택) 스크립트 속성 UNLOCK_PASSWORD 에 외우기 쉬운 간단 비밀번호(6자 이상)를 대표님이 직접 넣기
+ *      → 화면 [설정] 탭에 긴 BOARD_TOKEN 대신 이 비밀번호를 넣어도 열림. 5번 틀리면 15분 잠금(계속 틀리면 30·60분… 최대 24시간)
  *
  * 이 시트가 하는 일 (이것뿐):
+ *   - unlock   (누구나) 간단 비밀번호(UNLOCK_PASSWORD)가 맞으면 BOARD_TOKEN 을 돌려줌 — 틀리면 횟수 기록·잠금
  *   - list     (화면)   종료되지 않은 문의·리뷰 목록 + 수집기 PC 상태 + 최근 요청
  *   - save     (화면)   선택·고친 문안·보류 저장. 다른 사람이 먼저 바꿨으면 덮어쓰지 않고 알려줌
  *   - suggest  (화면)   AI 답변 후보 10개를 받아 답변안 뒤에 붙임(기존 답변안·선택은 그대로)
@@ -114,7 +117,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 5 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 6 });
 }
 
 function doPost(e) {
@@ -148,8 +151,49 @@ function sameToken_(given, expected) {
   return diff === 0;
 }
 
+// 비교 시간이 값에 따라 달라지지 않게 (길이 제한 없는 버전 — 간단 비밀번호용)
+function sameSecret_(given, expected) {
+  given = String(given || '');
+  expected = String(expected || '');
+  if (!expected || given.length !== expected.length) return false;
+  var diff = 0;
+  for (var i = 0; i < expected.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
+  return diff === 0;
+}
+
+// ---------- 간단 비밀번호로 열기 (v6) ----------
+var UNLOCK_MIN_LENGTH = 6;
+var UNLOCK_TRIES = 5;          // 이만큼 틀리면 잠금
+var UNLOCK_LOCK_MINUTES = 15;  // 첫 잠금. 또 틀리면 2배씩 (최대 24시간)
+
+function unlock_(body) {
+  var secret = prop_('UNLOCK_PASSWORD');
+  var board = prop_('BOARD_TOKEN');
+  if (secret.length < UNLOCK_MIN_LENGTH || !board) {
+    return { ok: false, error: '간단 비밀번호가 아직 설정되지 않았습니다 — 스크립트 속성 UNLOCK_PASSWORD 에 6자 이상으로 넣어 주세요.' };
+  }
+  var now = Date.now();
+  var until = Number(prop_('UNLOCK_LOCK_UNTIL') || 0);
+  if (until > now) {
+    return { ok: false, locked: true, error: '잠겨 있습니다 — 틀린 비밀번호가 여러 번 들어와 ' + Math.ceil((until - now) / 60000) + '분 뒤에 다시 시도할 수 있습니다.' };
+  }
+  if (sameSecret_(body.password, secret)) {
+    setProp_('UNLOCK_FAILS', '0');
+    return { ok: true, token: board };
+  }
+  var fails = Number(prop_('UNLOCK_FAILS') || 0) + 1;
+  setProp_('UNLOCK_FAILS', String(fails));
+  if (fails % UNLOCK_TRIES === 0) {
+    var minutes = Math.min(24 * 60, UNLOCK_LOCK_MINUTES * Math.pow(2, fails / UNLOCK_TRIES - 1));
+    setProp_('UNLOCK_LOCK_UNTIL', String(now + minutes * 60000));
+    return { ok: false, denied: true, locked: true, error: '비밀번호가 맞지 않습니다 — ' + UNLOCK_TRIES + '번 틀려 ' + minutes + '분 동안 잠급니다.' };
+  }
+  return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다 (' + (UNLOCK_TRIES - fails % UNLOCK_TRIES) + '번 더 틀리면 잠깁니다).' };
+}
+
 function route_(body) {
   var action = String(body.action || '');
+  if (action === 'unlock') return withLock_(function () { return unlock_(body); });
   var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob'];
   if (staff.indexOf(action) >= 0) {

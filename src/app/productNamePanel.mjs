@@ -1,6 +1,6 @@
 // 상품 관리 · 상품명 요청 화면 (2026-10-29) — [상품명 요청하기] → CS 시트 name → 후보 목록(복사 버튼).
 // 비밀번호는 CS 관리 화면과 같은 칸(이 브라우저에 한 번 넣으면 같이 씀). 형태만 — 규칙은 나중에 셋팅.
-import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261029-cs-update1";
+import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, csPasswordKind, csUnlockResult, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261102-unlock1";
 import { NAME_COUNTS, NAME_DEFAULT_COUNT, nameRequestPayload, parseNameResponse } from "../domain/productNames.mjs?v=20261029-names1";
 
 function readStored(storage) {
@@ -35,7 +35,7 @@ export function createProductNamePanel({ document, window, storage, fetch: doFet
         <label class="pn-count-label" for="pn-count">후보 개수</label>
         <select id="pn-count" class="pn-count">${NAME_COUNTS.map((n) => `<option value="${n}"${n === NAME_DEFAULT_COUNT ? " selected" : ""}>${n}개</option>`).join("")}</select>
         <span class="pn-token-wrap" hidden>
-          <label class="pn-count-label" for="pn-token">CS 관리 비밀번호</label>
+          <label class="pn-count-label" for="pn-token">CS 관리 비밀번호 (간단 비밀번호 가능)</label>
           <input id="pn-token" class="pn-token" type="password" autocomplete="off" spellcheck="false">
         </span>
         <button id="pn-submit" class="pn-submit" type="submit">상품명 요청하기</button>
@@ -111,10 +111,21 @@ export function createProductNamePanel({ document, window, storage, fetch: doFet
       return;
     }
     const typed = $("#pn-token").value.trim();
-    const token = state.token || typed;
+    let token = state.token || typed;
+    if (!state.token && csPasswordKind(typed) === "simple") {   // 간단 비밀번호 → 시트에서 긴 키 받기 (시트 v6)
+      try {
+        const response = await doFetch(endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "unlock", password: typed }) });
+        if (!response.ok) throw new Error(`시트 응답 오류 (${response.status})`);
+        token = csUnlockResult(await response.json());
+      } catch (error) {
+        showToken(true);
+        say(error.message || "비밀번호를 확인하지 못했습니다.", "bad");
+        return;
+      }
+    }
     if (!isCsBoardTokenValid(token)) {
       showToken(true);
-      say("CS 관리 비밀번호를 한 번 넣어 주세요 (CS 관리 화면과 같은 비밀번호).", "bad");
+      say("CS 관리 비밀번호를 한 번 넣어 주세요 (간단 비밀번호 6자 이상 또는 긴 키).", "bad");
       $("#pn-token").focus();
       return;
     }

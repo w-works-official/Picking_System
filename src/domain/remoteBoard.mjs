@@ -43,11 +43,22 @@ export function remoteBoardSections(jobs = [], topics = []) {
     .filter((section) => section.headJob || section.rows.length);
 }
 
-// 큐 → 작업코드별 칩 목록(먼저 누른 것이 앞). 취소된 건과 숨김 처리한 건은 뺍니다.
-export function remoteQueueByCode(queue = [], hidden = () => false) {
+// 끝난 표식(완료·중지)은 끝난 지 5분 지나면 자동으로 안 보이게 (2026-11-02 대표님 요청).
+// 실패는 놓치지 않게 [×] 로 지울 때까지 남겨 둡니다. 보드 원본·시트 기록은 그대로입니다.
+export const REMOTE_DONE_HIDE_MS = 5 * 60 * 1000;
+const AUTO_HIDE_STATES = ["완료", "중지"];
+
+export function isRemoteChipExpired(row = {}, nowMs = Date.now(), hideMs = REMOTE_DONE_HIDE_MS) {
+  if (!AUTO_HIDE_STATES.includes(String(row["상태"] ?? ""))) return false;
+  const at = Date.parse(row["종료시각"] || row["요청시각"] || "");
+  return Number.isFinite(at) && nowMs - at > hideMs;
+}
+
+// 큐 → 작업코드별 칩 목록(먼저 누른 것이 앞). 취소된 건·숨김 처리한 건·끝난 지 5분 지난 완료/중지는 뺍니다.
+export function remoteQueueByCode(queue = [], hidden = () => false, nowMs = Date.now()) {
   const byCode = {};
   [...(queue || [])].reverse().forEach((row) => {
-    if (!row || row["상태"] === "취소" || hidden(row["ID"])) return;
+    if (!row || row["상태"] === "취소" || hidden(row["ID"]) || isRemoteChipExpired(row, nowMs)) return;
     (byCode[row["작업코드"]] ||= []).push(row);
   });
   return byCode;

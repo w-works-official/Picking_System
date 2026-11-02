@@ -10,6 +10,8 @@ import {
   remoteGroupChips,
   remoteJobKind,
   remoteQueueByCode,
+  isRemoteChipExpired,
+  REMOTE_DONE_HIDE_MS,
   remoteRunnerStates,
   remoteShortFileName,
 } from "../src/domain/remoteBoard.mjs";
@@ -74,6 +76,23 @@ const queue = [
 const byCode = remoteQueueByCode(queue, (id) => id === "0");
 assert.deepEqual(byCode.PO_B.map((q) => q.ID), ["1", "3"], "먼저 누른 것이 앞, 취소 제외");
 assert.equal(byCode.PO_A, undefined, "숨김 처리한 건 제외");
+
+// 끝난 지 5분 지난 완료·중지는 자동으로 안 보임, 실패·실행 중은 남김 (2026-11-02)
+{
+  const t0 = Date.parse("2026-11-02T03:00:00Z");
+  const q = [
+    { ID: "a", 작업코드: "X", 상태: "완료", 요청시각: "2026-11-02T02:40:00Z", 종료시각: "2026-11-02T02:54:00Z" },
+    { ID: "b", 작업코드: "X", 상태: "완료", 요청시각: "2026-11-02T02:50:00Z", 종료시각: "2026-11-02T02:56:00Z" },
+    { ID: "c", 작업코드: "X", 상태: "중지", 요청시각: "2026-11-02T02:10:00Z", 종료시각: "2026-11-02T02:17:00Z" },
+    { ID: "d", 작업코드: "X", 상태: "실패", 요청시각: "2026-11-02T01:00:00Z", 종료시각: "2026-11-02T01:05:00Z" },
+    { ID: "e", 작업코드: "X", 상태: "실행중", 요청시각: "2026-11-02T01:58:00Z" },
+    { ID: "f", 작업코드: "X", 상태: "완료" },
+  ];
+  assert.deepEqual(remoteQueueByCode(q, () => false, t0).X.map((r) => r.ID), ["f", "e", "d", "b"], "a(6분 전 완료)·c(43분 전 중지) 숨김, 시각 없는 건은 남김");
+  assert.equal(isRemoteChipExpired({ 상태: "완료", 종료시각: "2026-11-02T02:55:01Z" }, t0), false, "5분 안 됨");
+  assert.equal(isRemoteChipExpired({ 상태: "중지", 종료시각: "2026-11-02T02:54:00Z" }, t0), true, "중지도 5분 뒤 숨김");
+  assert.equal(REMOTE_DONE_HIDE_MS, 300000);
+}
 
 const nowMs = Date.parse("2026-10-28T09:00:00Z");
 assert.deepEqual(remoteRunnerStates({ 사무실: nowMs - 5000, 집: nowMs - 900000 }, [], nowMs), [{ name: "사무실", state: "on" }, { name: "집", state: "off" }]);

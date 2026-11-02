@@ -14,7 +14,7 @@ import {
   remoteJobKind,
   remoteQueueByCode,
   remoteRunnerStates,
-} from "../domain/remoteBoard.mjs?v=20261103-photo-group1";
+} from "../domain/remoteBoard.mjs?v=20261103-autohide2";
 
 const POLL_MS = 10000;
 

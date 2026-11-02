@@ -108,3 +108,63 @@
   padding-right: 4px;
 }
 
+
+/* 2026-11-02 대표님 요청: 연결 상태(러너 · 수집기 PC · CS 시트)를 CS 관리·상품 관리 상단 오른쪽 끝,
+   같은 자리에 지금(11px)의 150% 크기로. CS 화면의 #cs-collector·#cs-connection 도 같은 모양으로 맞춤. */
+.workspace-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.workspace-status > span {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  background: #f1f2f4;
+  color: #6b7280;
+}
+
+.workspace-status > span.is-on {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.workspace-status > span.is-busy {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.workspace-status > span.is-error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.workspace-status > span.is-sample {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+@media (max-width: 720px) {
+  .workspace-status {
+    flex-wrap: wrap;
+  }
+
+  .workspace-status {
+    gap: 4px;
+  }
+
+  .workspace-status > span {
+    min-height: 28px;
+    padding: 4px 9px;
+    font-size: 13px;
+  }
+}

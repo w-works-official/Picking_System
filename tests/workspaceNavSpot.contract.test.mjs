@@ -23,8 +23,15 @@ const csNew = await read("cs/index.html");
 assert.match(csNew, /href="\.\/legacy\.html"/);
 assert.ok(JSON.parse(manifest).files.some((f) => f.path === "legacy.html"), "manifest records the kept entry");
 for (const html of [index, csHtml, csNew, purchase]) assert.match(html, /pretendard\/1\.3\.9\/static\/pretendard\.css/);
-assert.match(index, /workspaceNavigation\.css\?v=20261029-equal-width1/);
-assert.match(purchase, /workspaceNavigation\.css\?v=20261029-equal-width1/);
+assert.match(index, /workspaceNavigation\.css\?v=20261102-status1/);
+assert.match(purchase, /workspaceNavigation\.css\?v=20261102-status1/);
+assert.match(csNew, /workspaceNavigation\.css\?v=20261102-status1/);
+// 2026-11-02: 연결 상태(러너·수집기 PC·CS 시트) = 두 화면 상단 오른쪽 끝 같은 자리, 150% 크기(16px)
+assert.match(navCss, /\.workspace-status > span \{[^}]*font-size: 16px;/);
+assert.match(csNew, /<span class="workspace-status" data-ws-status="cs"[^>]*>\s*<span class="ws-pill is-off" data-ws-runner[^>]*>러너 —<\/span>\s*<span id="cs-collector"[^>]*>수집기 PC —<\/span>\s*<span id="cs-connection"/);
+assert.match(purchase, /<div class="purchase-toolbar">\s*<!--[^>]*-->\s*<span class="workspace-status" data-ws-status="purchase"/);
+for (const html of [csNew, purchase]) assert.match(html, /src\/app\/workspaceStatus\.mjs\?v=20261102-status1/);
+assert.ok(csNew.indexOf('id="cs-connection"') > csNew.lastIndexOf('cs-legend'), "상태가 도구줄 맨 오른쪽 끝");
 // 세 버튼 같은 폭
 assert.match(navCss, /\.workspace-navigation \.workspace-link \{\s*box-sizing: border-box;\s*width: 80px;/);
 assert.match(csCss, /\.company-sample \.company-workspace-nav a\{box-sizing:border-box;width:80px;/);

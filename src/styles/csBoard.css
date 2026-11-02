@@ -1641,3 +1641,12 @@ a.cs-btn {
     flex-wrap: wrap;
   }
 }
+
+/* 2026-11-02: 태블릿 폭(1280px 이하)에서는 [기존 CS 화면]·[빨간 글씨 안내]를 숨겨
+   연결 상태 띠가 상품 관리 화면과 같은 자리(상단 오른쪽 끝, 첫 줄)에 그대로 있게 */
+@media (max-width: 1280px) {
+  .cs-toolbar > .cs-legacy-link,
+  .cs-toolbar > .cs-legend {
+    display: none;
+  }
+}

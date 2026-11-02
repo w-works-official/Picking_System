@@ -709,7 +709,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}`);
   }
 
-  // 엑셀 내려받기 / 📥 엑셀 적용 (SheetJS — 피킹 화면과 같은 라이브러리)
+  // 엑셀 내려받기 / 📥 엑셀 등록 (SheetJS — 피킹 화면과 같은 라이브러리)
   let xlsxPromise = null;
   function loadXlsx() {
     if (window.XLSX) return Promise.resolve(window.XLSX);
@@ -745,7 +745,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       link.click();
       link.remove();
       window.setTimeout(() => window.URL.revokeObjectURL(url), 5000);
-      toast(`엑셀 ${sheet.count}건을 내려받았습니다 — "채택"(A~J)·"최종 문안"·"보류"만 고쳐서 [📥 엑셀 적용]`);
+      toast(`엑셀 ${sheet.count}건을 내려받았습니다 — "채택"(A~J)·"최종 문안"·"보류"만 고쳐서 [📥 엑셀 등록]`);
     } catch (error) {
       toast(error.message);
     }
@@ -766,9 +766,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       for (const c of changes) setChoice(c.key, c.choice);
       renderBoard();
       toast(`엑셀 ${changes.length}건을 적용했습니다 — 자동 저장 중`);
-      log(`📥 엑셀 적용 ${changes.length}건${notes ? ` (${notes})` : ""}`);
+      log(`📥 엑셀 등록 ${changes.length}건${notes ? ` (${notes})` : ""}`);
     } catch (error) {
-      toast(`엑셀 적용 실패: ${error.message}`);
+      toast(`엑셀 등록 실패: ${error.message}`);
     }
   }
 

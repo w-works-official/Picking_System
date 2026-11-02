@@ -1,4 +1,4 @@
-// CS 관리 · 엑셀 내려받기 / 📥 엑셀 적용 (2026-10-29) — 수집기 [엑셀]·[엑셀 적용]을 웹으로.
+// CS 관리 · 엑셀 내려받기 / 📥 엑셀 등록(구 엑셀 적용) (2026-10-29) — 수집기 [엑셀]·[엑셀 적용]을 웹으로.
 // 내려받은 엑셀에서 "채택"(A~J)·"최종 문안"·"보류"만 고쳐서 올리면 그대로 고른 것으로 저장됩니다.
 // 키 칸이 없거나 이미 등록 요청·완료된 줄은 건드리지 않습니다.
 import { draftLabel, draftText, isCsRowLocked, pickedText, withEdit, withHold, withPick } from "./csBoard.mjs?v=20261029-cs-update1";

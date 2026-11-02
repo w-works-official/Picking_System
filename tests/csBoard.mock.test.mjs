@@ -126,7 +126,7 @@ for (const tag of pendingButtons) assert.match(tag, /\sdisabled(\s|>)/, `pending
 assert.match(page, /data-workspace-base="\.\.\/"/);
 assert.match(page, /href="\.\/legacy\.html"/, "old CS screen kept and linked");
 assert.doesNotMatch(page, /\.\.\/\.\.\//, "cs/index.html is one level down");
-assert.match(page, /📥 엑셀 적용/, "matches collector v9.1 buttons");
+assert.match(page, /📥 엑셀 등록/, "matches collector v9.1 buttons");
 assert.doesNotMatch(page, /<button[^>]*>📄 답변안 엑셀 열기/, "v9.1 removed the left excel/approve buttons");
 
 // ---------- v2: 수집기 PC 연결 (요청·등록·리뷰·사용량) ----------

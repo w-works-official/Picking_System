@@ -272,7 +272,7 @@ try {
     await page.waitForFunction(() => /채택 1/.test(document.querySelector("#cs-review-summary").textContent) && /자동 저장됨/.test(document.querySelector("#cs-review-summary").textContent));
     assert.equal(gas.post({ action: "list", token: TOKEN }).rows.find((r) => r.key === "지그재그_리뷰_r1").choice.pick, 1);
     assert.equal(await page.locator('[data-right-panel="review"] [data-job="reviews"]').isDisabled(), false);
-    assert.equal(await page.locator('[data-right-panel="review"] button', { hasText: "업로드" }).isDisabled(), true, "review posting stays red");
+    assert.equal(await page.locator('[data-right-panel="review"] button', { hasText: "📤 등록" }).isDisabled(), true, "review posting stays red");
     await page.screenshot({ path: path.join(output, "cs-board-review-live.png") });
     await page.locator('[data-right-tab="board"]').click();
 
@@ -407,7 +407,7 @@ try {
     const setJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     gas.post({ action: "finish", token: COLLECTOR, id: setJob.id, ok: true, message: "저장: 수집 기간" });
 
-    // 엑셀 내려받기 → 고쳐서 📥 엑셀 적용
+    // 엑셀 내려받기 → 고쳐서 📥 엑셀 등록
     let xlsxPath = "";
     try { xlsxPath = createRequire("/tmp/claude-0/scan/").resolve("xlsx/dist/xlsx.full.min.js"); } catch { xlsxPath = ""; }
     if (xlsxPath) {
@@ -440,7 +440,7 @@ try {
       console.log("  (엑셀 시험 건너뜀 — 이 PC에 xlsx 부품 없음)");
     }
     const stillRed = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => el.textContent.trim()));
-    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["감시 시작", "업로드"].sort(), "only messenger watch and review upload stay red (update waits for a newer version)");
+    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["감시 시작", "📤 등록"].sort(), "only messenger watch and review upload stay red (update waits for a newer version)");
 
     // ⬆ 웹연결 업데이트: 저장소 main 최신 커밋 파일 → 확인값 → 수집기 PC에 요청
     const fakeCommit = "d".repeat(40);

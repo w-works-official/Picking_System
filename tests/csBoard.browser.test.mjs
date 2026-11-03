@@ -157,11 +157,13 @@ try {
     });
     const domain = await readFile(path.join(root, "src/domain/csBoard.mjs"), "utf8");
     await context.route("**/src/domain/csBoard.mjs*", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: withEndpoint(domain, ENDPOINT) }));
+    const slowRequest = { on: false };
     await context.route(`${ENDPOINT}*`, async (route) => {
       const body = JSON.parse(route.request().postData() || "{}");
       requests.push(body);
       assert.equal(route.request().headers()["content-type"], "text/plain;charset=utf-8", "no preflight");
       const result = gas.post(body);
+      if (body.action === "request" && slowRequest.on) await new Promise((r) => setTimeout(r, 900)); // 요청 보내는 동안 화면 확인용
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(result), headers: { "Access-Control-Allow-Origin": "*" } });
     });
     const page = await context.newPage();
@@ -220,8 +222,15 @@ try {
     // 업체 끄기 → 요청에 반영
     await page.locator('#cs-vendor-grid [data-vendor="메이크샵"] strong').click();
     assert.equal(await page.locator('#cs-vendor-grid [data-vendor="메이크샵"]').evaluate((el) => el.classList.contains("is-off")), true);
+    slowRequest.on = true;
     await collectButton.click();
+    // 2026-11-03: 요청 보내는 동안 버튼이 빨간 "아직 작동 안 함"으로 번쩍이지 않음 (흐리게만)
+    await page.waitForFunction(() => document.querySelector('[data-left-panel="main"] [data-job="collect"]')?.classList.contains("is-busy"));
+    assert.equal(await page.locator("[data-job].is-pending, [data-live].is-pending").count(), 0, "no red flash while sending");
+    assert.equal(await collectButton.isDisabled(), true, "잠깐 못 누름");
     await page.locator("#cs-toast", { hasText: "게시판 수집 요청을 보냈습니다" }).waitFor();
+    slowRequest.on = false;
+    assert.equal(await collectButton.evaluate((el) => el.classList.contains("is-busy")), false);
     const sentRequest = requests.filter((r) => r.action === "request").at(-1);
     assert.deepEqual(sentRequest.options.vendors, ["스마트스토어", "지그재그", "에이블리"]);
     assert.match(await page.locator("#cs-jobs").textContent(), /대기[\s\S]*게시판 수집/);

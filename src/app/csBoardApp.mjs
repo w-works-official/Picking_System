@@ -382,7 +382,18 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function renderLiveControls() {
     const on = live();
     const reason = state.sample ? "가상셋팅 중 — 끄면 작동" : "시트 연결 후 작동";
-    $$("[data-job], [data-live]").forEach((el) => setLive(el, on && !state.requesting, reason));
+    // 2026-11-03: 요청을 보내는 몇 초 동안은 잠깐 못 누르게만(흐리게) — 빨간 "아직 작동 안 함" 표시로 번쩍이지 않게
+    $$("[data-job], [data-live]").forEach((el) => {
+      if (on && state.requesting) {
+        el.disabled = true;
+        el.classList.remove("is-pending");
+        el.classList.add("is-busy");
+        el.title = "요청 보내는 중…";
+        return;
+      }
+      el.classList.remove("is-busy");
+      setLive(el, on, reason);
+    });
     $$("[data-vendor-group] [data-vendor]").forEach((card) => {
       const group = card.closest("[data-vendor-group]").dataset.vendorGroup;
       card.classList.toggle("is-off", !state.vendorSel[group].has(card.dataset.vendor));

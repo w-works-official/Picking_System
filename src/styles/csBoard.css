@@ -1661,3 +1661,9 @@ a.cs-btn {
   color: var(--cs-red);
   font-weight: 700;
 }
+
+/* 2026-11-03: 요청 보내는 동안 잠깐 — 빨간 '작동 안 함' 표시가 아니라 흐리게만 */
+.cs-btn.is-busy:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}

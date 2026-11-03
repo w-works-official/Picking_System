@@ -676,17 +676,20 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const lastInfo = state.collector?.last || null;
     // 2026-11-03: 업체별 상태 = 지난 수집 vs 그 뒤 로그인 결과 중 새 것. 해결된 업체는 "(바뀌었을 때만)" + 해결 메모(바뀌었을 때만)
     const status = Object.fromEntries(CS_LOGIN_VENDORS.map((v) => [v, csLoginStatus(v, { jobs: state.jobs, last: lastInfo, saved: su?.savedLogins?.includes(v) })]));
-    const needs = CS_LOGIN_VENDORS.filter((v) => status[v].ok === false);
+    // 2026-11-03: 스마트스토어는 문의 수집·답변을 커머스 API 로 함 → API 가 잡혀 있으면 로그인 필요 없음(네이버 2단계 인증·자동입력 방지에 막히는 로그인은 피함)
+    const ssApi = !!su?.api;
+    const needs = CS_LOGIN_VENDORS.filter((v) => status[v].ok === false && !(v === "스마트스토어" && ssApi));
     const pick = vendor ? [vendor] : needs;
     const canLock = !!su?.pubKey;
     $("#cs-login-body").innerHTML = CS_LOGIN_VENDORS.map((v) => {
       const st = status[v];
       const saved = st.saved;
-      const done = st.resolved || saved;
+      const apiOnly = v === "스마트스토어" && ssApi;
+      const done = st.resolved || saved || apiOnly;
       return `<div class="cs-login-row" data-login-row="${escapeHtml(v)}">
         <label class="cs-check"><input type="checkbox" data-login-pick value="${escapeHtml(v)}"${pick.includes(v) ? " checked" : ""}> <b>${escapeHtml(v)}</b></label>
-        <span class="cs-note${st.ok === false ? " cs-login-bad" : ""}" data-login-state>${escapeHtml(st.changed ? st.note : st.text)}${saved ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
-        <details${pick.includes(v) && !done ? " open" : ""}><summary>새 아이디·비밀번호 넣기${done ? " (바뀌었을 때만)" : ""}</summary>
+        <span class="cs-note${st.ok === false && !apiOnly ? " cs-login-bad" : ""}" data-login-state>${apiOnly ? "✓ 커머스 API 사용 중 — 문의 수집·답변에 로그인 필요 없음" : escapeHtml(st.changed ? st.note : st.text)}${saved ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
+        <details${pick.includes(v) && !done ? " open" : ""}><summary>새 아이디·비밀번호 넣기${apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
           ${canLock ? `<div class="cs-form cs-login-creds">
             ${v === "메이크샵" ? `<label class="cs-check"><input type="checkbox" data-login-sub${readShop() ? " checked" : ""}> <span>부운영자로 로그인 <small>(운영자와 따로 로그인 — 동시 로그인으로 튕기지 않음)</small></span></label>
             <label data-login-shop-wrap${readShop() ? "" : " hidden"}>상점 URL <input type="text" data-login-shop autocomplete="off" placeholder="예: pinkrocket.co.kr" value="${escapeHtml(readShop())}"></label>` : ""}

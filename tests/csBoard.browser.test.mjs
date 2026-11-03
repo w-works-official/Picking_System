@@ -64,12 +64,12 @@ try {
     assert.equal(await page.locator("#workspace-purchase-link").getAttribute("href"), "../purchase/");
     assert.equal(await page.locator(".cs-legacy-link").getAttribute("href"), "./legacy.html");
 
-    // 빨간 미작동 버튼: 모두 disabled, 빨간 글씨, 이유 표시
+    // 미작동 버튼: 모두 disabled, 흐린 회색(2026-11-03 빨간 점선 뺌), 이유 표시
     const pending = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => ({ disabled: el.disabled, color: getComputedStyle(el).color, title: el.title, text: el.textContent.trim() })));
     assert.ok(pending.length >= 20);
     for (const b of pending) {
       assert.equal(b.disabled, true, `${b.text} disabled`);
-      assert.equal(b.color, "rgb(220, 38, 38)", `${b.text} red`);
+      assert.equal(b.color, "rgb(156, 163, 175)", `${b.text} grey`);
     }
     assert.ok(pending.filter((b) => b.title).length >= 20, "reasons shown on hover");
 

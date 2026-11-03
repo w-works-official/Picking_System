@@ -149,7 +149,7 @@ body.cs-board-workspace {
 }
 
 .cs-legend-red {
-  color: var(--cs-red);
+  color: #9ca3af;
 }
 
 .cs-connection {
@@ -465,18 +465,18 @@ body.cs-board-workspace {
   outline-offset: 2px;
 }
 
-/* 아직 작동 안 함: 빨간 글씨 + 누를 수 없음 (개발되면 is-pending·disabled 를 떼면 원래 색으로) */
+/* 아직 작동 안 함: 흐린 회색 + 누를 수 없음 (2026-11-03 대표님: 빨간 점선은 오류처럼 보여 뺌. 마우스를 올리면 이유 표시) */
 .cs-board-workspace .is-pending,
 .cs-board-workspace .is-pending:hover {
-  background: #fff5f5 !important;
-  border: 1px dashed #fca5a5 !important;
-  color: var(--cs-red) !important;
+  background: #f3f4f6 !important;
+  border: 1px solid #e5e7eb !important;
+  color: #9ca3af !important;
   cursor: not-allowed !important;
   box-shadow: none !important;
 }
 
 .cs-board-workspace input.is-pending::placeholder {
-  color: #f87171;
+  color: #c0c4cc;
 }
 
 .cs-pending-text {

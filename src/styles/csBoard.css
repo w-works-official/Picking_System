@@ -1667,3 +1667,37 @@ a.cs-btn {
   opacity: 0.55;
   cursor: progress;
 }
+
+/* ---------- 💬 메신저 슬롯 (2026-11-03: 메신저 창을 올려놓는 틀 + 아래 대답 영역) ---------- */
+.msn-panel { display: flex; flex-direction: column; min-height: 0; }
+.msn-conn { padding: 2px 8px; border-radius: 5px; background: #f1f2f4; color: var(--cs-sub); font-size: 12px; font-weight: 800; }
+.msn-conn.is-on { background: #dcfce7; color: #15803d; }
+.msn-help { margin: 0 12px 6px; font-size: 13px; color: var(--cs-sub); }
+.msn-help summary { cursor: pointer; font-weight: 700; color: #16a34a; }
+.msn-help ol { margin: 6px 0 4px 18px; padding: 0; line-height: 1.6; }
+.msn-msg { margin: 0 12px 8px; font-size: 13px; color: var(--cs-sub); }
+.msn-msg.is-ok { color: #15803d; font-weight: 700; }
+.msn-msg.is-bad { color: #b91c1c; font-weight: 700; }
+.msn-slots { display: flex; gap: 12px; align-items: flex-start; overflow-x: auto; padding: 0 12px 16px; }
+.msn-slot { flex: 1 0 320px; max-width: 460px; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--cs-line); border-radius: 10px; background: #ffffff; }
+.msn-slot.is-new { border-color: #16a34a; box-shadow: 0 0 0 3px #bbf7d0; }
+.msn-slot-head { display: flex; align-items: center; gap: 6px; }
+.msn-slot-head b { color: #16a34a; white-space: nowrap; }
+.msn-name { flex: 1 1 auto; min-width: 0; padding: 3px 6px; border: 1px solid var(--cs-line); border-radius: 5px; font: inherit; font-size: 13px; }
+.msn-badge { padding: 1px 7px; border-radius: 999px; background: #dc2626; color: #ffffff; font-size: 12px; font-weight: 800; }
+.msn-state { padding: 1px 7px; border-radius: 5px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.msn-state.is-none { background: #f1f2f4; color: #9ca3af; }
+.msn-state.is-on { background: #dcfce7; color: #15803d; }
+.msn-state.is-busy { background: #fef3c7; color: #b45309; }
+.msn-frame { position: relative; display: grid; place-items: center; border: 2px dashed #86efac; border-radius: 4px; background: repeating-linear-gradient(45deg, #f7fef9, #f7fef9 12px, #f0fdf4 12px, #f0fdf4 24px); }
+.msn-mark { position: absolute; width: 14px; height: 14px; background: #ff00ff; }
+.msn-mark.tl { left: 0; top: 0; } .msn-mark.tr { right: 0; top: 0; } .msn-mark.bl { left: 0; bottom: 0; } .msn-mark.br { right: 0; bottom: 0; }
+.msn-fitting .msn-slot:not([data-msn-slot="0"]) .msn-mark { visibility: hidden; }
+.msn-frame-guide { display: grid; gap: 6px; padding: 12px; text-align: center; color: #15803d; font-size: 13px; line-height: 1.5; }
+.msn-frame-guide b { font-size: 15px; }
+.msn-frame-guide small { color: #a21caf; }
+.msn-answer { display: flex; flex-direction: column; gap: 6px; }
+.msn-answer-top { display: flex; align-items: center; gap: 6px; }
+.msn-last { font-size: 12px; color: var(--cs-sub); }
+.msn-peek { width: 100%; border: 1px solid var(--cs-line); border-radius: 4px; }
+.msn-answer textarea { min-height: 84px; resize: vertical; padding: 6px 8px; border: 1px solid var(--cs-line); border-radius: 6px; font: inherit; font-size: 14px; }

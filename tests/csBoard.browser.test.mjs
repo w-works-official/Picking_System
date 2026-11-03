@@ -100,15 +100,68 @@ try {
     assert.equal(await page.locator('#cs-review-list [data-act="pick"]').first().isDisabled(), true);
     await page.screenshot({ path: path.join(output, "cs-board-review.png") });
     await page.locator('[data-right-tab="msn"]').click();
-    await page.locator("#cs-msn-demo").click();
-    await page.locator("#cs-msn-demo").click();
-    assert.equal(await page.locator(".cs-slot").count(), 2);
-    await page.locator('.cs-slot [data-msn="paste"][data-box="A"]').first().click();
-    assert.match(await page.locator("[data-msn-answer]").first().inputValue(), /고객님/);
-    await page.locator('.cs-slot [data-msn="close"]').first().click();
-    assert.equal(await page.locator(".cs-slot").count(), 1);
-    assert.equal(await page.locator(".cs-slot button", { hasText: "↵ 보내기" }).isDisabled(), true);
+    // 💬 메신저 슬롯 (2026-11-03): 기본 3칸 · 틀(분홍 모서리) + 아래 대답 영역 · 칸 수 바꾸기
+    assert.equal(await page.locator("[data-msn-slot]").count(), 3, "기본 슬롯 3칸");
+    assert.equal(await page.locator('[data-msn-slot="0"] .msn-mark').count(), 4);
+    const frameBox = await page.locator('[data-msn-frame="0"]').boundingBox();
+    const answerBox = await page.locator('[data-msn-slot="0"] [data-msn-text]').boundingBox();
+    assert.ok(answerBox.y > frameBox.y + frameBox.height - 1, "대답 영역은 슬롯 틀 아래");
+    await page.locator("[data-msn-count]").selectOption("2");
+    assert.equal(await page.locator("[data-msn-slot]").count(), 2);
+    await page.locator("[data-msn-name='0']").fill("카톡 · 시험");
+    // 가짜 '전체 화면 공유': 캔버스 = 화면. 처음엔 이 페이지 그대로(분홍 점 보임) → 슬롯 1 을 회색 창이 덮음 → 글자가 바뀜
+    await page.evaluate(() => {
+      const c = document.createElement("canvas");
+      c.width = screen.width; c.height = screen.height;
+      const g = c.getContext("2d");
+      const css = (el) => { const r = el.getBoundingClientRect(); const b = Math.max(0, (outerWidth - innerWidth) / 2); return { x: screenX + b + r.left, y: screenY + Math.max(0, outerHeight - innerHeight - b) + r.top, w: r.width, h: r.height }; };
+      window.__screen = { mode: "page", text: "" };
+      const draw = () => {
+        g.fillStyle = "#ffffff"; g.fillRect(0, 0, c.width, c.height);
+        document.querySelectorAll(".msn-mark").forEach((m) => {
+          if (getComputedStyle(m).visibility === "hidden") return;
+          const r = css(m); g.fillStyle = "#ff00ff"; g.fillRect(r.x, r.y, r.w, r.h);
+        });
+        if (window.__screen.mode === "kakao") {
+          const r = css(document.querySelector('[data-msn-frame="0"]'));
+          g.fillStyle = "#b2c7da"; g.fillRect(r.x - 2, r.y - 2, r.w + 4, r.h + 4);
+          g.fillStyle = "#fef01b"; g.fillRect(r.x + 20, r.y + 40, r.w - 40, 60 + window.__screen.text.length * 30);
+          g.fillStyle = "#000000"; g.font = "28px sans-serif"; g.fillText(window.__screen.text, r.x + 30, r.y + 80);
+        }
+        requestAnimationFrame(draw);
+      };
+      draw();
+      navigator.mediaDevices.getDisplayMedia = async () => {
+        const stream = c.captureStream(10);
+        const t = stream.getVideoTracks()[0];
+        t.getSettings = () => ({ displaySurface: "monitor" });
+        return stream;
+      };
+    });
+    await page.locator('[data-msn-act="connect"]').click();
+    await page.waitForFunction(() => document.querySelector("[data-msn-conn]").textContent.includes("연결됨"));
+    await page.locator('[data-msn-act="fit"]').click();
+    await page.waitForFunction(() => document.querySelector("[data-msn-msg]").textContent.includes("영역 맞춤 완료"));
+    await page.waitForTimeout(1300);
+    assert.equal(await page.locator('[data-msn-state="0"]').textContent(), "창 없음", "분홍 점이 보이면 창 없음");
+    await page.evaluate(() => { window.__screen.mode = "kakao"; window.__screen.text = "안녕하세요"; });
+    await page.waitForFunction(() => document.querySelector('[data-msn-state="0"]').textContent === "감시 중", null, { timeout: 5000 });
+    assert.equal(await page.locator('[data-msn-badge="0"]').isVisible(), false, "창이 막 들어온 화면은 알리지 않음");
+    assert.equal(await page.locator('[data-msn-state="1"]').textContent(), "창 없음", "다른 슬롯은 그대로");
+    await page.evaluate(() => { window.__screen.text = "안녕하세요 바 길이 변경 되나요?"; });
+    await page.waitForFunction(() => !document.querySelector('[data-msn-badge="0"]').hidden, null, { timeout: 8000 });
+    assert.match(await page.locator('[data-msn-badge="0"]').textContent(), /🔔 1/);
+    assert.match(await page.locator('[data-msn-last="0"]').textContent(), /마지막 변화 \d/);
+    await page.locator('[data-msn-act="peek"][data-i="0"]').click();
+    assert.match(await page.locator('[data-msn-peek="0"]').getAttribute("src"), /^data:image\/jpeg/);
+    await page.locator('[data-msn-text="0"]').click();
+    await page.locator('[data-msn-text="0"]').fill("네 고객님, 바 길이 변경 가능합니다 :)");
+    assert.equal(await page.locator('[data-msn-badge="0"]').isVisible(), false, "슬롯을 누르면 새 변화 표시 지움");
     await page.screenshot({ path: path.join(output, "cs-board-messenger.png") });
+    await page.locator('[data-msn-act="connect"]').click();
+    assert.match(await page.locator("[data-msn-conn]").textContent(), /연결 안 됨/);
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem("system_v3_cs_msn_slots"))).names[0], "카톡 · 시험");
+
 
     // 좁은 화면(휴대폰)에서도 가로로 넘치지 않음
     await page.setViewportSize({ width: 390, height: 844 });
@@ -489,7 +542,7 @@ try {
       console.log("  (엑셀 시험 건너뜀 — 이 PC에 xlsx 부품 없음)");
     }
     const stillRed = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => el.textContent.trim()));
-    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["감시 시작", "📤 등록"].sort(), "only messenger watch and review upload stay red (update waits for a newer version)");
+    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["🤖 추천", "🤖 추천", "🤖 추천", "📤 등록"].sort(), "only messenger AI read (next step) and review upload stay grey (update waits for a newer version)");
 
     // ⬆ 웹연결 업데이트: 저장소 main 최신 커밋 파일 → 확인값 → 수집기 PC에 요청
     const fakeCommit = "d".repeat(40);

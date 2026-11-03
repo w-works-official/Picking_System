@@ -357,6 +357,12 @@ try {
     await reload();
     await loginBtn.click();
     await page.locator("#cs-login:not([hidden])").waitFor();
+    // 2026-11-03: 지난 수집은 "로그인 필요"였지만 방금 로그인 성공 → 해결 메모 + "(바뀌었을 때만)", 미리 골라지지 않음
+    const ablyFixed = page.locator('[data-login-row="에이블리"]');
+    assert.match(await ablyFixed.locator("[data-login-state]").textContent(), /지난 수집: 로그인 필요 → .*로그인 ✓ \(해결/);
+    assert.match(await ablyFixed.locator("summary").textContent(), /\(바뀌었을 때만\)/);
+    assert.equal(await page.locator('[data-login-pick][value="에이블리"]').isChecked(), false, "해결된 업체는 미리 안 골라짐");
+    assert.doesNotMatch(await page.locator('[data-login-row="지그재그"] [data-login-state]').textContent(), /해결/, "안 바뀐 업체는 메모 없음");
     const msRow = page.locator('[data-login-row="메이크샵"]');
     await page.locator('[data-login-pick][value="메이크샵"]').check();
     await msRow.locator("summary").click();

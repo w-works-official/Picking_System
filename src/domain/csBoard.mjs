@@ -481,3 +481,43 @@ export function csSavedLabel({ dirty = false, saving = false, savedAt = "", erro
   if (dirty) return "저장 대기";
   return savedAt ? `자동 저장됨 ${savedAt}` : "";
 }
+
+// 2026-11-03 대표님 요청: 업체별 로그인 상태 — "지난 수집"이 로그인 필요였어도 그 뒤 웹 [🔑 로그인]이 성공했으면 "해결"로 표시
+// (지난 수집 결과는 다음 수집 때까지 그대로라 헷갈림). 바뀌었을 때만 메모(note)를 붙임.
+function csWhen(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return NaN;
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}(:\d{2})?$/.test(text)) return new Date(`${text.replace(" ", "T")}+09:00`).getTime(); // 수집기 시각 = 한국 시간
+  return new Date(text).getTime();
+}
+
+function csShortTime(ms) {
+  if (!Number.isFinite(ms)) return "";
+  const k = new Date(ms + 9 * 3600 * 1000).toISOString();
+  return `${Number(k.slice(5, 7))}/${Number(k.slice(8, 10))} ${k.slice(11, 16)}`;
+}
+
+export function csLoginStatus(vendor, { jobs = [], last = null, saved = false } = {}) {
+  const collected = (last?.vendors || []).find((v) => v.vendor === vendor) || null;
+  const collectedAt = csWhen(last?.at);
+  let login = null;
+  for (const job of jobs || []) {   // 새 요청이 앞 (시트 recentJobs_)
+    const res = job?.kind === "login" ? job.data?.login?.[vendor] : null;
+    if (!res) continue;
+    login = { ok: res.state === "ok", at: csWhen(job.ended || job.at), note: String(res.note || "") };
+    break;
+  }
+  const loginNewer = login && (!Number.isFinite(collectedAt) || !Number.isFinite(login.at) || login.at >= collectedAt);
+  const collectOk = collected ? collected.state === "ok" : null;
+  const ok = loginNewer ? login.ok : collectOk;
+  let note = "";
+  if (loginNewer && collected && collectOk !== login.ok) {
+    note = login.ok
+      ? `지난 수집: ${collected.state} → ${csShortTime(login.at)} 로그인 ✓ (해결 — 다음 수집부터 반영)`
+      : `지난 수집: ✓ → ${csShortTime(login.at)} 로그인 실패${login.note ? ` (${login.note})` : ""}`;
+  }
+  const text = loginNewer
+    ? (login.ok ? `✓ 로그인됨 (${csShortTime(login.at)})` : `로그인 실패 (${csShortTime(login.at)})`)
+    : collected ? (collectOk ? "✓ 로그인 상태 (지난 수집)" : `지난 수집: ${collected.state}`) : "수집 기록 없음";
+  return { ok, resolved: ok === true || (ok === null && saved), changed: !!note, note, text, saved: !!saved };
+}

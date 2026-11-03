@@ -47,11 +47,12 @@ import {
   withEdit,
   withHold,
   withPick,
-} from "../domain/csBoard.mjs?v=20261102-unlock1";
+  csLoginStatus,
+} from "../domain/csBoard.mjs?v=20261103-loginmemo1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
-import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261102-unlock1";
+import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261103-loginmemo1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
-import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261102-unlock1";
+import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261103-loginmemo1";
 
 const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
 const REVIEW_VENDORS = ["지그재그", "에이블리", "메이크샵"];
@@ -444,18 +445,21 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       if (state.sample) { cell.textContent = `가상 문의 ${rows.length}건`; continue; }
       const v = last?.vendors.find((x) => x.vendor === vendor);
       const r = reviewLast?.vendors.find((x) => x.vendor === vendor);
-      const line1 = v ? (v.state === "ok" ? `✓ ${v.count}건` : `⚠ ${v.state}`) : `문의 ${rows.length}건`;
+      const login = csLoginStatus(vendor, { jobs: state.jobs, last, saved: (state.sample ? null : state.collector?.setup)?.savedLogins?.includes(vendor) });
+      const fixed = v && v.state !== "ok" && login.changed && login.ok;   // 지난 수집은 실패였지만 그 뒤 로그인 성공 → 해결 표시 (바뀌었을 때만)
+      const line1 = fixed ? `✓ 로그인 해결 (${login.text.replace(/^✓ 로그인됨 \(|\)$/g, "")})` : v ? (v.state === "ok" ? `✓ ${v.count}건` : `⚠ ${v.state}`) : `문의 ${rows.length}건`;
       const line2 = last?.at ? `마지막 수집 ${last.at.slice(5)}` : "수집 기록 없음";
       cell.textContent = `${line1}${r && r.state !== "ok" ? ` · 리뷰 ${r.state}` : ""}\n${line2}`;
-      cell.className = `cs-vendor-status${v && v.state !== "ok" ? " is-bad" : ""}`;
-      cell.title = [v?.note, r?.note].filter(Boolean).join(" / ");
+      cell.className = `cs-vendor-status${v && v.state !== "ok" && !fixed ? " is-bad" : ""}`;
+      cell.title = [fixed ? login.note : "", v?.note, r?.note].filter(Boolean).join(" / ");
     }
   }
 
   let warned = "";
   function warnCollectorProblems() {
     const items = [...(state.collector?.last?.vendors || []).map((v) => ({ ...v, kind: "" })), ...(state.collector?.reviewLast?.vendors || []).map((v) => ({ ...v, kind: " 리뷰" }))]
-      .filter((v) => v.state && v.state !== "ok" && v.state !== "미지원");
+      .filter((v) => v.state && v.state !== "ok" && v.state !== "미지원")
+      .filter((v) => !(v.state === "로그인 필요" && csLoginStatus(v.vendor, { jobs: state.jobs, last: state.collector?.last }).ok === true)); // 그 뒤 로그인 성공 = 해결
     const text = items.map((v) => `${v.vendor}${v.kind}: ${v.state}${v.note ? ` (${v.note})` : ""}`).join(" / ");
     if (text && text !== warned) log(`수집기 확인 필요 — ${text}${items.some((v) => v.state === "로그인 필요") ? " → [🔑 로그인] (이 화면에서)" : ""}`, true);
     warned = text;
@@ -669,17 +673,20 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const box = $("#cs-login");
     if (!box || !live()) return;
     const su = setupNow();
-    const last = state.collector?.last?.vendors || [];
-    const needs = last.filter((v) => v.state === "로그인 필요").map((v) => v.vendor);
+    const lastInfo = state.collector?.last || null;
+    // 2026-11-03: 업체별 상태 = 지난 수집 vs 그 뒤 로그인 결과 중 새 것. 해결된 업체는 "(바뀌었을 때만)" + 해결 메모(바뀌었을 때만)
+    const status = Object.fromEntries(CS_LOGIN_VENDORS.map((v) => [v, csLoginStatus(v, { jobs: state.jobs, last: lastInfo, saved: su?.savedLogins?.includes(v) })]));
+    const needs = CS_LOGIN_VENDORS.filter((v) => status[v].ok === false);
     const pick = vendor ? [vendor] : needs;
     const canLock = !!su?.pubKey;
     $("#cs-login-body").innerHTML = CS_LOGIN_VENDORS.map((v) => {
-      const lastState = last.find((x) => x.vendor === v)?.state;
-      const saved = su?.savedLogins?.includes(v);
+      const st = status[v];
+      const saved = st.saved;
+      const done = st.resolved || saved;
       return `<div class="cs-login-row" data-login-row="${escapeHtml(v)}">
         <label class="cs-check"><input type="checkbox" data-login-pick value="${escapeHtml(v)}"${pick.includes(v) ? " checked" : ""}> <b>${escapeHtml(v)}</b></label>
-        <span class="cs-note">${lastState ? `지난 수집: ${escapeHtml(lastState === "ok" ? "✓ 로그인 상태" : lastState)}` : "수집 기록 없음"}${saved ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
-        <details${pick.includes(v) && !saved && lastState === "로그인 필요" ? " open" : ""}><summary>새 아이디·비밀번호 넣기${saved ? " (바뀌었을 때만)" : ""}</summary>
+        <span class="cs-note${st.ok === false ? " cs-login-bad" : ""}" data-login-state>${escapeHtml(st.changed ? st.note : st.text)}${saved ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
+        <details${pick.includes(v) && !done ? " open" : ""}><summary>새 아이디·비밀번호 넣기${done ? " (바뀌었을 때만)" : ""}</summary>
           ${canLock ? `<div class="cs-form cs-login-creds">
             ${v === "메이크샵" ? `<label class="cs-check"><input type="checkbox" data-login-sub${readShop() ? " checked" : ""}> <span>부운영자로 로그인 <small>(운영자와 따로 로그인 — 동시 로그인으로 튕기지 않음)</small></span></label>
             <label data-login-shop-wrap${readShop() ? "" : " hidden"}>상점 URL <input type="text" data-login-shop autocomplete="off" placeholder="예: pinkrocket.co.kr" value="${escapeHtml(readShop())}"></label>` : ""}

@@ -22,7 +22,7 @@ const [page, panel, sheet] = await Promise.all(["../purchase/index.html", "../sr
 assert.match(page, /data-purchase-tab="naming">상품명 요청</);
 assert.match(page, /data-purchase-panel="naming"[^>]*hidden/);
 assert.match(page, /<div class="product-names" data-product-names><\/div>/);
-assert.match(page, /productNamePanel\.mjs\?v=20261102-unlock1/);
+assert.match(page, /productNamePanel\.mjs\?v=20261103-loginmemo1/);
 assert.match(panel, />상품명 요청하기</);
 assert.match(panel, /"Content-Type": "text\/plain;charset=utf-8"/);
 assert.match(panel, /if \(!state\.token\) \{ state\.token = token; writeToken\(storage, token\); \} \/\/ 맞는 비밀번호일 때만 저장/);

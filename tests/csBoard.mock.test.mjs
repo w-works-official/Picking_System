@@ -28,6 +28,7 @@ import {
   withEdit,
   withHold,
   withPick,
+  csLoginStatus,
 } from "../src/domain/csBoard.mjs";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_REVIEW_ROWS } from "../src/domain/csBoardSamples.mjs";
 import { cardHtml, escapeHtml, jobsHtml, slotHtml } from "../src/app/csBoardApp.mjs";
@@ -646,6 +647,31 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.ok(sh.writes - w0 <= 3, `자동 종료 290건도 몰아서 씀 (쓰기 ${sh.writes - w0}번)`);
   assert.equal(sh.data[300][6], "종료");
   assert.equal(sh.data[5][6] === "종료", false, "이번에 다시 보인 줄은 열린 채");
+}
+
+
+// 2026-11-03: 로그인 상태 — 지난 수집이 "로그인 필요"여도 그 뒤 로그인 성공이면 해결 메모 (바뀌었을 때만)
+{
+  const last = { at: "2026-11-02 18:14", vendors: [{ vendor: "메이크샵", state: "로그인 필요" }, { vendor: "에이블리", state: "ok" }, { vendor: "스마트스토어", state: "로그인 필요" }, { vendor: "지그재그", state: "ok" }] };
+  const jobs = [
+    { kind: "update", ended: "2026-11-03T05:03:00.000Z", data: { update: {} } },
+    { kind: "login", ended: "2026-11-03T05:02:32.000Z", data: { login: { 메이크샵: { state: "ok", note: "로그인됨" } } } },
+    { kind: "login", ended: "2026-11-02T09:05:00.000Z", data: { login: { 스마트스토어: { state: "fail", note: "3분" }, 에이블리: { state: "ok" } } } },
+  ];
+  const ms = csLoginStatus("메이크샵", { jobs, last });
+  assert.equal(ms.ok, true);
+  assert.equal(ms.changed, true);
+  assert.match(ms.note, /지난 수집: 로그인 필요 → 11\/3 14:02 로그인 ✓ \(해결/);
+  const ab = csLoginStatus("에이블리", { jobs, last });
+  assert.deepEqual([ab.ok, ab.resolved, ab.changed], [true, true, false], "안 바뀌었으면 메모 없음");
+  const ss = csLoginStatus("스마트스토어", { jobs, last });
+  assert.deepEqual([ss.ok, ss.resolved, ss.changed], [false, false, false], "로그인 시도가 수집보다 먼저면 수집 결과 그대로");
+  const ss2 = csLoginStatus("스마트스토어", { jobs: [{ kind: "login", ended: "2026-11-03T05:20:00.000Z", data: { login: { 스마트스토어: { state: "ok" } } } }, ...jobs], last });
+  assert.deepEqual([ss2.ok, ss2.changed], [true, true], "스마트스토어도 해결되면 메모");
+  const zz = csLoginStatus("지그재그", { jobs: [{ kind: "login", ended: "2026-11-03T05:30:00.000Z", data: { login: { 지그재그: { state: "fail", note: "만료" } } } }], last });
+  assert.equal(zz.ok, false);
+  assert.match(zz.note, /지난 수집: ✓ → .* 로그인 실패 \(만료\)/, "반대로 나빠져도 메모");
+  assert.equal(csLoginStatus("지그재그", { jobs: [], last: null, saved: true }).resolved, true, "기록 없어도 저장된 비밀번호면 바뀌었을 때만");
 }
 
 console.log("csBoard.mock.test: OK");

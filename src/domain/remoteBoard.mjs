@@ -109,3 +109,37 @@ export function remoteRunnerStates(runners = {}, queue = [], nowMs = Date.now())
       return { name, state: busy[name] ? "busy" : ago < 60 ? "on" : "off" };
     });
 }
+
+// 사진 촬영(STOCK_PHOTO)처럼 사진 1장마다 큐에 1건씩 쌓이는 작업은 끝난 건을 칩 1개로 묶음 (2026-11-03 대표님 요청 —
+// 보드와 같은 방식: [완료 ×] 09:49~09:51 · 사진 4장, X 하나로 전부 지움). 대기·실행 중인 건은 따로 보임.
+export const REMOTE_GROUPED = { STOCK_PHOTO: "사진" };
+
+export function remoteGroupChips(code, rows = [], now = new Date()) {
+  const unit = REMOTE_GROUPED[code];
+  const list = Array.isArray(rows) ? rows.filter(Boolean) : [];
+  if (!unit) return { group: null, rest: list };
+  const done = list.filter((row) => !ACTIVE_STATES.includes(String(row["상태"] ?? "")));
+  const rest = list.filter((row) => ACTIVE_STATES.includes(String(row["상태"] ?? "")));
+  if (!done.length) return { group: null, rest };
+  const stamps = done
+    .map((row) => row["종료시각"] || row["요청시각"])
+    .filter(Boolean)
+    .map((value) => ({ value, ms: new Date(value).getTime() }))
+    .sort((a, b) => (Number.isNaN(a.ms) || Number.isNaN(b.ms) ? String(a.value).localeCompare(String(b.value)) : a.ms - b.ms));
+  const first = stamps[0]?.value, last = stamps[stamps.length - 1]?.value;
+  const day = (() => {
+    const date = new Date(last);
+    return !Number.isNaN(date.getTime()) && date.toDateString() !== now.toDateString() ? `${date.getMonth() + 1}/${date.getDate()} ` : "";
+  })();
+  const a = remoteClock(first), b = remoteClock(last);
+  const bad = done.filter((row) => row["상태"] !== "완료").length;
+  return {
+    group: {
+      ids: done.map((row) => String(row["ID"] ?? "")).filter(Boolean),
+      status: bad ? "실패" : "완료",
+      time: `${day}${a && b && a !== b ? `${a}~${b}` : (b || a)}`,
+      label: bad ? `${unit} ${done.length}장 (실패 ${bad})` : `${unit} ${done.length}장`,
+    },
+    rest,
+  };
+}

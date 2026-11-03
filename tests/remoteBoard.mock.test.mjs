@@ -7,6 +7,7 @@ import {
   isRemoteSubJob,
   remoteBoardSections,
   remoteChip,
+  remoteGroupChips,
   remoteJobKind,
   remoteQueueByCode,
   remoteRunnerStates,
@@ -88,5 +89,30 @@ assert.match(panel, /"Content-Type": "text\/plain;charset=utf-8"/);
 assert.match(panel, /writeToken\(storage, state\.token\);\s*state\.jobs/, "token saved only after the board accepts it");
 assert.match(files[2], /data-remote-board="order"/);
 assert.match(files[2], /data-remote-board="receiving"/);
+
+// 2026-11-03: 사진 촬영(STOCK_PHOTO) 끝난 건은 칩 1개로 묶음
+{
+  const now = new Date("2026-11-03T10:00:00+09:00");
+  const photo = (id, end, st = "완료") => ({ ID: id, 작업코드: "STOCK_PHOTO", 상태: st, 요청시각: end, 종료시각: end });
+  const rows = [photo("p1", "2026-11-03T09:49:56+09:00"), photo("p2", "2026-11-03T09:50:24+09:00"), photo("p3", "2026-11-03T09:50:58+09:00"), photo("p4", "2026-11-03T09:51:33+09:00"), { ID: "w1", 작업코드: "STOCK_PHOTO", 상태: "대기", 요청시각: "2026-11-03T09:52:00+09:00" }];
+  const { group, rest } = remoteGroupChips("STOCK_PHOTO", rows, now);
+  assert.deepEqual(group.ids, ["p1", "p2", "p3", "p4"]);
+  assert.equal(group.status, "완료");
+  assert.equal(group.label, "사진 4장");
+  assert.match(group.time, /^\d\d:\d\d~\d\d:\d\d$/);
+  assert.deepEqual(rest.map((r) => r.ID), ["w1"], "대기·실행 중은 따로");
+  const failed = remoteGroupChips("STOCK_PHOTO", [photo("a", "2026-11-03T09:00:00+09:00"), photo("b", "2026-11-03T09:00:00+09:00", "실패")], now).group;
+  assert.equal(failed.status, "실패");
+  assert.equal(failed.label, "사진 2장 (실패 1)");
+  const one = remoteGroupChips("STOCK_PHOTO", [photo("a", "2026-11-03T09:00:00+09:00")], now).group;
+  assert.equal(one.label, "사진 1장");
+  assert.doesNotMatch(one.time, /~/);
+  const other = remoteGroupChips("PO_A", rows, now);
+  assert.equal(other.group, null, "다른 작업은 묶지 않음");
+  assert.equal(other.rest.length, rows.length);
+  assert.equal(remoteGroupChips("STOCK_PHOTO", [], now).group, null);
+  assert.match(panel, /data-remote-cancel-many=/);
+  assert.match(panel, /chipsHtml\(byCode\[job\["작업코드"\]\], job\["작업코드"\]\)/);
+}
 
 console.log("remoteBoard.mock.test: OK");

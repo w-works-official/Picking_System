@@ -10,10 +10,11 @@ import {
   isRemoteSubJob,
   remoteBoardSections,
   remoteChip,
+  remoteGroupChips,
   remoteJobKind,
   remoteQueueByCode,
   remoteRunnerStates,
-} from "../domain/remoteBoard.mjs?v=20261028-remote-board1";
+} from "../domain/remoteBoard.mjs?v=20261103-photo-group1";
 
 const POLL_MS = 10000;
 
@@ -85,8 +86,13 @@ export function createRemoteBoard({ document, window, fetchImpl = window.fetch.b
     return true;
   }
 
-  function chipsHtml(list = []) {
-    return list.map((row) => {
+  // 사진 촬영처럼 1장마다 1건 쌓이는 작업: 끝난 건은 칩 1개로 (X 하나로 전부 지움)
+  function chipsHtml(list = [], code = "") {
+    const { group, rest } = remoteGroupChips(code, list || []);
+    const groupHtml = group
+      ? `<span class="rb-chip"><span class="rb-chip-b"><span class="rb-st rb-st-${esc(group.status)}">${esc(group.status)}</span><button type="button" class="rb-x" data-remote-cancel-many="${esc(group.ids.join(","))}" title="사진 기록 모두 지우기">×</button><span class="rb-t">${esc(group.time)}</span></span><span class="rb-files"><span>${esc(group.label)}</span></span></span>`
+      : "";
+    return groupHtml + rest.map((row) => {
       const chip = remoteChip(row);
       const xTitle = chip.status === "대기" ? "대기 취소" : chip.running ? "실행 중지" : "표시 지우기";
       const files = chip.files.map((file) => (file.href
@@ -138,13 +144,13 @@ export function createRemoteBoard({ document, window, fetchImpl = window.fetch.b
         const desc = job["설명"] ? `<span class="rb-desc">${esc(job["설명"])}</span>` : "";
         return `<div class="rb-row${isRemoteSubJob(job) ? " rb-sub" : ""}${kind === "title" ? " rb-title" : ""}">
             <div class="rb-job"><span class="rb-name" title="${esc(job["설명"] || job["버튼이름"])}">${esc(job["버튼이름"])}${desc}</span>${jobButton(job)}</div>
-            <div class="rb-stat">${kind === "title" ? "" : chipsHtml(byCode[job["작업코드"]])}</div>
+            <div class="rb-stat">${kind === "title" ? "" : chipsHtml(byCode[job["작업코드"]], job["작업코드"])}</div>
           </div>`;
       }).join("");
       return `<section class="rb-group">
           <div class="rb-row rb-group-head">
             <div class="rb-job"><h4>${esc(section.topic)}</h4>${headJob ? `<button type="button" class="rb-btn rb-btn-dark" data-remote-run="${esc(headJob["작업코드"])}" title="${esc(headJob["설명"] || "")}">${esc(headJob["버튼이름"])}</button>` : ""}</div>
-            <div class="rb-stat">${headJob ? chipsHtml(byCode[headJob["작업코드"]]) : ""}</div>
+            <div class="rb-stat">${headJob ? chipsHtml(byCode[headJob["작업코드"]], headJob["작업코드"]) : ""}</div>
           </div>
           ${rows}
         </section>`;
@@ -231,12 +237,25 @@ export function createRemoteBoard({ document, window, fetchImpl = window.fetch.b
     await refreshQueue();
   }
 
+  async function cancelMany(ids) {
+    if (!ids.length || !window.confirm(`사진 기록 ${ids.length}건 표시를 지울까요?`)) return;
+    const until = Date.now() + 60000;
+    ids.forEach((id) => state.hidden.set(id, until));
+    render();
+    const results = await Promise.all(ids.map((id) => api({}, { action: "cancel", id }).catch((error) => ({ ok: false, error: error?.message || String(error) }))));
+    const bad = ids.filter((id, index) => !results[index]?.ok);
+    if (bad.length) { bad.forEach((id) => state.hidden.delete(id)); toast(`${bad.length}건은 못 지웠습니다`); }
+    await refreshQueue();
+  }
+
   function onClick(event) {
     const target = event.target;
     const runBtn = target.closest("[data-remote-run]");
     if (runBtn) { if (!runBtn.disabled) void run(runBtn.dataset.remoteRun); return; }
     const cancelBtn = target.closest("[data-remote-cancel]");
     if (cancelBtn) { void cancel(cancelBtn.dataset.remoteCancel, cancelBtn.dataset.remoteStatus); return; }
+    const manyBtn = target.closest("[data-remote-cancel-many]");
+    if (manyBtn) { void cancelMany(manyBtn.dataset.remoteCancelMany.split(",").filter(Boolean)); return; }
     if (target.closest("[data-remote-mock]")) { toast("아직 사람이 하는 작업입니다 (버튼만 준비, 연결 예정)"); return; }
     if (target.closest("[data-remote-refresh]")) { void load(); return; }
     if (target.closest("[data-remote-setup]")) { state.setup = true; render(); return; }

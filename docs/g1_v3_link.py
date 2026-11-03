@@ -36,6 +36,12 @@
   · 웹 로그인 창에서 [부운영자로 로그인] + 상점 URL 을 넣으면 아이디가 "부운영자|상점URL|아이디" 모양으로 잠겨 옴
   · 메이크샵 로그인 화면의 [부운영자] 탭을 누르고 상점 URL · 부운영자 아이디 · 비밀번호 3칸을 채워 로그인
   · 운영자(대표) 계정과 다른 계정이라 동시 로그인으로 서로 튕기지 않음
+
+리뷰 수집 보강 · 직접 로그인 (1.6, 2026-11-03)
+  · 지그재그는 창 없이 연 브라우저의 리뷰 조회를 거절(invalid_access) → [브라우저 보이기] 를 꺼 두어도 리뷰는 화면 밖에 띄운 창에서 조회
+  · 지그재그 리뷰는 화면 기본(최근 1주일) 대신 설정의 리뷰 기간으로 다시 조회
+  · 스마트스토어 리뷰도 같은 방식(숨김이면 화면 밖 창). 커머스 API 에는 리뷰가 없어 판매자센터 로그인 필요
+  · 🔑 로그인 — 스마트스토어는 직접 로그인: 아무것도 자동으로 채우지 않고 창을 띄워 5분 기다림 (퀴즈·2단계 인증은 사람이)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -43,7 +49,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.5 (2026-11-02)"
+LINK_VER = "1.6 (2026-11-03)"
 POLL_SEC = 15
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
@@ -54,7 +60,192 @@ LOG_MAX = 1_000_000
 
 def _G():
     import g1_cs_collector as G          # 수집기 본체 (불러오기만 — 창은 안 뜸)
+    if not getattr(G, "_v3_review_patch", False):
+        patch_review_collectors(G)
     return G
+
+
+# ───────── 리뷰 수집 보강 (1.6, 2026-11-03) — 수집기 파일은 그대로 두고 이 프로그램 안에서만 바꿔 끼움 ─────────
+# 지그재그는 창 없이(헤드리스) 연 브라우저의 리뷰 조회를 "잘못된 접근(invalid_access)" 으로 거절함
+#   (11/3 확인: 같은 계정·같은 요청이 [브라우저 보이기] 에서는 18건, 숨김에서는 거절)
+# → 브라우저가 숨김이면 리뷰만 '화면 밖에 띄운 창'(보이지 않는 위치)에서 엶. 로그인은 수집기 프로필의 쿠키를 복사해 씀
+# → 지그재그 리뷰 화면 기본값(최근 1주일) 대신 설정의 리뷰 기간(review_days)으로 다시 조회 (화면이 보낸 요청 그대로, 날짜만 바꿈)
+OFFSCREEN_ARGS = ["--window-position=-32000,-32000", "--window-size=1400,1000"]
+ZZ_REVIEW_MAX = 2000
+
+ZZ_REVIEW_FETCH_JS = r"""
+async ({url, body, gte, lt, lim, maxn}) => {
+  const b = JSON.parse(body); const v = b.variables || {};
+  v.input = Object.assign({}, v.input || {}, {date_created_gte: gte, date_created_lt: lt});
+  const out = {rows: [], total: 0, errors: []}; let skip = 0;
+  while (true) {
+    v.pagination = Object.assign({}, v.pagination || {}, {skip_count: skip, limit_count: lim});
+    let t = '', j = null;
+    try {
+      const r = await fetch(url, {method: 'POST', credentials: 'include', headers: {'accept': 'application/json', 'content-type': 'application/json'}, body: JSON.stringify(Object.assign({}, b, {variables: v}))});
+      t = await r.text(); try { j = JSON.parse(t); } catch (e) {}
+    } catch (e) { out.errors.push(String(e).slice(0, 300)); break; }
+    const L = j && j.data && j.data.internal_product_review_list;
+    if (!L) { out.errors.push(t.slice(0, 300)); break; }
+    const items = L.item_list || [];
+    out.total = L.total_count; out.rows.push(...items); skip += items.length;
+    if (!items.length || skip >= L.total_count || skip >= maxn) break;
+  }
+  return out;
+}
+"""
+
+
+class OffscreenBrowser:
+    """수집기 Browser 와 같은 모양(.page() · .ctx · .show) — 창은 띄우되 화면 밖에 둠. 쿠키는 수집기 프로필에서 복사, 끝나면 되돌려 넣음"""
+    def __init__(self, br):
+        self.br, self.show, self.b, self.ctx = br, True, None, None
+
+    def __enter__(self):
+        kw = dict(headless=False, args=OFFSCREEN_ARGS)
+        try:
+            self.b = self.br.pw.chromium.launch(channel="chrome", **kw)      # PC에 설치된 크롬
+        except Exception:
+            self.b = self.br.pw.chromium.launch(**kw)                        # 없으면 내장 크로미움
+        self.ctx = self.b.new_context(viewport={"width": 1400, "height": 1000})
+        ck = self.br.ctx.cookies()
+        try:
+            self.ctx.add_cookies(ck)
+        except Exception:
+            for c in ck:
+                try:
+                    self.ctx.add_cookies([c])
+                except Exception:
+                    pass
+        return self
+
+    def page(self):
+        return self.ctx.new_page()
+
+    def __exit__(self, *a):
+        try:                                   # 로그인 세션이 새로 고쳐졌으면 수집기 프로필에도 반영
+            ck = [c for c in self.ctx.cookies() if any(k in (c.get("domain") or "") for k in ("kakaostyle", "naver.com"))]
+            if ck:
+                self.br.ctx.add_cookies(ck)
+        except Exception:
+            pass
+        try:
+            self.b.close()
+        except Exception:
+            pass
+
+
+def zz_review_rows(G, items, test=False, limit=3):
+    if not test:
+        items = [v for v in items if not v.get("reply_list")]
+    else:
+        items = items[:int(limit)]
+    rows = []
+    for v in items:
+        pp = v.get("purchased_product") or {}
+        attrs = ", ".join(f"{a.get('name')}:{a.get('value')}" for a in ((pp.get("item") or {}).get("attributes") or []))
+        pid = str(v.get("product_id") or "")
+        rows.append(dict(업체="지그재그", 게시판="리뷰", id=str(v.get("id")), 날짜=G.kst(v.get("date_created")), 상품명=pp.get("name", ""), 옵션=attrs,
+                         상품ID=pid, 상품링크=(f"https://zigzag.kr/catalog/products/{pid}" if pid else ""), 상품이미지=pp.get("main_image_url", ""),
+                         별점=v.get("rating"), 내용=v.get("contents") or "", 주문상품번호=v.get("order_item_number") or "",
+                         답글=" / ".join(x.get("contents", "") for x in (v.get("reply_list") or [])), 답글여부=bool(v.get("reply_list")),
+                         사진URL=[x.get("original_url") or x.get("thumbnail_url") for x in (v.get("image_list") or []) if x.get("original_url") or x.get("thumbnail_url")],
+                         영상URL=[x.get("url") for x in (v.get("video_list") or []) if x.get("url")]))
+    return rows
+
+
+def zz_reviews_core(G, br, cfg, now_ms=None):
+    """지그재그 리뷰 화면을 열어 화면이 보내는 리뷰 조회 요청을 잡고, 같은 요청을 리뷰 기간으로 다시 보냄"""
+    days = int(cfg.get("review_days", 30) or 30)
+    pg = br.page()
+    cap, got = {}, []
+
+    def on_req(req):
+        try:
+            if req.method == "POST" and "GetProductReviewList" in req.url and "Counts" not in req.url and not cap:
+                cap["url"] = req.url; cap["body"] = req.post_data
+        except Exception:
+            pass
+
+    def on_resp(resp):
+        try:
+            if resp.request.method == "POST" and "GetProductReviewList" in resp.url and "Counts" not in resp.url:
+                got.append(resp.json())
+        except Exception:
+            pass
+    pg.on("request", on_req)
+    pg.on("response", on_resp)
+    try:
+        pg.goto(f"https://partners.kakaostyle.com/shop/{cfg['zz_slug']}/product_review", wait_until="domcontentloaded", timeout=60000)
+        for _ in range(30):
+            if cap or "login" in (pg.url or ""):
+                break
+            pg.wait_for_timeout(500)
+        if "login" in (pg.url or ""):
+            return "로그인 필요", [], pg.url
+        if not cap:
+            return "오류", [], "리뷰 화면의 조회 요청을 찾지 못함"
+        for _ in range(20):                    # 화면 자체의 첫 응답 기다림 (최대 10초)
+            if got:
+                break
+            pg.wait_for_timeout(500)
+        now_ms = int(now_ms if now_ms is not None else time.time() * 1000)
+        try:
+            res = pg.evaluate(ZZ_REVIEW_FETCH_JS, {"url": cap["url"], "body": cap["body"], "gte": now_ms - days * 86400000, "lt": now_ms, "lim": 50, "maxn": ZZ_REVIEW_MAX})
+        except Exception as e:
+            res = {"rows": [], "total": "", "errors": [f"{e}"[:300]]}
+        items, note = list(res.get("rows") or []), f"최근 {days}일 전체 {res.get('total', '')}건"
+        if res.get("errors") and not items:
+            for js in got:                     # 다시 조회가 안 되면 화면이 받은 것(기본 1주일)이라도
+                try:
+                    items += js["data"]["internal_product_review_list"].get("item_list") or []
+                except Exception:
+                    pass
+            if not items:
+                err = str(res["errors"][0])
+                for js in got:
+                    for e in (js.get("errors") or [])[:1]:
+                        err = f"{(e.get('extensions') or {}).get('code', '')} {e.get('message', '')}".strip()
+                dbg = getattr(G, "_dbg", None)
+                if dbg:
+                    dbg(cfg, "지그재그_리뷰_요청", {"url": cap.get("url"), "오류": err, "창": "보임" if getattr(br, "show", False) else "숨김"})
+                return "오류", [], "리뷰 조회 거절: " + err[:200]
+            note = "기간 지정 조회 실패 → 화면 기본(최근 1주일)만"
+        return "ok", zz_review_rows(G, items, bool(cfg.get("test")), cfg.get("test_limit", 3)), note
+    finally:
+        try:
+            pg.close()
+        except Exception:
+            pass
+
+
+def run_offscreen(br, fn):
+    """숨김 브라우저면 화면 밖 창에서 fn(브라우저) 실행, 이미 보이는 브라우저면 그대로"""
+    if getattr(br, "show", False) or not hasattr(br, "pw"):
+        return fn(br)
+    with OffscreenBrowser(br) as b2:
+        return fn(b2)
+
+
+def patch_review_collectors(G):
+    G._v3_review_patch = True
+    orig_ss = getattr(G, "collect_reviews_smartstore", None)
+    if getattr(G, "collect_reviews_zigzag", None) and hasattr(G, "kst"):
+        def collect_reviews_zigzag(br, cfg):
+            try:
+                return run_offscreen(br, lambda b: zz_reviews_core(G, b, cfg))
+            except Exception as e:
+                return "오류", [], f"지그재그 리뷰 창 실행 실패: {e}"[:300]
+        G._v3_orig_zz_reviews = G.collect_reviews_zigzag
+        G.collect_reviews_zigzag = collect_reviews_zigzag
+    if orig_ss:
+        def collect_reviews_smartstore(br, cfg):   # 네이버도 숨김 브라우저를 막을 수 있어 같은 방식으로
+            try:
+                return run_offscreen(br, lambda b: orig_ss(b, cfg))
+            except Exception as e:
+                return "오류", [], f"스마트스토어 리뷰 창 실행 실패: {e}"[:300]
+        G._v3_orig_ss_reviews = orig_ss
+        G.collect_reviews_smartstore = collect_reviews_smartstore
 
 
 def link_path():
@@ -374,6 +565,8 @@ LOGIN_URL = {
     "에이블리": "https://my.a-bly.com/inquiry",
 }
 LOGIN_WAIT_SEC = 180
+LOGIN_MANUAL_SEC = 300                  # 직접 로그인: 사람이 수집기 PC 앞에서 아이디·비밀번호·퀴즈·2단계 인증까지 (1.6)
+MANUAL_LOGIN = ("스마트스토어",)         # 네이버는 자동 입력하면 퀴즈(자동입력 방지)·2단계 인증에서 막힘 → 항상 직접 로그인
 
 
 def page_logged_in(pg):
@@ -537,6 +730,25 @@ def save_cred(d, vendor, uid, pw):
     save_link(d)
 
 
+def manual_login(pg, v, progress, say, wait_sec=None, step_ms=3000):
+    """직접 로그인 (1.6): 아무것도 채우지 않고 창을 앞으로 띄운 뒤, 사람이 로그인을 마칠 때까지 기다림 (퀴즈에서 멈추지 않음)"""
+    wait_sec = LOGIN_MANUAL_SEC if wait_sec is None else wait_sec
+    try:
+        pg.bring_to_front()
+    except Exception:
+        pass
+    mins = max(1, round(wait_sec / 60))
+    progress(f"{v}: 수집기 PC 화면에 뜬 창에서 직접 로그인해 주세요 (아이디·비밀번호·퀴즈·2단계 인증까지, 최대 {mins}분)")
+    say(f"🔑 {v}: 직접 로그인 기다리는 중 (최대 {mins}분)")
+    t0 = time.time()
+    while time.time() - t0 < wait_sec:
+        pg.wait_for_timeout(step_ms)
+        if page_logged_in(pg):
+            pg.wait_for_timeout(2000)          # 로그인 직후 이동이 끝나 쿠키가 자리 잡게
+            return dict(state="ok", note="직접 로그인됨")
+    return dict(state="manual_fail", note=f"{mins}분 안에 로그인이 끝나지 않음 — 수집기 PC 앞에서 다시 [🔑 로그인]")
+
+
 def run_login_job(job, cfg, say, progress, d):
     G = _G()
     body = job.get("body") or {}
@@ -551,6 +763,7 @@ def run_login_job(job, cfg, say, progress, d):
                 say(f"⚠ {v} 잠긴 비밀번호를 풀지 못했습니다: {e}")
     if not vendors:
         return False, "로그인할 업체가 없습니다", {}
+    manual = {v for v in vendors if v in MANUAL_LOGIN or v in (body.get("manual") or [])}
     if not G.RUN_LOCK.acquire(blocking=False):
         return False, "수집 중이라 로그인 창을 열 수 없습니다 — 끝난 뒤 다시", {}
     out = {}
@@ -564,6 +777,9 @@ def run_login_job(job, cfg, say, progress, d):
                     pg.wait_for_timeout(2500)
                     if page_logged_in(pg):
                         out[v] = dict(state="ok", note="이미 로그인됨"); say(f"🔑 {v}: 이미 로그인됨"); continue
+                    if v in manual:
+                        out[v] = manual_login(pg, v, progress, say)
+                        continue
                     given = creds.get(v)
                     use = given or (lambda c: (c["id"], c["pw"]) if c else None)(load_cred(d, v))
                     if use:
@@ -603,7 +819,7 @@ def run_login_job(job, cfg, say, progress, d):
     ok_all = all(x["state"] == "ok" for x in out.values())
     if ok_all:
         c = G.load_cfg(); c["login_ok"] = True; G.save_cfg(c)
-    label = {"ok": "✓", "captcha": "PC 앞 입력 필요", "need_password": "비밀번호 필요", "fail": "실패"}
+    label = {"ok": "✓", "captcha": "PC 앞 입력 필요", "need_password": "비밀번호 필요", "fail": "실패", "manual_fail": "직접 로그인 안 됨"}
     msg = " · ".join(f"{v} {label.get(x['state'], x['state'])}" for v, x in out.items())
     return ok_all, msg, {"login": out}
 

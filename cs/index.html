@@ -152,12 +152,17 @@
               </div>
               <fieldset class="cs-box">
                 <legend>수집할 업체</legend>
-                <div class="cs-vendor-grid cs-vendor-grid-3" data-vendor-group="review">
+                <div class="cs-vendor-grid" data-vendor-group="review">
+                  <div class="cs-vendor-card" data-vendor="스마트스토어">
+                    <strong>스마트스토어</strong>
+                    <span class="cs-vendor-check">☑ 수집</span>
+                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="스마트스토어" data-live data-pending="시트 연결 후 작동">🔑 직접 로그인</button>
+                  </div>
                   <div class="cs-vendor-card" data-vendor="지그재그"><strong>지그재그</strong><span class="cs-vendor-check">☑ 수집</span></div>
                   <div class="cs-vendor-card" data-vendor="에이블리"><strong>에이블리</strong><span class="cs-vendor-check">☑ 수집</span></div>
                   <div class="cs-vendor-card" data-vendor="메이크샵"><strong>메이크샵</strong><span class="cs-vendor-check">☑ 수집</span></div>
                 </div>
-                <p class="cs-note">※ 스마트스토어 리뷰: 커머스API에 리뷰 조회가 없어 수집 불가 — 판매자센터에서 직접 확인. 에이블리 리뷰는 답글 기능이 없어 목록·건수만.</p>
+                <p class="cs-note">※ 스마트스토어 리뷰: 커머스API에 리뷰 조회가 없어 판매자센터 화면으로 수집 — 수집기 PC 앞에서 [🔑 직접 로그인]을 한 번 해 두어야 합니다 (로그인이 풀리면 다시). 에이블리 리뷰는 답글 기능이 없어 목록·건수만.</p>
               </fieldset>
             </div>
 
@@ -373,7 +378,7 @@
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261103-noflash1"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261103-ssmanual1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261103-status4"></script>
   </body>
 </html>

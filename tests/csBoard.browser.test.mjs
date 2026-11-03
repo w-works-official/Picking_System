@@ -372,7 +372,9 @@ try {
     assert.match(await ablyFixed.locator("summary").textContent(), /\(바뀌었을 때만\)/);
     assert.equal(await page.locator('[data-login-pick][value="에이블리"]').isChecked(), false, "해결된 업체는 미리 안 골라짐");
     assert.doesNotMatch(await page.locator('[data-login-row="지그재그"] [data-login-state]').textContent(), /해결/, "안 바뀐 업체는 메모 없음");
-    assert.match(await page.locator('[data-login-row="스마트스토어"] [data-login-state]').textContent(), /커머스 API 사용 중 — 문의 수집·답변에 로그인 필요 없음/, "API 가 있으면 스마트스토어 로그인 불필요");
+    assert.match(await page.locator('[data-login-row="스마트스토어"] [data-login-state]').textContent(), /문의는 커머스 API 사용 중 \(로그인 필요 없음\) · 리뷰 수집만 판매자센터 로그인 필요/, "API 가 있으면 문의는 로그인 불필요");
+    assert.match(await page.locator('[data-login-row="스마트스토어"] [data-login-manual]').textContent(), /직접 로그인.*퀴즈.*최대 5분/, "스마트스토어는 직접 로그인 안내");
+    assert.equal(await page.locator('[data-login-row="스마트스토어"] [data-login-id]').count(), 0, "스마트스토어는 아이디·비밀번호 칸 없음 (자동으로 채우지 않음)");
     assert.equal(await page.locator('[data-login-pick][value="스마트스토어"]').isChecked(), false);
     await page.locator("#cs-login .cs-login-box, #cs-login").first().screenshot({ path: path.join(output, "cs-board-login-memo.png") });
     const msRow = page.locator('[data-login-row="메이크샵"]');

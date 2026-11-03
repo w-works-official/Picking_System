@@ -55,7 +55,9 @@ import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
 import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261103-loginmemo1";
 
 const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
-const REVIEW_VENDORS = ["지그재그", "에이블리", "메이크샵"];
+const REVIEW_VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
+const CS_MANUAL_LOGIN = ["스마트스토어"];   // 웹연결 1.6: 네이버는 자동 입력하면 퀴즈·2단계 인증에 막혀 사람이 직접 로그인
+const REVIEW_DEFAULT = ["지그재그", "에이블리", "메이크샵"];   // 스마트스토어 리뷰는 직접 로그인이 필요해 처음엔 꺼 둠 (2026-11-03)
 const VENDOR_KEY = "system_v3_cs_board_vendors";
 
 export function escapeHtml(value) {
@@ -117,10 +119,10 @@ function readVendorSel(storage) {
     const raw = JSON.parse(storage?.getItem(VENDOR_KEY) || "{}");
     return {
       board: new Set(Array.isArray(raw.board) ? raw.board.filter((v) => VENDORS.includes(v)) : VENDORS),
-      review: new Set(Array.isArray(raw.review) ? raw.review.filter((v) => REVIEW_VENDORS.includes(v)) : REVIEW_VENDORS),
+      review: new Set(Array.isArray(raw.review) ? raw.review.filter((v) => REVIEW_VENDORS.includes(v)) : REVIEW_DEFAULT),
     };
   } catch {
-    return { board: new Set(VENDORS), review: new Set(REVIEW_VENDORS) };
+    return { board: new Set(VENDORS), review: new Set(REVIEW_DEFAULT) };
   }
 }
 
@@ -697,17 +699,18 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       const saved = st.saved;
       const apiOnly = v === "스마트스토어" && ssApi;
       const done = st.resolved || saved || apiOnly;
+      const manual = CS_MANUAL_LOGIN.includes(v);
       return `<div class="cs-login-row" data-login-row="${escapeHtml(v)}">
         <label class="cs-check"><input type="checkbox" data-login-pick value="${escapeHtml(v)}"${pick.includes(v) ? " checked" : ""}> <b>${escapeHtml(v)}</b></label>
-        <span class="cs-note${st.ok === false && !apiOnly ? " cs-login-bad" : ""}" data-login-state>${apiOnly ? "✓ 커머스 API 사용 중 — 문의 수집·답변에 로그인 필요 없음" : escapeHtml(st.changed ? st.note : st.text)}${saved ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
-        <details${pick.includes(v) && !done ? " open" : ""}><summary>새 아이디·비밀번호 넣기${apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
+        <span class="cs-note${st.ok === false && !apiOnly ? " cs-login-bad" : ""}" data-login-state>${apiOnly ? "✓ 문의는 커머스 API 사용 중 (로그인 필요 없음) · 리뷰 수집만 판매자센터 로그인 필요" : escapeHtml(st.changed ? st.note : st.text)}${saved && !manual ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
+        ${manual ? `<p class="cs-note" data-login-manual>🙋 <b>직접 로그인</b> — 수집기 PC 화면에 로그인 창이 뜨면 아이디·비밀번호·퀴즈·2단계 인증까지 직접 해 주세요 (최대 5분 기다림, 자동으로 채우지 않음). 수집기 PC 앞에 계실 때 누르세요.</p>` : `<details${pick.includes(v) && !done ? " open" : ""}><summary>새 아이디·비밀번호 넣기${apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
           ${canLock ? `<div class="cs-form cs-login-creds">
             ${v === "메이크샵" ? `<label class="cs-check"><input type="checkbox" data-login-sub${readShop() ? " checked" : ""}> <span>부운영자로 로그인 <small>(운영자와 따로 로그인 — 동시 로그인으로 튕기지 않음)</small></span></label>
             <label data-login-shop-wrap${readShop() ? "" : " hidden"}>상점 URL <input type="text" data-login-shop autocomplete="off" placeholder="예: pinkrocket.co.kr" value="${escapeHtml(readShop())}"></label>` : ""}
             <label>아이디 <input type="text" data-login-id autocomplete="off"></label>
             <label>비밀번호 <input type="password" data-login-pw autocomplete="new-password"></label>
           </div>` : `<p class="cs-note">수집기 PC 웹연결 1.3 이상이 켜져 있어야 비밀번호를 잠가 보낼 수 있습니다.</p>`}
-        </details>
+        </details>`}
       </div>`;
     }).join("");
     $("#cs-login-collect").checked = false;
@@ -748,7 +751,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     }
     const collectAfter = !!$("#cs-login-collect")?.checked;
     closeLogin();
-    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}`);
+    const manualPick = vendors.filter((v) => CS_MANUAL_LOGIN.includes(v));
+    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}${manualPick.length ? ` — ${manualPick.join("·")}: 수집기 PC 화면에 뜬 창에서 직접 로그인해 주세요 (최대 5분)` : ""}`);
   }
 
   // 엑셀 내려받기 / 📥 엑셀 등록 (SheetJS — 피킹 화면과 같은 라이브러리)

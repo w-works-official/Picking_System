@@ -454,4 +454,101 @@ assert L.handle(link, job(), cfg, say, d14) is True and link.sent[-1][1]["ok"] i
 assert L.handle(link, job(), cfg, say, d14) is False, "already the same file → no restart"
 assert "이미 최신" in link.sent[-1][1]["message"]
 
+
+# ── 1.6 리뷰 보강: 지그재그 리뷰는 숨김 브라우저면 화면 밖 창에서, 리뷰 기간으로 다시 조회 ──
+class FakeReq:
+    def __init__(self, url, body): self.url, self.post_data, self.method = url, body, "POST"
+class FakeResp:
+    def __init__(self, req, js): self.url, self.request, self._js = req.url, req, js
+    def json(self): return self._js
+class FakePage:
+    def __init__(self, owner): self.owner, self.h, self.url, self.closed = owner, {}, "about:blank", False
+    def on(self, ev, fn): self.h.setdefault(ev, []).append(fn)
+    def goto(self, url, **kw):
+        self.url = url; self.owner.gotos.append(url)
+        if self.owner.login: self.url = "https://partners.kakaostyle.com/login"; return
+        req = FakeReq("https://partners.kakaostyle.com/api/provider/pink-rocket/graphql/GetProductReviewList", json.dumps({"query": "q", "variables": {"input": {"rating_list": None}}}))
+        for f in self.h.get("request", []): f(req)
+        for f in self.h.get("response", []): f(FakeResp(req, self.owner.page_js))
+    def wait_for_timeout(self, ms): pass
+    def evaluate(self, js, arg): self.owner.evals.append(arg); return self.owner.replay
+    def close(self): self.closed = True
+    def bring_to_front(self): self.owner.front = True
+class FakeCtx:
+    def __init__(self, owner): self.owner, self.added = owner, []
+    def cookies(self): return [{"name": "s", "value": "1", "domain": ".kakaostyle.com", "path": "/"}, {"name": "o", "value": "2", "domain": ".other.com", "path": "/"}]
+    def add_cookies(self, ck): self.added += ck
+    def new_page(self): return FakePage(self.owner)
+class FakeBrowserProc:
+    def __init__(self, owner): self.owner = owner
+    def new_context(self, **kw): self.owner.ctx2 = FakeCtx(self.owner); return self.owner.ctx2
+    def close(self): self.owner.closed2 = True
+class FakeChromium:
+    def __init__(self, owner): self.owner = owner
+    def launch(self, **kw): self.owner.launch = kw; return FakeBrowserProc(self.owner)
+class FakeBr:
+    def __init__(self, show=False, login=False, page_js=None, replay=None):
+        self.show, self.login, self.gotos, self.evals, self.front = show, login, [], [], False
+        self.page_js = page_js if page_js is not None else {"data": {"internal_product_review_list": {"total_count": 1, "item_list": [{"id": 7, "reply_list": []}]}}}
+        self.replay = replay if replay is not None else {"rows": [], "total": 0, "errors": []}
+        self.ctx = FakeCtx(self); self.pw = types.SimpleNamespace(chromium=FakeChromium(self))
+    def page(self): return FakePage(self)
+
+G2 = types.ModuleType("g2")
+G2.kst = lambda v: f"T{v}"
+G2.dbgs = []
+G2._dbg = lambda cfg, name, data: G2.dbgs.append((name, data))
+G2.collect_reviews_zigzag = lambda br, cfg: ("old", [], "")
+G2.collect_reviews_smartstore = lambda br, cfg: ("ok", [{"via": "show" if br.show else "hidden"}], "")
+L.patch_review_collectors(G2)
+assert G2._v3_review_patch and G2.collect_reviews_zigzag is not G2._v3_orig_zz_reviews
+rcfg = {"zz_slug": "pink-rocket", "review_days": 30}
+items = [{"id": 1, "date_created": 5, "rating": 5, "contents": "좋아요", "reply_list": [], "purchased_product": {"name": "피어싱", "item": {"attributes": [{"name": "색", "value": "실버"}]}}, "product_id": 9},
+         {"id": 2, "reply_list": [{"contents": "감사"}]}]
+br = FakeBr(replay={"rows": items, "total": 2, "errors": []})
+st, rows, note = G2.collect_reviews_zigzag(br, rcfg)
+assert st == "ok" and [r["id"] for r in rows] == ["1"] and rows[0]["옵션"] == "색:실버" and rows[0]["날짜"] == "T5", (st, rows)
+assert "30일" in note and "전체 2건" in note
+assert br.launch["headless"] is False and "--window-position=-32000,-32000" in br.launch["args"], "hidden browser → off-screen window"
+assert {c["name"] for c in br.ctx2.added} == {"s", "o"} and [c["name"] for c in br.ctx.added] == ["s"], "cookies copied in, only login cookies copied back"
+a = br.evals[-1]; assert a["lt"] - a["gte"] == 30 * 86400000 and a["lim"] == 50 and a["url"].endswith("GetProductReviewList")
+# 보이는 브라우저면 새 창 없이 그대로
+br = FakeBr(show=True, replay={"rows": items[:1], "total": 1, "errors": []})
+st, rows, _ = G2.collect_reviews_zigzag(br, rcfg)
+assert st == "ok" and len(rows) == 1 and not hasattr(br, "launch")
+# 다시 조회 실패 → 화면이 받은 것(1주일)이라도
+br = FakeBr(replay={"rows": [], "total": "", "errors": ["boom"]})
+st, rows, note = G2.collect_reviews_zigzag(br, rcfg)
+assert st == "ok" and [r["id"] for r in rows] == ["7"] and "1주일" in note
+# 둘 다 거절 → 오류 + 진단(개인정보 없이)
+deny = {"errors": [{"message": "잘못된 접근입니다.", "extensions": {"code": "invalid_access"}}], "data": None}
+br = FakeBr(page_js=deny, replay={"rows": [], "total": "", "errors": ["x"]})
+st, rows, note = G2.collect_reviews_zigzag(br, rcfg)
+assert st == "오류" and "invalid_access" in note and G2.dbgs[-1][0] == "지그재그_리뷰_요청" and "응답" not in G2.dbgs[-1][1]
+# 로그인 화면
+st, rows, note = G2.collect_reviews_zigzag(FakeBr(login=True), rcfg)
+assert st == "로그인 필요"
+# 테스트 모드: 답글 있어도 n건
+st, rows, _ = G2.collect_reviews_zigzag(FakeBr(replay={"rows": items, "total": 2, "errors": []}), {**rcfg, "test": True, "test_limit": 1})
+assert len(rows) == 1
+# 스마트스토어 리뷰도 숨김이면 화면 밖 창에서
+assert G2.collect_reviews_smartstore(FakeBr(), {})[1][0]["via"] == "show"
+assert G2.collect_reviews_smartstore(FakeBr(show=True), {})[1][0]["via"] == "show"
+# 수집기에 함수가 없으면 아무것도 안 바꿈
+G3 = types.ModuleType("g3"); L.patch_review_collectors(G3); assert not hasattr(G3, "collect_reviews_zigzag")
+
+# ── 1.6 직접 로그인: 채우지 않고 창을 앞으로, 사람이 끝낼 때까지 기다림 ──
+assert "스마트스토어" in L.MANUAL_LOGIN and L.LOGIN_MANUAL_SEC >= 300
+pb = FakeBr(); pg = pb.page(); seen = []; n = {"i": 0}
+orig_pli = L.page_logged_in
+def fake_pli(p):
+    n["i"] += 1; return n["i"] >= 3
+L.page_logged_in = fake_pli
+r = L.manual_login(pg, "스마트스토어", seen.append, say, wait_sec=60, step_ms=0)
+assert r["state"] == "ok" and pb.front and "직접 로그인" in seen[0] and "퀴즈" in seen[0]
+L.page_logged_in = lambda p: False
+r = L.manual_login(pg, "스마트스토어", seen.append, say, wait_sec=0.01, step_ms=0)
+assert r["state"] == "manual_fail" and "다시" in r["note"]
+L.page_logged_in = orig_pli
+
 print("g1V3Link.test: OK")

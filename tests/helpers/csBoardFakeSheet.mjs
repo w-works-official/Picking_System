@@ -6,22 +6,26 @@ export function fakeSheet(name = "시트1") {
   const data = [];
   let sheetName = name;
   const strip = (v) => (typeof v === "string" && v.startsWith("'") ? v.slice(1) : v);
-  return {
+  const sheetObj = {
     data,
     setName(next) { sheetName = next; },
     getName: () => sheetName,
     getLastRow: () => data.length,
+    writes: 0,
+    getMaxRows() { return Math.max(1000, data.length); },
+    insertRowsAfter() {},
     appendRow(row) { data.push(row.map(strip)); },
     setFrozenRows() {},
     getRange(row, col, rows = 1, cols = 1) {
       return {
         getValues: () => data.slice(row - 1, row - 1 + rows).map((r) => Array.from({ length: cols }, (_, i) => r[col - 1 + i] ?? "")),
-        setValues: (values) => values.forEach((vals, r) => vals.forEach((v, c) => { data[row - 1 + r][col - 1 + c] = strip(v); })),
+        setValues(values) { sheetObj.writes++; values.forEach((vals, r) => { data[row - 1 + r] ||= []; vals.forEach((v, c) => { data[row - 1 + r][col - 1 + c] = strip(v); }); }); },
         getValue: () => data[row - 1]?.[col - 1] ?? "",
         setValue: (v) => { data[row - 1][col - 1] = strip(v); },
       };
     },
   };
+  return sheetObj;
 }
 
 // claude(payload) → 가짜 AI 응답 문자열(답변 배열 JSON). status 를 바꾸면 오류 응답.

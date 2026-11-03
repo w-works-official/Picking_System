@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -117,7 +117,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 6 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 7 });
 }
 
 function doPost(e) {
@@ -1049,16 +1049,19 @@ function selfJob_(body) {
 // ---------- 수집기: 문의 넣기·종료 ----------
 // snapshot = { kind: '문의'|'리뷰', vendors: {업체: {상태, 건수, 메모}}, days, collectedAt, test, file }
 function ingest_(sheet, rows, snapshot) {
+  // 2026-11-03 v7: 시트를 한 번 읽고, 바뀐 줄만 메모리에서 고친 뒤 몰아서 씀 (예전: 줄마다 5~6번 따로 써서 300건이면 몇 분 → 그동안 다른 요청이 잠금에 막힘)
   var list = Array.isArray(rows) ? rows.slice(0, MAX_INGEST) : [];
   var existing = values_(sheet);
+  var origLen = existing.length;
   var index = {};
-  for (var i = 0; i < existing.length; i++) index[plain_(existing[i][COL.key - 1])] = i + 2;
+  for (var i = 0; i < existing.length; i++) index[plain_(existing[i][COL.key - 1])] = i;
   var now = new Date();
   var added = 0;
   var updated = 0;
   var reopened = 0;
   var seen = {};
   var newKeys = [];
+  var dirty = {};
   for (var r = 0; r < list.length; r++) {
     var row = list[r] || {};
     if (row['가상']) continue; // 테스트 수집 결과는 시트에 안 올림
@@ -1067,24 +1070,26 @@ function ingest_(sheet, rows, snapshot) {
     seen[key] = true;
     var inquiry = stringify_(inquiryFrom_(row));
     var at = index[key];
-    if (at) {
+    if (at !== undefined) {
       // 이미 있는 문의: 문의 내용·수집시각만 갱신, 선택·답변안은 그대로. 답변안이 비어 있을 때만 수집기 답변안을 넣음
-      var current = rowOut_(sheet.getRange(at, 1, 1, HEADER.length).getValues()[0]);
-      sheet.getRange(at, COL.inquiry, 1, 1).setValues([[inquiry]]);
-      sheet.getRange(at, COL.collectedAt, 1, 1).setValues([[now]]);
+      var vals = existing[at];
+      var current = rowOut_(vals);
+      vals[COL.inquiry - 1] = inquiry;
+      vals[COL.collectedAt - 1] = now;
       var drafts = current.drafts && current.drafts.length ? current.drafts : draftsFrom_(row['답변안']);
-      if (drafts !== current.drafts) sheet.getRange(at, COL.drafts, 1, 1).setValues([[stringify_(drafts)]]);
+      if (drafts !== current.drafts) vals[COL.drafts - 1] = stringify_(drafts);
       if (current.closed && !(current.reg && current.reg.state === '완료')) {
-        sheet.getRange(at, COL.closed, 1, 1).setValues([['']]); // 다시 나타남 = 아직 미답변 → 다시 열기
+        vals[COL.closed - 1] = ''; // 다시 나타남 = 아직 미답변 → 다시 열기
         current.closed = false;
         reopened++;
       }
-      sheet.getRange(at, COL.status, 1, 1).setValues([[statusOf_(current.closed, drafts, current.choice, current.reg)]]);
+      vals[COL.status - 1] = statusOf_(current.closed, drafts, current.choice, current.reg);
+      if (at < origLen) dirty[at] = true;
       updated++;
       continue;
     }
     var fresh = draftsFrom_(row['답변안']);
-    sheet.appendRow([
+    existing.push([
       key,
       clean_(row['업체'], 40),
       clean_(row['게시판'], 40),
@@ -1102,16 +1107,36 @@ function ingest_(sheet, rows, snapshot) {
       '',
       '',
     ]);
-    index[key] = sheet.getLastRow();
+    index[key] = existing.length - 1;
     added++;
     newKeys.push(key);
+  }
+  writeRows_(sheet, existing, dirty);
+  if (existing.length > origLen) {
+    var need = existing.length + 1; // 머리줄 + 전체 줄
+    if (sheet.getMaxRows() < need) sheet.insertRowsAfter(sheet.getMaxRows(), need - sheet.getMaxRows());
+    sheet.getRange(origLen + 2, 1, existing.length - origLen, HEADER.length).setValues(existing.slice(origLen));
   }
   var closed = snapshot ? autoClose_(sheet, snapshot, seen) : 0;
   if (snapshot && !snapshot.test) rememberCollect_(snapshot, list.length);
   return { ok: true, added: added, updated: updated, reopened: reopened, closed: closed, newKeys: newKeys };
 }
 
-// 정상 수집된 업체에서 이번에 없는 문의 = 그 사이 답변됨 → 종료 (수집 기간 안의 문의만, 테스트 수집은 제외)
+// 2026-11-03 v7: 바뀐 줄(dirty)만 연속 구간으로 묶어 구간마다 한 번에 씀. 사이가 5줄 이하로 떨어진 구간은 합침(그 사이 줄은 방금 읽은 값 그대로 다시 씀 — 잠금 안이라 안전)
+var WRITE_GAP = 5;
+function writeRows_(sheet, rows, dirty) {
+  var idx = Object.keys(dirty).map(Number).sort(function (a, b) { return a - b; });
+  var calls = 0;
+  for (var s = 0; s < idx.length;) {
+    var e = s;
+    while (e + 1 < idx.length && idx[e + 1] - idx[e] <= WRITE_GAP + 1) e++;
+    sheet.getRange(idx[s] + 2, 1, idx[e] - idx[s] + 1, HEADER.length).setValues(rows.slice(idx[s], idx[e] + 1));
+    calls++;
+    s = e + 1;
+  }
+  return calls;
+}
+
 function autoClose_(sheet, snapshot, seen) {
   if (snapshot.test) return 0;
   var review = snapshot.kind === '리뷰';
@@ -1123,6 +1148,7 @@ function autoClose_(sheet, snapshot, seen) {
   var rows = values_(sheet);
   var now = new Date();
   var changed = 0;
+  var dirty = {};
   for (var i = 0; i < rows.length; i++) {
     var row = rowOut_(rows[i]);
     if (row.closed || seen[row.key] || isReview_(row.board) !== review) continue;
@@ -1130,10 +1156,12 @@ function autoClose_(sheet, snapshot, seen) {
     if (row.reg && row.reg.state === '요청') continue;
     var t = when_(row.date);
     if (!(t >= from && t <= collectedAt + 3600 * 1000)) continue;
-    sheet.getRange(i + 2, COL.status, 1, 1).setValues([['종료']]);
-    sheet.getRange(i + 2, COL.closed, 1, 1).setValues([[now]]);
+    rows[i][COL.status - 1] = '종료';
+    rows[i][COL.closed - 1] = now;
+    dirty[i] = true;
     changed++;
   }
+  writeRows_(sheet, rows, dirty);
   return changed;
 }
 

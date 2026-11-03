@@ -171,7 +171,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 6 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 7 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -518,7 +518,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 6);
+  assert.equal(g5.get().version, 7);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -613,6 +613,39 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(g6.post({ action: "unlock", password: "pk2611" }).token, TOKEN);
   assert.equal(g6.properties.UNLOCK_FAILS, "0");
   assert.equal(g6.post({ action: "unlock" }).ok, false, "빈 값");
+}
+
+
+// 2026-11-03 v7: 수집 결과 넣기(ingest)는 줄마다 따로 쓰지 않고 몰아서 씀 — 300건이 몇 분 걸려 다른 요청이 잠금에 막히던 문제
+{
+  const big = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR } });
+  big.post({ action: "list", token: TOKEN }); // 시트 만들기
+  const rows300 = Array.from({ length: 300 }, (_, i) => ({ 업체: "지그재그", 게시판: "리뷰", id: `r${i}`, 날짜: "2026-11-03 10:00", 상품명: `상품 ${i}`, 별점: 5, 내용: `리뷰 ${i}` }));
+  const sh = big.sheet();
+  let w0 = sh.writes;
+  let r1 = big.post({ action: "ingest", token: COLLECTOR, rows: rows300, autoSuggest: false });
+  assert.equal(r1.added, 300);
+  assert.ok(sh.writes - w0 <= 2, `새 300건은 한 번에 씀 (쓰기 ${sh.writes - w0}번)`);
+  assert.equal(sh.data.length, 301);
+  assert.equal(sh.data[300][0], "지그재그_리뷰_r299");
+  // 같은 300건을 다시 수집 → 갱신만, 쓰기 횟수는 몇 번 안 됨
+  w0 = sh.writes;
+  r1 = big.post({ action: "ingest", token: COLLECTOR, rows: rows300.map((r) => ({ ...r, 내용: r.내용 + " (수정)" })), autoSuggest: false });
+  assert.deepEqual([r1.added, r1.updated], [0, 300]);
+  assert.ok(sh.writes - w0 <= 2, `갱신 300건도 몰아서 씀 (쓰기 ${sh.writes - w0}번)`);
+  assert.match(String(sh.data[150][7]), /리뷰 149 \(수정\)/, "문의 내용 갱신됨");
+  assert.equal(sh.data.length, 301, "줄이 늘지 않음");
+  // 사이사이 떨어진 줄만 갱신 → 떨어진 구간마다 한 번
+  w0 = sh.writes;
+  big.post({ action: "ingest", token: COLLECTOR, rows: [rows300[0], rows300[150], rows300[299]], autoSuggest: false });
+  assert.equal(sh.writes - w0, 3, "멀리 떨어진 3줄 = 3번");
+  // 수집 결과에서 빠진 리뷰는 자동 종료 — 몰아서 씀
+  w0 = sh.writes;
+  r1 = big.post({ action: "ingest", token: COLLECTOR, rows: rows300.slice(0, 10), snapshot: { kind: "리뷰", vendors: { 지그재그: { 상태: "ok" } }, days: 30, collectedAt: "2026-11-03 12:00" }, autoSuggest: false });
+  assert.equal(r1.closed, 290);
+  assert.ok(sh.writes - w0 <= 3, `자동 종료 290건도 몰아서 씀 (쓰기 ${sh.writes - w0}번)`);
+  assert.equal(sh.data[300][6], "종료");
+  assert.equal(sh.data[5][6] === "종료", false, "이번에 다시 보인 줄은 열린 채");
 }
 
 console.log("csBoard.mock.test: OK");

@@ -2004,3 +2004,4 @@ a.cs-btn {
 .cs-vendor-card .cs-btn.cs-conn-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 1px 6px; text-align: left; }
 .cs-conn-tag { font-size: 9px; font-weight: 700; color: #6b7280; letter-spacing: -0.02em; }
 .cs-conn-state { font-size: 10.5px; }
+.cs-conn-tag { font-size: 11px; line-height: 1; color: inherit; }

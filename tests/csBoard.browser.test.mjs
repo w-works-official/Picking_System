@@ -420,9 +420,9 @@ try {
     assert.match(await page.locator("#cs-progress").textContent(), /로그인 대기[\s\S]*기다리는 중/);
     // 11-04: 로그인 현황 카드 버튼 — 요청한 업체는 연결중(회색), 아닌 업체는 연결요청(빨강)
     const connBtn = (v, part = "all") => page.locator(`[data-login-grid] [data-conn="${part}"][data-conn-vendor="${v}"]`);
-    assert.equal(await connBtn("에이블리", "review").textContent(), "리뷰연결중");
+    assert.equal(await connBtn("에이블리", "review").textContent(), "⭐연결중");
     assert.match(await connBtn("에이블리", "board").getAttribute("class"), /cs-conn-ing/);
-    assert.equal(await connBtn("메이크샵", "board").textContent(), "게시판연결요청", "부분 버튼에 게시판·리뷰 표시");
+    assert.equal(await connBtn("메이크샵", "board").textContent(), "📋연결요청", "부분 버튼에 게시판·리뷰 표시");
     assert.equal(await connBtn("메이크샵", "board").locator(".cs-conn-state").evaluate((el) => getComputedStyle(el).color), "rgb(220, 38, 38)", "연결 전 = 빨강");
     assert.equal(await connBtn("메이크샵").evaluate((el) => el.tagName), "DIV", "전체연결 = 카드 자체 (버튼 디자인 없음)");
     const loginReq = lastRequest("login");
@@ -453,11 +453,11 @@ try {
     await reload();
     // 2026-11-04: 로그인 상태는 메인보드 로그인 현황에서 (리뷰 탭 업체 칸은 게시판과 같은 모양)
     assert.equal(await page.locator('[data-vendor-group="review"] [data-pc="login"]').count(), 0, "리뷰 탭에는 로그인 버튼 없음");
-    assert.equal(await connBtn("스마트스토어", "review").textContent(), "리뷰연결완료");
+    assert.equal(await connBtn("스마트스토어", "review").textContent(), "⭐연결완료");
     await waitText("#cs-progress", /로그인 완료/);
-    assert.equal(await connBtn("에이블리", "board").textContent(), "게시판연결완료", "로그인 성공 → 연결완료");
+    assert.equal(await connBtn("에이블리", "board").textContent(), "📋연결완료", "로그인 성공 → 연결완료");
     assert.equal(await connBtn("에이블리", "board").locator(".cs-conn-state").evaluate((el) => getComputedStyle(el).color), "rgb(17, 17, 17)", "연결완료 = 검정");
-    assert.equal(await connBtn("지그재그", "review").textContent(), "리뷰연결완료", "리뷰 연결 줄");
+    assert.equal(await connBtn("지그재그", "review").textContent(), "⭐연결완료", "리뷰 연결 줄");
     assert.equal(await page.locator('[data-conn-vendor="스마트스토어"]').count(), 3, "스마트스토어: 전체·게시판·리뷰 연결");
     assert.equal(await page.locator('[data-login-grid] [data-vendor="스마트스토어"] [data-pc="api-tab"]').count(), 1, "API 설정은 작은 보조 버튼");
     // 2026-11-03: 지난 수집은 "로그인 필요"였지만 방금 로그인 성공 → 해결 메모 + "(바뀌었을 때만)", 미리 골라지지 않음

@@ -1390,9 +1390,14 @@ def handle(link, job, cfg, say, d=None):
         elif kind == "login":
             ok, msg, data = run_login_job(job, cfg, say, progress, d)
             if ok and (job.get("body") or {}).get("collectAfter"):
-                progress("로그인 완료 — 바로 수집합니다")
-                ok2, msg2, count = run_collect_job({"kind": "collect", "body": {"vendors": (job.get("body") or {}).get("vendors") or []}}, _G().load_cfg(), say)
-                msg += f" · 수집: {msg2}"
+                vs = (job.get("body") or {}).get("vendors") or []
+                progress("로그인 완료 — 게시판 수집 중")
+                ok2, msg2, count = run_collect_job({"kind": "collect", "body": {"vendors": vs}}, _G().load_cfg(), say)
+                msg += f" · 게시판: {msg2}"
+                progress("게시판 수집 끝 — 리뷰 수집 중")      # 1.9: [로그인되면 바로 게시판 + 리뷰 수집]
+                ok3, msg3, count3 = run_collect_job({"kind": "reviews", "body": {"vendors": vs}}, _G().load_cfg(), say)
+                msg += f" · 리뷰: {msg3}"
+                count += count3
         elif kind == "settings":
             ok, msg, data = run_settings_job(job, say)
         elif kind == "apiTest":

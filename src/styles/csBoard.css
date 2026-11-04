@@ -222,32 +222,44 @@ body.cs-board-workspace {
   overflow: hidden;
 }
 
+.cs-left {
+  --tab-color: #e11d74;
+}
+
+/* 2026-11-04: 왼쪽 탭 = 메뉴 이동 (오른쪽 옛 탭 모양·크기 그대로, 색은 조금 더 선명하게 — 게시판 파랑은 유지) */
 .cs-left-tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-wrap: nowrap;
+  gap: 5px;
   padding: 8px 8px 0;
 }
 
 .cs-left-tab {
-  padding: 7px 12px;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  padding: 8px 10px;
   border: 0;
-  border-radius: 7px 7px 0 0;
-  background: #e5e9f0;
-  color: var(--cs-text);
+  border-radius: 9px 9px 0 0;
   font-weight: 800;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
-.cs-left-tab.active {
-  background: var(--cs-blue);
-  color: #ffffff;
-}
+.cs-left-tab.tab-main { background: #fde2ef; color: #e11d74; }
+.cs-left-tab.tab-board { background: #dbeafe; color: #2563eb; }
+.cs-left-tab.tab-review { background: #ffe8d1; color: #ff7a00; }
+.cs-left-tab.tab-msn { background: #d5f9e3; color: #00b84a; }
+.cs-left-tab.tab-settings { background: #e9edf2; color: #64748b; }
+.cs-left-tab.tab-main.active { background: #e11d74; color: #ffffff; }
+.cs-left-tab.tab-board.active { background: #2563eb; color: #ffffff; }
+.cs-left-tab.tab-review.active { background: #ff7a00; color: #ffffff; }
+.cs-left-tab.tab-msn.active { background: #00b84a; color: #ffffff; }
+.cs-left-tab.tab-settings.active { background: #64748b; color: #ffffff; }
 
 .cs-left-body {
   min-height: 0;
   overflow-y: auto;
-  border-top: 3px solid var(--cs-blue);
+  border-top: 3px solid var(--tab-color);
   margin: 0 8px;
 }
 
@@ -459,8 +471,7 @@ body.cs-board-workspace {
 }
 
 .cs-btn:focus-visible,
-.cs-left-tab:focus-visible,
-.cs-right-tab:focus-visible {
+.cs-left-tab:focus-visible {
   outline: 3px solid #93c5fd;
   outline-offset: 2px;
 }
@@ -592,29 +603,26 @@ body.cs-board-workspace {
   overflow: hidden;
 }
 
-.cs-right-tabs {
+/* 2026-11-04: 오른쪽은 탭이 아니라 제목 (힘 뺀 모양, 왼쪽 탭과 같은 색) */
+.cs-right-head {
   display: flex;
-  gap: 6px;
-  padding: 8px 10px 0;
+  align-items: flex-end;
+  padding: 10px 14px 4px;
 }
 
-.cs-right-tab {
-  padding: 8px 18px;
-  border: 0;
-  border-radius: 9px 9px 0 0;
+.cs-right-title {
+  margin: 0;
+  font-size: 16px;
   font-weight: 800;
-  cursor: pointer;
+  letter-spacing: -0.01em;
+  color: #2563eb;
 }
 
-.cs-right-tab.tab-board { background: #dbeafe; color: #2563eb; }
-.cs-right-tab.tab-review { background: #ffedd5; color: #ea8a00; }
-.cs-right-tab.tab-msn { background: #dcfce7; color: #16a34a; }
-.cs-right-tab.tab-board.active { background: #2563eb; color: #ffffff; }
-.cs-right-tab.tab-review.active { background: #ea8a00; color: #ffffff; }
-.cs-right-tab.tab-msn.active { background: #16a34a; color: #ffffff; }
+.cs-right-title[data-tone="review"] { color: #ff7a00; }
+.cs-right-title[data-tone="msn"] { color: #00b84a; }
 
 .cs-right-line {
-  height: 3px;
+  height: 2px;
   margin: 0 10px;
   background: #2563eb;
 }
@@ -645,8 +653,8 @@ body.cs-board-workspace {
 }
 
 .tone-board { color: #2563eb; }
-.tone-review { color: #ea8a00; }
-.tone-msn { color: #16a34a; }
+.tone-review { color: #ff7a00; }
+.tone-msn { color: #00b84a; }
 
 .cs-answer-filter select,
 .cs-answer-filter input[type="search"] {
@@ -1706,3 +1714,246 @@ a.cs-btn {
 .cs-login-badge { display: block; margin-top: 3px; font-size: 11px; font-weight: 700; color: #9ca3af; text-align: center; }
 .cs-login-badge.is-ok { color: #15803d; }
 .cs-login-badge.is-bad { color: #b91c1c; }
+
+/* ---------- 2026-11-04 메인보드 개편: 로그인 현황 · 판매자센터 로그인 (창 아님) ---------- */
+.cs-sec-title {
+  margin: 2px 0 -2px;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--cs-text);
+}
+
+.cs-sec-title small {
+  color: var(--cs-sub);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.cs-login-inline {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid #f5c2da;
+  border-radius: 9px;
+  background: #fff8fb;
+}
+
+.cs-login-body .cs-login-row {
+  margin: 0 0 6px;
+  background: #ffffff;
+}
+
+.cs-login-row.is-flash {
+  animation: cs-flash 1.6s ease-out 1;
+}
+
+@keyframes cs-flash {
+  0% { box-shadow: 0 0 0 3px rgba(225, 29, 116, 0.45); }
+  100% { box-shadow: 0 0 0 0 rgba(225, 29, 116, 0); }
+}
+
+/* 체크박스 두 배 */
+.cs-login-inline input[type="checkbox"] {
+  width: 26px;
+  height: 26px;
+  margin: 0 6px 0 0;
+  accent-color: #e11d74;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.cs-login-inline .cs-check {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 14px;
+}
+
+.cs-check-lg {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.cs-login-actions {
+  gap: 10px;
+  align-items: stretch;
+}
+
+/* 로그인 요청 버튼 두 배 */
+.cs-btn.cs-btn-xl {
+  min-height: 56px;
+  padding: 12px 28px;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.cs-btn.cs-btn-lg {
+  min-height: 56px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ---------- 진행 작은 창 (수집 중 · 로그인 중) ---------- */
+.cs-progress {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 70;
+  box-sizing: border-box;
+  width: min(330px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px 12px 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #e5e7eb;
+  border-left: 5px solid var(--p-color, #2563eb);
+  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.18), 0 2px 6px rgba(17, 24, 39, 0.08);
+  backdrop-filter: blur(6px);
+  animation: cs-pop-in 0.22s ease-out;
+}
+
+.cs-progress[hidden] { display: none; }
+.cs-progress.is-run { --p-color: #2563eb; }
+.cs-progress.is-wait { --p-color: #f59e0b; }
+.cs-progress.is-ok { --p-color: #16a34a; }
+.cs-progress.is-fail { --p-color: #dc2626; }
+
+@keyframes cs-pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.cs-progress-icon {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+}
+
+.cs-progress-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.cs-progress-spin {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 3px solid color-mix(in srgb, var(--p-color) 18%, transparent);
+  border-top-color: var(--p-color);
+  animation: cs-spin 0.9s linear infinite;
+}
+
+.is-wait .cs-progress-spin {
+  animation-duration: 2.4s;
+}
+
+.cs-progress-mark {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--p-color);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.is-ok .cs-progress-icon,
+.is-fail .cs-progress-icon {
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--p-color) 12%, #ffffff);
+}
+
+@keyframes cs-spin {
+  to { transform: rotate(360deg); }
+}
+
+.cs-progress-top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cs-progress-top b {
+  font-size: 14px;
+  color: var(--cs-text);
+}
+
+.cs-progress-time {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--p-color);
+}
+
+.cs-progress-msg {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--cs-sub);
+  overflow-wrap: anywhere;
+}
+
+.cs-progress-bar {
+  position: relative;
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--p-color) 14%, #ffffff);
+}
+
+.cs-progress-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  border-radius: 4px;
+  background: var(--p-color);
+  animation: cs-slide 1.3s ease-in-out infinite;
+}
+
+@keyframes cs-slide {
+  from { left: -40%; }
+  to { left: 100%; }
+}
+
+.cs-progress-more {
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cs-sub);
+}
+
+.cs-progress-close {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.cs-progress-close:hover {
+  background: #f3f4f6;
+  color: var(--cs-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-progress, .cs-progress-spin, .cs-progress-bar i, .cs-login-row.is-flash { animation: none; }
+}

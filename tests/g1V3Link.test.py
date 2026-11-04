@@ -758,4 +758,21 @@ L.native_login, L.find_chrome = orig_native, orig_find
 G.Browser = keepB
 L.LOGIN_WAIT_SEC = 0.4
 
+# 2026-11-04: [로그인되면 바로 게시판 + 리뷰 수집] → 로그인 성공 뒤 게시판 수집, 이어서 리뷰 수집 (같은 업체)
+keep_login, keep_collect, keep_G = L.run_login_job, L.run_collect_job, L._G
+calls = []
+L.run_login_job = lambda job, cfg, say, progress, d: (True, "지그재그 ✓", {"login": {"지그재그": {"state": "ok"}}})
+L.run_collect_job = lambda job, cfg, say: (calls.append((job["kind"], job["body"].get("vendors"))) or (True, f"{job['kind']} 끝", 2 if job["kind"] == "collect" else 3))
+L._G = lambda: types.SimpleNamespace(load_cfg=lambda: {})
+link = FakeLink()
+L.handle(link, {"id": "JCA", "kind": "login", "body": {"vendors": ["지그재그"], "collectAfter": True}}, {}, say, {})
+fin = [b for a, b in link.sent if a == "finish"][-1]
+assert calls == [("collect", ["지그재그"]), ("reviews", ["지그재그"])], calls
+assert fin["ok"] and "게시판: collect 끝" in fin["message"] and "리뷰: reviews 끝" in fin["message"] and fin["count"] == 5
+assert [b["message"] for a, b in link.sent if a == "progress"] == ["로그인 완료 — 게시판 수집 중", "게시판 수집 끝 — 리뷰 수집 중"]
+calls.clear()
+L.handle(link, {"id": "JCB", "kind": "login", "body": {"vendors": ["지그재그"]}}, {}, say, {})
+assert calls == [], "체크 안 하면 로그인만"
+L.run_login_job, L.run_collect_job, L._G = keep_login, keep_collect, keep_G
+
 print("g1V3Link.test: OK")

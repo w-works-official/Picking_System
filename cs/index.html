@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261102-status1">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261104-v19">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261104-ui1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -47,24 +47,52 @@
       <main id="cs-main" class="cs-main">
         <!-- 왼쪽: 수집기 (G1 수집기 왼쪽 창과 같은 탭) -->
         <section id="cs-left" class="cs-left" aria-label="수집기">
-          <nav class="cs-left-tabs" role="tablist" aria-label="수집기 메뉴">
-            <button type="button" class="cs-left-tab active" data-left-tab="main" role="tab" aria-selected="true">메인보드</button>
-            <button type="button" class="cs-left-tab" data-left-tab="board" role="tab" aria-selected="false">게시판</button>
-            <button type="button" class="cs-left-tab" data-left-tab="review" role="tab" aria-selected="false">리뷰</button>
-            <button type="button" class="cs-left-tab" data-left-tab="api" role="tab" aria-selected="false">스마트스토어 API</button>
-            <button type="button" class="cs-left-tab" data-left-tab="settings" role="tab" aria-selected="false">설정</button>
+          <nav class="cs-left-tabs" role="tablist" aria-label="CS 메뉴">
+            <button type="button" class="cs-left-tab tab-main active" data-left-tab="main" role="tab" aria-selected="true">🏠 메인보드</button>
+            <button type="button" class="cs-left-tab tab-board" data-left-tab="board" role="tab" aria-selected="false">📋 게시판</button>
+            <button type="button" class="cs-left-tab tab-review" data-left-tab="review" role="tab" aria-selected="false">⭐ 리뷰</button>
+            <button type="button" class="cs-left-tab tab-msn" data-left-tab="msn" role="tab" aria-selected="false">💬 메신저</button>
+            <button type="button" class="cs-left-tab tab-settings" data-left-tab="settings" role="tab" aria-selected="false">⚙ 설정</button>
           </nav>
 
           <div class="cs-left-body">
-            <!-- 메인보드 -->
+            <!-- 🏠 메인보드 (2026-11-04 개편: 로그인 현황 → 판매자센터 로그인 → 자동 수집 → 파일·요청·로그) -->
             <div class="cs-left-panel" data-left-panel="main">
-              <div class="cs-row cs-row-split">
-                <div class="cs-row">
-                  <button type="button" class="cs-btn cs-btn-primary is-pending" disabled data-pc="login" data-live data-pending="시트 연결 후 작동">🔑 로그인</button>
-                  <button type="button" class="cs-btn cs-btn-test is-pending" disabled data-job="test" data-pending="시트 연결 후 작동">🧪 테스트용</button>
+              <h3 class="cs-sec-title">로그인 현황</h3>
+              <div class="cs-vendor-grid" data-login-grid>
+                <div class="cs-vendor-card" data-vendor="스마트스토어">
+                  <strong>스마트스토어</strong>
+                  <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="api-tab" data-live data-pending="시트 연결 후 작동">API 설정</button>
                 </div>
-                <button type="button" class="cs-btn is-pending" disabled data-job="collect" data-pending="시트 연결 후 작동">⟳ 재수집 시작</button>
+                <div class="cs-vendor-card" data-vendor="지그재그">
+                  <strong>지그재그</strong>
+                  <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="지그재그" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
+                </div>
+                <div class="cs-vendor-card" data-vendor="에이블리">
+                  <strong>에이블리</strong>
+                  <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="에이블리" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
+                </div>
+                <div class="cs-vendor-card" data-vendor="메이크샵">
+                  <strong>메이크샵</strong>
+                  <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="메이크샵" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
+                </div>
+                <span class="cs-vendor-status" data-vendor-status="스마트스토어">아직 수집 전</span>
+                <span class="cs-vendor-status" data-vendor-status="지그재그">아직 수집 전</span>
+                <span class="cs-vendor-status" data-vendor-status="에이블리">아직 수집 전</span>
+                <span class="cs-vendor-status" data-vendor-status="메이크샵">아직 수집 전</span>
               </div>
+
+              <section id="cs-login" class="cs-login-inline" aria-labelledby="cs-login-title">
+                <h3 id="cs-login-title" class="cs-sec-title">🔑 판매자센터 로그인 <small>(수집기 PC에서)</small></h3>
+                <p class="cs-note">수집기 PC가 로그인 창을 열고 <b>그 PC에 저장된 아이디·비밀번호</b>로 로그인합니다. 휴대폰 2단계 인증이 오면 휴대폰에서 [확인]만 누르세요 (3분 기다림).</p>
+                <div id="cs-login-body" class="cs-login-body"><p class="cs-note">시트 연결 후 업체별 로그인 상태가 보입니다.</p></div>
+                <label class="cs-check cs-check-lg"><input type="checkbox" id="cs-login-collect" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"> 로그인되면 바로 <b>게시판 + 리뷰</b> 수집</label>
+                <p class="cs-note">※ 메이크샵은 같은 계정 동시 로그인 불가 — 다른 PC에서 쓰는 중이면 그쪽이 로그아웃됩니다.<br>※ 새 비밀번호는 수집기 PC 공개키로 잠가서 보내고, 로그인에 성공하면 그 PC에만 Windows 암호화로 저장합니다.</p>
+                <div class="cs-row cs-login-actions">
+                  <button type="button" class="cs-btn cs-btn-primary cs-btn-xl is-pending" id="cs-login-ok" disabled data-live data-pending="시트 연결 후 작동">🔑 로그인 요청</button>
+                  <button type="button" class="cs-btn cs-btn-lg is-pending" disabled data-job="collect" data-pending="시트 연결 후 작동">⟳ 재수집 시작</button>
+                </div>
+              </section>
 
               <fieldset class="cs-box">
                 <legend>자동 수집</legend>
@@ -78,38 +106,6 @@
                 <p class="cs-note" id="cs-auto-note">자동 수집: 수집기 PC 웹연결(창 없이)이 시각에 맞춰 수집합니다 — 수집기 창은 열지 않아도 됩니다</p>
               </fieldset>
 
-              <fieldset class="cs-box">
-                <legend>수집할 업체 <small>(업체 이름을 누르면 켜기/끄기 — 웹 수집 요청에 적용)</small></legend>
-                <div class="cs-vendor-grid" id="cs-vendor-grid" data-vendor-group="board">
-                  <div class="cs-vendor-card" data-vendor="스마트스토어">
-                    <strong>스마트스토어</strong>
-                    <span class="cs-vendor-check">☑ 수집</span>
-                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="api-tab" data-live data-pending="시트 연결 후 작동">API 설정</button>
-                  </div>
-                  <div class="cs-vendor-card" data-vendor="지그재그">
-                    <strong>지그재그</strong>
-                    <span class="cs-vendor-check">☑ 수집</span>
-                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="지그재그" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
-                  </div>
-                  <div class="cs-vendor-card" data-vendor="에이블리">
-                    <strong>에이블리</strong>
-                    <span class="cs-vendor-check">☑ 수집</span>
-                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="에이블리" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
-                  </div>
-                  <div class="cs-vendor-card" data-vendor="메이크샵">
-                    <strong>메이크샵</strong>
-                    <span class="cs-vendor-check">☑ 수집</span>
-                    <button type="button" class="cs-btn cs-btn-white is-pending" disabled data-pc="login" data-login-vendor="메이크샵" data-live data-pending="시트 연결 후 작동">🔗 연결</button>
-                  </div>
-                  <span class="cs-vendor-status" data-vendor-status="스마트스토어">아직 수집 전</span>
-                  <span class="cs-vendor-status" data-vendor-status="지그재그">아직 수집 전</span>
-                  <span class="cs-vendor-status" data-vendor-status="에이블리">아직 수집 전</span>
-                  <span class="cs-vendor-status" data-vendor-status="메이크샵">아직 수집 전</span>
-                </div>
-                <p class="cs-note">※ 메이크샵: 같은 계정 동시 로그인 불가 — 상품등록·광고 작업과 시간이 겹치지 않게</p>
-              </fieldset>
-
-              <!-- 수집기 v9.1: 답변안 엑셀 열기·테스트 엑셀·승인 완료/업로드·테스트 승인은 오른쪽 탭 버튼과 겹쳐서 뺌 -->
               <div class="cs-row cs-row-end">
                 <button type="button" class="cs-btn is-pending" disabled data-pc="files" data-live data-pending="시트 연결 후 작동">📂 수집 파일 목록</button>
               </div>
@@ -126,13 +122,26 @@
               </div>
             </div>
 
-            <!-- 게시판 -->
+            <!-- 📋 게시판 -->
             <div class="cs-left-panel" data-left-panel="board" hidden>
               <div class="cs-row">
                 <button type="button" class="cs-btn cs-btn-primary is-pending" disabled data-job="collect" data-pending="시트 연결 후 작동">▶ 게시판 수집 시작</button>
                 <button type="button" class="cs-btn cs-btn-test is-pending" disabled data-job="test" data-pending="시트 연결 후 작동">🧪 테스트용 게시판 수집</button>
               </div>
-              <p class="cs-note">문의 게시판만 수집합니다 (리뷰 제외). 업체 선택·기간은 [메인보드]·[설정] 탭 설정을 따릅니다.</p>
+              <fieldset class="cs-box">
+                <legend>수집할 업체 <small>(업체 이름을 누르면 켜기/끄기 — 웹 수집 요청에 적용)</small></legend>
+                <div class="cs-vendor-grid" id="cs-vendor-grid" data-vendor-group="board">
+                  <div class="cs-vendor-card" data-vendor="스마트스토어"><strong>스마트스토어</strong><span class="cs-vendor-check">☑ 수집</span></div>
+                  <div class="cs-vendor-card" data-vendor="지그재그"><strong>지그재그</strong><span class="cs-vendor-check">☑ 수집</span></div>
+                  <div class="cs-vendor-card" data-vendor="에이블리"><strong>에이블리</strong><span class="cs-vendor-check">☑ 수집</span></div>
+                  <div class="cs-vendor-card" data-vendor="메이크샵"><strong>메이크샵</strong><span class="cs-vendor-check">☑ 수집</span></div>
+                  <span class="cs-vendor-status" data-vendor-status="스마트스토어">아직 수집 전</span>
+                  <span class="cs-vendor-status" data-vendor-status="지그재그">아직 수집 전</span>
+                  <span class="cs-vendor-status" data-vendor-status="에이블리">아직 수집 전</span>
+                  <span class="cs-vendor-status" data-vendor-status="메이크샵">아직 수집 전</span>
+                </div>
+                <p class="cs-note">문의 게시판만 수집합니다 (리뷰 제외). 기간은 [⚙ 설정] 탭 → 수집 기간.<br>※ 메이크샵: 같은 계정 동시 로그인 불가 — 상품등록·광고 작업과 시간이 겹치지 않게</p>
+              </fieldset>
               <div class="cs-log-area" data-log-area>
                 <div class="cs-log-head cs-log-warn-head">⚠ 확인 필요</div>
                 <div class="cs-log cs-log-warn" data-log="warn"></div>
@@ -141,17 +150,17 @@
               </div>
             </div>
 
-            <!-- 리뷰 -->
+            <!-- ⭐ 리뷰 -->
             <div class="cs-left-panel" data-left-panel="review" hidden>
               <div class="cs-row cs-row-split">
                 <div class="cs-row">
-                  <button type="button" class="cs-btn cs-btn-primary is-pending" disabled data-job="reviews" data-pending="시트 연결 후 작동">▶ 리뷰 수집 시작</button>
+                  <button type="button" class="cs-btn cs-btn-orange is-pending" disabled data-job="reviews" data-pending="시트 연결 후 작동">▶ 리뷰 수집 시작</button>
                   <button type="button" class="cs-btn cs-btn-test is-pending" disabled data-job="testReviews" data-pending="시트 연결 후 작동">🧪 테스트용 리뷰 수집</button>
                 </div>
                 <label class="cs-small">최근 <input id="cs-review-days" type="number" min="1" max="365" value="30" disabled class="is-pending cs-input-num" data-live data-pending="시트 연결 후 작동"> 일 · 답글 없는 리뷰</label>
               </div>
               <fieldset class="cs-box">
-                <legend>수집할 업체</legend>
+                <legend>수집할 업체 <small>(업체 이름을 누르면 켜기/끄기)</small></legend>
                 <div class="cs-vendor-grid" data-vendor-group="review">
                   <div class="cs-vendor-card" data-vendor="스마트스토어">
                     <strong>스마트스토어</strong>
@@ -162,26 +171,35 @@
                   <div class="cs-vendor-card" data-vendor="지그재그"><strong>지그재그</strong><span class="cs-vendor-check">☑ 수집</span></div>
                   <div class="cs-vendor-card" data-vendor="에이블리"><strong>에이블리</strong><span class="cs-vendor-check">☑ 수집</span></div>
                   <div class="cs-vendor-card" data-vendor="메이크샵"><strong>메이크샵</strong><span class="cs-vendor-check">☑ 수집</span></div>
+                  <span class="cs-vendor-status" data-review-status="스마트스토어">아직 수집 전</span>
+                  <span class="cs-vendor-status" data-review-status="지그재그">아직 수집 전</span>
+                  <span class="cs-vendor-status" data-review-status="에이블리">아직 수집 전</span>
+                  <span class="cs-vendor-status" data-review-status="메이크샵">아직 수집 전</span>
                 </div>
-                <p class="cs-note">※ 스마트스토어 리뷰: 커머스API에 리뷰 조회가 없어 판매자센터 화면으로 수집 — 수집기 PC 앞에서 [🔑 직접 로그인]을 한 번 해 두어야 합니다 (로그인이 풀리면 다시). 에이블리 리뷰는 답글 기능이 없어 목록·건수만.</p>
+                <p class="cs-note">※ 스마트스토어 리뷰: 커머스API에 리뷰 조회가 없어 판매자센터 화면으로 수집 — 로그인이 풀리면 [🔑 직접 로그인] (수집기 PC 앞에서). 에이블리 리뷰는 답글 기능이 없어 목록·건수만.</p>
               </fieldset>
+              <div class="cs-log-area" data-log-area>
+                <div class="cs-log-head cs-log-warn-head">⚠ 확인 필요</div>
+                <div class="cs-log cs-log-warn" data-log="warn"></div>
+                <div class="cs-log-head"><span>로그</span></div>
+                <div class="cs-log" data-log="all"></div>
+              </div>
             </div>
 
-            <!-- 스마트스토어 API -->
-            <div class="cs-left-panel" data-left-panel="api" hidden>
-              <p class="cs-note">커머스API센터 애플리케이션의 정보를 입력하세요. <b>수집기 PC 공개키로 잠가서</b> 보내고, 수집기 PC에만 Windows 암호화로 저장합니다 (시트·이 화면에는 남지 않음).</p>
-              <p class="cs-note" id="cs-api-state">저장된 키: 확인 중…</p>
-              <form id="cs-api-form" class="cs-form" autocomplete="off">
-                <label>Client ID <input id="cs-api-id" type="text" autocomplete="off" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></label>
-                <label>Client Secret <input id="cs-api-secret" type="password" autocomplete="new-password" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></label>
-              </form>
-              <div class="cs-row">
-                <button type="button" class="cs-btn is-pending" disabled data-pc="apiKey" data-live data-pending="시트 연결 후 작동">저장</button>
-                <button type="button" class="cs-btn is-pending" disabled data-pc="apiTest" data-live data-pending="시트 연결 후 작동">연결 테스트</button>
-                <button type="button" class="cs-btn is-pending" disabled data-pc="ip" data-live data-pending="시트 연결 후 작동">이 PC 공인 IP 확인</button>
-              </div>
-              <p class="cs-note" id="cs-api-result"></p>
-              <p class="cs-note">→ 이 PC 공인 IP를 커머스API센터 &gt; 애플리케이션 &gt; API 호출 IP 에 추가해야 수집기 PC에서 조회됩니다. <a href="https://apicenter.commerce.naver.com" target="_blank" rel="noopener">커머스API센터 ↗</a></p>
+            <!-- 💬 메신저 -->
+            <div class="cs-left-panel" data-left-panel="msn" hidden>
+              <fieldset class="cs-box">
+                <legend>카톡창으로 시험하는 방법</legend>
+                <ol class="cs-note cs-install-steps">
+                  <li>왼쪽 창은 ◀ 로 접어 두면 슬롯이 넓어집니다.</li>
+                  <li><b>[🖥 화면 연결]</b> → 공유 창에서 <b>전체 화면</b>을 골라 [공유] (화면 그림은 이 브라우저 안에서만 쓰고 어디에도 보내지 않습니다).</li>
+                  <li>슬롯 위에 다른 창이 없는 상태에서 <b>[🎯 영역 맞춤]</b> 한 번 (브라우저 창을 옮기거나 확대 비율을 바꾸면 다시).</li>
+                  <li>카톡 대화창을 <b>슬롯 1 테두리 안</b>에 끌어다 놓고 크기를 맞춥니다 — 네 모서리 분홍 점이 가려지면 "감시 중".</li>
+                  <li>그 대화방에 메시지가 오면 슬롯에 <b>🔔 새 변화</b> 표시. 답변은 아래 칸에 쓰고 <b>[📋 복사]</b> → 카톡 창에 Ctrl+V.</li>
+                  <li>브라우저를 누르면 브라우저가 카톡 창을 덮어 "창 없음"이 됩니다 — 카톡 창을 다시 눌러 앞으로 (카톡에 창을 항상 위에 두는 기능이 있으면 켜 두기).</li>
+                </ol>
+                <p class="cs-note">다음 단계: 🤖 메신저 화면을 AI 가 읽고 답변 추천.</p>
+              </fieldset>
             </div>
 
             <!-- 설정 -->
@@ -239,6 +257,23 @@
                 <button type="button" id="cs-set-save" class="cs-btn cs-btn-primary is-pending" disabled data-live data-pending="시트 연결 후 작동">설정 저장</button>
               </fieldset>
 
+              <fieldset class="cs-box" id="cs-api-box">
+                <legend>🟢 스마트스토어 API <small>(커머스API센터 — 문의 수집·답변 등록)</small></legend>
+                <p class="cs-note">커머스API센터 애플리케이션의 정보를 입력하세요. <b>수집기 PC 공개키로 잠가서</b> 보내고, 수집기 PC에만 Windows 암호화로 저장합니다 (시트·이 화면에는 남지 않음).</p>
+                <p class="cs-note" id="cs-api-state">저장된 키: 확인 중…</p>
+                <form id="cs-api-form" class="cs-form" autocomplete="off">
+                  <label>Client ID <input id="cs-api-id" type="text" autocomplete="off" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></label>
+                  <label>Client Secret <input id="cs-api-secret" type="password" autocomplete="new-password" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"></label>
+                </form>
+                <div class="cs-row">
+                  <button type="button" class="cs-btn is-pending" disabled data-pc="apiKey" data-live data-pending="시트 연결 후 작동">저장</button>
+                  <button type="button" class="cs-btn is-pending" disabled data-pc="apiTest" data-live data-pending="시트 연결 후 작동">연결 테스트</button>
+                  <button type="button" class="cs-btn is-pending" disabled data-pc="ip" data-live data-pending="시트 연결 후 작동">이 PC 공인 IP 확인</button>
+                </div>
+                <p class="cs-note" id="cs-api-result"></p>
+                <p class="cs-note">→ 이 PC 공인 IP를 커머스API센터 &gt; 애플리케이션 &gt; API 호출 IP 에 추가해야 수집기 PC에서 조회됩니다. <a href="https://apicenter.commerce.naver.com" target="_blank" rel="noopener">커머스API센터 ↗</a></p>
+              </fieldset>
+
               <fieldset class="cs-box">
                 <legend>⬆ 웹연결 업데이트 <small>(수집기 PC 프로그램)</small></legend>
                 <p class="cs-note" id="cs-update-state">수집기 PC 버전: 확인 중…</p>
@@ -289,17 +324,15 @@
 
         <!-- 오른쪽: 답변 (게시판 · 리뷰 · 메신저) -->
         <section class="cs-right" aria-label="답변">
-          <nav class="cs-right-tabs" role="tablist" aria-label="답변 종류">
-            <button type="button" class="cs-right-tab tab-board active" data-right-tab="board" role="tab" aria-selected="true">📋 게시판</button>
-            <button type="button" class="cs-right-tab tab-review" data-right-tab="review" role="tab" aria-selected="false">⭐ 리뷰</button>
-            <button type="button" class="cs-right-tab tab-msn" data-right-tab="msn" role="tab" aria-selected="false">💬 메신저</button>
-          </nav>
+          <!-- 2026-11-04: 오른쪽은 탭이 아니라 제목 (메뉴 이동은 왼쪽 탭) -->
+          <header class="cs-right-head" data-right-head>
+            <h2 class="cs-right-title" data-right-title>📋 게시판 답변</h2>
+          </header>
           <div class="cs-right-line" id="cs-right-line"></div>
 
           <!-- 📋 게시판 -->
           <div class="cs-right-panel" data-right-panel="board">
             <div class="cs-answer-top">
-              <strong class="cs-answer-title tone-board">📋 게시판 답변</strong>
               <button type="button" class="cs-btn is-pending" disabled data-pc="login" data-live data-pending="시트 연결 후 작동">🔑 로그인</button>
               <button type="button" class="cs-btn cs-btn-primary is-pending" disabled data-job="collect" data-pending="시트 연결 후 작동">▶ 수집 시작</button>
               <button type="button" id="cs-register-open" class="cs-btn cs-btn-green is-pending" disabled data-live data-pending="시트 연결 후 작동">📤 등록</button>
@@ -323,7 +356,6 @@
           <!-- ⭐ 리뷰 -->
           <div class="cs-right-panel" data-right-panel="review" hidden>
             <div class="cs-answer-top">
-              <strong class="cs-answer-title tone-review">⭐ 리뷰 답글</strong>
               <button type="button" class="cs-btn is-pending" disabled data-pc="login" data-live data-pending="시트 연결 후 작동">🔑 로그인</button>
               <button type="button" class="cs-btn cs-btn-orange is-pending" disabled data-job="reviews" data-pending="시트 연결 후 작동">▶ 수집 시작</button>
               <button type="button" class="cs-btn cs-btn-green is-pending" disabled data-pending="개발 예정 — 리뷰 답글 등록은 수집기에도 아직 없음">📤 등록</button>
@@ -340,7 +372,6 @@
           <div class="cs-right-panel" data-right-panel="msn" hidden>
             <div class="msn-panel" data-msn-panel>
               <div class="cs-answer-top">
-                <strong class="cs-answer-title tone-msn">💬 메신저 답변</strong>
                 <span class="msn-conn" data-msn-conn>○ 화면 연결 안 됨</span>
                 <button type="button" class="cs-btn cs-btn-primary" data-msn-act="connect">🖥 화면 연결</button>
                 <button type="button" class="cs-btn" data-msn-act="fit" disabled title="슬롯 위에 다른 창이 없을 때 누르기 — 화면과 슬롯 위치를 맞춤">🎯 영역 맞춤</button>
@@ -348,18 +379,6 @@
                 <label class="cs-small">슬롯 <select data-msn-count aria-label="슬롯 수"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
                 <label class="cs-small">높이 <select data-msn-height aria-label="슬롯 높이"><option value="420">작게</option><option value="560">보통</option><option value="700">크게</option></select></label>
               </div>
-              <details class="msn-help">
-                <summary>카톡창으로 시험하는 방법</summary>
-                <ol>
-                  <li>왼쪽 창은 ◀ 로 접어 두면 슬롯이 넓어집니다.</li>
-                  <li><b>[🖥 화면 연결]</b> → 공유 창에서 <b>전체 화면</b>을 골라 [공유] (화면 그림은 이 브라우저 안에서만 쓰고 어디에도 보내지 않습니다).</li>
-                  <li>슬롯 위에 다른 창이 없는 상태에서 <b>[🎯 영역 맞춤]</b> 한 번 (브라우저 창을 옮기거나 확대 비율을 바꾸면 다시).</li>
-                  <li>카톡 대화창을 <b>슬롯 1 테두리 안</b>에 끌어다 놓고 크기를 맞춥니다 — 네 모서리 분홍 점이 가려지면 "감시 중".</li>
-                  <li>그 대화방에 메시지가 오면 슬롯에 <b>🔔 새 변화</b> 표시. 답변은 아래 칸에 쓰고 <b>[📋 복사]</b> → 카톡 창에 Ctrl+V.</li>
-                  <li>브라우저를 누르면 브라우저가 카톡 창을 덮어 "창 없음"이 됩니다 — 카톡 창을 다시 눌러 앞으로 (카톡에 창을 항상 위에 두는 기능이 있으면 켜 두기).</li>
-                </ol>
-                <p class="cs-note">다음 단계: 🤖 메신저 화면을 AI 가 읽고 답변 추천.</p>
-              </details>
               <p class="msn-msg" data-msn-msg>메신저 창을 올려놓을 슬롯입니다. [🖥 화면 연결]부터 눌러 주세요.</p>
               <div class="msn-slots" data-msn-slots></div>
             </div>
@@ -377,23 +396,12 @@
         </div>
       </div>
     </div>
-    <div id="cs-login" class="cs-modal" hidden>
-      <div class="cs-modal-box" role="dialog" aria-modal="true" aria-labelledby="cs-login-title">
-        <h2 id="cs-login-title">🔑 판매자센터 로그인 (수집기 PC에서)</h2>
-        <p class="cs-note">수집기 PC가 로그인 창을 열고 <b>그 PC에 저장된 아이디·비밀번호</b>로 로그인합니다. 휴대폰 2단계 인증이 오면 휴대폰에서 [확인]만 누르세요 (3분 기다림).</p>
-        <div id="cs-login-body"></div>
-        <label class="cs-check"><input type="checkbox" id="cs-login-collect"> 로그인되면 바로 게시판 수집</label>
-        <p class="cs-note">※ 메이크샵은 같은 계정 동시 로그인 불가 — 다른 PC에서 쓰는 중이면 그쪽이 로그아웃됩니다.<br>※ 새 비밀번호는 수집기 PC 공개키로 잠가서 보내고, 로그인에 성공하면 그 PC에만 Windows 암호화로 저장합니다.</p>
-        <div class="cs-row cs-row-end">
-          <button type="button" class="cs-btn" id="cs-login-cancel">닫기</button>
-          <button type="button" class="cs-btn cs-btn-primary" id="cs-login-ok">로그인 요청</button>
-        </div>
-      </div>
-    </div>
+    <!-- 2026-11-04: 수집·로그인 진행 작은 창 -->
+    <div id="cs-progress" class="cs-progress" role="status" aria-live="polite" hidden></div>
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261104-v19"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261104-ui1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261103-status4"></script>
     <script type="module" src="../src/app/msnSlots.mjs?v=20261103-msn1"></script>
   </body>

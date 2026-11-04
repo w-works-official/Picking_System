@@ -95,11 +95,18 @@ try {
     await page.locator("#cs-fold").click();
     assert.equal(await page.locator("#cs-left").isVisible(), false);
     await page.locator("#cs-fold").click();
-    await page.locator('[data-right-tab="review"]').click();
+    // 2026-11-04: 오른쪽은 탭이 아니라 제목 — 왼쪽 탭이 메뉴 이동
+    assert.equal(await page.locator("[data-right-tab]").count(), 0, "오른쪽 탭 없음");
+    assert.equal(await page.locator('[data-left-tab="api"]').count(), 0, "API 는 설정 안으로");
+    assert.equal(await page.locator('[data-left-panel="settings"] #cs-api-box').count(), 1);
+    await page.locator('[data-left-tab="review"]').click();
+    assert.equal(await page.locator("[data-right-title]").textContent(), "⭐ 리뷰 답글");
+    assert.equal(await page.locator('[data-right-panel="review"]').isVisible(), true);
     assert.equal(await page.locator("#cs-review-list [data-card]").count(), 2);
     assert.equal(await page.locator('#cs-review-list [data-act="pick"]').first().isDisabled(), true);
     await page.screenshot({ path: path.join(output, "cs-board-review.png") });
-    await page.locator('[data-right-tab="msn"]').click();
+    await page.locator('[data-left-tab="msn"]').click();
+    assert.equal(await page.locator("[data-right-title]").textContent(), "💬 메신저 답변");
     // 💬 메신저 슬롯 (2026-11-03): 기본 3칸 · 틀(분홍 모서리) + 아래 대답 영역 · 칸 수 바꾸기
     assert.equal(await page.locator("[data-msn-slot]").count(), 3, "기본 슬롯 3칸");
     assert.equal(await page.locator('[data-msn-slot="0"] .msn-mark').count(), 4);
@@ -165,7 +172,7 @@ try {
 
     // 좁은 화면(휴대폰)에서도 가로로 넘치지 않음
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.locator('[data-right-tab="board"]').click();
+    await page.locator('[data-left-tab="board"]').click();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     assert.ok(overflow <= 1, `no horizontal overflow on phone (${overflow})`);
     await page.screenshot({ path: path.join(output, "cs-board-phone.png") });
@@ -271,10 +278,13 @@ try {
     const collectButton = page.locator('[data-left-panel="main"] [data-job="collect"]');
     assert.equal(await collectButton.isDisabled(), false, "unlocked once connected");
     assert.notEqual(await collectButton.evaluate((el) => getComputedStyle(el).color), "rgb(220, 38, 38)");
-    assert.equal(await page.locator('[data-left-panel="main"] button', { hasText: "🔑 로그인" }).isDisabled(), false, "login works from V3 now");
-    // 업체 끄기 → 요청에 반영
+    assert.equal(await page.locator("#cs-login-ok").isDisabled(), false, "login works from V3 now");
+    assert.match(await page.locator("#cs-login").textContent(), /로그인되면 바로 게시판 \+ 리뷰 수집/);
+    // 업체 끄기 → 요청에 반영 (게시판 탭)
+    await page.locator('[data-left-tab="board"]').click();
     await page.locator('#cs-vendor-grid [data-vendor="메이크샵"] strong').click();
     assert.equal(await page.locator('#cs-vendor-grid [data-vendor="메이크샵"]').evaluate((el) => el.classList.contains("is-off")), true);
+    await page.locator('[data-left-tab="main"]').click();
     slowRequest.on = true;
     await collectButton.click();
     // 2026-11-03: 요청 보내는 동안 버튼이 빨간 "아직 작동 안 함"으로 번쩍이지 않음 (흐리게만)
@@ -299,7 +309,8 @@ try {
     await reload();
     await page.locator('[data-card="스마트스토어_상품문의_s1"]').waitFor();
     assert.match(await page.locator("#cs-jobs").textContent(), /완료[\s\S]*수집_261029_1200\.json/);
-    assert.match(await page.locator('[data-vendor-status="에이블리"]').textContent(), /로그인 필요/);
+    assert.match(await page.locator('[data-left-panel="main"] [data-vendor-status="에이블리"]').textContent(), /로그인 필요/);
+    assert.match(await page.locator('#cs-vendor-grid [data-vendor-status="에이블리"]').textContent(), /로그인 필요/, "게시판 탭 업체 칸에도");
     assert.match(await page.locator('[data-left-panel="main"] [data-log="warn"]').textContent(), /에이블리: 로그인 필요[\s\S]*\[🔑 로그인\]/);
     await page.screenshot({ path: path.join(output, "cs-board-collector.png") });
 
@@ -325,7 +336,7 @@ try {
     // ⭐ 리뷰: 시트의 실제 리뷰 (새 리뷰는 AI 답변안이 미리 달림)
     gas.post({ action: "ingest", token: COLLECTOR, rows: [{ 업체: "지그재그", 게시판: "리뷰", id: "r1", 날짜: "2026-10-29 08:00", 상품명: "가상 상품 A", 별점: 5, 내용: "예뻐요" }], snapshot: { kind: "리뷰", vendors: { 지그재그: { 상태: "ok" } }, days: 30, collectedAt: "2026-10-29 12:30" } });
     await reload();
-    await page.locator('[data-right-tab="review"]').click();
+    await page.locator('[data-left-tab="review"]').click();
     assert.equal(await page.locator("#cs-review-banner").isVisible(), false);
     const rv = page.locator('#cs-review-list [data-card="지그재그_리뷰_r1"]');
     await rv.waitFor();
@@ -335,8 +346,9 @@ try {
     assert.equal(gas.post({ action: "list", token: TOKEN }).rows.find((r) => r.key === "지그재그_리뷰_r1").choice.pick, 1);
     assert.equal(await page.locator('[data-right-panel="review"] [data-job="reviews"]').isDisabled(), false);
     assert.equal(await page.locator('[data-right-panel="review"] button', { hasText: "📤 등록" }).isDisabled(), true, "review posting stays red");
+    assert.match(await page.locator('[data-review-status="지그재그"]').textContent(), /✓/, "리뷰 탭 업체 칸 = 리뷰 수집 결과");
     await page.screenshot({ path: path.join(output, "cs-board-review-live.png") });
-    await page.locator('[data-right-tab="board"]').click();
+    await page.locator('[data-left-tab="board"]').click();
 
     // AI 사용량
     await page.locator('[data-left-tab="settings"]').click();
@@ -381,11 +393,12 @@ try {
     pollSetup();
     await reload();
     await page.locator('[data-left-tab="main"]').click();
-    // 🔑 로그인: 지난 수집에서 로그인 필요였던 에이블리가 미리 골라짐 → 새 비밀번호는 잠가서
-    const loginBtn = page.locator('[data-left-panel="main"] [data-pc="login"]').first();
-    assert.equal(await loginBtn.isDisabled(), false, "login is no longer red");
-    await loginBtn.click();
-    await page.locator("#cs-login:not([hidden])").waitFor();
+    // 🔑 로그인 (2026-11-04: 메인보드 안에 늘 펼쳐짐): 지난 수집에서 로그인 필요였던 에이블리가 미리 골라짐 → 새 비밀번호는 잠가서
+    await page.locator('[data-login-row="에이블리"]').waitFor();
+    assert.equal(await page.locator("#cs-login-ok").isDisabled(), false, "login is no longer red");
+    const box26 = await page.locator('[data-login-pick][value="에이블리"]').boundingBox();
+    assert.ok(box26.width >= 24 && box26.height >= 24, `체크박스 두 배 (${box26.width})`);
+    assert.ok((await page.locator("#cs-login-ok").boundingBox()).height >= 52, "로그인 요청 버튼 두 배");
     assert.equal(await page.locator('[data-login-pick][value="에이블리"]').isChecked(), true);
     assert.equal(await page.locator('[data-login-pick][value="지그재그"]').isChecked(), false);
     assert.match(await page.locator('[data-login-row="지그재그"]').textContent(), /PC에 저장된 비밀번호 ✓/);
@@ -397,7 +410,10 @@ try {
     await page.screenshot({ path: path.join(output, "cs-board-login.png") });
     await page.locator("#cs-login-ok").click();
     await page.locator("#cs-toast", { hasText: "로그인 요청을 보냈습니다" }).waitFor();
-    assert.equal(await page.locator("#cs-login").isHidden(), true);
+    assert.match(await page.locator("#cs-toast").textContent(), /게시판 \+ 리뷰 수집/);
+    // 진행 작은 창: 로그인 대기
+    await page.locator("#cs-progress:not([hidden])").waitFor();
+    assert.match(await page.locator("#cs-progress").textContent(), /로그인 대기[\s\S]*기다리는 중/);
     const loginReq = lastRequest("login");
     assert.deepEqual(loginReq.options.vendors, ["지그재그", "에이블리"]);
     assert.equal(loginReq.options.collectAfter, true);
@@ -405,14 +421,17 @@ try {
     assert.equal(JSON.stringify(requests).includes("Secret!234"), false, "the password never leaves the browser in plain text");
     assert.equal(await unlock(loginReq.options.creds["에이블리"].pw), "Secret!234", "only the collector PC key opens it");
     assert.equal(await unlock(loginReq.options.creds["에이블리"].id), "pink_ably");
-    await loginBtn.click();
     assert.equal(await page.locator('[data-login-row="에이블리"] [data-login-pw]').inputValue(), "", "typed password is not kept on screen");
-    await page.locator("#cs-login-cancel").click();
+    assert.equal(await page.locator("#cs-login-collect").isChecked(), false);
     const lj = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     assert.equal(lj.kind, "login");
     gas.post({ action: "progress", token: COLLECTOR, id: lj.id, message: "에이블리: 휴대폰 2단계 인증이면 휴대폰에서 [확인]을 눌러 주세요" });
     await reload();
     await waitText("#cs-jobs", /실행중[\s\S]*🔑 로그인[\s\S]*휴대폰에서 \[확인\]/);
+    await waitText("#cs-progress", /로그인 중[\s\S]*휴대폰에서 \[확인\]/);
+    assert.match(await page.locator("#cs-progress").getAttribute("class"), /is-run/);
+    await page.waitForTimeout(400);
+    await page.locator("#cs-progress").screenshot({ path: path.join(output, "cs-board-progress.png") });
     gas.post({ action: "finish", token: COLLECTOR, id: lj.id, ok: true, message: "지그재그 ✓ · 에이블리 ✓", data: { login: { 지그재그: { state: "ok" }, 에이블리: { state: "ok" }, 스마트스토어: { state: "ok", note: "로그인됨 (자동)" } } } });
 
     // 메이크샵 부운영자 (웹연결 1.5): [부운영자로 로그인] → 상점 URL 칸 → 아이디가 "부운영자|상점URL|아이디" 로 잠겨 감
@@ -420,8 +439,7 @@ try {
     // 2026-11-04: 리뷰 탭 [🔑 직접 로그인] 옆 로그인 상태
     assert.match(await page.locator('[data-login-badge="스마트스토어"]').textContent(), /^✓ 로그인됨 \(\d/, "버튼 옆에 로그인 상태");
     assert.match(await page.locator('[data-login-badge="스마트스토어"]').getAttribute("class"), /is-ok/);
-    await loginBtn.click();
-    await page.locator("#cs-login:not([hidden])").waitFor();
+    await waitText("#cs-progress", /로그인 완료/);
     // 2026-11-03: 지난 수집은 "로그인 필요"였지만 방금 로그인 성공 → 해결 메모 + "(바뀌었을 때만)", 미리 골라지지 않음
     const ablyFixed = page.locator('[data-login-row="에이블리"]');
     assert.match(await ablyFixed.locator("[data-login-state]").textContent(), /지난 수집: 로그인 필요 → .*로그인 ✓ \(해결/);
@@ -452,10 +470,9 @@ try {
     assert.equal(await unlock(subReq.options.creds["메이크샵"].pw), "Sub!pw77");
     assert.equal(JSON.stringify(requests).includes("Sub!pw77"), false);
     assert.equal(await page.evaluate(() => localStorage.getItem("system_v3_cs_makeshop_shop")), "pinkrocket.co.kr", "상점 URL 은 다음에 다시 안 쓰게 기억(비밀값 아님)");
-    await loginBtn.click();
-    await page.locator("#cs-login:not([hidden])").waitFor();
+    await page.locator('[data-left-panel="main"] [data-login-vendor="메이크샵"]').click();
+    assert.equal(await page.locator('[data-login-pick][value="메이크샵"]').isChecked(), true, "카드 [🔗 연결] → 그 업체 골라짐");
     assert.equal(await page.locator('[data-login-row="메이크샵"] [data-login-sub]').isChecked(), true, "다음에도 부운영자로");
-    await page.locator("#cs-login-cancel").click();
     const msJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     gas.post({ action: "finish", token: COLLECTOR, id: msJob.id, ok: true, message: "메이크샵 ✓", data: { login: { 메이크샵: { state: "ok" } } } });
 
@@ -482,12 +499,13 @@ try {
     await waitText("#cs-files", /수집_261029_1200\.json[\s\S]*4KB/);
 
     // 스마트스토어 API: 카드 [API 설정] → API 탭, 키는 잠가서
-    await page.locator('#cs-vendor-grid [data-pc="api-tab"]').click();
-    assert.equal(await page.locator('[data-left-panel="api"]').isVisible(), true);
+    await page.locator('[data-left-tab="main"]').click();
+    await page.locator('[data-left-panel="main"] [data-pc="api-tab"]').click();
+    assert.equal(await page.locator("#cs-api-box").isVisible(), true, "API 설정 → 설정 탭의 API 칸");
     assert.match(await page.locator("#cs-api-state").textContent(), /E_1/);
     await page.locator("#cs-api-id").fill("my-client-id");
     await page.locator("#cs-api-secret").fill("$2a$04$my-secret");
-    await page.locator('[data-left-panel="api"] [data-pc="apiKey"]').click();
+    await page.locator('#cs-api-box [data-pc="apiKey"]').click();
     await page.locator("#cs-toast", { hasText: "API 키를 잠가서 보냈습니다" }).waitFor();
     const ak = lastRequest("apiKey");
     assert.equal(await unlock(ak.options.secret), "$2a$04$my-secret");
@@ -496,7 +514,7 @@ try {
     const akJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     assert.equal(akJob.body.secret, ak.options.secret);
     gas.post({ action: "finish", token: COLLECTOR, id: akJob.id, ok: true, message: "API 키 저장 · ✅ 연결 성공 (수집기 API 키)" });
-    await page.locator('[data-left-panel="api"] [data-pc="ip"]').click();
+    await page.locator('#cs-api-box [data-pc="ip"]').click();
     const ipJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     gas.post({ action: "finish", token: COLLECTOR, id: ipJob.id, ok: true, message: "이 PC 공인 IP: 1.2.3.4", data: { ip: "1.2.3.4" } });
     await reload();
@@ -518,7 +536,7 @@ try {
     try { xlsxPath = createRequire("/tmp/claude-0/scan/").resolve("xlsx/dist/xlsx.full.min.js"); } catch { xlsxPath = ""; }
     if (xlsxPath) {
       await context.route("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", async (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: await readFile(xlsxPath, "utf8") }));
-      await page.locator('[data-right-tab="board"]').click();
+      await page.locator('[data-left-tab="board"]').click();
       const [download] = await Promise.all([page.waitForEvent("download"), page.locator('[data-right-panel="board"] [data-excel="export"]').click()]);
       // 시험용 헤드리스 크롬은 한글 파일 이름을 "download" 로 보고함 (실제 크롬은 그대로)
       assert.match(download.suggestedFilename(), /^(CS_게시판_답변안_\d{6}_\d{4}\.xlsx|download)$/);

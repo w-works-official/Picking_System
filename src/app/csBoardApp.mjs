@@ -281,6 +281,39 @@ export function slotHtml(slot, index) {
   </div>`;
 }
 
+// ---------- 진행 작은 창 (계산·그림만) ----------
+export const PROGRESS_KINDS = ["collect", "test", "reviews", "testReviews", "auto", "login"];
+function mmss(sec) {
+  const s = Math.max(0, Math.floor(sec));
+  return s >= 3600 ? `${Math.floor(s / 3600)}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+export function csProgressView(job, { now = Date.now(), waiting = 0, collector = null } = {}) {
+  const since = Date.parse(job.status === "실행중" ? job.started || job.at : job.status === "대기" ? job.at : job.ended || job.at);
+  const sec = Number.isFinite(since) ? (now - since) / 1000 : NaN;
+  const icon = job.kind === "login" ? "🔑" : job.kind === "reviews" || job.kind === "testReviews" ? "⭐" : "📋";
+  const name = String(job.label || job.kind).replace(/^🔑\s*|^⏰\s*/, "");
+  if (job.status === "완료" || job.status === "실패") {
+    const ok = job.status === "완료";
+    return { id: job.id, tone: ok ? "ok" : "fail", icon, title: `${name} ${ok ? "완료" : "실패"}`, message: job.message || "", time: "", waiting: 0 };
+  }
+  const run = job.status === "실행중";
+  const off = collector?.state === "off";
+  const message = run ? job.message || (job.kind === "login" ? "수집기 PC가 로그인 창을 여는 중…" : "수집기 PC가 수집하는 중…")
+    : off ? "수집기 PC가 꺼져 있어요 — 켜지면 바로 시작합니다" : "수집기 PC가 가져가길 기다리는 중…";
+  return { id: job.id, tone: run ? "run" : "wait", icon, title: `${name} ${run ? "중" : "대기"}`, message, time: Number.isFinite(sec) ? mmss(sec) : "", waiting: Math.max(0, waiting) };
+}
+export function csProgressHtml(v) {
+  const mark = v.tone === "ok" ? `<span class="cs-progress-mark">✓</span>` : v.tone === "fail" ? `<span class="cs-progress-mark">!</span>` : `<span class="cs-progress-spin" aria-hidden="true"></span>`;
+  return `<div class="cs-progress-icon">${mark}<span class="cs-progress-emoji">${v.icon}</span></div>
+    <div class="cs-progress-main">
+      <div class="cs-progress-top"><b>${escapeHtml(v.title)}</b>${v.time ? `<span class="cs-progress-time">${escapeHtml(v.time)}</span>` : ""}</div>
+      <div class="cs-progress-msg">${escapeHtml(v.message)}</div>
+      ${v.tone === "run" || v.tone === "wait" ? `<div class="cs-progress-bar"><i></i></div>` : ""}
+      ${v.waiting ? `<div class="cs-progress-more">+ 대기 ${v.waiting}건</div>` : ""}
+    </div>
+    <button type="button" class="cs-progress-close" data-progress-close="${escapeHtml(v.id)}" aria-label="닫기">✕</button>`;
+}
+
 export function jobsHtml(jobs = [], collector = null) {
   const head = collector
     ? `<p class="cs-note">수집기 PC: <b class="cs-collector-${collector.state}">${collector.state === "on" ? "● 연결됨" : collector.state === "late" ? "◐ 늦음" : "○ 꺼짐"}</b>${collector.pc ? ` · ${escapeHtml(collector.pc)}` : ""} · ${agoText(collector.ago)}${collector.state === "off" ? " — 수집기 PC가 꺼져 있거나 잠들었습니다 (켜지면 웹연결이 자동으로 같이 켜짐)" : ""}</p>`
@@ -355,19 +388,24 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   }
 
   // ---------- 탭·접기 ----------
+  // 2026-11-04: 왼쪽 탭 = 메뉴 이동 (게시판·리뷰·메신저는 오른쪽 답변 화면도 같이), 오른쪽은 제목만
+  const TAB_COLORS = { main: "#e11d74", board: "#2563eb", review: "#ff7a00", msn: "#00b84a", settings: "#64748b" };
   function showLeft(tab) {
     $$("[data-left-tab]").forEach((b) => { const on = b.dataset.leftTab === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
     $$("[data-left-panel]").forEach((p) => { p.hidden = p.dataset.leftPanel !== tab; });
+    $("#cs-left")?.style.setProperty("--tab-color", TAB_COLORS[tab] || TAB_COLORS.main);
+    if (RIGHT_TITLES[tab]) showRight(tab);
     if (tab === "settings" && state.connected && !state.sample) loadUsage();
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
   }
 
-  const RIGHT_COLORS = { board: "#2563eb", review: "#ea8a00", msn: "#16a34a" };
+  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변" };
   function showRight(tab) {
-    $$("[data-right-tab]").forEach((b) => { const on = b.dataset.rightTab === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
     $$("[data-right-panel]").forEach((p) => { p.hidden = p.dataset.rightPanel !== tab; });
+    const title = $("[data-right-title]");
+    if (title) { title.textContent = RIGHT_TITLES[tab] || RIGHT_TITLES.board; title.dataset.tone = tab; }
     const line = $("#cs-right-line");
-    if (line) line.style.background = RIGHT_COLORS[tab] || RIGHT_COLORS.board;
+    if (line) line.style.background = TAB_COLORS[tab] || TAB_COLORS.board;
   }
 
   // 시트에 연결되면 풀리는 버튼(data-job·data-live): 연결 전·가상셋팅이면 빨간 미작동
@@ -451,8 +489,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const last = state.collector?.last;
     const reviewLast = state.collector?.reviewLast;
     for (const vendor of VENDORS) {
-      const cell = document.querySelector(`[data-vendor-status="${vendor}"]`);
-      if (!cell) continue;
+      const cells = $$(`[data-vendor-status="${vendor}"]`);
+      if (!cells.length) continue;
+      const cell = { set textContent(v) { cells.forEach((c) => { c.textContent = v; }); }, set className(v) { cells.forEach((c) => { c.className = v; }); }, set title(v) { cells.forEach((c) => { c.title = v; }); } };
       const rows = state.rows.filter((row) => row.vendor === vendor && !row.closed && row.kind === "문의");
       if (!state.sample && !state.connected) { cell.textContent = "아직 수집 전"; cell.className = "cs-vendor-status"; continue; }
       if (state.sample) { cell.textContent = `가상 문의 ${rows.length}건`; continue; }
@@ -465,6 +504,18 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       cell.textContent = `${line1}${r && r.state !== "ok" ? ` · 리뷰 ${r.state}` : ""}\n${line2}`;
       cell.className = `cs-vendor-status${v && v.state !== "ok" && !fixed ? " is-bad" : ""}`;
       cell.title = [fixed ? login.note : "", v?.note, r?.note].filter(Boolean).join(" / ");
+    }
+    // ⭐ 리뷰 탭 업체 칸: 지난 리뷰 수집 결과
+    for (const vendor of VENDORS) {
+      const el = document.querySelector(`[data-review-status="${vendor}"]`);
+      if (!el) continue;
+      const rows = state.rows.filter((row) => row.vendor === vendor && !row.closed && row.kind === "리뷰");
+      if (state.sample) { el.textContent = `가상 리뷰 ${rows.length}건`; el.className = "cs-vendor-status"; continue; }
+      if (!state.connected) { el.textContent = "아직 수집 전"; el.className = "cs-vendor-status"; continue; }
+      const r = reviewLast?.vendors.find((x) => x.vendor === vendor);
+      el.textContent = `${r ? (r.state === "ok" ? `✓ ${r.count}건` : `⚠ ${r.state}`) : `리뷰 ${rows.length}건`}\n${reviewLast?.at ? `마지막 수집 ${reviewLast.at.slice(5)}` : "수집 기록 없음"}`;
+      el.className = `cs-vendor-status${r && r.state !== "ok" && r.state !== "미지원" ? " is-bad" : ""}`;
+      el.title = r?.note || "";
     }
   }
 
@@ -496,6 +547,30 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const box = $("#cs-jobs");
     if (!box) return;
     box.innerHTML = live() ? jobsHtml(state.jobs, state.collector) : `<p class="cs-note">${state.sample ? "가상셋팅 중에는 요청을 보내지 않습니다." : "시트 연결 후 보입니다."}</p>`;
+    renderProgress();
+  }
+
+  // ---------- 진행 작은 창 (2026-11-04: 수집 중·로그인 중에 화면 오른쪽 아래) ----------
+  const progress = { seen: new Map(), done: null, hidden: "", timer: null };
+  function renderProgress() {
+    const box = $("#cs-progress");
+    if (!box) return;
+    const jobs = live() ? state.jobs.filter((j) => PROGRESS_KINDS.includes(j.kind)) : [];
+    const active = jobs.filter((j) => j.status === "대기" || j.status === "실행중");
+    for (const j of jobs) {                     // 보던 요청이 끝나면 결과를 잠깐 보여 줌
+      const before = progress.seen.get(j.id);
+      if (before && (before === "대기" || before === "실행중") && (j.status === "완료" || j.status === "실패")) progress.done = { job: j, until: now() + 8000 };
+      progress.seen.set(j.id, j.status);
+    }
+    if (progress.done && progress.done.until < now()) progress.done = null;
+    const run = active.find((j) => j.status === "실행중") || active[active.length - 1];
+    const view = run ? csProgressView(run, { now: now(), waiting: active.length - 1, collector: state.collector }) : progress.done ? csProgressView(progress.done.job, { now: now() }) : null;
+    const show = !!view && view.id !== progress.hidden;
+    box.hidden = !show;
+    box.className = `cs-progress${show ? ` is-${view.tone}` : ""}`;
+    box.innerHTML = show ? csProgressHtml(view) : "";
+    window.clearTimeout(progress.timer);
+    if (show) progress.timer = window.setTimeout(renderProgress, 1000);
   }
 
   // ---------- 🚀 처음 설정 안내 (수집기 [설정] 탭 원터치 설정 + 떠 있는 안내창을 웹으로) ----------
@@ -695,10 +770,26 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     }
   }
 
-  // 🔑 로그인 창
+  // 🔑 판매자센터 로그인 (2026-11-04: 메인보드 안에 늘 펼쳐 둠 — 창 아님)
+  //  고르거나 입력하는 중(loginDirty)에는 다시 그리지 않고 상태 글자만 바꿈
+  let loginDirty = false;
   function openLogin(vendor = "") {
+    showLeft("main");
+    renderLogin({ vendor, force: true });
     const box = $("#cs-login");
-    if (!box || !live()) return;
+    box?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    if (vendor) box?.querySelector(`[data-login-row="${vendor}"]`)?.classList.add("is-flash");
+  }
+
+  function renderLogin({ vendor = "", force = false } = {}) {
+    const box = $("#cs-login");
+    if (!box) return;
+    if (!live()) {
+      $("#cs-login-body").innerHTML = `<p class="cs-note">${state.sample ? "가상셋팅 중에는 로그인 요청을 보내지 않습니다." : "시트 연결 후 업체별 로그인 상태가 보입니다."}</p>`;
+      loginDirty = false;
+      return;
+    }
+    if (loginDirty && !force) return;
     const su = setupNow();
     const lastInfo = state.collector?.last || null;
     // 2026-11-03: 업체별 상태 = 지난 수집 vs 그 뒤 로그인 결과 중 새 것. 해결된 업체는 "(바뀌었을 때만)" + 해결 메모(바뀌었을 때만)
@@ -727,19 +818,22 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
         </details>
       </div>`;
     }).join("");
-    $("#cs-login-collect").checked = false;
-    box.hidden = false;
+    loginDirty = !!vendor;
   }
 
   function closeLogin() {
     const box = $("#cs-login");
     if (!box) return;
     box.querySelectorAll("input[data-login-id], input[data-login-pw]").forEach((el) => { el.value = ""; });
-    box.hidden = true;
+    const collect = $("#cs-login-collect");
+    if (collect) collect.checked = false;
+    loginDirty = false;
+    renderLogin();
   }
 
   async function submitLogin() {
     const box = $("#cs-login");
+    if (!live() || state.requesting) return;
     const vendors = [...box.querySelectorAll("[data-login-pick]:checked")].map((el) => el.value);
     if (!vendors.length) { toast("로그인할 업체를 고르세요."); return; }
     const creds = {};
@@ -766,7 +860,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const collectAfter = !!$("#cs-login-collect")?.checked;
     closeLogin();
     const manualPick = vendors.filter((v) => CS_MANUAL_LOGIN.includes(v));
-    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}${manualPick.length ? ` — ${manualPick.join("·")}: 자동으로 한 번 해 보고, 막히면 수집기 PC 크롬 창에서 직접 로그인 (창은 로그인되면 자동으로 닫힘)` : ""}`);
+    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${collectAfter ? " (로그인되면 게시판 + 리뷰 수집)" : ""}${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}${manualPick.length ? ` — ${manualPick.join("·")}: 자동으로 한 번 해 보고, 막히면 수집기 PC 크롬 창에서 직접 로그인 (창은 로그인되면 자동으로 닫힘)` : ""}`);
   }
 
   // 엑셀 내려받기 / 📥 엑셀 등록 (SheetJS — 피킹 화면과 같은 라이브러리)
@@ -837,7 +931,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (!button || button.disabled) return;
     const act = button.dataset.pc;
     if (act === "login") openLogin(button.dataset.loginVendor || "");
-    else if (act === "api-tab") showLeft("api");
+    else if (act === "api-tab") { showLeft("settings"); $("#cs-api-box")?.scrollIntoView?.({ block: "start", behavior: "smooth" }); }
     else if (act === "apiKey") saveApiKey();
     else if (act === "apiTest" || act === "ip" || act === "files") requestPc(act);
     else if (button.dataset.excel === "export") exportExcel(button.dataset.excelKind);
@@ -943,6 +1037,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     renderSummary();
     renderVendorStatus();
     renderLoginBadges();
+    renderLogin();
     renderConnection();
     renderLiveControls();
     renderJobs();
@@ -1407,7 +1502,6 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   function bind() {
     $$("[data-left-tab]").forEach((b) => b.addEventListener("click", () => showLeft(b.dataset.leftTab)));
-    $$("[data-right-tab]").forEach((b) => b.addEventListener("click", () => showRight(b.dataset.rightTab)));
     $("#cs-fold")?.addEventListener("click", () => {
       const folded = $("#cs-main").classList.toggle("left-folded");
       const fold = $("#cs-fold");
@@ -1432,6 +1526,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-reload")?.addEventListener("click", () => load());
     $("#cs-sample-toggle")?.addEventListener("click", () => setSample(!state.sample));
     $$("[data-job]").forEach((b) => b.addEventListener("click", () => requestJob(b.dataset.job)));
+    $("#cs-progress")?.addEventListener("click", (e) => { const b = e.target.closest("[data-progress-close]"); if (b) { progress.hidden = b.dataset.progressClose; renderProgress(); } });
     $("#cs-jobs")?.addEventListener("click", (e) => { const b = e.target.closest("[data-job-cancel]"); if (b) cancelJob(b.dataset.jobCancel); });
     $$("[data-vendor-group]").forEach((g) => g.addEventListener("click", onVendorToggle));
     $("#cs-register-open")?.addEventListener("click", openRegister);
@@ -1440,7 +1535,6 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (!$("#cs-modal")?.hidden) closeModal();
-      else if (!$("#cs-login")?.hidden) closeLogin();
       else if ($("#cs-guide") && !$("#cs-guide").hidden) $("#cs-guide").hidden = true;
     });
     $("#cs-usage-prev")?.addEventListener("click", () => shiftMonth(-1));
@@ -1449,14 +1543,14 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-msn-demo")?.addEventListener("click", addDemoSlot);
     $("#cs-onetouch")?.addEventListener("click", () => openGuide(true));
     document.addEventListener("click", onPcClick);
-    $("#cs-login-cancel")?.addEventListener("click", closeLogin);
     $("#cs-login-ok")?.addEventListener("click", submitLogin);
     $("#cs-login-body")?.addEventListener("change", (e) => {   // [부운영자로 로그인] 체크하면 상점 URL 칸 보이기
       if (!e.target.matches?.("[data-login-sub]")) return;
       const wrap = e.target.closest("[data-login-row]")?.querySelector("[data-login-shop-wrap]");
       if (wrap) wrap.hidden = !e.target.checked;
     });
-    $("#cs-login")?.addEventListener("click", (e) => { if (e.target.id === "cs-login") closeLogin(); });
+    ["input", "change"].forEach((type) => $("#cs-login-body")?.addEventListener(type, () => { loginDirty = true; }));
+    $("#cs-login-body")?.addEventListener("click", (e) => { if (e.target.closest("summary")) loginDirty = true; });
     $("#cs-excel-file")?.addEventListener("change", (e) => importExcel(e.target.files?.[0]));
     $("#cs-set-save")?.addEventListener("click", saveSettings);
     $("#cs-update-check")?.addEventListener("click", () => checkUpdate());
@@ -1532,8 +1626,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     // 빨간 버튼에 마우스를 올리면 왜 아직 안 되는지 보이게
     $$("[data-pending]").forEach((el) => { if (!el.title) el.title = el.dataset.pending; });
     bind();
-    showLeft("main");
     showRight("board");
+    showLeft("main");
     renderSlots();
     renderUsage();
     log("CS 자동화 화면을 열었습니다.");

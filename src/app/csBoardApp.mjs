@@ -468,6 +468,20 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     }
   }
 
+  // 2026-11-04: [🔑 직접 로그인] 버튼 옆 로그인 상태 — 버튼이 늘 보여서 "로그인 안 된 건가" 헷갈리지 않게
+  // 스마트스토어 = 리뷰용 판매자센터 로그인이라 리뷰 수집 결과와 비교 (게시판 문의는 API)
+  function renderLoginBadges() {
+    document.querySelectorAll("[data-login-badge]").forEach((el) => {
+      const vendor = el.dataset.loginBadge;
+      if (state.sample || !state.connected) { el.textContent = ""; el.className = "cs-login-badge"; return; }
+      const last = vendor === "스마트스토어" ? state.collector?.reviewLast : state.collector?.last;
+      const st = csLoginStatus(vendor, { jobs: state.jobs, last });
+      el.textContent = st.ok === null ? "로그인 기록 없음" : st.ok ? st.text : `⚠ ${st.text}`;
+      el.className = `cs-login-badge${st.ok === true ? " is-ok" : st.ok === false ? " is-bad" : ""}`;
+      el.title = st.note || "";
+    });
+  }
+
   let warned = "";
   function warnCollectorProblems() {
     const items = [...(state.collector?.last?.vendors || []).map((v) => ({ ...v, kind: "" })), ...(state.collector?.reviewLast?.vendors || []).map((v) => ({ ...v, kind: " 리뷰" }))]
@@ -928,6 +942,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     renderFilters();
     renderSummary();
     renderVendorStatus();
+    renderLoginBadges();
     renderConnection();
     renderLiveControls();
     renderJobs();

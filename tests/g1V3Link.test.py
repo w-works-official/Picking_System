@@ -531,8 +531,10 @@ assert st == "로그인 필요"
 # 테스트 모드: 답글 있어도 n건
 st, rows, _ = G2.collect_reviews_zigzag(FakeBr(replay={"rows": items, "total": 2, "errors": []}), {**rcfg, "test": True, "test_limit": 1})
 assert len(rows) == 1
-# 스마트스토어 리뷰: 크롬이 없으면 화면 밖 자동화 창에서 (1.6)
+# 스마트스토어 리뷰: 크롬이 없으면 화면 밖 자동화 창에서 (1.6) — 1.9 부터 리뷰 기간 전체(ss_reviews_core)
 _find = L.find_chrome
+_ssc = L.ss_reviews_core
+L.ss_reviews_core = lambda G_, b, cfg: ("ok", [{"via": "show" if b.show else "hidden"}], "")
 L.find_chrome = lambda: None
 assert G2.collect_reviews_smartstore(FakeBr(), {})[1][0]["via"] == "show"
 assert G2.collect_reviews_smartstore(FakeBr(show=True), {})[1][0]["via"] == "show"
@@ -548,6 +550,60 @@ L.NativeChrome = FakeNative
 fb = FakeBr()
 assert G2.collect_reviews_smartstore(fb, {})[1][0]["via"] == "show" and made == [(fb.pw, True)] and not hasattr(fb, "launch")
 L.NativeChrome, L.find_chrome = _NC, _find
+L.ss_reviews_core = _ssc
+
+# 1.9 스마트스토어 리뷰 30일치: 화면이 보낸 검색 요청을 날짜만 바꿔 쪽마다 다시 조회
+import datetime as _dt
+f_, t_ = L.ss_dates(30, _dt.datetime(2026, 11, 4, 15, 30, tzinfo=_dt.timezone(_dt.timedelta(hours=9))))
+assert (f_, t_) == ("2026-10-05T00:00:00.000+09:00", "2026-11-04T23:59:59.999+09:00"), (f_, t_)
+class SSReq:
+    def __init__(self, url, body, headers): self.url, self.post_data, self.headers, self.method = url, body, headers, "POST"
+class SSResp:
+    def __init__(self, req, js): self.url, self.request, self._js = req.url, req, js
+    def json(self): return self._js
+class SSPage:
+    def __init__(self, br): self.br, self.h, self.url, self.frames = br, {}, "about:blank", []
+    def on(self, ev, fn): self.h.setdefault(ev, []).append(fn)
+    def goto(self, url, **kw):
+        self.url = url
+        if self.br.login: self.url = "https://nid.naver.com/nidlogin.login"; return
+        body = json.dumps({"fromDate": "2026-10-29T00:00:00.000+09:00", "toDate": "2026-11-04T23:59:59.999+09:00", "page": 0, "size": 500})
+        req = SSReq("https://sell.smartstore.naver.com/api/v3/contents/reviews/search", body, {"content-type": "application/json", "cookie": "x", "x-current-state": "s", "sec-ch-ua": "y"})
+        for f in self.h.get("request", []): f(req)
+        for f in self.h.get("response", []): f(SSResp(req, {"contents": self.br.week}))
+    def wait_for_timeout(self, ms): pass
+    def evaluate(self, js, arg): self.br.evals.append(arg); return self.br.replay
+    def close(self): pass
+class SSBr:
+    def __init__(self, replay=None, week=None, login=False): self.replay, self.week, self.login, self.evals, self.show = replay, week or [], login, [], True
+    def page(self): return SSPage(self)
+G4 = types.SimpleNamespace(kst=lambda v: str(v)[:16].replace("T", " "), _dbg=lambda *a: None)
+recent = (_dt.datetime.now() - _dt.timedelta(days=2)).strftime("%Y-%m-%dT10:00:00")
+old = (_dt.datetime.now() - _dt.timedelta(days=40)).strftime("%Y-%m-%dT10:00:00")
+items = [{"id": 1, "reviewContent": "좋아요", "reviewScore": 5, "createDate": recent, "productNo": 77, "productName": "피어싱", "hasComment": False,
+          "reviewAttaches": [{"attachUrl": "https://img/1.jpg"}], "maskedWriterId": "ab***"},
+         {"id": 2, "reviewContent": "답글 있음", "createDate": recent, "hasComment": True},
+         {"id": 3, "reviewContent": "오래됨", "createDate": old}]
+br = SSBr(replay={"rows": items, "errors": [], "pages": 2})
+st, rows, note = L.ss_reviews_core(G4, br, {"review_days": 30}, now=_dt.datetime(2026, 11, 4, 15, 30, tzinfo=_dt.timezone(_dt.timedelta(hours=9))))
+assert st == "ok" and [r["id"] for r in rows] == ["1"], (st, rows)
+r0 = rows[0]
+assert r0["업체"] == "스마트스토어" and r0["상품링크"].endswith("/77") and r0["사진URL"] == ["https://img/1.jpg"] and r0["별점"] == 5
+assert "30일 3건 (2쪽)" in note, note
+a = br.evals[-1]
+assert a["from"] == "2026-10-05T00:00:00.000+09:00" and a["size"] == 500 and a["url"].endswith("/reviews/search")
+assert a["headers"] == {"content-type": "application/json", "x-current-state": "s"}, "쿠키·sec- 헤더는 빼고 화면 헤더 그대로"
+# 다시 조회 실패 → 화면이 받은 1주일치라도
+br = SSBr(replay={"rows": [], "errors": ["403"], "pages": 0}, week=items[:1])
+st, rows, note = L.ss_reviews_core(G4, br, {"review_days": 30})
+assert st == "ok" and len(rows) == 1 and "1주일" in note
+br = SSBr(replay={"rows": [], "errors": ["403"], "pages": 0}, week=[])
+assert L.ss_reviews_core(G4, br, {"review_days": 30})[0] == "오류"
+assert L.ss_reviews_core(G4, SSBr(login=True), {"review_days": 30})[0] == "로그인 필요"
+# 테스트 모드: 답글 있어도 n건
+st, rows, _ = L.ss_reviews_core(G4, SSBr(replay={"rows": items, "errors": [], "pages": 1}), {"review_days": 30, "test": True, "test_limit": 2})
+assert len(rows) == 2
+
 # 수집기에 함수가 없으면 아무것도 안 바꿈
 G3 = types.ModuleType("g3"); L.patch_review_collectors(G3); assert not hasattr(G3, "collect_reviews_zigzag")
 

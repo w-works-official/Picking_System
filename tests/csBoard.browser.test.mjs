@@ -413,10 +413,13 @@ try {
     gas.post({ action: "progress", token: COLLECTOR, id: lj.id, message: "에이블리: 휴대폰 2단계 인증이면 휴대폰에서 [확인]을 눌러 주세요" });
     await reload();
     await waitText("#cs-jobs", /실행중[\s\S]*🔑 로그인[\s\S]*휴대폰에서 \[확인\]/);
-    gas.post({ action: "finish", token: COLLECTOR, id: lj.id, ok: true, message: "지그재그 ✓ · 에이블리 ✓", data: { login: { 지그재그: { state: "ok" }, 에이블리: { state: "ok" } } } });
+    gas.post({ action: "finish", token: COLLECTOR, id: lj.id, ok: true, message: "지그재그 ✓ · 에이블리 ✓", data: { login: { 지그재그: { state: "ok" }, 에이블리: { state: "ok" }, 스마트스토어: { state: "ok", note: "로그인됨 (자동)" } } } });
 
     // 메이크샵 부운영자 (웹연결 1.5): [부운영자로 로그인] → 상점 URL 칸 → 아이디가 "부운영자|상점URL|아이디" 로 잠겨 감
     await reload();
+    // 2026-11-04: 리뷰 탭 [🔑 직접 로그인] 옆 로그인 상태
+    assert.match(await page.locator('[data-login-badge="스마트스토어"]').textContent(), /^✓ 로그인됨 \(\d/, "버튼 옆에 로그인 상태");
+    assert.match(await page.locator('[data-login-badge="스마트스토어"]').getAttribute("class"), /is-ok/);
     await loginBtn.click();
     await page.locator("#cs-login:not([hidden])").waitFor();
     // 2026-11-03: 지난 수집은 "로그인 필요"였지만 방금 로그인 성공 → 해결 메모 + "(바뀌었을 때만)", 미리 골라지지 않음

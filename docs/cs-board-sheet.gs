@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -117,7 +117,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 7 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 8 });
 }
 
 function doPost(e) {
@@ -457,7 +457,18 @@ function cleanSetup_(raw) {
   };
 }
 
+// v8: 누군가 CS 화면을 보고 있으면(최근 3분 안에 list·request) 수집기 PC가 요청을 빨리(3초마다) 가져가게 — 평소엔 15초
+var WEB_HOT_MS = 3 * 60 * 1000;
+function markWeb_() {
+  var now = Date.now();
+  if (now - Number(prop_('WEB_SEEN') || 0) > 20000) setProp_('WEB_SEEN', String(now));   // 20초에 한 번만 기록 (속성 쓰기 횟수 아끼기)
+}
+function webHot_() {
+  return Date.now() - Number(prop_('WEB_SEEN') || 0) < WEB_HOT_MS;
+}
+
 function list_() {
+  markWeb_();
   return {
     ok: true,
     rows: openRows_(sheet_()),
@@ -729,6 +740,7 @@ function recentJobs_(n) {
 }
 
 function request_(body) {
+  setProp_('WEB_SEEN', String(Date.now()));   // v8: 요청을 보낸 순간부터 수집기 PC가 빨리 가져가게
   var kind = String(body.kind || '');
   if (!JOB_KINDS[kind] || STAFF_KINDS.indexOf(kind) < 0) return { ok: false, error: '알 수 없는 요청 종류입니다.' };
   var content = {};
@@ -977,7 +989,7 @@ function poll_(body) {
     }
   }
   setProp_('COLLECTOR_STATE', JSON.stringify(state));
-  return { ok: true, job: job };
+  return { ok: true, job: job, hot: webHot_() };
 }
 
 function finish_(body) {

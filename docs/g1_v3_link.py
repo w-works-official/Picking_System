@@ -57,7 +57,12 @@
   · 스마트스토어 리뷰 수집도 같은 일반 크롬(화면 밖)으로 — 보관한 쿠키를 넣어서
   · 다른 업체(자동화 창): 30초 안에 안 되거나 자동입력 방지 문자가 나오면 "직접 로그인" 안내, 최대 5분 기다림, 되면 창 닫힘
   · 1.8.1: 기다리는 동안 time.sleep 대신 창의 wait_for_timeout — sleep 중엔 주소 바뀜 소식을 못 받아
-    판매자센터에 들어가도 로그인을 못 알아챘음 (11/4 15:23)
+    판매자센터에 들어가도 로그인을 못 알아챘음 (11/4 15:23). 빈 탭 없이 처음부터 로그인 주소 탭 하나로 엶
+
+1.9 (2026-11-04)
+  · 스마트스토어 리뷰: 화면 기본 1주일 대신 리뷰 기간(30일) 전체 — 화면이 보낸 검색 요청(reviews/search)을 날짜만 바꿔 쪽마다 다시 조회
+    (11/4 첫 수집은 1주일치 150건만 — 11/1~11/4)
+  · 요청 빨리 가져가기: 시트 v8 이 "누가 CS 화면을 보고 있음(hot)"을 알려 주면 3초마다 요청 확인 (평소 15초 그대로)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -65,8 +70,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.8.1 (2026-11-04)"
+LINK_VER = "1.9 (2026-11-04)"
 POLL_SEC = 15
+HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
 BEAT_SEC = 10
@@ -243,6 +249,156 @@ def run_offscreen(br, fn):
         return fn(b2)
 
 
+# ───────── 스마트스토어 리뷰 30일치 (1.9, 2026-11-04) ─────────
+# 판매자센터 리뷰 화면은 처음에 "1주일" 로 POST /api/v3/contents/reviews/search 를 보냄 (fromDate·toDate·page·size=500)
+# → 화면이 보낸 요청을 그대로, 날짜만 리뷰 기간(review_days)으로 바꾸고 다음 쪽까지 다시 조회
+SS_REVIEW_URL = "https://sell.smartstore.naver.com/#/review/search"
+SS_REVIEW_SEARCH = "/api/v3/contents/reviews/search"
+SS_REVIEW_MAX_PAGES = 20
+SS_HEADER_SKIP = ("cookie", "host", "content-length", "origin", "referer", "user-agent", "accept-encoding", "connection")
+
+SS_REVIEW_FETCH_JS = r"""
+async ({url, body, headers, from, to, size, maxPages}) => {
+  const b = JSON.parse(body || '{}'); const out = {rows: [], errors: [], pages: 0}; const seen = new Set();
+  for (let page = 0; page < maxPages; page++) {
+    const q = Object.assign({}, b, {fromDate: from, toDate: to, page: page, size: size});
+    let t = '', j = null, ok = false;
+    try {
+      const r = await fetch(url, {method: 'POST', credentials: 'include', headers: headers, body: JSON.stringify(q)});
+      t = await r.text(); ok = r.ok; try { j = JSON.parse(t); } catch (e) {}
+    } catch (e) { out.errors.push(String(e).slice(0, 200)); break; }
+    const list = j && (Array.isArray(j.contents) ? j.contents : (j.data && Array.isArray(j.data.contents) ? j.data.contents : null));
+    if (!ok || !list) { out.errors.push(t.slice(0, 200)); break; }
+    let fresh = 0;
+    for (const x of list) { const k = String(x && x.id); if (!seen.has(k)) { seen.add(k); out.rows.push(x); fresh += 1; } }
+    out.pages = page + 1;
+    if (list.length < size || !fresh) break;
+  }
+  return out;
+}
+"""
+
+
+def ss_dates(days, now=None):
+    """판매자센터 리뷰 검색 날짜 (한국 시간, 화면과 같은 모양)"""
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    now = now or datetime.datetime.now(kst)
+    start = now - datetime.timedelta(days=int(days))
+    return start.strftime("%Y-%m-%dT00:00:00.000+09:00"), now.strftime("%Y-%m-%dT23:59:59.999+09:00")
+
+
+def ss_review_rows(G, items, cfg):
+    """판매자센터 리뷰 → 수집기 리뷰 줄 (수집기 collect_reviews_smartstore 와 같은 칸)"""
+    test = bool(cfg.get("test"))
+    cutoff = (datetime.datetime.now() - datetime.timedelta(days=int(cfg.get("review_days", 30) or 30))).strftime("%Y-%m-%d")
+    img_urls = getattr(G, "_img_urls", lambda d: [])
+    rows, seen = [], set()
+    for it in items:
+        rid = str(it.get("id") or it.get("reviewId") or it.get("reviewNo") or "")
+        if not rid or rid in seen:
+            continue
+        seen.add(rid)
+        txt = it.get("reviewContent") or it.get("content") or it.get("contents") or ""
+        reply = it.get("reviewComment") or it.get("commentContent") or it.get("replyContent") or it.get("sellerComment") or ""
+        if isinstance(reply, dict):
+            reply = reply.get("commentContent") or reply.get("content") or ""
+        dt = G.kst(it.get("createDate") or it.get("reviewCreatedDate") or it.get("createdDate") or it.get("registerDate") or "")
+        if it.get("hasComment"):
+            reply = reply or "있음"
+        if not test and (reply or (dt and dt[:10] < cutoff)):
+            continue
+        pid = str(it.get("productNo") or it.get("channelProductNo") or it.get("productId") or "")
+        imgs = [x.get("attachUrl") or x.get("imageUrl") or x.get("url") for x in (it.get("reviewAttaches") or it.get("attaches") or it.get("images") or []) if isinstance(x, dict)]
+        rows.append(dict(업체="스마트스토어", 게시판="리뷰", id=rid, 날짜=dt, 상품명=it.get("productName") or it.get("productNm") or "", 상품ID=pid,
+                         상품링크=(f"https://smartstore.naver.com/main/products/{pid}" if pid else ""), 옵션=it.get("productOptionContent") or it.get("optionContent") or "",
+                         별점=it.get("reviewScore") or it.get("score") or it.get("rating") or "", 내용=txt, 답글=reply, 답글여부=bool(reply),
+                         작성자=it.get("maskedWriterId") or "", 주문번호=it.get("productOrderNo") or "",
+                         사진URL=list(dict.fromkeys([u for u in imgs if u])) or list(dict.fromkeys(img_urls({k: v for k, v in it.items() if "image" in k.lower() or "attach" in k.lower()})))))
+        if test and len(rows) >= int(cfg.get("test_limit", 3)):
+            break
+    return rows
+
+
+def ss_reviews_core(G, br, cfg, now=None):
+    """스마트스토어 리뷰: 판매자센터 리뷰 화면을 열어 화면이 보내는 검색 요청을 잡고, 같은 요청을 리뷰 기간으로 쪽마다 다시 보냄"""
+    days = int(cfg.get("review_days", 30) or 30)
+    pg = br.page()
+    cap, got = {}, []
+
+    def on_req(req):
+        try:
+            if req.method == "POST" and SS_REVIEW_SEARCH in req.url and not cap:
+                cap["url"], cap["body"] = req.url, req.post_data
+                cap["headers"] = {k: v for k, v in (req.headers or {}).items()
+                                  if k.lower() not in SS_HEADER_SKIP and not k.lower().startswith("sec-") and not k.startswith(":")}
+        except Exception:
+            pass
+
+    def on_resp(resp):
+        try:
+            if resp.request.method == "POST" and SS_REVIEW_SEARCH in resp.url:
+                got.append(resp.json())
+        except Exception:
+            pass
+    pg.on("request", on_req)
+    pg.on("response", on_resp)
+    try:
+        pg.goto(cfg.get("ss_review_url") or SS_REVIEW_URL, wait_until="domcontentloaded", timeout=60000)
+        for _ in range(20):
+            if cap or "nid.naver.com" in (pg.url or ""):
+                break
+            pg.wait_for_timeout(500)
+        if not cap and "nid.naver.com" not in (pg.url or ""):      # 목록이 저절로 안 뜨면 [검색] 눌러 보기 (수집기와 같음)
+            for fr in pg.frames:
+                try:
+                    b = fr.locator("button:has-text('검색')").first
+                    if b.count():
+                        b.click(timeout=3000)
+                        break
+                except Exception:
+                    pass
+            for _ in range(20):
+                if cap:
+                    break
+                pg.wait_for_timeout(500)
+        if "nid.naver.com" in (pg.url or "") or ("login" in (pg.url or "") and not cap):
+            return "로그인 필요", [], "판매자센터 로그인 필요 — [🔑 직접 로그인]"
+        if not cap:
+            dbg = getattr(G, "_dbg", None)
+            if dbg:
+                dbg(cfg, "스마트스토어_리뷰_요청", {"주소": pg.url, "창": "보임" if getattr(br, "show", False) else "숨김"})
+            return "오류", [], "리뷰 화면의 검색 요청을 찾지 못함"
+        f, t = ss_dates(days, now)
+        try:
+            body = json.loads(cap.get("body") or "{}")
+        except Exception:
+            body = {}
+        size = int(body.get("size") or 500)
+        try:
+            res = pg.evaluate(SS_REVIEW_FETCH_JS, {"url": cap["url"], "body": cap.get("body") or "{}",
+                                                    "headers": cap.get("headers") or {"content-type": "application/json"},
+                                                    "from": f, "to": t, "size": size, "maxPages": SS_REVIEW_MAX_PAGES})
+        except Exception as e:
+            res = {"rows": [], "errors": [f"{e}"[:200]], "pages": 0}
+        items = list(res.get("rows") or [])
+        note = f"최근 {days}일 {len(items)}건 ({res.get('pages', 0)}쪽)"
+        if res.get("errors") and not items:
+            for js in got:                           # 다시 조회가 안 되면 화면이 받은 것(기본 1주일)이라도
+                try:
+                    items += (js.get("contents") or (js.get("data") or {}).get("contents") or [])
+                except Exception:
+                    pass
+            if not items:
+                return "오류", [], "리뷰 다시 조회 실패: " + str(res["errors"][0])[:200]
+            note = "기간 지정 조회 실패 → 화면 기본(최근 1주일)만"
+        return "ok", ss_review_rows(G, items, cfg), note
+    finally:
+        try:
+            pg.close()
+        except Exception:
+            pass
+
+
 def patch_review_collectors(G):
     G._v3_review_patch = True
     orig_ss = getattr(G, "collect_reviews_smartstore", None)
@@ -255,12 +411,12 @@ def patch_review_collectors(G):
         G._v3_orig_zz_reviews = G.collect_reviews_zigzag
         G.collect_reviews_zigzag = collect_reviews_zigzag
     if orig_ss:
-        def collect_reviews_smartstore(br, cfg):   # 1.8: 일반 크롬(네이버 전용 프로필, 화면 밖)으로 — 없으면 화면 밖 자동화 창
+        def collect_reviews_smartstore(br, cfg):   # 1.8: 일반 크롬(네이버 전용 프로필, 화면 밖) · 1.9: 리뷰 기간(30일) 전체
             try:
                 if find_chrome() and hasattr(br, "pw"):
                     with NativeChrome(G, pw=br.pw, offscreen=True) as nb:
-                        return orig_ss(nb, cfg)
-                return run_offscreen(br, lambda b: orig_ss(b, cfg))
+                        return ss_reviews_core(G, nb, cfg)
+                return run_offscreen(br, lambda b: ss_reviews_core(G, b, cfg))
             except Exception as e:
                 return "오류", [], f"스마트스토어 리뷰 창 실행 실패: {e}"[:300]
         G._v3_orig_ss_reviews = orig_ss
@@ -1461,7 +1617,7 @@ def _loop(G, say, beat, once, bg):
             os.remove(STOP_FLAG)                # 창으로 직접 켠 경우: 예전 중지 표시는 지우고 시작
         except Exception:
             pass
-    fails = 0
+    hot, fails = False, 0
     nxt = None
     while True:
         if stop_requested():
@@ -1489,6 +1645,7 @@ def _loop(G, say, beat, once, bg):
                 say("✓ 시트 연결 다시 됨")
             fails = 0
             beat.set("idle", "웹 요청 기다리는 중")
+            hot = bool(js.get("hot"))
             job = js.get("job")
             if job:
                 beat.set("busy", job.get("id", ""), JOB_LABEL.get(job.get("kind"), job.get("kind", "")))
@@ -1513,7 +1670,7 @@ def _loop(G, say, beat, once, bg):
                 say(f"⚠ {e}")
         if once:
             return
-        if wait_or_stop(POLL_SEC):
+        if wait_or_stop(HOT_POLL_SEC if hot else POLL_SEC):
             say("중지 요청(G1_weblink_stop.flag) — 끝냅니다")
             return
 

@@ -56,6 +56,10 @@
     로그인되는 순간 쿠키(세션 포함)를 native_cookies.enc 에 보관하고 창을 자동으로 닫음
   · 스마트스토어 리뷰 수집도 같은 일반 크롬(화면 밖)으로 — 보관한 쿠키를 넣어서
   · 다른 업체(자동화 창): 30초 안에 안 되거나 자동입력 방지 문자가 나오면 "직접 로그인" 안내, 최대 5분 기다림, 되면 창 닫힘
+
+요청을 빨리 가져가기 (1.9, 2026-11-04 대표님: "로그인 창이 너무 천천히 떠서 오류난 것 같다")
+  · 시트 v8 이 "누가 CS 화면을 보고 있음(hot)"을 알려 주면 3초마다 요청 확인 (평소 15초 그대로 — 시트 사용량 아끼기)
+  · 스마트스토어 일반 크롬은 처음부터 로그인 주소로 열고(빈 탭 없이), 기다림을 줄이고, 여는 즉시 진행 안내
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -63,8 +67,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.8 (2026-11-04)"
+LINK_VER = "1.9 (2026-11-04)"
 POLL_SEC = 15
+HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
 BEAT_SEC = 10
@@ -640,8 +645,8 @@ def save_native_cookies(G, cookies):
 class NativeChrome:
     """자동화 표시 없는 일반 크롬(네이버 전용 프로필)을 띄우고 원격 연결(CDP)로 읽음 (1.8)
        .page() · .ctx · .show 는 수집기 Browser 와 같은 모양. 끝나면 쿠키 보관 + 창 닫기"""
-    def __init__(self, G, pw=None, offscreen=False, chrome=None, popen=None, connect_wait=15):
-        self.G, self.pw, self.offscreen, self.show = G, pw, offscreen, True
+    def __init__(self, G, pw=None, offscreen=False, chrome=None, popen=None, connect_wait=15, start_url=None):
+        self.G, self.pw, self.offscreen, self.show, self.start_url = G, pw, offscreen, True, start_url
         self.chrome, self.popen, self.connect_wait = chrome or find_chrome(), popen, connect_wait
         self.proc = self.browser = self.ctx = self._spw = None
 
@@ -651,7 +656,7 @@ class NativeChrome:
             raise RuntimeError("이 PC에서 크롬을 찾지 못했습니다")
         port = free_port()
         args = [self.chrome, f"--user-data-dir={native_profile(self.G)}", f"--remote-debugging-port={port}",
-                "--no-first-run", "--no-default-browser-check"] + (OFFSCREEN_ARGS if self.offscreen else []) + ["about:blank"]
+                "--no-first-run", "--no-default-browser-check"] + (OFFSCREEN_ARGS if self.offscreen else []) + [self.start_url or "about:blank"]
         self.proc = (self.popen or subprocess.Popen)(args)
         if self.pw is None:
             from playwright.sync_api import sync_playwright
@@ -747,10 +752,15 @@ def native_login(G, v, progress, say, creds=None, d=None, wait_sec=None, auto_se
     auto_sec = NATIVE_AUTO_SEC if auto_sec is None else auto_sec
     mins = max(1, round(wait_sec / 60))
     given = (creds or {}).get(v)
-    with (nb or NativeChrome(G)) as br:
-        pg = br.page()
-        pg.goto(LOGIN_URL[v], wait_until="domcontentloaded", timeout=60000)
-        pg.wait_for_timeout(2500)
+    progress(f"{v}: 수집기 PC에 크롬 창 여는 중…")
+    with (nb or NativeChrome(G, start_url=LOGIN_URL[v])) as br:
+        opened = [p for p in br.ctx.pages if LOGIN_URL[v].split("#")[0] in (p.url or "")]
+        if opened:                                     # 처음부터 로그인 주소로 연 탭을 그대로 씀 (1.9)
+            pg = opened[0]
+        else:
+            pg = br.page()
+            pg.goto(LOGIN_URL[v], wait_until="domcontentloaded", timeout=60000)
+        pg.wait_for_timeout(1200)
         if logged_in_somewhere(br, v):
             br.keep_cookies()
             return dict(state="ok", note="이미 로그인됨")
@@ -1438,7 +1448,7 @@ def _loop(G, say, beat, once, bg):
             os.remove(STOP_FLAG)                # 창으로 직접 켠 경우: 예전 중지 표시는 지우고 시작
         except Exception:
             pass
-    fails = 0
+    hot, fails = False, 0
     nxt = None
     while True:
         if stop_requested():
@@ -1466,6 +1476,7 @@ def _loop(G, say, beat, once, bg):
                 say("✓ 시트 연결 다시 됨")
             fails = 0
             beat.set("idle", "웹 요청 기다리는 중")
+            hot = bool(js.get("hot"))
             job = js.get("job")
             if job:
                 beat.set("busy", job.get("id", ""), JOB_LABEL.get(job.get("kind"), job.get("kind", "")))
@@ -1490,7 +1501,7 @@ def _loop(G, say, beat, once, bg):
                 say(f"⚠ {e}")
         if once:
             return
-        if wait_or_stop(POLL_SEC):
+        if wait_or_stop(HOT_POLL_SEC if hot else POLL_SEC):
             say("중지 요청(G1_weblink_stop.flag) — 끝냅니다")
             return
 

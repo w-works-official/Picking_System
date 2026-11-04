@@ -450,13 +450,15 @@ try {
 
     // 메이크샵 부운영자 (웹연결 1.5): [부운영자로 로그인] → 상점 URL 칸 → 아이디가 "부운영자|상점URL|아이디" 로 잠겨 감
     await reload();
-    // 2026-11-04: 리뷰 탭 [🔑 직접 로그인] 옆 로그인 상태
-    assert.match(await page.locator('[data-login-badge="스마트스토어"]').textContent(), /^✓ 로그인됨 \(\d/, "버튼 옆에 로그인 상태");
-    assert.match(await page.locator('[data-login-badge="스마트스토어"]').getAttribute("class"), /is-ok/);
+    // 2026-11-04: 로그인 상태는 메인보드 로그인 현황에서 (리뷰 탭 업체 칸은 게시판과 같은 모양)
+    assert.equal(await page.locator('[data-vendor-group="review"] [data-pc="login"]').count(), 0, "리뷰 탭에는 로그인 버튼 없음");
+    assert.equal(await page.locator('[data-login-grid] [data-login-vendor="스마트스토어"]').textContent(), "연결완료");
     await waitText("#cs-progress", /로그인 완료/);
     assert.equal(await connBtn("에이블리").textContent(), "연결완료", "로그인 성공 → 연결완료");
     assert.equal(await connBtn("에이블리").evaluate((el) => getComputedStyle(el).color), "rgb(17, 17, 17)", "연결완료 = 검정");
     assert.equal(await connBtn("지그재그").textContent(), "연결완료");
+    assert.match(await page.locator('[data-login-detail="지그재그"]').textContent(), /게시판 ✓ · 리뷰 ✓/, "카드에 게시판·리뷰 로그인 한 줄");
+    assert.equal(await page.locator('[data-login-grid] [data-login-vendor="스마트스토어"]').count(), 1, "스마트스토어도 로그인 버튼 (API 는 작은 보조 버튼)");
     // 2026-11-03: 지난 수집은 "로그인 필요"였지만 방금 로그인 성공 → 해결 메모 + "(바뀌었을 때만)", 미리 골라지지 않음
     const ablyFixed = page.locator('[data-login-row="에이블리"]');
     assert.match(await ablyFixed.locator("[data-login-state]").textContent(), /지난 수집: 로그인 필요 → .*로그인 ✓ \(해결/);

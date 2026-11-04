@@ -498,6 +498,31 @@ function csShortTime(ms) {
   return `${Number(k.slice(5, 7))}/${Number(k.slice(8, 10))} ${k.slice(11, 16)}`;
 }
 
+// 2026-11-04: 메인보드 로그인 현황 — 게시판·리뷰 로그인을 함께 봄 (하나라도 풀리면 false)
+//  각각: 그 뒤 로그인 요청 결과가 더 새것이면 그 결과, 아니면 지난 수집 상태 (로그인·인증 문제만 false, 그 밖의 오류는 모름)
+export function csLoginBoth(vendor, { jobs = [], last = null, reviewLast = null } = {}) {
+  let login = null;
+  for (const job of jobs || []) {
+    const res = job?.kind === "login" ? job.data?.login?.[vendor] : null;
+    if (!res) continue;
+    login = { ok: res.state === "ok", at: csWhen(job.ended || job.at) };
+    break;
+  }
+  const part = (info) => {
+    const c = (info?.vendors || []).find((v) => v.vendor === vendor) || null;
+    const at = csWhen(info?.at);
+    if (login && (!c || !Number.isFinite(at) || !Number.isFinite(login.at) || login.at >= at)) return login.ok;
+    if (!c) return null;
+    if (c.state === "ok") return true;
+    return /로그인|인증/.test(String(c.state || "")) ? false : null;
+  };
+  const board = part(last);
+  const review = part(reviewLast);
+  const ok = board === false || review === false ? false : board === true || review === true ? true : null;
+  const mark = (v) => (v === true ? "✓" : v === false ? "✕" : "—");
+  return { ok, board, review, text: `게시판 ${mark(board)} · 리뷰 ${mark(review)}` };
+}
+
 export function csLoginStatus(vendor, { jobs = [], last = null, saved = false } = {}) {
   const collected = (last?.vendors || []).find((v) => v.vendor === vendor) || null;
   const collectedAt = csWhen(last?.at);

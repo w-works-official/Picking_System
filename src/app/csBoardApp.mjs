@@ -47,8 +47,9 @@ import {
   withEdit,
   withHold,
   withPick,
+  csLoginBoth,
   csLoginStatus,
-} from "../domain/csBoard.mjs?v=20261103-loginmemo1";
+} from "../domain/csBoard.mjs?v=20261104-login2";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261103-loginmemo1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
@@ -538,12 +539,16 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function renderConnectButtons() {
     document.querySelectorAll('[data-login-grid] [data-login-vendor]').forEach((btn) => {
       const vendor = btn.dataset.loginVendor;
-      let mode = "req";
+      let mode = "req", detail = "", bad = false;
       if (live()) {
-        const busy = state.jobs.some((j) => j.kind === "login" && (j.status === "대기" || j.status === "실행중") && (!j.vendors.length || j.vendors.includes(vendor)));
-        const st = csLoginStatus(vendor, { jobs: state.jobs, last: state.collector?.last });
+        const busy = state.jobs.some((j) => j.kind === "login" && (j.status === "대기" || j.status === "실행중") && (!(j.vendors || []).length || j.vendors.includes(vendor)));
+        const st = csLoginBoth(vendor, { jobs: state.jobs, last: state.collector?.last, reviewLast: state.collector?.reviewLast });
         mode = busy ? "ing" : st.ok === true ? "ok" : "req";
+        detail = st.text;
+        bad = st.ok === false;
       }
+      const d = document.querySelector(`[data-login-detail="${vendor}"]`);
+      if (d) { d.textContent = detail; d.classList.toggle("is-bad", bad); }
       btn.textContent = mode === "ing" ? "연결중" : mode === "ok" ? "연결완료" : "연결요청";
       btn.classList.toggle("cs-conn-req", mode === "req");
       btn.classList.toggle("cs-conn-ing", mode === "ing");

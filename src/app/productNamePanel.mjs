@@ -1,6 +1,6 @@
 // 상품 관리 · 상품명 요청 화면 (2026-10-29) — [상품명 요청하기] → CS 시트 name → 후보 목록(복사 버튼).
 // 비밀번호는 CS 관리 화면과 같은 칸(이 브라우저에 한 번 넣으면 같이 씀). 형태만 — 규칙은 나중에 셋팅.
-import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, csPasswordKind, csUnlockResult, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261103-loginmemo1";
+import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, csPasswordKind, csUnlockResult, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261104-login2";
 import { NAME_COUNTS, NAME_DEFAULT_COUNT, nameRequestPayload, parseNameResponse } from "../domain/productNames.mjs?v=20261029-names1";
 
 function readStored(storage) {

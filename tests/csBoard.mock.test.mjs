@@ -28,6 +28,7 @@ import {
   withEdit,
   withHold,
   withPick,
+  csLoginBoth,
   csLoginStatus,
 } from "../src/domain/csBoard.mjs";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_REVIEW_ROWS } from "../src/domain/csBoardSamples.mjs";
@@ -690,3 +691,17 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
 }
 
 console.log("csBoard.mock.test: OK");
+
+// 2026-11-04: 메인보드 로그인 현황 = 게시판·리뷰 로그인 함께 (하나라도 풀리면 false, 로그인과 상관없는 오류는 모름)
+{
+  const last = { at: "2026-11-04 10:00", vendors: [{ vendor: "스마트스토어", state: "ok" }, { vendor: "메이크샵", state: "ok" }] };
+  const reviewLast = { at: "2026-11-04 10:05", vendors: [{ vendor: "스마트스토어", state: "로그인 필요" }, { vendor: "메이크샵", state: "오류" }] };
+  const ss = csLoginBoth("스마트스토어", { last, reviewLast });
+  assert.deepEqual([ss.ok, ss.board, ss.review, ss.text], [false, true, false, "게시판 ✓ · 리뷰 ✕"], "리뷰 로그인이 풀리면 로그인 안 됨");
+  const ms = csLoginBoth("메이크샵", { last, reviewLast });
+  assert.deepEqual([ms.ok, ms.review], [true, null], "로그인과 상관없는 리뷰 오류는 로그인 풀림으로 보지 않음");
+  const after = csLoginBoth("스마트스토어", { last, reviewLast, jobs: [{ kind: "login", ended: "2026-11-04T02:00:00Z", data: { login: { 스마트스토어: { state: "ok" } } } }] });
+  assert.deepEqual([after.ok, after.board, after.review], [true, true, true], "그 뒤 로그인 성공 → 둘 다 ✓");
+  assert.equal(csLoginBoth("지그재그", {}).ok, null);
+}
+console.log("csBoard.mock.test (login both): OK");

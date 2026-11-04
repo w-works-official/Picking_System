@@ -1995,3 +1995,12 @@ a.cs-btn {
 .cs-vendor-card .cs-btn.cs-conn-row { width: 100%; min-height: 22px; padding: 1px 4px; font-size: 10.5px; background: #ffffff; border-color: transparent; }
 .cs-vendor-grid[data-login-grid] .cs-vendor-card .cs-btn.cs-conn-row { min-height: 22px; font-size: 10.5px; }
 .cs-vendor-card .cs-btn.cs-conn-all { font-size: 12px; }
+
+/* 11-04 밤: 카드 = 전체연결 (부분 버튼 밖), 부분 버튼에 게시판·리뷰 작은 글씨 */
+.cs-conn-card.is-clickable { cursor: pointer; transition: filter 0.15s, box-shadow 0.15s; }
+.cs-conn-card.is-clickable:hover { filter: brightness(1.06); box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.18) inset; }
+.cs-conn-card:focus-visible { outline: 3px solid #111827; outline-offset: 1px; }
+.cs-conn-hint { font-size: 9.5px; font-weight: 700; opacity: 0.75; margin-top: -2px; }
+.cs-vendor-card .cs-btn.cs-conn-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 1px 6px; text-align: left; }
+.cs-conn-tag { font-size: 9px; font-weight: 700; color: #6b7280; letter-spacing: -0.02em; }
+.cs-conn-state { font-size: 10.5px; }

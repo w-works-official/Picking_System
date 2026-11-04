@@ -549,13 +549,13 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       review: mode(loginBusy, st.review),
     };
   }
-  const CONN_LABEL = { all: "전체연결", board: "게시판 연결", review: "리뷰 연결" };
+  // 11-04 밤: 카드 자체가 [전체연결] (부분 버튼 밖을 누르면) — 상태는 부분 버튼(게시판·리뷰)에만 표시
   function renderConnectButtons() {
-    document.querySelectorAll("[data-login-grid] [data-conn]").forEach((btn) => {
-      const vendor = btn.dataset.connVendor;
-      const part = btn.dataset.conn;
-      const mode = live() ? connView(vendor)[part] : "req";
-      btn.textContent = mode === "ing" ? "연결중" : mode === "ok" ? "연결완료" : CONN_LABEL[part];
+    document.querySelectorAll('[data-login-grid] [data-conn="all"]').forEach((card) => card.classList.toggle("is-clickable", live() && !state.requesting));
+    document.querySelectorAll('[data-login-grid] button[data-conn]').forEach((btn) => {
+      const mode = live() ? connView(btn.dataset.connVendor)[btn.dataset.conn] : "req";
+      const label = btn.querySelector(".cs-conn-state");
+      if (label) label.textContent = mode === "ing" ? "연결중" : mode === "ok" ? "연결완료" : "연결요청";
       btn.classList.toggle("cs-conn-req", mode === "req");
       btn.classList.toggle("cs-conn-ing", mode === "ing");
       btn.classList.toggle("cs-conn-ok", mode === "ok");
@@ -984,7 +984,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (!button || button.disabled) return;
     const act = button.dataset.pc;
     if (act === "login") openLogin(button.dataset.loginVendor || "");
-    else if (act === "conn") requestConn(button.dataset.connVendor, button.dataset.conn);
+    else if (act === "conn") { if (button.dataset.conn !== "all" || button.classList.contains("is-clickable")) requestConn(button.dataset.connVendor, button.dataset.conn); }
     else if (act === "api-tab") { showLeft("settings"); $("#cs-api-box")?.scrollIntoView?.({ block: "start", behavior: "smooth" }); }
     else if (act === "apiKey") saveApiKey();
     else if (act === "apiTest" || act === "ip" || act === "files") requestPc(act);
@@ -1597,6 +1597,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-msn-demo")?.addEventListener("click", addDemoSlot);
     $("#cs-onetouch")?.addEventListener("click", () => openGuide(true));
     document.addEventListener("click", onPcClick);
+    document.addEventListener("keydown", (e) => {   // 카드(전체연결)도 Enter·Space 로
+      if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[data-login-grid] [data-conn="all"]')) { e.preventDefault(); onPcClick(e); }
+    });
     $("#cs-login-ok")?.addEventListener("click", submitLogin);
     $("#cs-login-body")?.addEventListener("change", (e) => {   // [부운영자로 로그인] 체크하면 상점 URL 칸 보이기
       if (!e.target.matches?.("[data-login-sub]")) return;

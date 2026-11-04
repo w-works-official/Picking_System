@@ -1957,3 +1957,8 @@ a.cs-btn {
 @media (prefers-reduced-motion: reduce) {
   .cs-progress, .cs-progress-spin, .cs-progress-bar i, .cs-login-row.is-flash { animation: none; }
 }
+
+/* 2026-11-04: 로그인 현황 카드 버튼 글씨 색 — 연결요청 빨강 · 연결중 회색 · 연결완료 검정 */
+.cs-vendor-card .cs-btn.cs-conn-req { color: #dc2626; font-weight: 800; }
+.cs-vendor-card .cs-btn.cs-conn-ing { color: #9ca3af; font-weight: 700; }
+.cs-vendor-card .cs-btn.cs-conn-ok { color: #111111; font-weight: 800; }

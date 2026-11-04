@@ -534,7 +534,25 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   // 2026-11-04: [🔑 직접 로그인] 버튼 옆 로그인 상태 — 버튼이 늘 보여서 "로그인 안 된 건가" 헷갈리지 않게
   // 스마트스토어 = 리뷰용 판매자센터 로그인이라 리뷰 수집 결과와 비교 (게시판 문의는 API)
+  // 2026-11-04: 메인보드 로그인 현황 카드 버튼 — 연결요청(빨강) · 연결중(회색, 로그인 요청 대기·실행 중) · 연결완료(검정)
+  function renderConnectButtons() {
+    document.querySelectorAll('[data-login-grid] [data-login-vendor]').forEach((btn) => {
+      const vendor = btn.dataset.loginVendor;
+      let mode = "req";
+      if (live()) {
+        const busy = state.jobs.some((j) => j.kind === "login" && (j.status === "대기" || j.status === "실행중") && (!j.vendors.length || j.vendors.includes(vendor)));
+        const st = csLoginStatus(vendor, { jobs: state.jobs, last: state.collector?.last });
+        mode = busy ? "ing" : st.ok === true ? "ok" : "req";
+      }
+      btn.textContent = mode === "ing" ? "연결중" : mode === "ok" ? "연결완료" : "연결요청";
+      btn.classList.toggle("cs-conn-req", mode === "req");
+      btn.classList.toggle("cs-conn-ing", mode === "ing");
+      btn.classList.toggle("cs-conn-ok", mode === "ok");
+    });
+  }
+
   function renderLoginBadges() {
+    renderConnectButtons();
     document.querySelectorAll("[data-login-badge]").forEach((el) => {
       const vendor = el.dataset.loginBadge;
       if (state.sample || !state.connected) { el.textContent = ""; el.className = "cs-login-badge"; return; }

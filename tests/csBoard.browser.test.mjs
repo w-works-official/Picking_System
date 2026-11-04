@@ -418,6 +418,12 @@ try {
     // 진행 작은 창: 로그인 대기
     await page.locator("#cs-progress:not([hidden])").waitFor();
     assert.match(await page.locator("#cs-progress").textContent(), /로그인 대기[\s\S]*기다리는 중/);
+    // 11-04: 로그인 현황 카드 버튼 — 요청한 업체는 연결중(회색), 아닌 업체는 연결요청(빨강)
+    const connBtn = (v) => page.locator(`[data-login-grid] [data-login-vendor="${v}"]`);
+    assert.equal(await connBtn("에이블리").textContent(), "연결중");
+    assert.match(await connBtn("에이블리").getAttribute("class"), /cs-conn-ing/);
+    assert.equal(await connBtn("메이크샵").textContent(), "연결요청");
+    assert.equal(await connBtn("메이크샵").evaluate((el) => getComputedStyle(el).color), "rgb(220, 38, 38)", "연결요청 = 빨강");
     const loginReq = lastRequest("login");
     assert.deepEqual(loginReq.options.vendors, ["지그재그", "에이블리"]);
     assert.equal(loginReq.options.collectAfter, true);
@@ -448,6 +454,9 @@ try {
     assert.match(await page.locator('[data-login-badge="스마트스토어"]').textContent(), /^✓ 로그인됨 \(\d/, "버튼 옆에 로그인 상태");
     assert.match(await page.locator('[data-login-badge="스마트스토어"]').getAttribute("class"), /is-ok/);
     await waitText("#cs-progress", /로그인 완료/);
+    assert.equal(await connBtn("에이블리").textContent(), "연결완료", "로그인 성공 → 연결완료");
+    assert.equal(await connBtn("에이블리").evaluate((el) => getComputedStyle(el).color), "rgb(17, 17, 17)", "연결완료 = 검정");
+    assert.equal(await connBtn("지그재그").textContent(), "연결완료");
     // 2026-11-03: 지난 수집은 "로그인 필요"였지만 방금 로그인 성공 → 해결 메모 + "(바뀌었을 때만)", 미리 골라지지 않음
     const ablyFixed = page.locator('[data-login-row="에이블리"]');
     assert.match(await ablyFixed.locator("[data-login-state]").textContent(), /지난 수집: 로그인 필요 → .*로그인 ✓ \(해결/);
@@ -483,7 +492,7 @@ try {
     assert.equal(JSON.stringify(requests).includes("Sub!pw77"), false);
     assert.equal(await page.evaluate(() => localStorage.getItem("system_v3_cs_makeshop_shop")), "pinkrocket.co.kr", "상점 URL 은 다음에 다시 안 쓰게 기억(비밀값 아님)");
     await page.locator('[data-left-panel="main"] [data-login-vendor="메이크샵"]').click();
-    assert.equal(await page.locator('[data-login-pick][value="메이크샵"]').isChecked(), true, "카드 [🔗 연결] → 그 업체 골라짐");
+    assert.equal(await page.locator('[data-login-pick][value="메이크샵"]').isChecked(), true, "카드 [연결요청] → 그 업체 골라짐");
     assert.equal(await page.locator('[data-login-row="메이크샵"] [data-login-sub]').isChecked(), true, "다음에도 부운영자로");
     const msJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     gas.post({ action: "finish", token: COLLECTOR, id: msJob.id, ok: true, message: "메이크샵 ✓", data: { login: { 메이크샵: { state: "ok" } } } });

@@ -215,6 +215,7 @@ export function normalizeCsJob(raw = {}) {
     message: line(result.message, 300),
     progress: result.progress === true,
     count: Number(raw.body?.count ?? (raw.body?.items || []).length) || 0,
+    vendors: Array.isArray(raw.body?.vendors) ? raw.body.vendors.map((v) => line(v, 20)).slice(0, 4) : [],
     data: result.data && typeof result.data === "object" ? result.data : null,
   };
 }

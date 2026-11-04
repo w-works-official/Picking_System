@@ -279,7 +279,7 @@ try {
     assert.equal(await collectButton.isDisabled(), false, "unlocked once connected");
     assert.notEqual(await collectButton.evaluate((el) => getComputedStyle(el).color), "rgb(220, 38, 38)");
     assert.equal(await page.locator("#cs-login-ok").isDisabled(), false, "login works from V3 now");
-    assert.match(await page.locator("#cs-login").textContent(), /로그인되면 바로 게시판 \+ 리뷰 수집/);
+    assert.match(await page.locator("#cs-login").textContent(), /전체 선택 \+ 게시판 \+ 리뷰 수집/);
     // 업체 끄기 → 요청에 반영 (게시판 탭)
     await page.locator('[data-left-tab="board"]').click();
     await page.locator('#cs-vendor-grid [data-vendor="메이크샵"] strong').click();
@@ -407,6 +407,10 @@ try {
     await ablyRow.locator("[data-login-pw]").fill("Secret!234");
     await page.locator('[data-login-pick][value="지그재그"]').check();
     await page.locator("#cs-login-collect").check();
+    // 11-04: [전체 선택 + 게시판 + 리뷰 수집] → 업체 4곳 모두 골라짐 → 여기서는 스마트스토어·메이크샵은 다시 빼고 보냄
+    assert.equal(await page.locator("[data-login-pick]:checked").count(), 4, "전체 선택");
+    await page.locator('[data-login-pick][value="스마트스토어"]').uncheck();
+    await page.locator('[data-login-pick][value="메이크샵"]').uncheck();
     await page.screenshot({ path: path.join(output, "cs-board-login.png") });
     await page.locator("#cs-login-ok").click();
     await page.locator("#cs-toast", { hasText: "로그인 요청을 보냈습니다" }).waitFor();
@@ -452,6 +456,7 @@ try {
     await page.locator('[data-login-pick][value="에이블리"]').uncheck();
     await page.locator('[data-login-pick][value="지그재그"]').uncheck();
     await page.locator("#cs-login-collect").uncheck();
+    assert.equal(await page.locator("[data-login-pick]:checked").count(), 0, "끄면 업체 체크도 모두 풀림");
     assert.doesNotMatch(await page.locator('[data-login-row="지그재그"] [data-login-state]').textContent(), /해결/, "안 바뀐 업체는 메모 없음");
     assert.match(await page.locator('[data-login-row="스마트스토어"] [data-login-state]').textContent(), /문의는 커머스 API 사용 중 \(로그인 필요 없음\) · 리뷰 수집만 판매자센터 로그인 필요/, "API 가 있으면 문의는 로그인 불필요");
     assert.match(await page.locator('[data-login-row="스마트스토어"] [data-login-manual]').textContent(), /자동 한 번.*직접 로그인.*퀴즈.*최대 5분.*자동으로 닫힙니다/, "스마트스토어: 자동 한 번 → 막히면 직접 → 되면 창 자동 닫힘 안내");

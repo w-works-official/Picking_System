@@ -86,7 +86,7 @@
                 <h3 id="cs-login-title" class="cs-sec-title">🔑 판매자센터 로그인 <small>(수집기 PC에서)</small></h3>
                 <p class="cs-note">수집기 PC가 로그인 창을 열고 <b>그 PC에 저장된 아이디·비밀번호</b>로 로그인합니다. 휴대폰 2단계 인증이 오면 휴대폰에서 [확인]만 누르세요 (3분 기다림).</p>
                 <div id="cs-login-body" class="cs-login-body"><p class="cs-note">시트 연결 후 업체별 로그인 상태가 보입니다.</p></div>
-                <label class="cs-check cs-check-lg"><input type="checkbox" id="cs-login-collect" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"> 로그인되면 바로 <b>게시판 + 리뷰</b> 수집</label>
+                <label class="cs-check cs-check-lg"><input type="checkbox" id="cs-login-collect" disabled class="is-pending" data-live data-pending="시트 연결 후 작동"> <span><b>전체 선택</b> + 게시판 + 리뷰 수집 <small class="cs-note">(업체 4곳 모두 고르고, 로그인되면 바로 게시판 → 리뷰 수집)</small></span></label>
                 <p class="cs-note">※ 메이크샵은 같은 계정 동시 로그인 불가 — 다른 PC에서 쓰는 중이면 그쪽이 로그아웃됩니다.<br>※ 새 비밀번호는 수집기 PC 공개키로 잠가서 보내고, 로그인에 성공하면 그 PC에만 Windows 암호화로 저장합니다.</p>
                 <div class="cs-row cs-login-actions">
                   <button type="button" class="cs-btn cs-btn-primary cs-btn-xl is-pending" id="cs-login-ok" disabled data-live data-pending="시트 연결 후 작동">🔑 로그인 요청</button>
@@ -401,7 +401,7 @@
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261104-ui3"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261104-ui4"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261103-status4"></script>
     <script type="module" src="../src/app/msnSlots.mjs?v=20261103-msn1"></script>
   </body>

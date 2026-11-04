@@ -1567,7 +1567,11 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     ["input", "change"].forEach((type) => $("#cs-login-body")?.addEventListener(type, () => { loginDirty = true; }));
     const keepPick = () => writeLoginPick({ vendors: $$("#cs-login [data-login-pick]:checked").map((el) => el.value), collect: !!$("#cs-login-collect")?.checked });
     $("#cs-login-body")?.addEventListener("change", (e) => { if (e.target.matches?.("[data-login-pick]")) keepPick(); });
-    $("#cs-login-collect")?.addEventListener("change", keepPick);
+    $("#cs-login-collect")?.addEventListener("change", (e) => {   // 11-04: [전체 선택 + 게시판 + 리뷰 수집] — 켜면 업체 4곳 모두, 끄면 모두 풀기
+      $$("#cs-login [data-login-pick]").forEach((el) => { el.checked = e.target.checked; });
+      loginDirty = true;
+      keepPick();
+    });
     $("#cs-login-body")?.addEventListener("click", (e) => { if (e.target.closest("summary")) loginDirty = true; });
     $("#cs-excel-file")?.addEventListener("change", (e) => importExcel(e.target.files?.[0]));
     $("#cs-set-save")?.addEventListener("click", saveSettings);

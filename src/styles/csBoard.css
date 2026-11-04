@@ -1988,3 +1988,10 @@ a.cs-btn {
   padding: 8px 4px 8px;
 }
 .cs-vendor-grid[data-login-grid] .cs-vendor-card .cs-btn:not(.cs-api-mini) { min-height: 28px; font-size: 12px; }
+
+/* 2026-11-04 밤: 로그인 현황 카드 — [전체연결] 아래 [게시판 연결]·[리뷰 연결] 두 줄 */
+.cs-conn-rows { display: grid; gap: 3px; width: calc(100% - 8px); padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.45); }
+.cs-vendor-card[data-vendor="지그재그"] .cs-conn-rows { border-top-color: rgba(0, 0, 0, 0.2); }
+.cs-vendor-card .cs-btn.cs-conn-row { width: 100%; min-height: 22px; padding: 1px 4px; font-size: 10.5px; background: #ffffff; border-color: transparent; }
+.cs-vendor-grid[data-login-grid] .cs-vendor-card .cs-btn.cs-conn-row { min-height: 22px; font-size: 10.5px; }
+.cs-vendor-card .cs-btn.cs-conn-all { font-size: 12px; }

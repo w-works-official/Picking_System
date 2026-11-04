@@ -535,25 +535,40 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   // 2026-11-04: [🔑 직접 로그인] 버튼 옆 로그인 상태 — 버튼이 늘 보여서 "로그인 안 된 건가" 헷갈리지 않게
   // 스마트스토어 = 리뷰용 판매자센터 로그인이라 리뷰 수집 결과와 비교 (게시판 문의는 API)
-  // 2026-11-04: 메인보드 로그인 현황 카드 버튼 — 연결요청(빨강) · 연결중(회색, 로그인 요청 대기·실행 중) · 연결완료(검정)
+  // 2026-11-04 밤: 메인보드 로그인 현황 — 업체마다 [전체연결] · [게시판 연결] · [리뷰 연결] (+ 스마트스토어 [API 설정])
+  //  글씨: 연결 전 = 빨강 · 연결중(요청 대기·실행 중) = 회색 · 연결완료 = 검정. 게시판·리뷰 중 하나라도 풀리면 [전체연결] 빨강
+  const activeJob = (kind, vendor) => state.jobs.some((j) => j.kind === kind && (j.status === "대기" || j.status === "실행중") && (!(j.vendors || []).length || j.vendors.includes(vendor)));
+  function connView(vendor) {
+    const st = csLoginBoth(vendor, { jobs: state.jobs, last: state.collector?.last, reviewLast: state.collector?.reviewLast });
+    const loginBusy = activeJob("login", vendor);
+    const apiBusy = vendor === "스마트스토어" && state.jobs.some((j) => j.kind === "apiTest" && (j.status === "대기" || j.status === "실행중"));
+    const mode = (busy, ok) => (busy ? "ing" : ok === true ? "ok" : "req");
+    return {
+      all: mode(loginBusy, st.ok),
+      board: mode(vendor === "스마트스토어" ? apiBusy : loginBusy, st.board),
+      review: mode(loginBusy, st.review),
+    };
+  }
+  const CONN_LABEL = { all: "전체연결", board: "게시판 연결", review: "리뷰 연결" };
   function renderConnectButtons() {
-    document.querySelectorAll('[data-login-grid] [data-login-vendor]').forEach((btn) => {
-      const vendor = btn.dataset.loginVendor;
-      let mode = "req", detail = "", bad = false;
-      if (live()) {
-        const busy = state.jobs.some((j) => j.kind === "login" && (j.status === "대기" || j.status === "실행중") && (!(j.vendors || []).length || j.vendors.includes(vendor)));
-        const st = csLoginBoth(vendor, { jobs: state.jobs, last: state.collector?.last, reviewLast: state.collector?.reviewLast });
-        mode = busy ? "ing" : st.ok === true ? "ok" : "req";
-        detail = st.text;
-        bad = st.ok === false;
-      }
-      const d = document.querySelector(`[data-login-detail="${vendor}"]`);
-      if (d) { d.textContent = detail; d.classList.toggle("is-bad", bad); }
-      btn.textContent = mode === "ing" ? "연결중" : mode === "ok" ? "연결완료" : "연결요청";
+    document.querySelectorAll("[data-login-grid] [data-conn]").forEach((btn) => {
+      const vendor = btn.dataset.connVendor;
+      const part = btn.dataset.conn;
+      const mode = live() ? connView(vendor)[part] : "req";
+      btn.textContent = mode === "ing" ? "연결중" : mode === "ok" ? "연결완료" : CONN_LABEL[part];
       btn.classList.toggle("cs-conn-req", mode === "req");
       btn.classList.toggle("cs-conn-ing", mode === "ing");
       btn.classList.toggle("cs-conn-ok", mode === "ok");
     });
+  }
+
+  // 연결 버튼: 전체 = 로그인 → 게시판 → 리뷰 수집까지(둘 다 확인) · 게시판/리뷰 = 그 부분만 (스마트스토어 게시판 = 커머스 API 연결 확인)
+  async function requestConn(vendor, part) {
+    if (!vendor) return;
+    if (part === "board" && vendor === "스마트스토어") { await requestPc("apiTest", {}, "스마트스토어 게시판(커머스 API) 연결 확인을 요청했습니다"); return; }
+    const manual = CS_MANUAL_LOGIN.includes(vendor) ? " — 막히면 수집기 PC 크롬 창에서 직접 로그인 (되면 창 자동으로 닫힘)" : "";
+    const what = part === "all" ? "전체연결(로그인 → 게시판 → 리뷰 수집)" : part === "board" ? "게시판 연결(로그인)" : "리뷰 연결(로그인)";
+    await requestPc("login", { vendors: [vendor], creds: {}, collectAfter: part === "all" }, `${vendor} ${what} 요청을 보냈습니다${manual}`);
   }
 
   function renderLoginBadges() {
@@ -969,6 +984,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (!button || button.disabled) return;
     const act = button.dataset.pc;
     if (act === "login") openLogin(button.dataset.loginVendor || "");
+    else if (act === "conn") requestConn(button.dataset.connVendor, button.dataset.conn);
     else if (act === "api-tab") { showLeft("settings"); $("#cs-api-box")?.scrollIntoView?.({ block: "start", behavior: "smooth" }); }
     else if (act === "apiKey") saveApiKey();
     else if (act === "apiTest" || act === "ip" || act === "files") requestPc(act);

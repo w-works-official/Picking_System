@@ -645,6 +645,20 @@ nb5 = L.NativeChrome(G, pw=types.SimpleNamespace(chromium=NChromium(own5)), chro
 r = L.native_login(G, "스마트스토어", msgs.append, say, creds={"스마트스토어": ("newid", "newpw")}, d=d19, nb=nb5, sleep=tick)
 assert r["state"] == "ok" and L.load_cred(d19, "스마트스토어") == {"id": "newid", "pw": "newpw"} and "저장" in r["note"]
 L.time.time = real_time
+# (d2) 1.8.1: 기다릴 때 창 소식을 받도록 wait_for_timeout 으로 (time.sleep 금지) · 처음부터 로그인 주소 탭 하나
+class PumpPage:
+    def __init__(self): self.waits = []
+    def is_closed(self): return False
+    def wait_for_timeout(self, ms): self.waits.append(ms)
+pp = PumpPage()
+L.pump_wait(types.SimpleNamespace(ctx=types.SimpleNamespace(pages=[pp])), 2)
+assert pp.waits == [2000]
+own6 = Owner()
+nb6 = L.NativeChrome(G, pw=types.SimpleNamespace(chromium=NChromium(own6)), chrome="c", popen=lambda a: setattr(own6, "args", a) or NProc(), start_url=L.LOGIN_URL["스마트스토어"])
+assert own6.args is None
+with nb6 as b6:
+    pass
+assert own6.args[-1] == L.LOGIN_URL["스마트스토어"], "빈 탭 대신 로그인 주소로 바로"
 # (e) 크롬이 없으면 None (1.6 방식으로)
 orig_find = L.find_chrome
 L.find_chrome = lambda: None

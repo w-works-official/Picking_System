@@ -56,6 +56,8 @@
     로그인되는 순간 쿠키(세션 포함)를 native_cookies.enc 에 보관하고 창을 자동으로 닫음
   · 스마트스토어 리뷰 수집도 같은 일반 크롬(화면 밖)으로 — 보관한 쿠키를 넣어서
   · 다른 업체(자동화 창): 30초 안에 안 되거나 자동입력 방지 문자가 나오면 "직접 로그인" 안내, 최대 5분 기다림, 되면 창 닫힘
+  · 1.8.1: 기다리는 동안 time.sleep 대신 창의 wait_for_timeout — sleep 중엔 주소 바뀜 소식을 못 받아
+    판매자센터에 들어가도 로그인을 못 알아챘음 (11/4 15:23)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -63,7 +65,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.8 (2026-11-04)"
+LINK_VER = "1.8.1 (2026-11-04)"
 POLL_SEC = 15
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
@@ -640,8 +642,8 @@ def save_native_cookies(G, cookies):
 class NativeChrome:
     """자동화 표시 없는 일반 크롬(네이버 전용 프로필)을 띄우고 원격 연결(CDP)로 읽음 (1.8)
        .page() · .ctx · .show 는 수집기 Browser 와 같은 모양. 끝나면 쿠키 보관 + 창 닫기"""
-    def __init__(self, G, pw=None, offscreen=False, chrome=None, popen=None, connect_wait=15):
-        self.G, self.pw, self.offscreen, self.show = G, pw, offscreen, True
+    def __init__(self, G, pw=None, offscreen=False, chrome=None, popen=None, connect_wait=15, start_url=None):
+        self.G, self.pw, self.offscreen, self.show, self.start_url = G, pw, offscreen, True, start_url
         self.chrome, self.popen, self.connect_wait = chrome or find_chrome(), popen, connect_wait
         self.proc = self.browser = self.ctx = self._spw = None
 
@@ -651,7 +653,7 @@ class NativeChrome:
             raise RuntimeError("이 PC에서 크롬을 찾지 못했습니다")
         port = free_port()
         args = [self.chrome, f"--user-data-dir={native_profile(self.G)}", f"--remote-debugging-port={port}",
-                "--no-first-run", "--no-default-browser-check"] + (OFFSCREEN_ARGS if self.offscreen else []) + ["about:blank"]
+                "--no-first-run", "--no-default-browser-check"] + (OFFSCREEN_ARGS if self.offscreen else []) + [self.start_url or "about:blank"]
         self.proc = (self.popen or subprocess.Popen)(args)
         if self.pw is None:
             from playwright.sync_api import sync_playwright
@@ -737,7 +739,22 @@ def logged_in_somewhere(nb, v):
     return False
 
 
-def native_login(G, v, progress, say, creds=None, d=None, wait_sec=None, auto_sec=None, nb=None, sleep=time.sleep):
+def pump_wait(br, sec):
+    """기다리는 동안 Playwright 가 창 소식(주소 바뀜 등)을 받도록 — time.sleep 은 소식을 안 받아 주소가 옛날 그대로 보임 (1.8.1)"""
+    try:
+        pages = [p for p in br.ctx.pages if not p.is_closed()]
+    except Exception:
+        pages = []
+    for p in pages:
+        try:
+            p.wait_for_timeout(int(sec * 1000))
+            return
+        except Exception:
+            continue
+    time.sleep(sec)
+
+
+def native_login(G, v, progress, say, creds=None, d=None, wait_sec=None, auto_sec=None, nb=None, sleep=None):
     """스마트스토어 로그인 (1.8): 일반 크롬 창 → 자동으로 한 번 시도(저장된 아이디·비번 또는 크롬 자동완성 + Enter)
        → 막히면 창을 그대로 두고 사람이 로그인 → 로그인되는 순간 쿠키 보관하고 창을 자동으로 닫음.
        돌려줌: 결과 dict, 또는 None(크롬이 없어 이 방식을 못 씀)"""
@@ -747,10 +764,16 @@ def native_login(G, v, progress, say, creds=None, d=None, wait_sec=None, auto_se
     auto_sec = NATIVE_AUTO_SEC if auto_sec is None else auto_sec
     mins = max(1, round(wait_sec / 60))
     given = (creds or {}).get(v)
-    with (nb or NativeChrome(G)) as br:
-        pg = br.page()
-        pg.goto(LOGIN_URL[v], wait_until="domcontentloaded", timeout=60000)
-        pg.wait_for_timeout(2500)
+    with (nb or NativeChrome(G, start_url=LOGIN_URL[v])) as br:
+        if sleep is None:
+            sleep = lambda sec: pump_wait(br, sec)
+        opened = [p for p in br.ctx.pages if LOGIN_URL[v].split("#")[0] in (p.url or "")]
+        if opened:                                     # 처음부터 로그인 주소로 연 탭 하나만 씀 — 빈 탭이 하나 더 뜨지 않게 (1.8.1)
+            pg = opened[0]
+        else:
+            pg = br.page()
+            pg.goto(LOGIN_URL[v], wait_until="domcontentloaded", timeout=60000)
+        pg.wait_for_timeout(1500)
         if logged_in_somewhere(br, v):
             br.keep_cookies()
             return dict(state="ok", note="이미 로그인됨")

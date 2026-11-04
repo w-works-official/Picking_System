@@ -531,9 +531,23 @@ assert st == "로그인 필요"
 # 테스트 모드: 답글 있어도 n건
 st, rows, _ = G2.collect_reviews_zigzag(FakeBr(replay={"rows": items, "total": 2, "errors": []}), {**rcfg, "test": True, "test_limit": 1})
 assert len(rows) == 1
-# 스마트스토어 리뷰도 숨김이면 화면 밖 창에서
+# 스마트스토어 리뷰: 크롬이 없으면 화면 밖 자동화 창에서 (1.6)
+_find = L.find_chrome
+L.find_chrome = lambda: None
 assert G2.collect_reviews_smartstore(FakeBr(), {})[1][0]["via"] == "show"
 assert G2.collect_reviews_smartstore(FakeBr(show=True), {})[1][0]["via"] == "show"
+# 1.8: 크롬이 있으면 일반 크롬(네이버 전용 프로필, 화면 밖)으로 — 수집기 Playwright 를 그대로 써서 원격 연결
+L.find_chrome = lambda: "C:/chrome.exe"
+made = []
+class FakeNative:
+    def __init__(self, G_, pw=None, offscreen=False, **kw): made.append((pw, offscreen)); self.show = True
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+_NC = L.NativeChrome
+L.NativeChrome = FakeNative
+fb = FakeBr()
+assert G2.collect_reviews_smartstore(fb, {})[1][0]["via"] == "show" and made == [(fb.pw, True)] and not hasattr(fb, "launch")
+L.NativeChrome, L.find_chrome = _NC, _find
 # 수집기에 함수가 없으면 아무것도 안 바꿈
 G3 = types.ModuleType("g3"); L.patch_review_collectors(G3); assert not hasattr(G3, "collect_reviews_zigzag")
 
@@ -552,66 +566,126 @@ assert r["state"] == "manual_fail" and "다시" in r["note"]
 L.page_logged_in = orig_pli
 
 
-# ── 1.7 스마트스토어 = 일반 크롬 창으로 로그인 (자동화 창은 네이버가 막음) ──
-class FakeProc:
-    def __init__(self, delay=0.0, hang=False): self.delay, self.hang, self.killed = delay, hang, False
-    def wait(self, timeout=None):
-        if self.hang:
-            raise TimeoutError("still open")
-        time.sleep(self.delay)
-    def terminate(self): self.killed = True
-launched, msgs = [], []
-G.PROFILE = os.path.join(tmp, "browser_profile")
-G.COOKIES = os.path.join(tmp, "cookies.enc")
-open(G.COOKIES, "w", encoding="utf-8").write(G.enc_secret(json.dumps([{"name": "NID_AUT", "domain": ".naver.com"}, {"name": "s", "domain": ".kakaostyle.com"}])))
-L.NATIVE_QUICK_SEC = 0.05
-proc = FakeProc(delay=0.1)
-r = L.native_login(G, "스마트스토어", msgs.append, say, wait_sec=60, popen=lambda a: launched.append(a) or proc, chrome="C:/chrome.exe", check=lambda G_, v: True)
-assert r["state"] == "ok" and "일반 크롬" in r["note"], r
-a = launched[-1]
-assert a[0] == "C:/chrome.exe" and f"--user-data-dir={G.PROFILE}" in a and a[-1] == L.LOGIN_URL["스마트스토어"], a
-assert not any("automation" in x for x in a), "자동화 표시 없이"
-assert "창을 닫아" in msgs[0]
-left = json.loads(G.dec_secret(open(G.COOKIES, encoding="utf-8").read()))
-assert [c["name"] for c in left] == ["s"], "옛 네이버 쿠키만 지움 (다른 사이트 쿠키는 그대로)"
-# 확인 실패 · 바로 닫힘 · 시간 초과 · 크롬 없음
-r = L.native_login(G, "스마트스토어", msgs.append, say, wait_sec=60, popen=lambda a: FakeProc(delay=0.1), chrome="c", check=lambda G_, v: False)
-assert r["state"] == "manual_fail" and "확인되지 않음" in r["note"]
-L.NATIVE_QUICK_SEC = 5
-r = L.native_login(G, "스마트스토어", msgs.append, say, wait_sec=60, popen=lambda a: FakeProc(delay=0), chrome="c", check=lambda G_, v: True)
-assert r["state"] == "manual_fail" and "바로 닫혔" in r["note"]
-L.NATIVE_QUICK_SEC = 0.05
-hp = FakeProc(hang=True)
-r = L.native_login(G, "스마트스토어", msgs.append, say, wait_sec=60, popen=lambda a: hp, chrome="c", check=lambda G_, v: True)
-assert r["state"] == "manual_fail" and "닫히지 않음" in r["note"] and hp.killed
+# ── 1.8 로그인: 자동 한 번 → 막히면 사람 → 되면 자동으로 닫기 (스마트스토어 = 일반 크롬 + 원격 연결) ──
+class NPage:
+    def __init__(self, owner): self.owner, self.url = owner, "about:blank"
+    def goto(self, url, **kw): self.url = url; self.owner.gotos.append(url)
+    def wait_for_timeout(self, ms): pass
+    def bring_to_front(self): self.owner.front = True
+class NCtx:
+    def __init__(self, owner): self.owner, self.pages, self.added = owner, [], []
+    def new_page(self): p = NPage(self.owner); self.pages.append(p); return p
+    def cookies(self): return [{"name": "NID_SES", "domain": ".naver.com", "value": "x"}, {"name": "other", "domain": ".a.com"}]
+    def add_cookies(self, ck): self.added += ck
+class NBrowser:
+    def __init__(self, owner): self.owner, self.contexts, self.closed = owner, [NCtx(owner)], False
+    def new_browser_cdp_session(self):
+        owner = self.owner
+        return types.SimpleNamespace(send=lambda m: owner.sent.append(m))
+    def close(self): self.closed = True
+class NChromium:
+    def __init__(self, owner): self.owner = owner
+    def connect_over_cdp(self, url): self.owner.cdp = url; self.owner.browser = NBrowser(self.owner); return self.owner.browser
+class NProc:
+    def wait(self, timeout=None): pass
+    def terminate(self): pass
+class Owner:
+    def __init__(self): self.gotos, self.sent, self.front, self.args = [], [], False, None
+own = Owner()
+G.BASE = tmp
+nb = L.NativeChrome(G, pw=types.SimpleNamespace(chromium=NChromium(own)), chrome="C:/chrome.exe", popen=lambda a: setattr(own, "args", a) or NProc())
+# 단계별로 로그인 상태를 바꾸는 가짜 판정
+phase = {"logged_after": None, "calls": 0}
+def logged_fake(p):
+    phase["calls"] += 1
+    return phase["logged_after"] is not None and phase["calls"] >= phase["logged_after"]
+L.page_logged_in = logged_fake
+fills, msgs = [], []
+L.fill_login = lambda pg, u, pw: fills.append((u, pw))
+L.autologin_saved = lambda pg: "아이디/비번이 채워져 있지 않음"
+# (a) 자동으로 되는 경우: 저장된 아이디·비번으로 → 몇 번 뒤 로그인됨 → 쿠키 보관 + 창 닫기
+d18 = {}
+L.save_cred(d18, "스마트스토어", "pinkrocket", "pw1")
+phase.update(logged_after=3, calls=0)
+r = L.native_login(G, "스마트스토어", msgs.append, say, creds={}, d=d18, wait_sec=5, auto_sec=5, nb=nb, sleep=lambda s: None)
+assert r["state"] == "ok" and "자동" in r["note"], r
+assert fills == [("pinkrocket", "pw1")]
+a = own.args
+assert a[0] == "C:/chrome.exe" and f"--user-data-dir={os.path.join(tmp, 'native_profile')}" in a and any(x.startswith("--remote-debugging-port=") for x in a), a
+assert not any("automation" in x for x in a) and own.cdp.startswith("http://127.0.0.1:")
+assert own.sent == ["Browser.close"], "로그인되면 창을 자동으로 닫음"
+assert [c["name"] for c in L.load_native_cookies(G)] == ["NID_SES"], "세션 쿠키까지 보관 (네이버 것만)"
+assert any("자동 로그인 한 번 시도" in m for m in msgs)
+# (b) 막히는 경우: 자동 시도 시간 안에 안 됨 → 창 앞으로 + "직접 로그인" 안내 → 사람이 로그인 → 자동으로 닫힘
+own2 = Owner(); msgs.clear(); fills.clear()
+nb2 = L.NativeChrome(G, pw=types.SimpleNamespace(chromium=NChromium(own2)), chrome="c", popen=lambda a: NProc())
+clock = {"t": 0.0}
+real_time = L.time.time
+L.time.time = lambda: clock["t"]
+def tick(s): clock["t"] += s
+phase.update(logged_after=40, calls=0)
+r = L.native_login(G, "스마트스토어", msgs.append, say, creds={}, d={}, wait_sec=300, auto_sec=40, nb=nb2, sleep=tick)
+assert r["state"] == "ok" and "직접" in r["note"], r
+assert own2.front and any("자동 로그인이 막혔습니다" in m and "자동으로 닫힙니다" in m for m in msgs), msgs
+assert own2.sent == ["Browser.close"]
+# (c) 시간 안에 사람도 못 함 → 실패, 창은 닫힘
+own3 = Owner(); clock["t"] = 0
+nb3 = L.NativeChrome(G, pw=types.SimpleNamespace(chromium=NChromium(own3)), chrome="c", popen=lambda a: NProc())
+phase.update(logged_after=None, calls=0)
+r = L.native_login(G, "스마트스토어", msgs.append, say, creds={}, d={}, wait_sec=20, auto_sec=10, nb=nb3, sleep=tick)
+assert r["state"] == "manual_fail" and own3.sent == ["Browser.close"], r
+# (d) 이미 로그인 · 웹에서 받은 비밀번호는 성공했을 때만 저장
+own4 = Owner(); clock["t"] = 0
+phase.update(logged_after=1, calls=0)
+nb4 = L.NativeChrome(G, pw=types.SimpleNamespace(chromium=NChromium(own4)), chrome="c", popen=lambda a: NProc())
+assert L.native_login(G, "스마트스토어", msgs.append, say, nb=nb4, sleep=tick)["note"] == "이미 로그인됨"
+own5 = Owner(); clock["t"] = 0; d19 = {}
+phase.update(logged_after=2, calls=0)
+nb5 = L.NativeChrome(G, pw=types.SimpleNamespace(chromium=NChromium(own5)), chrome="c", popen=lambda a: NProc())
+r = L.native_login(G, "스마트스토어", msgs.append, say, creds={"스마트스토어": ("newid", "newpw")}, d=d19, nb=nb5, sleep=tick)
+assert r["state"] == "ok" and L.load_cred(d19, "스마트스토어") == {"id": "newid", "pw": "newpw"} and "저장" in r["note"]
+L.time.time = real_time
+# (e) 크롬이 없으면 None (1.6 방식으로)
 orig_find = L.find_chrome
 L.find_chrome = lambda: None
-assert L.native_login(G, "스마트스토어", msgs.append, say) is None, "크롬이 없으면 1.6 방식으로"
-# run_login_job: 스마트스토어만이면 자동화 브라우저를 아예 열지 않음, 다른 업체는 그대로
+assert L.native_login(G, "스마트스토어", msgs.append, say) is None
+# (f) run_login_job: 스마트스토어만이면 자동화 브라우저를 열지 않음
 L.find_chrome = lambda: "C:/chrome.exe"
 orig_native = L.native_login
-L.native_login = lambda G_, v, progress, say_: dict(state="ok", note="로그인됨 (일반 크롬 창)")
+L.native_login = lambda G_, v, progress, say_, creds=None, d=None: dict(state="ok", note="로그인됨 (직접)")
 def no_browser(show=False):
     raise AssertionError("스마트스토어만일 때는 자동화 브라우저를 열지 않음")
 G.Browser, keepB = no_browser, G.Browser
 ok, msg, data = L.run_login_job({"id": "JN", "kind": "login", "body": {"vendors": ["스마트스토어"]}}, cfg, say, prog.append, d14)
 assert ok and data["login"]["스마트스토어"]["state"] == "ok", (msg, data)
+# (g) 자동화 창 업체: 30초 지나면 "직접 로그인" 안내, 되면 성공
 class SimplePg:
     url = ""
     def goto(self, url, **kw): cur["v"] = [v for v, u in L.LOGIN_URL.items() if u == url][0]; self.url = url
-    def wait_for_timeout(self, ms): pass
+    def wait_for_timeout(self, ms): clock["t"] += ms / 1000
     def close(self): pass
+    def bring_to_front(self): pass
 class SimpleBr:
     def __init__(self, show=False): assert show is True
     def __enter__(self): return self
     def __exit__(self, *a): return False
     def page(self): return SimplePg()
 G.Browser = SimpleBr
-L.page_logged_in = fake_logged_in
-state15["logged"]["지그재그"] = True
+L.time.time = lambda: clock["t"]
+clock["t"] = 0
+n = {"i": 0}
+def zz_logged(pg):
+    n["i"] += 1
+    return cur.get("v") == "지그재그" and n["i"] > 25    # 처음 확인 + 2초씩 → 약 48초 뒤 로그인
+L.page_logged_in = zz_logged
+L.LOGIN_WAIT_SEC = 300
+prog.clear()
 ok, msg, data = L.run_login_job({"id": "JN2", "kind": "login", "body": {"vendors": ["스마트스토어", "지그재그"]}}, cfg, say, prog.append, d14)
 assert data["login"]["스마트스토어"]["state"] == "ok" and data["login"]["지그재그"]["state"] == "ok", data
+assert any("지그재그: 자동 로그인이 막혔습니다" in m for m in prog), prog
+L.time.time = real_time
 L.native_login, L.find_chrome = orig_native, orig_find
 G.Browser = keepB
+L.LOGIN_WAIT_SEC = 0.4
 
 print("g1V3Link.test: OK")

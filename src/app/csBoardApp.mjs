@@ -703,14 +703,14 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       return `<div class="cs-login-row" data-login-row="${escapeHtml(v)}">
         <label class="cs-check"><input type="checkbox" data-login-pick value="${escapeHtml(v)}"${pick.includes(v) ? " checked" : ""}> <b>${escapeHtml(v)}</b></label>
         <span class="cs-note${st.ok === false && !apiOnly ? " cs-login-bad" : ""}" data-login-state>${apiOnly ? "✓ 문의는 커머스 API 사용 중 (로그인 필요 없음) · 리뷰 수집만 판매자센터 로그인 필요" : escapeHtml(st.changed ? st.note : st.text)}${saved && !manual ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
-        ${manual ? `<p class="cs-note" data-login-manual>🙋 <b>직접 로그인</b> — 수집기 PC에 <b>일반 크롬 창</b>이 뜨면 평소처럼 로그인(퀴즈·2단계 인증 포함)하고, 판매자센터 화면이 보이면 <b>그 창을 닫아 주세요</b> (최대 5분, 자동으로 채우지 않음). 수집기 PC 앞에 계실 때 누르세요.</p>` : `<details${pick.includes(v) && !done ? " open" : ""}><summary>새 아이디·비밀번호 넣기${apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
+        ${manual ? `<p class="cs-note" data-login-manual>🙋 <b>자동 한 번 → 막히면 직접 로그인</b> — 수집기 PC에 <b>일반 크롬 창</b>이 뜨고 저장된 아이디·비밀번호로 한 번 로그인해 봅니다. 막히면 그 창에서 평소처럼 직접 로그인(퀴즈·2단계 인증 포함, 최대 5분)하시면, 로그인되는 순간 <b>창은 자동으로 닫힙니다</b>. 수집기 PC 앞에 계실 때 누르세요.</p>` : ""}<details${pick.includes(v) && !done && !manual ? " open" : ""}><summary>새 아이디·비밀번호 넣기${manual ? " (자동 시도용 — 처음 한 번)" : apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
           ${canLock ? `<div class="cs-form cs-login-creds">
             ${v === "메이크샵" ? `<label class="cs-check"><input type="checkbox" data-login-sub${readShop() ? " checked" : ""}> <span>부운영자로 로그인 <small>(운영자와 따로 로그인 — 동시 로그인으로 튕기지 않음)</small></span></label>
             <label data-login-shop-wrap${readShop() ? "" : " hidden"}>상점 URL <input type="text" data-login-shop autocomplete="off" placeholder="예: pinkrocket.co.kr" value="${escapeHtml(readShop())}"></label>` : ""}
             <label>아이디 <input type="text" data-login-id autocomplete="off"></label>
             <label>비밀번호 <input type="password" data-login-pw autocomplete="new-password"></label>
           </div>` : `<p class="cs-note">수집기 PC 웹연결 1.3 이상이 켜져 있어야 비밀번호를 잠가 보낼 수 있습니다.</p>`}
-        </details>`}
+        </details>
       </div>`;
     }).join("");
     $("#cs-login-collect").checked = false;
@@ -752,7 +752,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const collectAfter = !!$("#cs-login-collect")?.checked;
     closeLogin();
     const manualPick = vendors.filter((v) => CS_MANUAL_LOGIN.includes(v));
-    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}${manualPick.length ? ` — ${manualPick.join("·")}: 수집기 PC에 뜬 크롬 창에서 로그인한 뒤 그 창을 닫아 주세요 (최대 5분)` : ""}`);
+    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}${manualPick.length ? ` — ${manualPick.join("·")}: 자동으로 한 번 해 보고, 막히면 수집기 PC 크롬 창에서 직접 로그인 (창은 로그인되면 자동으로 닫힘)` : ""}`);
   }
 
   // 엑셀 내려받기 / 📥 엑셀 등록 (SheetJS — 피킹 화면과 같은 라이브러리)

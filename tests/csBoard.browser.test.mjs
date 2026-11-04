@@ -422,7 +422,11 @@ try {
     assert.equal(await unlock(loginReq.options.creds["에이블리"].pw), "Secret!234", "only the collector PC key opens it");
     assert.equal(await unlock(loginReq.options.creds["에이블리"].id), "pink_ably");
     assert.equal(await page.locator('[data-login-row="에이블리"] [data-login-pw]').inputValue(), "", "typed password is not kept on screen");
-    assert.equal(await page.locator("#cs-login-collect").isChecked(), false);
+    // 2026-11-04: 요청 뒤에도 체크 유지 (비밀번호 칸만 비움) — 다시 그려도·새로 열어도
+    assert.equal(await page.locator("#cs-login-collect").isChecked(), true, "게시판 + 리뷰 수집 체크 유지");
+    assert.equal(await page.locator('[data-login-pick][value="에이블리"]').isChecked(), true, "업체 체크 유지");
+    assert.equal(await page.locator('[data-login-pick][value="지그재그"]').isChecked(), true);
+    assert.deepEqual(JSON.parse(await page.evaluate(() => localStorage.getItem("system_v3_cs_login_pick"))), { vendors: ["지그재그", "에이블리"], collect: true });
     const lj = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     assert.equal(lj.kind, "login");
     gas.post({ action: "progress", token: COLLECTOR, id: lj.id, message: "에이블리: 휴대폰 2단계 인증이면 휴대폰에서 [확인]을 눌러 주세요" });
@@ -444,7 +448,10 @@ try {
     const ablyFixed = page.locator('[data-login-row="에이블리"]');
     assert.match(await ablyFixed.locator("[data-login-state]").textContent(), /지난 수집: 로그인 필요 → .*로그인 ✓ \(해결/);
     assert.match(await ablyFixed.locator("summary").textContent(), /\(바뀌었을 때만\)/);
-    assert.equal(await page.locator('[data-login-pick][value="에이블리"]').isChecked(), false, "해결된 업체는 미리 안 골라짐");
+    assert.equal(await page.locator('[data-login-pick][value="에이블리"]').isChecked(), true, "지난번 체크 유지 (해결돼도 대표님이 고른 대로)");
+    await page.locator('[data-login-pick][value="에이블리"]').uncheck();
+    await page.locator('[data-login-pick][value="지그재그"]').uncheck();
+    await page.locator("#cs-login-collect").uncheck();
     assert.doesNotMatch(await page.locator('[data-login-row="지그재그"] [data-login-state]').textContent(), /해결/, "안 바뀐 업체는 메모 없음");
     assert.match(await page.locator('[data-login-row="스마트스토어"] [data-login-state]').textContent(), /문의는 커머스 API 사용 중 \(로그인 필요 없음\) · 리뷰 수집만 판매자센터 로그인 필요/, "API 가 있으면 문의는 로그인 불필요");
     assert.match(await page.locator('[data-login-row="스마트스토어"] [data-login-manual]').textContent(), /자동 한 번.*직접 로그인.*퀴즈.*최대 5분.*자동으로 닫힙니다/, "스마트스토어: 자동 한 번 → 막히면 직접 → 되면 창 자동 닫힘 안내");

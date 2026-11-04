@@ -105,6 +105,19 @@ function writeShop(value) {
   try { shopStorage?.setItem(SHOP_KEY, String(value || "").slice(0, 80)); } catch { /* 저장 못 해도 이번에는 그대로 */ }
 }
 
+// 2026-11-04: 로그인 칸 체크(업체·게시판+리뷰 수집)를 요청 뒤에도 유지 — 이 기기에 기억 (비밀값 아님)
+const LOGIN_PICK_KEY = "system_v3_cs_login_pick";
+function readLoginPick() {
+  try {
+    const raw = JSON.parse(shopStorage?.getItem(LOGIN_PICK_KEY) || "null");
+    if (!raw || !Array.isArray(raw.vendors)) return null;
+    return { vendors: raw.vendors.map(String).slice(0, 4), collect: raw.collect === true };
+  } catch { return null; }
+}
+function writeLoginPick(value) {
+  try { shopStorage?.setItem(LOGIN_PICK_KEY, JSON.stringify({ vendors: value.vendors || [], collect: !!value.collect })); } catch { /* 이번 화면에서만 유지 */ }
+}
+
 function writeStored(storage, value) {
   try {
     if (!value.token && !value.editor) storage?.removeItem(CS_BOARD_STORAGE_KEY);
@@ -797,7 +810,10 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     // 2026-11-03: 스마트스토어는 문의 수집·답변을 커머스 API 로 함 → API 가 잡혀 있으면 로그인 필요 없음(네이버 2단계 인증·자동입력 방지에 막히는 로그인은 피함)
     const ssApi = !!su?.api;
     const needs = CS_LOGIN_VENDORS.filter((v) => status[v].ok === false && !(v === "스마트스토어" && ssApi));
-    const pick = vendor ? [vendor] : needs;
+    const kept = readLoginPick();
+    const pick = vendor ? [...new Set([...(kept?.vendors || []), vendor])] : kept ? kept.vendors : needs;
+    const collectBox = $("#cs-login-collect");
+    if (collectBox && kept) collectBox.checked = kept.collect;
     const canLock = !!su?.pubKey;
     $("#cs-login-body").innerHTML = CS_LOGIN_VENDORS.map((v) => {
       const st = status[v];
@@ -825,8 +841,6 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const box = $("#cs-login");
     if (!box) return;
     box.querySelectorAll("input[data-login-id], input[data-login-pw]").forEach((el) => { el.value = ""; });
-    const collect = $("#cs-login-collect");
-    if (collect) collect.checked = false;
     loginDirty = false;
     renderLogin();
   }
@@ -858,6 +872,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       toast(error.message); return;
     }
     const collectAfter = !!$("#cs-login-collect")?.checked;
+    writeLoginPick({ vendors, collect: collectAfter });
     closeLogin();
     const manualPick = vendors.filter((v) => CS_MANUAL_LOGIN.includes(v));
     await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${collectAfter ? " (로그인되면 게시판 + 리뷰 수집)" : ""}${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}${manualPick.length ? ` — ${manualPick.join("·")}: 자동으로 한 번 해 보고, 막히면 수집기 PC 크롬 창에서 직접 로그인 (창은 로그인되면 자동으로 닫힘)` : ""}`);
@@ -1550,6 +1565,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       if (wrap) wrap.hidden = !e.target.checked;
     });
     ["input", "change"].forEach((type) => $("#cs-login-body")?.addEventListener(type, () => { loginDirty = true; }));
+    const keepPick = () => writeLoginPick({ vendors: $$("#cs-login [data-login-pick]:checked").map((el) => el.value), collect: !!$("#cs-login-collect")?.checked });
+    $("#cs-login-body")?.addEventListener("change", (e) => { if (e.target.matches?.("[data-login-pick]")) keepPick(); });
+    $("#cs-login-collect")?.addEventListener("change", keepPick);
     $("#cs-login-body")?.addEventListener("click", (e) => { if (e.target.closest("summary")) loginDirty = true; });
     $("#cs-excel-file")?.addEventListener("change", (e) => importExcel(e.target.files?.[0]));
     $("#cs-set-save")?.addEventListener("click", saveSettings);

@@ -1752,10 +1752,10 @@ a.cs-btn {
   100% { box-shadow: 0 0 0 0 rgba(225, 29, 116, 0); }
 }
 
-/* 체크박스 두 배 */
+/* 체크박스 (11-04: 두 배 → 그 70%) */
 .cs-login-inline input[type="checkbox"] {
-  width: 26px;
-  height: 26px;
+  width: 18px;
+  height: 18px;
   margin: 0 6px 0 0;
   accent-color: #e11d74;
   cursor: pointer;

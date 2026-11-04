@@ -397,7 +397,7 @@ try {
     await page.locator('[data-login-row="에이블리"]').waitFor();
     assert.equal(await page.locator("#cs-login-ok").isDisabled(), false, "login is no longer red");
     const box26 = await page.locator('[data-login-pick][value="에이블리"]').boundingBox();
-    assert.ok(box26.width >= 24 && box26.height >= 24, `체크박스 두 배 (${box26.width})`);
+    assert.ok(box26.width >= 17 && box26.width <= 20 && box26.height >= 17, `체크박스 18px (${box26.width})`);
     assert.ok((await page.locator("#cs-login-ok").boundingBox()).height >= 52, "로그인 요청 버튼 두 배");
     assert.equal(await page.locator('[data-login-pick][value="에이블리"]').isChecked(), true);
     assert.equal(await page.locator('[data-login-pick][value="지그재그"]').isChecked(), false);

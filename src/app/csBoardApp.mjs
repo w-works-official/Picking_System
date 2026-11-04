@@ -49,7 +49,7 @@ import {
   withPick,
   csLoginBoth,
   csLoginStatus,
-} from "../domain/csBoard.mjs?v=20261104-login2";
+} from "../domain/csBoard.mjs?v=20261104-login3";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261103-loginmemo1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";

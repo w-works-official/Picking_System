@@ -508,15 +508,15 @@ export function csLoginBoth(vendor, { jobs = [], last = null, reviewLast = null 
     login = { ok: res.state === "ok", at: csWhen(job.ended || job.at) };
     break;
   }
-  const part = (info) => {
+  const part = (info, useLogin = true) => {
     const c = (info?.vendors || []).find((v) => v.vendor === vendor) || null;
     const at = csWhen(info?.at);
-    if (login && (!c || !Number.isFinite(at) || !Number.isFinite(login.at) || login.at >= at)) return login.ok;
+    if (useLogin && login && (!c || !Number.isFinite(at) || !Number.isFinite(login.at) || login.at >= at)) return login.ok;
     if (!c) return null;
     if (c.state === "ok") return true;
     return /로그인|인증/.test(String(c.state || "")) ? false : null;
   };
-  const board = part(last);
+  const board = part(last, vendor !== "스마트스토어");   // 스마트스토어 게시판 = 커머스 API (판매자센터 로그인과 상관없음)
   const review = part(reviewLast);
   const ok = board === false || review === false ? false : board === true || review === true ? true : null;
   const mark = (v) => (v === true ? "✓" : v === false ? "✕" : "—");

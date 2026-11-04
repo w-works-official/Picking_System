@@ -705,3 +705,16 @@ console.log("csBoard.mock.test: OK");
   assert.equal(csLoginBoth("지그재그", {}).ok, null);
 }
 console.log("csBoard.mock.test (login both): OK");
+
+// 11-04 밤: 스마트스토어 판매자센터 로그인 실패는 리뷰에만 (게시판은 커머스 API)
+{
+  const last = { at: "2026-11-04 22:27", vendors: [{ vendor: "스마트스토어", state: "ok" }] };
+  const reviewLast = { at: "2026-11-04 22:27", vendors: [{ vendor: "스마트스토어", state: "로그인 필요" }] };
+  const jobs = [{ kind: "login", ended: "2026-11-04T13:46:00Z", data: { login: { 스마트스토어: { state: "fail" } } } }];
+  const ss = csLoginBoth("스마트스토어", { jobs, last, reviewLast });
+  assert.deepEqual([ss.board, ss.review, ss.ok], [true, false, false]);
+  const zz = csLoginBoth("지그재그", { jobs: [{ kind: "login", ended: "2026-11-04T13:46:00Z", data: { login: { 지그재그: { state: "fail" } } } }], last: { at: "2026-11-04 22:27", vendors: [{ vendor: "지그재그", state: "ok" }] } });
+  assert.equal(zz.board, false, "다른 업체는 로그인 실패가 게시판에도");
+}
+console.log("csBoard.mock.test (ss board api): OK");
+

@@ -703,7 +703,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       return `<div class="cs-login-row" data-login-row="${escapeHtml(v)}">
         <label class="cs-check"><input type="checkbox" data-login-pick value="${escapeHtml(v)}"${pick.includes(v) ? " checked" : ""}> <b>${escapeHtml(v)}</b></label>
         <span class="cs-note${st.ok === false && !apiOnly ? " cs-login-bad" : ""}" data-login-state>${apiOnly ? "✓ 문의는 커머스 API 사용 중 (로그인 필요 없음) · 리뷰 수집만 판매자센터 로그인 필요" : escapeHtml(st.changed ? st.note : st.text)}${saved && !manual ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
-        ${manual ? `<p class="cs-note" data-login-manual>🙋 <b>직접 로그인</b> — 수집기 PC 화면에 로그인 창이 뜨면 아이디·비밀번호·퀴즈·2단계 인증까지 직접 해 주세요 (최대 5분 기다림, 자동으로 채우지 않음). 수집기 PC 앞에 계실 때 누르세요.</p>` : `<details${pick.includes(v) && !done ? " open" : ""}><summary>새 아이디·비밀번호 넣기${apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
+        ${manual ? `<p class="cs-note" data-login-manual>🙋 <b>직접 로그인</b> — 수집기 PC에 <b>일반 크롬 창</b>이 뜨면 평소처럼 로그인(퀴즈·2단계 인증 포함)하고, 판매자센터 화면이 보이면 <b>그 창을 닫아 주세요</b> (최대 5분, 자동으로 채우지 않음). 수집기 PC 앞에 계실 때 누르세요.</p>` : `<details${pick.includes(v) && !done ? " open" : ""}><summary>새 아이디·비밀번호 넣기${apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
           ${canLock ? `<div class="cs-form cs-login-creds">
             ${v === "메이크샵" ? `<label class="cs-check"><input type="checkbox" data-login-sub${readShop() ? " checked" : ""}> <span>부운영자로 로그인 <small>(운영자와 따로 로그인 — 동시 로그인으로 튕기지 않음)</small></span></label>
             <label data-login-shop-wrap${readShop() ? "" : " hidden"}>상점 URL <input type="text" data-login-shop autocomplete="off" placeholder="예: pinkrocket.co.kr" value="${escapeHtml(readShop())}"></label>` : ""}
@@ -752,7 +752,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const collectAfter = !!$("#cs-login-collect")?.checked;
     closeLogin();
     const manualPick = vendors.filter((v) => CS_MANUAL_LOGIN.includes(v));
-    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}${manualPick.length ? ` — ${manualPick.join("·")}: 수집기 PC 화면에 뜬 창에서 직접 로그인해 주세요 (최대 5분)` : ""}`);
+    await requestPc("login", { vendors, creds, collectAfter }, `${vendors.join("·")} 로그인 요청을 보냈습니다${Object.keys(creds).length ? " (비밀번호는 잠가서)" : ""}${manualPick.length ? ` — ${manualPick.join("·")}: 수집기 PC에 뜬 크롬 창에서 로그인한 뒤 그 창을 닫아 주세요 (최대 5분)` : ""}`);
   }
 
   // 엑셀 내려받기 / 📥 엑셀 등록 (SheetJS — 피킹 화면과 같은 라이브러리)

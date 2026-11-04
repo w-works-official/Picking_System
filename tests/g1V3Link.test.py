@@ -551,4 +551,67 @@ r = L.manual_login(pg, "스마트스토어", seen.append, say, wait_sec=0.01, st
 assert r["state"] == "manual_fail" and "다시" in r["note"]
 L.page_logged_in = orig_pli
 
+
+# ── 1.7 스마트스토어 = 일반 크롬 창으로 로그인 (자동화 창은 네이버가 막음) ──
+class FakeProc:
+    def __init__(self, delay=0.0, hang=False): self.delay, self.hang, self.killed = delay, hang, False
+    def wait(self, timeout=None):
+        if self.hang:
+            raise TimeoutError("still open")
+        time.sleep(self.delay)
+    def terminate(self): self.killed = True
+launched, msgs = [], []
+G.PROFILE = os.path.join(tmp, "browser_profile")
+G.COOKIES = os.path.join(tmp, "cookies.enc")
+open(G.COOKIES, "w", encoding="utf-8").write(G.enc_secret(json.dumps([{"name": "NID_AUT", "domain": ".naver.com"}, {"name": "s", "domain": ".kakaostyle.com"}])))
+L.NATIVE_QUICK_SEC = 0.05
+proc = FakeProc(delay=0.1)
+r = L.native_login(G, "스마트스토어", msgs.append, say, wait_sec=60, popen=lambda a: launched.append(a) or proc, chrome="C:/chrome.exe", check=lambda G_, v: True)
+assert r["state"] == "ok" and "일반 크롬" in r["note"], r
+a = launched[-1]
+assert a[0] == "C:/chrome.exe" and f"--user-data-dir={G.PROFILE}" in a and a[-1] == L.LOGIN_URL["스마트스토어"], a
+assert not any("automation" in x for x in a), "자동화 표시 없이"
+assert "창을 닫아" in msgs[0]
+left = json.loads(G.dec_secret(open(G.COOKIES, encoding="utf-8").read()))
+assert [c["name"] for c in left] == ["s"], "옛 네이버 쿠키만 지움 (다른 사이트 쿠키는 그대로)"
+# 확인 실패 · 바로 닫힘 · 시간 초과 · 크롬 없음
+r = L.native_login(G, "스마트스토어", msgs.append, say, wait_sec=60, popen=lambda a: FakeProc(delay=0.1), chrome="c", check=lambda G_, v: False)
+assert r["state"] == "manual_fail" and "확인되지 않음" in r["note"]
+L.NATIVE_QUICK_SEC = 5
+r = L.native_login(G, "스마트스토어", msgs.append, say, wait_sec=60, popen=lambda a: FakeProc(delay=0), chrome="c", check=lambda G_, v: True)
+assert r["state"] == "manual_fail" and "바로 닫혔" in r["note"]
+L.NATIVE_QUICK_SEC = 0.05
+hp = FakeProc(hang=True)
+r = L.native_login(G, "스마트스토어", msgs.append, say, wait_sec=60, popen=lambda a: hp, chrome="c", check=lambda G_, v: True)
+assert r["state"] == "manual_fail" and "닫히지 않음" in r["note"] and hp.killed
+orig_find = L.find_chrome
+L.find_chrome = lambda: None
+assert L.native_login(G, "스마트스토어", msgs.append, say) is None, "크롬이 없으면 1.6 방식으로"
+# run_login_job: 스마트스토어만이면 자동화 브라우저를 아예 열지 않음, 다른 업체는 그대로
+L.find_chrome = lambda: "C:/chrome.exe"
+orig_native = L.native_login
+L.native_login = lambda G_, v, progress, say_: dict(state="ok", note="로그인됨 (일반 크롬 창)")
+def no_browser(show=False):
+    raise AssertionError("스마트스토어만일 때는 자동화 브라우저를 열지 않음")
+G.Browser, keepB = no_browser, G.Browser
+ok, msg, data = L.run_login_job({"id": "JN", "kind": "login", "body": {"vendors": ["스마트스토어"]}}, cfg, say, prog.append, d14)
+assert ok and data["login"]["스마트스토어"]["state"] == "ok", (msg, data)
+class SimplePg:
+    url = ""
+    def goto(self, url, **kw): cur["v"] = [v for v, u in L.LOGIN_URL.items() if u == url][0]; self.url = url
+    def wait_for_timeout(self, ms): pass
+    def close(self): pass
+class SimpleBr:
+    def __init__(self, show=False): assert show is True
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def page(self): return SimplePg()
+G.Browser = SimpleBr
+L.page_logged_in = fake_logged_in
+state15["logged"]["지그재그"] = True
+ok, msg, data = L.run_login_job({"id": "JN2", "kind": "login", "body": {"vendors": ["스마트스토어", "지그재그"]}}, cfg, say, prog.append, d14)
+assert data["login"]["스마트스토어"]["state"] == "ok" and data["login"]["지그재그"]["state"] == "ok", data
+L.native_login, L.find_chrome = orig_native, orig_find
+G.Browser = keepB
+
 print("g1V3Link.test: OK")

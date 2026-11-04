@@ -42,6 +42,12 @@
   · 지그재그 리뷰는 화면 기본(최근 1주일) 대신 설정의 리뷰 기간으로 다시 조회
   · 스마트스토어 리뷰도 같은 방식(숨김이면 화면 밖 창). 커머스 API 에는 리뷰가 없어 판매자센터 로그인 필요
   · 🔑 로그인 — 스마트스토어는 직접 로그인: 아무것도 자동으로 채우지 않고 창을 띄워 5분 기다림 (퀴즈·2단계 인증은 사람이)
+
+스마트스토어 = 일반 크롬 창으로 로그인 (1.7, 2026-11-04)
+  · 1.6 의 직접 로그인 창도 자동화 브라우저라 네이버가 퀴즈·2단계 인증을 막음 (11/3·11/4 두 번 실패)
+  · 자동화가 아닌 일반 크롬을 수집기 프로필(browser_profile)로 띄움 → 사람이 평소처럼 로그인 → 창을 닫으면
+    수집기가 숨김 브라우저로 판매자센터를 열어 로그인 확인. 예전에 저장해 둔 네이버 쿠키(cookies.enc)는 지워서 새 로그인을 덮지 않게
+  · PC에 크롬이 없으면 1.6 방식(자동화 창에서 직접)으로
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -49,7 +55,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.6 (2026-11-03)"
+LINK_VER = "1.7 (2026-11-04)"
 POLL_SEC = 15
 CHUNK = 150
 URL_RE = "https://script.google.com/macros/s/"
@@ -567,6 +573,88 @@ LOGIN_URL = {
 LOGIN_WAIT_SEC = 180
 LOGIN_MANUAL_SEC = 300                  # 직접 로그인: 사람이 수집기 PC 앞에서 아이디·비밀번호·퀴즈·2단계 인증까지 (1.6)
 MANUAL_LOGIN = ("스마트스토어",)         # 네이버는 자동 입력하면 퀴즈(자동입력 방지)·2단계 인증에서 막힘 → 항상 직접 로그인
+NATIVE_LOGIN = ("스마트스토어",)         # 1.7: 자동화 창이 아니라 일반 크롬 창으로 (네이버가 자동화 창을 막음)
+NATIVE_QUICK_SEC = 4                     # 창이 이만큼도 안 돼서 닫히면 = 이미 열린 같은 프로필 창에 넘겨진 것
+
+
+def find_chrome():
+    """PC에 설치된 크롬 실행 파일 (없으면 None)"""
+    cands = []
+    for env in ("PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"):
+        base = os.environ.get(env)
+        if base:
+            cands.append(os.path.join(base, "Google", "Chrome", "Application", "chrome.exe"))
+    for c in cands:
+        if os.path.isfile(c):
+            return c
+    return shutil.which("chrome") or shutil.which("google-chrome")
+
+
+def forget_saved_cookies(G, domain_word):
+    """수집기가 따로 보관하는 쿠키(cookies.enc)에서 그 사이트 쿠키를 지움 — 다음 실행 때 옛 쿠키가 새 로그인을 덮지 않게. 지운 개수"""
+    path = getattr(G, "COOKIES", "")
+    try:
+        if not path or not os.path.exists(path):
+            return 0
+        ck = json.loads(G.dec_secret(open(path, encoding="utf-8").read()))
+        keep = [c for c in ck if domain_word not in str(c.get("domain") or "")]
+        if len(keep) != len(ck):
+            open(path, "w", encoding="utf-8").write(G.enc_secret(json.dumps(keep, ensure_ascii=False)))
+        return len(ck) - len(keep)
+    except Exception:
+        return 0
+
+
+def native_login(G, v, progress, say, wait_sec=None, popen=None, chrome=None, check=None):
+    """일반 크롬 창(수집기 프로필)으로 사람이 로그인 → 창을 닫으면 숨김 브라우저로 로그인 확인 (1.7)
+       돌려줌: 결과 dict, 또는 None(크롬이 없어 이 방식을 못 씀 → 1.6 방식으로)"""
+    import subprocess
+    chrome = chrome or find_chrome()
+    if not chrome:
+        return None
+    wait_sec = LOGIN_MANUAL_SEC if wait_sec is None else wait_sec
+    mins = max(1, round(wait_sec / 60))
+    args = [chrome, f"--user-data-dir={G.PROFILE}", "--no-first-run", "--no-default-browser-check", "--new-window", LOGIN_URL[v]]
+    progress(f"{v}: 수집기 PC에 일반 크롬 창이 열립니다 — 평소처럼 로그인(퀴즈·2단계 인증 포함)해서 판매자센터 화면이 보이면 그 창을 닫아 주세요 (최대 {mins}분)")
+    say(f"🔑 {v}: 일반 크롬 창으로 로그인 기다림 (최대 {mins}분)")
+    t0 = time.time()
+    proc = (popen or subprocess.Popen)(args)
+    try:
+        proc.wait(timeout=wait_sec)
+    except Exception:
+        try:
+            proc.terminate()
+        except Exception:
+            pass
+        return dict(state="manual_fail", note=f"{mins}분 안에 크롬 창이 닫히지 않음 — 로그인 후 창을 닫아 주세요 (다시 [🔑 로그인])")
+    if time.time() - t0 < NATIVE_QUICK_SEC:
+        return dict(state="manual_fail", note="크롬 창이 바로 닫혔습니다 — 수집기 프로필 창이 이미 열려 있으면 닫고 다시 [🔑 로그인]")
+    gone = forget_saved_cookies(G, "naver.com")
+    if gone:
+        say(f"🔑 {v}: 옛 네이버 쿠키 {gone}개 정리")
+    progress(f"{v}: 로그인 확인 중…")
+    ok = (check or check_logged_in)(G, v)
+    if ok:
+        return dict(state="ok", note="로그인됨 (일반 크롬 창)")
+    return dict(state="manual_fail", note="로그인이 확인되지 않음 — 크롬 창에서 판매자센터 화면까지 들어간 뒤 닫아 주세요 (다시 [🔑 로그인])")
+
+
+def check_logged_in(G, v):
+    """숨김 브라우저(수집기 프로필)로 로그인 주소를 열어 로그인 상태인지 (창을 닫을 때 쿠키를 다시 보관)"""
+    with G.Browser(show=False) as br:
+        pg = br.page()
+        try:
+            pg.goto(LOGIN_URL[v], wait_until="domcontentloaded", timeout=60000)
+            for _ in range(8):
+                pg.wait_for_timeout(1500)
+                if page_logged_in(pg):
+                    return True
+            return False
+        finally:
+            try:
+                pg.close()
+            except Exception:
+                pass
 
 
 def page_logged_in(pg):
@@ -730,6 +818,14 @@ def save_cred(d, vendor, uid, pw):
     save_link(d)
 
 
+class _NoBrowser:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, *a):
+        return False
+
+
 def manual_login(pg, v, progress, say, wait_sec=None, step_ms=3000):
     """직접 로그인 (1.6): 아무것도 채우지 않고 창을 앞으로 띄운 뒤, 사람이 로그인을 마칠 때까지 기다림 (퀴즈에서 멈추지 않음)"""
     wait_sec = LOGIN_MANUAL_SEC if wait_sec is None else wait_sec
@@ -768,8 +864,17 @@ def run_login_job(job, cfg, say, progress, d):
         return False, "수집 중이라 로그인 창을 열 수 없습니다 — 끝난 뒤 다시", {}
     out = {}
     try:
-        with G.Browser(show=True) as br:
-            for v in vendors:
+        for v in [x for x in vendors if x in NATIVE_LOGIN]:    # 1.7: 일반 크롬 창으로 먼저 (자동화 브라우저가 열리기 전에 — 같은 프로필)
+            try:
+                r = native_login(G, v, progress, say)
+            except Exception as e:
+                r = dict(state="fail", note=f"오류: {str(e)[:150]}")
+            if r is not None:
+                out[v] = r
+                say(f"🔑 {v}: {r.get('note', '')}")
+        rest = [v for v in vendors if v not in out]
+        with (G.Browser(show=True) if rest else _NoBrowser()) as br:
+            for v in rest:
                 progress(f"{v} 로그인 창 여는 중…")
                 pg = br.page()
                 try:

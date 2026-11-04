@@ -117,3 +117,51 @@ test("scraper and updater retain their respective release names and execution po
     }
   }
 });
+
+test("이 기기 6자리: 로그인 뒤 설정 → 기기 키만 저장 → 6자리 로그인 · 틀림 · 잠김 · 지우기", async () => {
+  const { DEVICE_KEY } = globalThis.SystemV3PickingAuth;
+  const session = new Map(), dev = new Map(), calls = [];
+  const mk = (m) => ({ getItem: (k) => m.get(k), setItem: (k, v) => m.set(k, v), removeItem: (k) => m.delete(k) });
+  const answers = [];
+  const client = createSessionClient({
+    url: URL, key: "k", now: () => Date.parse("2026-11-04"), storage: mk(session), deviceStorage: mk(dev),
+    fetch: async (url, options) => { calls.push({ url, body: JSON.parse(options.body) }); return new Response(JSON.stringify(answers.shift()), { status: 200 }); },
+  });
+  assert.equal(client.hasPin, false);
+  await assert.rejects(client.pinLogin("123456"), (e) => e.code === "PIN_DEVICE_UNKNOWN");
+  assert.equal(calls.length, 0, "기기 키가 없으면 서버에 묻지 않음");
+  await assert.rejects(client.pinEnroll("123456"), /로그인/);
+  answers.push({ authenticated: true, session_token: token, expires_at });
+  await client.login("demo", "pw");
+  await assert.rejects(client.pinEnroll("12345"), /6자리/);
+  const secret = "c".repeat(64), id = "11111111-2222-3333-4444-555555555555";
+  answers.push({ enrolled: true, device_id: id, device_secret: secret });
+  await client.pinEnroll("482913");
+  assert.match(calls.at(-1).url, /picking_pin_enroll_v1$/);
+  assert.deepEqual(calls.at(-1).body, { p_session_token: token, p_pin: "482913" });
+  const saved = JSON.parse(dev.get(DEVICE_KEY));
+  assert.equal(saved.id, id); assert.equal(saved.secret, secret);
+  assert.equal(dev.get(DEVICE_KEY).includes("482913"), false, "6자리는 저장 안 함");
+  assert.equal(client.hasPin, true);
+  // 새 탭: 세션 없음 → 6자리 로그인
+  session.clear(); client.clear();
+  answers.push({ authenticated: true, session_token: "d".repeat(64), expires_at });
+  await client.pinLogin("482913");
+  assert.deepEqual(calls.at(-1).body, { p_device_id: id, p_device_secret: secret, p_pin: "482913" });
+  assert.ok(client.requireSession());
+  answers.push({ authenticated: false, error_code: "invalid_pin", remaining: 3 });
+  await assert.rejects(client.pinLogin("000000"), /3번 더/);
+  assert.equal(client.hasPin, true, "틀려도 기기 키는 유지");
+  answers.push({ authenticated: false, error_code: "device_locked" });
+  await assert.rejects(client.pinLogin("000000"), /5번 틀려/);
+  assert.equal(client.hasPin, false, "잠기면 기기 키 지움");
+  // 다시 설정 후 지우기
+  answers.push({ authenticated: true, session_token: token, expires_at });
+  await client.login("demo", "pw");
+  answers.push({ enrolled: true, device_id: id, device_secret: secret });
+  await client.pinEnroll("135790");
+  answers.push({ forgotten: true });
+  await client.pinForget();
+  assert.match(calls.at(-1).url, /picking_pin_forget_v1$/);
+  assert.equal(client.hasPin, false);
+});

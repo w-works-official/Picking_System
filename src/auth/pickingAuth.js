@@ -3,8 +3,9 @@
   // Also embedded verbatim into bookmarklets: never add external dependencies here.
   function pickingAuthFactory() {
     const STORAGE_KEY = "system-v3-picking-session-v1";
-    const AUTH_RPCS = new Set(["picking_login_v1", "picking_check_session_v1", "picking_logout_v1"]);
-    function createSessionClient({ url, key, fetch: rawFetch, storage, onRequired = () => {}, now = () => Date.now() }) {
+    const DEVICE_KEY = "system-v3-picking-device-v1";   // 이 기기 6자리 (2026-11-04): 기기 키만 저장, 6자리는 저장 안 함
+    const AUTH_RPCS = new Set(["picking_login_v1", "picking_check_session_v1", "picking_logout_v1", "picking_pin_enroll_v1", "picking_pin_login_v1", "picking_pin_forget_v1"]);
+    function createSessionClient({ url, key, fetch: rawFetch, storage, deviceStorage = null, onRequired = () => {}, now = () => Date.now() }) {
       const origin = new URL(url).origin;
       let session = null, generation = 0;
       const pending = new Set();
@@ -100,7 +101,47 @@
           return response;
         } finally { pending.delete(controller); signal?.removeEventListener("abort", abort); }
       }
-      return { login, restore, logout, check, clear, requireSession, fetch: protectedFetch, get expiresAt() { return session?.expiresAt; } };
+      // ---- 이 기기 6자리 ----
+      const validDevice = (d) => d && /^[0-9a-f-]{36}$/.test(d.id) && /^[0-9a-f]{64}$/.test(d.secret);
+      function device() {
+        try { const d = JSON.parse(deviceStorage?.getItem(DEVICE_KEY) || "null"); return validDevice(d) ? d : null; } catch { return null; }
+      }
+      function dropDevice() { try { deviceStorage?.removeItem(DEVICE_KEY); } catch {} }
+      async function pinEnroll(pin) {
+        const value = requireSession();
+        if (!/^[0-9]{6}$/.test(String(pin))) throw new Error("6자리 숫자로 정해 주세요.");
+        if (!deviceStorage) throw new Error("이 브라우저에는 6자리를 저장할 수 없습니다.");
+        const old = device();
+        const result = await rpc("picking_pin_enroll_v1", { p_session_token: value.token, p_pin: String(pin) });
+        if (!result?.enrolled) throw new Error(result?.error_code === "session_required" ? "로그인이 끝나 6자리를 설정하지 못했습니다. 다시 로그인해 주세요." : "6자리를 설정하지 못했습니다.");
+        try { deviceStorage.setItem(DEVICE_KEY, JSON.stringify({ id: result.device_id, secret: result.device_secret, at: new Date(now()).toISOString() })); }
+        catch { throw new Error("이 브라우저에 6자리 정보를 저장할 수 없습니다."); }
+        if (old && old.id !== result.device_id) { try { await rpc("picking_pin_forget_v1", { p_device_id: old.id, p_device_secret: old.secret }); } catch {} }
+        return true;
+      }
+      async function pinLogin(pin) {
+        const d = device();
+        if (!d) throw Object.assign(new Error("이 기기에는 6자리가 설정되어 있지 않습니다. 아이디·비밀번호로 로그인해 주세요."), { code: "PIN_DEVICE_UNKNOWN" });
+        clear();
+        const at = generation;
+        const result = await rpc("picking_pin_login_v1", { p_device_id: d.id, p_device_secret: d.secret, p_pin: String(pin) });
+        if (at !== generation) throw error();
+        if (!result?.authenticated) {
+          if (result?.error_code === "invalid_pin") throw Object.assign(new Error(`6자리가 맞지 않습니다 (${result.remaining}번 더 틀리면 이 기기 6자리가 지워집니다).`), { code: "PIN_INVALID" });
+          dropDevice();
+          throw Object.assign(new Error(result?.error_code === "device_locked"
+            ? "6자리를 5번 틀려 이 기기 6자리를 지웠습니다. 아이디·비밀번호로 로그인한 뒤 다시 설정해 주세요."
+            : "이 기기 6자리가 더 이상 쓰이지 않습니다 (비밀번호 변경 등). 아이디·비밀번호로 로그인해 주세요."), { code: "PIN_DEVICE_UNKNOWN" });
+        }
+        return save({ token: result.session_token, expiresAt: result.expires_at });
+      }
+      async function pinForget() {
+        const d = device();
+        dropDevice();
+        if (d) await rpc("picking_pin_forget_v1", { p_device_id: d.id, p_device_secret: d.secret });
+      }
+      return { login, restore, logout, check, clear, requireSession, fetch: protectedFetch, get expiresAt() { return session?.expiresAt; },
+        get hasPin() { return !!device(); }, pinEnroll, pinLogin, pinForget };
     }
     async function createToolAuth({ url, key, fetch: rawFetch, storage, document }) {
       const client = createSessionClient({ url, key, fetch: rawFetch, storage });
@@ -130,7 +171,7 @@
       }
       return client;
     }
-    return { createSessionClient, createToolAuth, STORAGE_KEY };
+    return { createSessionClient, createToolAuth, STORAGE_KEY, DEVICE_KEY };
   }
   root.SystemV3PickingAuthFactory = pickingAuthFactory;
   root.SystemV3PickingAuth = pickingAuthFactory();

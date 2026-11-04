@@ -3,7 +3,7 @@
 // 트레이 아이콘을 러너 + G1 웹연결로 합친 것처럼, 화면에서도 두 프로그램 상태를 한 줄에 봅니다.
 // CS 관리 화면은 수집기 PC·CS 연결 표시를 CS 화면이 직접 그리므로(같은 칸 id) 여기서는 러너만 채웁니다.
 // 토큰은 각 화면이 이 기기에 저장해 둔 값만 읽습니다(코드에 비밀값 없음).
-import { REMOTE_BOARD_STORAGE_KEY, REMOTE_BOARD_URL, isRemoteBoardTokenValid, remoteRunnerStates } from "../domain/remoteBoard.mjs?v=20261103-autohide2";
+import { REMOTE_BOARD_STORAGE_KEY, REMOTE_BOARD_URL, isRemoteBoardTokenValid, remoteRunnerStates, remoteTokenFromCs } from "../domain/remoteBoard.mjs?v=20261104-pin1";
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, collectorStatus, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261103-loginmemo1";
 
 export const WS_RUNNER_POLL_MS = 30000; // 러너: 30초마다 (켜짐 판정이 60초 기준)
@@ -21,7 +21,7 @@ function readJson(storage, key) {
 
 // 러너 칸: "러너 ● 사무실 · ○ 집" — 하나라도 켜져 있으면 초록, 실행 중이면 파랑, 모두 꺼지면 빨강
 export function runnerPill({ hasToken = true, runners = null, queue = [], error = "" } = {}, nowMs = Date.now()) {
-  if (!hasToken) return { cls: "is-off", text: "러너 —", title: "원격 실행 토큰이 이 기기에 없습니다 — 상품 관리 > 발주에서 [토큰]" };
+  if (!hasToken) return { cls: "is-off", text: "러너 —", title: "원격 실행 토큰이 이 기기에 없습니다 — 상품 관리 > 발주 [토큰]에서 6자리" };
   if (error || !runners) return { cls: error ? "is-error" : "is-off", text: "러너 —", title: error || "러너 상태 확인 중" };
   const list = remoteRunnerStates(runners, queue, nowMs);
   if (!list.length) return { cls: "is-off", text: "러너 —", title: "러너 신호 없음" };
@@ -70,8 +70,13 @@ export function mountWorkspaceStatus({ document, window, storage, fetchImpl = (.
   };
   const now = () => Date.now();
 
+  let triedCs = false;
   async function runner() {
-    const token = String(readJson(storage, REMOTE_BOARD_STORAGE_KEY).token || "").trim();
+    let token = String(readJson(storage, REMOTE_BOARD_STORAGE_KEY).token || "").trim();
+    if (!isRemoteBoardTokenValid(token) && !triedCs && csEndpoint) {   // 2026-11-04: CS 키가 있으면 시트에서 원격보드 토큰 받아 옴
+      triedCs = true;
+      token = await remoteTokenFromCs({ storage, fetchImpl, endpoint: csEndpoint, csStorageKey: CS_BOARD_STORAGE_KEY });
+    }
     if (!isRemoteBoardTokenValid(token)) { paint(el.runner, runnerPill({ hasToken: false })); return; }
     try {
       const url = new URL(remoteUrl);

@@ -172,7 +172,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 7 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 8 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -519,7 +519,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 7);
+  assert.equal(g5.get().version, 8);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -593,7 +593,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(shortPw.post({ action: "unlock", password: "12345" }).ok, false, "6자 미만 비밀번호는 쓰지 않음");
   const g6 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, UNLOCK_PASSWORD: "pk2611" } });
   const good = g6.post({ action: "unlock", password: "pk2611" });
-  assert.deepEqual(good, { ok: true, token: TOKEN }, "맞으면 긴 키를 돌려줌");
+  assert.deepEqual(good, { ok: true, token: TOKEN, remote: "" }, "맞으면 긴 키를 돌려줌 (원격보드 토큰은 아직 없음)");
   assert.equal(g6.post({ action: "list", token: good.token }).ok, true, "받은 키로 바로 연결");
   assert.equal(g6.post({ action: "unlock", password: COLLECTOR }).ok, false, "수집기 키로는 안 열림");
   for (let i = 1; i <= 3; i += 1) assert.match(g6.post({ action: "unlock", password: `wrong${i}` }).error, /번 더 틀리면 잠깁니다/);
@@ -614,6 +614,16 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(g6.post({ action: "unlock", password: "pk2611" }).token, TOKEN);
   assert.equal(g6.properties.UNLOCK_FAILS, "0");
   assert.equal(g6.post({ action: "unlock" }).ok, false, "빈 값");
+}
+
+// 2026-11-04 v8: 같은 6자리로 원격 실행 보드 토큰도 (REMOTE_BOARD_TOKEN) · 이미 열린 기기는 secrets 로
+{
+  const g8 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, UNLOCK_PASSWORD: "482913", REMOTE_BOARD_TOKEN: "770011223344" } });
+  assert.deepEqual(g8.post({ action: "unlock", password: "482913" }), { ok: true, token: TOKEN, remote: "770011223344" });
+  assert.equal(JSON.stringify(g8.post({ action: "unlock", password: "000000" })).includes("770011223344"), false, "틀리면 안 줌");
+  assert.deepEqual(g8.post({ action: "secrets", token: TOKEN }), { ok: true, remote: "770011223344" });
+  assert.equal(g8.post({ action: "secrets", token: COLLECTOR }).ok, false, "수집기 키로는 안 줌");
+  assert.equal(g8.post({ action: "secrets" }).ok, false);
 }
 
 

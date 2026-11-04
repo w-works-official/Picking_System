@@ -30,7 +30,7 @@ assert.match(csNew, /workspaceNavigation\.css\?v=20261102-status1/);
 assert.match(navCss, /\.workspace-status > span \{[^}]*font-size: 16px;/);
 assert.match(csNew, /<span class="workspace-status" data-ws-status="cs"[^>]*>\s*<span class="ws-pill is-off" data-ws-runner[^>]*>러너 —<\/span>\s*<span id="cs-collector"[^>]*>수집기 PC —<\/span>\s*<span id="cs-connection"/);
 assert.match(purchase, /<div class="purchase-toolbar">\s*<!--[^>]*-->\s*<span class="workspace-status" data-ws-status="purchase"/);
-for (const html of [csNew, purchase]) assert.match(html, /src\/app\/workspaceStatus\.mjs\?v=20261103-status4/);
+for (const html of [csNew, purchase]) assert.match(html, /src\/app\/workspaceStatus\.mjs\?v=20261104-pin1/);
 assert.ok(csNew.indexOf('id="cs-connection"') > csNew.lastIndexOf('cs-legend'), "상태가 도구줄 맨 오른쪽 끝");
 // 세 버튼 같은 폭
 assert.match(navCss, /\.workspace-navigation \.workspace-link \{\s*box-sizing: border-box;\s*width: 80px;/);
@@ -44,6 +44,6 @@ assert.ok(index.indexOf('classList.add("picking-auth-restoring")') < index.index
 assert.match(loginCss, /\.picking-auth-restoring #picking-login-gate \{ visibility: hidden; \}/);
 assert.match(boot, /function lock\(\) \{\s*document\.documentElement\.classList\.remove\("picking-auth-restoring"\);/);
 assert.match(boot, /app\.inert = false;\s*document\.documentElement\.classList\.remove\("picking-auth-restoring"\);/);
-assert.match(index, /pickingBootstrap\.mjs\?v=20261029-restore1/);
+assert.match(index, /pickingBootstrap\.mjs\?v=20261104-pin1/);
 
 console.log("workspaceNavSpot.contract.test: OK");

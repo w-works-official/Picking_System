@@ -6,6 +6,56 @@ export const REMOTE_BOARD_URL = "https://script.google.com/macros/s/AKfycbxfPwqe
 export const REMOTE_BOARD_PAGE = "https://kakamail80-cell.github.io/remote-board/";
 export const REMOTE_BOARD_STORAGE_KEY = "system_v3_remote_board";
 
+// 2026-11-04: 6자리 하나로 열기 — CS 시트(v8)가 6자리(UNLOCK_PASSWORD) 확인 뒤 CS 키와 원격보드 토큰(REMOTE_BOARD_TOKEN)을 같이 돌려줌.
+// 원격보드 토큰은 대표님이 CS 시트 스크립트 속성에 한 번만 넣어 두면, 6자리를 넣은 기기마다 자동으로 저장됨.
+export function saveRemoteBoardToken(storage, token) {
+  const t = String(token ?? "").trim();
+  if (!isRemoteBoardTokenValid(t)) return false;
+  try { storage?.setItem(REMOTE_BOARD_STORAGE_KEY, JSON.stringify({ token: t })); return true; } catch { return false; }
+}
+
+export function readCsKey(storage, csStorageKey) {
+  try {
+    const raw = JSON.parse(storage?.getItem(csStorageKey) || "{}") || {};
+    return /^[A-Za-z0-9_-]{8,128}$/.test(String(raw.token || "").trim()) ? String(raw.token).trim() : "";
+  } catch { return ""; }
+}
+
+function rememberCsKey(storage, csStorageKey, token) {
+  try {
+    const raw = JSON.parse(storage?.getItem(csStorageKey) || "{}") || {};
+    storage?.setItem(csStorageKey, JSON.stringify({ ...raw, token }));
+  } catch { /* 이번 화면에서만 */ }
+}
+
+async function postJson(fetchImpl, endpoint, body) {
+  const response = await fetchImpl(endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) });
+  if (!response.ok) throw new Error(`시트 응답 오류 (${response.status})`);
+  return response.json();
+}
+
+// 이 기기에 CS 키가 있으면 → 시트에서 원격보드 토큰 받아 저장 (없거나 시트가 v8 전이면 "")
+export async function remoteTokenFromCs({ storage, fetchImpl, endpoint, csStorageKey }) {
+  const key = readCsKey(storage, csStorageKey);
+  if (!key || !endpoint) return "";
+  try {
+    const json = await postJson(fetchImpl, endpoint, { action: "secrets", token: key });
+    return json?.ok && saveRemoteBoardToken(storage, json.remote) ? String(json.remote).trim() : "";
+  } catch { return ""; }
+}
+
+// 6자리 → CS 키 + 원격보드 토큰 저장. 돌려줌: { csKey, remote }  (틀리면 시트 메시지로 오류)
+export async function unlockWithPin({ pin, storage, fetchImpl, endpoint, csStorageKey }) {
+  const json = await postJson(fetchImpl, endpoint, { action: "unlock", password: String(pin ?? "").trim() });
+  if (!(json && json.ok === true && /^[A-Za-z0-9_-]{8,128}$/.test(String(json.token || "").trim()))) {
+    throw new Error(String(json?.error || "비밀번호를 확인하지 못했습니다."));
+  }
+  const csKey = String(json.token).trim();
+  rememberCsKey(storage, csStorageKey, csKey);
+  const remote = saveRemoteBoardToken(storage, json.remote) ? String(json.remote).trim() : "";
+  return { csKey, remote };
+}
+
 // 사입 관리 메뉴별로 보여줄 보드 주제(시트 [작업목록] 주제 열 값)
 export const REMOTE_BOARD_TOPICS = {
   order: ["I 재고 체크 / 주문서"],

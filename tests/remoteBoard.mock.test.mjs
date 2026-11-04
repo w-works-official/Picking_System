@@ -134,4 +134,34 @@ assert.match(files[2], /data-remote-board="receiving"/);
   assert.match(panel, /chipsHtml\(byCode\[job\["작업코드"\]\], job\["작업코드"\]\)/);
 }
 
+// 2026-11-04: 6자리 하나로 — CS 시트 unlock 이 원격보드 토큰도 줌 · CS 키가 있는 기기는 secrets 로 받아 옴
+{
+  const { remoteTokenFromCs, unlockWithPin, saveRemoteBoardToken, readCsKey, REMOTE_BOARD_STORAGE_KEY } = await import("../src/domain/remoteBoard.mjs");
+  const mem = () => { const m = new Map(); return { m, getItem: (k) => m.get(k) ?? null, setItem: (k, v) => m.set(k, v), removeItem: (k) => m.delete(k) }; };
+  const CSK = "cs_key", EP = "https://sheet.example/exec";
+  const calls = [];
+  const fake = (answer) => async (url, opt) => { calls.push(JSON.parse(opt.body)); return new Response(JSON.stringify(answer(JSON.parse(opt.body))), { status: 200 }); };
+  let st = mem();
+  assert.equal(await remoteTokenFromCs({ storage: st, fetchImpl: fake(() => ({})), endpoint: EP, csStorageKey: CSK }), "", "CS 키 없으면 묻지 않음");
+  assert.equal(calls.length, 0);
+  st.setItem(CSK, JSON.stringify({ token: "B".repeat(20), editor: "희진" }));
+  assert.equal(readCsKey(st, CSK), "B".repeat(20));
+  assert.equal(await remoteTokenFromCs({ storage: st, fetchImpl: fake(() => ({ ok: true, remote: "" })), endpoint: EP, csStorageKey: CSK }), "", "시트에 아직 없음");
+  assert.equal(await remoteTokenFromCs({ storage: st, fetchImpl: fake(() => ({ ok: true, remote: "770011223344" })), endpoint: EP, csStorageKey: CSK }), "770011223344");
+  assert.deepEqual(calls.at(-1), { action: "secrets", token: "B".repeat(20) });
+  assert.equal(JSON.parse(st.getItem(REMOTE_BOARD_STORAGE_KEY)).token, "770011223344");
+  assert.equal(await remoteTokenFromCs({ storage: st, fetchImpl: async () => { throw new Error("offline"); }, endpoint: EP, csStorageKey: CSK }), "", "네트워크 실패는 조용히");
+  // 6자리
+  st = mem(); st.setItem(CSK, JSON.stringify({ editor: "희진" }));
+  const r = await unlockWithPin({ pin: " 482913 ", storage: st, fetchImpl: fake(() => ({ ok: true, token: "C".repeat(20), remote: "9988" })), endpoint: EP, csStorageKey: CSK });
+  assert.deepEqual(r, { csKey: "C".repeat(20), remote: "9988" });
+  assert.deepEqual(calls.at(-1), { action: "unlock", password: "482913" });
+  assert.deepEqual(JSON.parse(st.getItem(CSK)), { editor: "희진", token: "C".repeat(20) }, "이름은 그대로, 키만 더함");
+  assert.equal(JSON.parse(st.getItem(REMOTE_BOARD_STORAGE_KEY)).token, "9988");
+  await assert.rejects(unlockWithPin({ pin: "000000", storage: mem(), fetchImpl: fake(() => ({ ok: false, error: "비밀번호가 맞지 않습니다 (4번 더 틀리면 잠깁니다)." })), endpoint: EP, csStorageKey: CSK }), /4번 더/);
+  const noRemote = await unlockWithPin({ pin: "482913", storage: mem(), fetchImpl: fake(() => ({ ok: true, token: "C".repeat(20), remote: "" })), endpoint: EP, csStorageKey: CSK });
+  assert.equal(noRemote.remote, "");
+  assert.equal(saveRemoteBoardToken(mem(), "bad token!"), false);
+}
+
 console.log("remoteBoard.mock.test: OK");

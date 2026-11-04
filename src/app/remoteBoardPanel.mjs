@@ -14,7 +14,10 @@ import {
   remoteJobKind,
   remoteQueueByCode,
   remoteRunnerStates,
-} from "../domain/remoteBoard.mjs?v=20261103-autohide2";
+  remoteTokenFromCs,
+  unlockWithPin,
+} from "../domain/remoteBoard.mjs?v=20261104-pin1";
+import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY } from "../domain/csBoard.mjs?v=20261103-loginmemo1";
 
 const POLL_MS = 10000;
 
@@ -125,11 +128,14 @@ export function createRemoteBoard({ document, window, fetchImpl = window.fetch.b
       </div>`;
     if (!state.token || state.setup) {
       return `${head}<form class="rb-setup" data-remote-setup-form>
-          <label>원격 실행 보드 토큰<input type="password" name="token" inputmode="numeric" autocomplete="off" maxlength="64" placeholder="보드에서 쓰는 숫자 토큰" required></label>
-          <button type="submit" class="rb-btn rb-btn-dark">저장</button>
+          <label>6자리 비밀번호<input type="password" name="pin" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="CS 관리와 같은 6자리"></label>
+          <button type="submit" class="rb-btn rb-btn-dark">열기</button>
           ${state.token ? '<button type="button" class="rb-btn" data-remote-setup-cancel>닫기</button>' : ""}
           ${state.error ? `<p class="rb-error" role="alert">${esc(state.error)}</p>` : ""}
-          <small>보드와 같은 토큰입니다. 확인되면 이 기기에만 저장됩니다.</small>
+          <small>CS 관리와 같은 6자리 하나로 원격 실행·CS 관리가 같이 열립니다 (이 기기에만 저장).</small>
+          <details class="rb-setup-raw"><summary>보드 토큰 직접 넣기</summary>
+            <label>원격 실행 보드 토큰<input type="password" name="token" inputmode="numeric" autocomplete="off" maxlength="64" placeholder="보드에서 쓰는 숫자 토큰"></label>
+          </details>
         </form>`;
     }
     if (state.error) return `${head}<div class="rb-empty">${esc(state.error)}</div>`;
@@ -179,6 +185,10 @@ export function createRemoteBoard({ document, window, fetchImpl = window.fetch.b
   }
 
   async function load() {
+    if (!state.token && !state.triedCs) {          // 2026-11-04: 이 기기에 CS 키가 있으면 시트에서 원격보드 토큰을 받아 옴 (6자리 다시 안 넣게)
+      state.triedCs = true;
+      state.token = await remoteTokenFromCs({ storage, fetchImpl, endpoint: CS_BOARD_ENDPOINT, csStorageKey: CS_BOARD_STORAGE_KEY });
+    }
     if (!state.token) { render(); return; }
     state.loading = true;
     state.error = "";
@@ -266,12 +276,27 @@ export function createRemoteBoard({ document, window, fetchImpl = window.fetch.b
     const form = event.target.closest("[data-remote-setup-form]");
     if (!form) return;
     event.preventDefault();
-    const token = String(form.elements.token.value || "").trim();
-    if (!isRemoteBoardTokenValid(token)) { toast("토큰 형식이 맞지 않습니다."); return; }
-    state.token = token;
-    state.setup = false;
-    state.loaded = false;
-    void load();
+    const raw = String(form.elements.token?.value || "").trim();
+    const pin = String(form.elements.pin?.value || "").trim();
+    if (raw) {                                     // 보드 토큰 직접
+      if (!isRemoteBoardTokenValid(raw)) { toast("토큰 형식이 맞지 않습니다."); return; }
+      state.token = raw; state.setup = false; state.loaded = false;
+      void load();
+      return;
+    }
+    if (pin.length < 6) { toast("6자리 비밀번호를 넣어 주세요."); return; }
+    void (async () => {
+      try {
+        const { remote } = await unlockWithPin({ pin, storage, fetchImpl, endpoint: CS_BOARD_ENDPOINT, csStorageKey: CS_BOARD_STORAGE_KEY });
+        if (!remote) { state.error = "6자리는 맞았지만 시트에 원격보드 토큰이 아직 없습니다 — 대표님이 CS 시트 스크립트 속성 REMOTE_BOARD_TOKEN 에 한 번 넣어 주세요. (CS 관리는 이 기기에서 열립니다)"; render(); return; }
+        state.token = remote; state.setup = false; state.loaded = false; state.error = "";
+        toast("6자리 확인 — 원격 실행·CS 관리를 이 기기에 저장했습니다.");
+        void load();
+      } catch (error) {
+        state.error = error?.message || "비밀번호를 확인하지 못했습니다.";
+        render();
+      }
+    })();
   }
 
   function start() {

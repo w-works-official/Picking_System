@@ -49,6 +49,7 @@ import {
   withPick,
   csLoginStatus,
 } from "../domain/csBoard.mjs?v=20261103-loginmemo1";
+import { saveRemoteBoardToken } from "../domain/remoteBoard.mjs?v=20261104-pin1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261103-loginmemo1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
@@ -1479,7 +1480,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
             body: JSON.stringify({ action: "unlock", password: token }),
           });
           if (!response.ok) throw new Error(`시트 응답 오류 (${response.status})`);
-          token = csUnlockResult(await response.json());
+          const json = await response.json();
+          token = csUnlockResult(json);
+          saveRemoteBoardToken(storage, json.remote);   // 시트 v8: 같은 6자리로 원격 실행 토큰도 이 기기에 저장 (2026-11-04)
         } catch (error) {
           toast(error.message || "비밀번호를 확인하지 못했습니다.");
           return;

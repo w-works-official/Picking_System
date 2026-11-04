@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-04 v8: 같은 6자리로 원격 실행 보드 토큰도 · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -15,9 +15,12 @@
  *   4) 배포 > 새 배포 > 유형: 웹 앱 / 실행: 나 / 액세스 권한: 모든 사용자 → 웹앱 주소를 알려주세요
  *   5) (v6, 선택) 스크립트 속성 UNLOCK_PASSWORD 에 외우기 쉬운 간단 비밀번호(6자 이상)를 대표님이 직접 넣기
  *      → 화면 [설정] 탭에 긴 BOARD_TOKEN 대신 이 비밀번호를 넣어도 열림. 5번 틀리면 15분 잠금(계속 틀리면 30·60분… 최대 24시간)
+ *   6) (v8, 선택) 스크립트 속성 REMOTE_BOARD_TOKEN 에 원격 실행 보드 토큰을 대표님이 한 번만 넣기
+ *      → 6자리(UNLOCK_PASSWORD)를 넣은 기기는 원격 실행 토큰도 같이 저장됨 (상품 관리 > 발주 [토큰]에서도 6자리로)
  *
  * 이 시트가 하는 일 (이것뿐):
- *   - unlock   (누구나) 간단 비밀번호(UNLOCK_PASSWORD)가 맞으면 BOARD_TOKEN 을 돌려줌 — 틀리면 횟수 기록·잠금
+ *   - unlock   (누구나) 간단 비밀번호(UNLOCK_PASSWORD)가 맞으면 BOARD_TOKEN (+ v8: REMOTE_BOARD_TOKEN) 을 돌려줌 — 틀리면 횟수 기록·잠금
+ *   - secrets  (화면)   (v8) 이미 열린 기기가 원격 실행 보드 토큰(REMOTE_BOARD_TOKEN)을 받아 감 — 6자리를 다시 안 넣게
  *   - list     (화면)   종료되지 않은 문의·리뷰 목록 + 수집기 PC 상태 + 최근 요청
  *   - save     (화면)   선택·고친 문안·보류 저장. 다른 사람이 먼저 바꿨으면 덮어쓰지 않고 알려줌
  *   - suggest  (화면)   AI 답변 후보 10개를 받아 답변안 뒤에 붙임(기존 답변안·선택은 그대로)
@@ -117,7 +120,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 7 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 8 });
 }
 
 function doPost(e) {
@@ -179,7 +182,7 @@ function unlock_(body) {
   }
   if (sameSecret_(body.password, secret)) {
     setProp_('UNLOCK_FAILS', '0');
-    return { ok: true, token: board };
+    return { ok: true, token: board, remote: prop_('REMOTE_BOARD_TOKEN') };
   }
   var fails = Number(prop_('UNLOCK_FAILS') || 0) + 1;
   setProp_('UNLOCK_FAILS', String(fails));
@@ -194,7 +197,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'secrets'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -209,6 +212,7 @@ function route_(body) {
   if (action === 'request') return withLock_(function () { return request_(body); });
   if (action === 'cancel') return withLock_(function () { return cancel_(body); });
   if (action === 'usage') return { ok: true, usage: usage_() };
+  if (action === 'secrets') return { ok: true, remote: prop_('REMOTE_BOARD_TOKEN') };
   if (action === 'name') return name_(body);
   if (action === 'ingest') {
     var result = withLock_(function () { return ingest_(sheet_(), body.rows, body.snapshot); });

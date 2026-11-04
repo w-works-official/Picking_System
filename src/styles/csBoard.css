@@ -1962,3 +1962,15 @@ a.cs-btn {
 .cs-vendor-card .cs-btn.cs-conn-req { color: #dc2626; font-weight: 800; }
 .cs-vendor-card .cs-btn.cs-conn-ing { color: #9ca3af; font-weight: 700; }
 .cs-vendor-card .cs-btn.cs-conn-ok { color: #111111; font-weight: 800; }
+
+/* 2026-11-04: 게시판 탭 [수집할 업체] 칸을 리뷰 탭과 같은 크기·배치로 (이름 위, ☑ 수집 가운데) */
+.cs-vendor-grid[data-vendor-group] .cs-vendor-card {
+  min-height: 80px;
+  grid-template-rows: auto 1fr;
+  align-items: center;
+  padding: 7px 4px 8px;
+}
+
+.cs-vendor-grid[data-vendor-group] .cs-vendor-card strong {
+  align-self: start;
+}

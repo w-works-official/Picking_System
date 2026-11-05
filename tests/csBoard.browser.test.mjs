@@ -161,6 +161,34 @@ try {
     const frameBox = await page.locator('[data-msn-frame="0"]').boundingBox();
     const answerBox = await page.locator('[data-msn-slot="0"] [data-msn-text]').boundingBox();
     assert.ok(answerBox.y > frameBox.y + frameBox.height - 1, "대답 영역은 슬롯 틀 아래");
+    // 11-05: 슬롯 최대 10칸 — 위 5 · 아래 5 / 높이 4단계 / 폭 2가지 / ★ 주목 (화면 연결 전엔 '창 없음' 자리에 ★)
+    assert.deepEqual(await page.locator("[data-msn-height] option").evaluateAll((o) => o.map((x) => x.value)), ["420", "560", "700", "840"]);
+    assert.equal(await page.locator("[data-msn-count] option").count(), 10);
+    await page.locator("[data-msn-count]").selectOption("10");
+    const tops = await page.locator("[data-msn-slot]").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+    assert.equal(tops.length, 10);
+    assert.equal(new Set(tops.slice(0, 5)).size, 1, "위 5칸 한 줄");
+    assert.equal(new Set(tops.slice(5)).size, 1, "아래 5칸 한 줄");
+    assert.ok(tops[5] > tops[0], "아래 줄");
+    const w0 = await page.locator('[data-msn-slot="0"]').evaluate((el) => el.getBoundingClientRect().width);
+    await page.locator("[data-msn-width]").selectOption("460");
+    const w1 = await page.locator('[data-msn-slot="0"]').evaluate((el) => el.getBoundingClientRect().width);
+    assert.ok(Math.round(w0) === 340 && Math.round(w1) === 460, `폭 ${w0} → ${w1}`);
+    await page.locator("[data-msn-width]").selectOption("340");
+    await page.locator("[data-msn-height]").selectOption("840");
+    const h4 = Math.round(await page.locator('[data-msn-frame="0"]').evaluate((el) => el.getBoundingClientRect().height));
+    assert.ok(h4 >= 840 && h4 <= 846, `4단계 = 840px (+테두리) ${h4}`);
+    await page.locator("[data-msn-height]").selectOption("560");
+    assert.equal(await page.locator('[data-msn-state="0"]').isVisible(), false, "화면 연결 전에는 상태 대신 ★");
+    await page.locator('[data-msn-act="star"][data-i="1"]').click();
+    assert.equal(await page.locator('[data-msn-slot="1"]').evaluate((el) => el.classList.contains("is-star")), true);
+    assert.equal(await page.locator('[data-msn-act="star"][data-i="1"]').textContent(), "★");
+    assert.equal(await page.locator('[data-msn-act="star"][data-i="1"]').evaluate((el) => getComputedStyle(el).color), "rgb(220, 38, 38)", "빨강 별");
+    assert.deepEqual(JSON.parse(await page.evaluate(() => localStorage.getItem("system_v3_cs_msn_slots"))).stars.slice(0, 2), [false, true], "별은 이 기기에 기억");
+    await page.locator('[data-msn-act="star"][data-i="1"]').click();
+    assert.equal(await page.locator('[data-msn-slot="1"]').evaluate((el) => el.classList.contains("is-star")), false, "다시 누르면 끔");
+    await page.locator('[data-msn-act="suggest"][data-i="0"]').click();
+    await page.locator("[data-msn-msg]", { hasText: "CS 시트에 연결된 뒤" }).waitFor();
     await page.locator("[data-msn-count]").selectOption("2");
     assert.equal(await page.locator("[data-msn-slot]").count(), 2);
     await page.locator("[data-msn-name='0']").fill("카톡 · 시험");
@@ -553,6 +581,26 @@ try {
     const msJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     gas.post({ action: "finish", token: COLLECTOR, id: msJob.id, ok: true, message: "메이크샵 ✓", data: { login: { 메이크샵: { state: "ok" } } } });
 
+    // 11-05: 💬 메신저 [🤖 추천] — 창 도우미가 붙은 대화창 그림을 주고 → 시트 v9 msnSuggest → 답장 후보를 눌러 입력칸에
+    await context.route("http://127.0.0.1:47811/**", (route) => {
+      const p = new URL(route.request().url()).pathname;
+      const body = p === "/msn/capture" ? { ok: true, mime: "image/png", data: "iVBORw0KGgo" + "A".repeat(300), w: 400, h: 600 } : { ok: true, ver: "1.12 (2026-11-05)", slots: 3, windows: 1, managed: 1 };
+      return route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": origin }, body: JSON.stringify(body) });
+    });
+    await page.locator('[data-left-tab="msn"]').click();
+    await page.locator("[data-msn-helper].is-on").waitFor({ timeout: 8000 });
+    await page.locator('[data-msn-name="0"]').fill("고객 A");
+    await page.locator('[data-msn-act="suggest"][data-i="0"]').click();
+    await page.locator('[data-msn-sugg="0"] .msn-sugg-item').first().waitFor();
+    const ms = requests.filter((r) => r.action === "msnSuggest").at(-1);
+    assert.ok(ms && ms.token === TOKEN && ms.image.startsWith("iVBORw0KGgo") && ms.mime === "image/png" && ms.name === "고객 A", "그림·대화방 이름을 시트로");
+    assert.deepEqual(await page.locator('[data-msn-sugg="0"] .msn-sugg-item').allTextContents(), ["AI가 만든 답 1", "AI가 만든 답 2"]);
+    await page.locator('[data-msn-sugg="0"] .msn-sugg-item').nth(1).click();
+    assert.equal(await page.locator('[data-msn-text="0"]').inputValue(), "AI가 만든 답 2", "후보를 누르면 입력칸에");
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset?.msnText), "0", "커서는 입력칸에");
+    await page.locator('[data-left-tab="board"]').click();
+    await page.locator('[data-left-tab="main"]').click();
+
     // 자동 수집 켜기 (수집기 PC 웹연결이 실행)
     await page.locator("#cs-auto-hour").selectOption("10");
     await page.locator("#cs-auto-minute").selectOption("00");
@@ -641,7 +689,7 @@ try {
       console.log("  (엑셀 시험 건너뜀 — 이 PC에 xlsx 부품 없음)");
     }
     const stillRed = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => el.textContent.trim()));
-    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["🤖 추천", "🤖 추천", "🤖 추천", "📤 등록"].sort(), "only messenger AI read (next step) and review upload stay grey (update waits for a newer version)");
+    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["📤 등록"], "11-05: 메신저 🤖 추천도 작동 — 리뷰 답글 등록만 아직 회색 (업데이트는 새 버전을 기다림)");
 
     // ⬆ 웹연결 업데이트: 저장소 main 최신 커밋 파일 → 확인값 → 수집기 PC에 요청
     const fakeCommit = "d".repeat(40);

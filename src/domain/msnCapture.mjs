@@ -6,7 +6,8 @@
 export const MSN_MARK = { r: 255, g: 0, b: 255 };
 export const MSN_DIFF_ON = 3.5;        // 작게 줄인 화면의 평균 밝기 차이(0~255) 이상이면 "바뀌는 중"
 export const MSN_STABLE_TICKS = 2;     // 바뀐 뒤 이만큼 조용하면 "새 변화" 1건
-export const MSN_LIMITS = { slotsMin: 1, slotsMax: 4, heights: [420, 560, 700] };
+// 2026-11-05: 슬롯 최대 10개(위 5 · 아래 5) · 높이 4단계 · 폭 2가지
+export const MSN_LIMITS = { slotsMin: 1, slotsMax: 10, perRow: 5, heights: [420, 560, 700, 840], widths: [340, 460] };
 
 export function isMark(r, g, b) {
   return r > 200 && g < 70 && b > 200;
@@ -114,8 +115,10 @@ export function readMsnPrefs(storage, key) {
     const height = MSN_LIMITS.heights.includes(Number(raw.height)) ? Number(raw.height) : 560;
     const names = Array.isArray(raw.names) ? raw.names.map((v) => String(v || "").slice(0, 30)) : [];
     const fit = raw.fit && ["ax", "ay", "bx", "by"].every((k) => Number.isFinite(raw.fit[k])) ? raw.fit : null;
-    return { count, height, names, fit };
+    const width = MSN_LIMITS.widths.includes(Number(raw.width)) ? Number(raw.width) : MSN_LIMITS.widths[0];
+    const stars = Array.isArray(raw.stars) ? raw.stars.slice(0, MSN_LIMITS.slotsMax).map((v) => v === true) : [];
+    return { count, height, names, fit, width, stars };
   } catch {
-    return { count: 3, height: 560, names: [], fit: null };
+    return { count: 3, height: 560, names: [], fit: null, width: MSN_LIMITS.widths[0], stars: [] };
   }
 }

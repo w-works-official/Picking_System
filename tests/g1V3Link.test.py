@@ -816,6 +816,9 @@ class FakeMsnApi:
     def send(self, h, enter=True):
         self.sent = (h, enter)
 
+    def capture(self, h):
+        return 2, 1, L.msn_png(2, 1, bytes([0, 0, 255, 255, 0, 255, 0, 255]))
+
     def scan(self):
         return [{"exe": "nateonmain.exe", "title": "김대리", "w": 400, "h": 600, "tool": True, "min": False, "ok": True}]
 
@@ -889,6 +892,13 @@ assert _req("/slots", "POST", {"slots": [{"x": 10, "y": 10, "w": 400, "h": 560}]
 assert _req("/slots", "POST", {"slots": [{"x": 10, "y": 10, "w": 400, "h": 560}]})[2]["slots"] == 1
 st_, _, js = _req("/arrange", "POST", {})
 assert js["placed"] == 1 and fa2.wins[7][1] == (10, 10, 410, 570)
+st_, _, js = _req("/capture", "POST", {"slot": 0})
+import base64 as _b64, zlib as _z
+_png = _b64.b64decode(js["data"])
+assert js["ok"] and js["mime"] == "image/png" and _png.startswith(b"\x89PNG") and (js["w"], js["h"]) == (2, 1)
+_idat = _png[_png.index(b"IDAT") + 4:_png.index(b"IEND") - 8]
+assert _z.decompress(_idat) == bytes([0, 255, 0, 0, 0, 255, 0]), "BGRA → RGB (빨강·초록 점 2개)"
+assert _req("/capture", "POST", {"slot": 2})[2]["ok"] is False, "붙은 창 없는 슬롯은 그림 없음"
 st_, _, js = _req("/send", "POST", {"slot": 0})
 assert js["ok"] and fa2.sent == (7, True), "1.11: 슬롯 1 창에 붙여넣기 + Enter"
 assert _req("/send", "POST", {"slot": 2})[2]["ok"] is False, "붙은 창 없는 슬롯은 안 보냄"

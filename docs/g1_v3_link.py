@@ -75,6 +75,10 @@
   · 웹 슬롯 [↵ 보내기]·Enter = 붙은 대화창에 붙여넣기(Ctrl+V) + Enter, 커서는 System V3 입력칸으로 되돌림
   · 네이트온: 프로그램 이름이 nateon 으로 시작하면 모두 (NateOnMain.exe 등), 도구 창 모양이어도 붙임
   · 진단 GET /msn/windows: 카톡·네이트온 프로그램 창 목록 (이 PC 화면에만)
+
+1.12 (2026-11-05) 메신저 AI 추천
+  · POST /msn/capture: 슬롯에 붙은 대화창이 보이는 자리를 그림(PNG)으로 → 웹 [🤖 추천]이 시트 v9(msnSuggest)로 AI 답장 후보를 받음
+  · 슬롯 최대 10칸 (위 5 · 아래 5)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -82,7 +86,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.11 (2026-11-05)"
+LINK_VER = "1.12 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1531,9 +1535,9 @@ def msn_is_messenger(exe, title):
 
 
 def msn_clean_slots(raw):
-    """웹이 보낸 슬롯 화면 좌표(물리 px) → [(x, y, w, h)] (이상한 값은 버림, 최대 6칸)"""
+    """웹이 보낸 슬롯 화면 좌표(물리 px) → [(x, y, w, h)] (이상한 값은 버림, 최대 10칸)"""
     out = []
-    for s in (raw if isinstance(raw, list) else [])[:6]:
+    for s in (raw if isinstance(raw, list) else [])[:10]:
         try:
             x, y, w, h = (int(round(float(s[k]))) for k in ("x", "y", "w", "h"))
         except Exception:
@@ -1561,6 +1565,24 @@ def msn_outer_rect(slot, margins):
     x, y, w, h = slot
     ml, mt, mr, mb = margins
     return (x - ml, y - mt, w + ml + mr, h + mt + mb)
+
+
+def msn_png(w, h, bgra, stride=None):
+    """BGRA(위→아래) 픽셀 → PNG (추가 설치 없이, zlib 만)"""
+    import zlib, struct
+    stride = stride or w * 4
+    raw = bytearray()
+    for y in range(h):
+        row = bgra[y * stride:y * stride + w * 4]
+        rgb = bytearray(w * 3)
+        rgb[0::3], rgb[1::3], rgb[2::3] = row[2::4], row[1::4], row[0::4]
+        raw.append(0)
+        raw += rgb
+
+    def chunk(t, d):
+        return struct.pack(">I", len(d)) + t + d + struct.pack(">I", zlib.crc32(t + d) & 0xFFFFFFFF)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(bytes(raw), 6)) + chunk(b"IEND", b""))
 
 
 class MsnHelper:
@@ -1667,6 +1689,15 @@ class MsnHelper:
             return {"ok": False, "error": f"슬롯 {i + 1} 에 붙은 대화창이 없음 — 창을 슬롯에 끌어다 놓거나 [📐 일괄 정렬]"}
         self.api.send(h, enter)
         return {"ok": True, "slot": i}
+
+    def capture(self, i):
+        """슬롯 i 에 붙은 대화창 그림 (PNG base64) — 웹이 AI 추천에 씀. 이 PC 안에서만 주고받음"""
+        with self.lock:
+            h = next((h for h, j in self.managed.items() if j == i), None)
+        if h is None:
+            return {"ok": False, "error": f"슬롯 {i + 1} 에 붙은 대화창이 없음"}
+        w, hh, png = self.api.capture(h)
+        return {"ok": True, "mime": "image/png", "data": base64.b64encode(png).decode("ascii"), "w": w, "h": hh}
 
     def scan(self):
         try:
@@ -1820,6 +1851,41 @@ class MsnWin:
         self._key(0x12); self._key(0x12, True)
         return bool(self.u.SetForegroundWindow(hwnd))
 
+    def capture(self, hwnd):
+        """대화창이 보이는 자리를 화면에서 그대로 복사 (붙은 창은 항상 위라 가려지지 않음) → (가로, 세로, PNG)"""
+        c, W = self.c, self.W
+        g = c.WinDLL("gdi32")
+        P = c.c_void_p
+        for name, args, res in (("CreateCompatibleDC", [P], P), ("CreateCompatibleBitmap", [P, c.c_int, c.c_int], P), ("SelectObject", [P, P], P),
+                                ("BitBlt", [P, c.c_int, c.c_int, c.c_int, c.c_int, P, c.c_int, c.c_int, W.DWORD], W.BOOL),
+                                ("GetDIBits", [P, P, W.UINT, W.UINT, P, P, W.UINT], c.c_int), ("DeleteObject", [P], W.BOOL), ("DeleteDC", [P], W.BOOL)):
+            f = getattr(g, name)
+            f.argtypes, f.restype = args, res
+        self.u.GetDC.argtypes, self.u.GetDC.restype = [P], P
+        self.u.ReleaseDC.argtypes, self.u.ReleaseDC.restype = [P, P], c.c_int
+        l, t, r, b = self._visible(hwnd)
+        w, h = max(1, min(r - l, 2400)), max(1, min(b - t, 2400))
+        sdc = self.u.GetDC(None)
+        mdc = g.CreateCompatibleDC(sdc)
+        bmp = g.CreateCompatibleBitmap(sdc, w, h)
+        old = g.SelectObject(mdc, bmp)
+        try:
+            g.BitBlt(mdc, 0, 0, w, h, sdc, l, t, 0x00CC0020)   # SRCCOPY
+
+            class BIH(c.Structure):
+                _fields_ = [("biSize", W.DWORD), ("biWidth", c.c_long), ("biHeight", c.c_long), ("biPlanes", W.WORD), ("biBitCount", W.WORD),
+                            ("biCompression", W.DWORD), ("biSizeImage", W.DWORD), ("biXPelsPerMeter", c.c_long), ("biYPelsPerMeter", c.c_long),
+                            ("biClrUsed", W.DWORD), ("biClrImportant", W.DWORD)]
+            bi = BIH(c.sizeof(BIH), w, -h, 1, 32, 0, 0, 0, 0, 0, 0)
+            buf = c.create_string_buffer(w * h * 4)
+            g.SelectObject(mdc, old)
+            g.GetDIBits(mdc, bmp, 0, h, buf, c.byref(bi), 0)
+        finally:
+            g.DeleteObject(bmp)
+            g.DeleteDC(mdc)
+            self.u.ReleaseDC(None, sdc)
+        return w, h, msn_png(w, h, buf.raw)
+
     def send(self, hwnd, enter=True):
         """메신저 창에 붙여넣기(Ctrl+V) + Enter → 원래 앞에 있던 창(System V3)으로 커서 되돌림. 클립보드는 웹이 미리 넣어 둠"""
         prev = self.u.GetForegroundWindow()
@@ -1903,6 +1969,8 @@ def msn_server(helper, port=MSN_PORT):
                     return self._json(helper.arrange())
                 if p == "/msn/release":
                     return self._json(helper.release_all())
+                if p == "/msn/capture":
+                    return self._json(helper.capture(int(body.get("slot", -1))))
                 if p == "/msn/send":
                     return self._json(helper.send(int(body.get("slot", -1)), body.get("enter", True) is not False))
             except Exception as e:

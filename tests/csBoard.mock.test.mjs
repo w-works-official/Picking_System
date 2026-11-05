@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 8 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 9 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 8);
+  assert.equal(g5.get().version, 9);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -718,3 +718,23 @@ console.log("csBoard.mock.test (login both): OK");
 }
 console.log("csBoard.mock.test (ss board api): OK");
 
+// 2026-11-05 시트 v9: 메신저 대화창 그림 → AI 답장 후보 (그림은 시트에 남기지 않음, 사용량만 '메신저')
+{
+  let seen = null;
+  const g9 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: (payload) => { seen = payload; return { status: 200, text: JSON.stringify(["네 고객님 확인해 보겠습니다 :)", "재고 확인 후 바로 안내드릴게요"]) }; } });
+  const img = "iVBORw0KGgo" + "A".repeat(400);
+  assert.equal(g9.post({ action: "msnSuggest", token: COLLECTOR, image: img }).denied, true, "직원 비밀번호만");
+  assert.equal(g9.post({ action: "msnSuggest", token: TOKEN, image: "x" }).ok, false, "그림 없으면 거절");
+  const r9 = g9.post({ action: "msnSuggest", token: TOKEN, image: `data:image/png;base64,${img}`, mime: "image/png", name: "고객 A", app: "카톡", draft: "네" });
+  assert.equal(r9.ok, true);
+  assert.deepEqual(Array.from(r9.answers), ["네 고객님 확인해 보겠습니다 :)", "재고 확인 후 바로 안내드릴게요"]);
+  const content = seen.messages[0].content;
+  assert.equal(content[0].type, "image");
+  assert.equal(content[0].source.data, img, "data: 머리는 떼고 보냄");
+  assert.match(content[1].text, /대화방: 고객 A[\s\S]*답장 후보 5개/);
+  assert.match(seen.system[0].text, /메신저\(카톡·네이트온\) 대화창 그림일 때/);
+  const used = JSON.parse(g9.properties.AI_USAGE);
+  assert.equal(Object.values(used)[0].kinds["메신저"], 1, "사용량은 '메신저'로");
+  assert.equal(JSON.stringify(g9.sheets.map((sh) => sh.data)).includes(img.slice(0, 40)), false, "그림은 시트에 저장 안 함");
+  console.log("csBoard.mock.test (msnSuggest v9): OK");
+}

@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -117,7 +117,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 8 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 9 });
 }
 
 function doPost(e) {
@@ -194,7 +194,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -210,6 +210,7 @@ function route_(body) {
   if (action === 'cancel') return withLock_(function () { return cancel_(body); });
   if (action === 'usage') return { ok: true, usage: usage_() };
   if (action === 'name') return name_(body);
+  if (action === 'msnSuggest') return msnSuggest_(body);
   if (action === 'ingest') {
     var result = withLock_(function () { return ingest_(sheet_(), body.rows, body.snapshot); });
     if (result.ok && result.newKeys && result.newKeys.length && body.autoSuggest !== false) result.suggested = autoSuggest_(result.newKeys);
@@ -904,6 +905,48 @@ function releaseRegister_(items, results) {
     }
     sheet.getRange(found.index, COL.status, 1, 1).setValues([[statusOf_(state === '완료' || row.closed, row.drafts, row.choice, reg)]]);
   }
+}
+
+// ---------- 화면: 메신저 AI 추천 (v9, 2026-11-05) ----------
+// 메신저 탭 슬롯에 붙은 카톡·네이트온 대화창 그림 → 마지막 고객 메시지에 보낼 짧은 답장 후보. 그림·대화는 시트에 남기지 않음 (사용량만)
+var MSN_RULES = '\n\n메신저(카톡·네이트온) 대화창 그림일 때\n' +
+  '- 그림은 고객과 주고받는 메신저 대화창입니다. 오른쪽(노란·파란 말풍선)이 우리, 왼쪽이 고객인 경우가 많습니다.\n' +
+  '- 가장 아래쪽(최근) 고객 메시지에 바로 보낼 답장 후보를 만듭니다. 이미 우리가 답한 내용은 되풀이하지 말 것.\n' +
+  '- 메신저라 짧게: 1~2문장. 대화가 이미 이어지는 중이면 "안녕하세요 고객님" 인사는 빼도 됨.\n' +
+  '- 그림에서 읽을 수 없는 내용은 지어내지 말 것.';
+
+function msnSuggest_(body) {
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
+  var data = String(body.image || '').replace(/^data:[^,]*,/, '');
+  var mime = /^image\/(png|jpeg|webp)$/.test(String(body.mime || '')) ? String(body.mime) : 'image/png';
+  if (data.length < 200) return { ok: false, error: '대화창 그림을 받지 못했습니다.' };
+  if (data.length > 6000000) return { ok: false, error: '대화창 그림이 너무 큽니다.' };
+  var count = Math.max(3, Math.min(8, Math.floor(Number(body.count)) || 5));
+  var quota = withLock_(function () { return reserveAi_(1); });
+  if (!quota.allow) return { ok: false, error: '오늘 AI 사용 한도(' + quota.limit + '회)를 다 썼습니다.' };
+  var model = prop_('CLAUDE_MODEL') || DEFAULT_MODEL;
+  var text = '메신저: ' + plain_(clean_(body.app, 20) || '카톡·네이트온') + (body.name ? ' / 대화방: ' + plain_(clean_(body.name, 40)) : '');
+  if (body.draft) text += '\n지금 쓰다 만 답장(참고): ' + body_(body.draft, 500);
+  text += '\n\n이 대화창의 마지막 고객 메시지에 보낼 답장 후보 ' + count + '개를 서로 다르게, JSON 문자열 배열로만 출력하세요.';
+  var payload = {
+    model: model,
+    max_tokens: 1200,
+    system: [{ type: 'text', text: SHOP_RULES + MSN_RULES, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: mime, data: data } }, { type: 'text', text: text }] }],
+  };
+  var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, payload: JSON.stringify(payload),
+  });
+  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+  var res = parse_(response.getContentText(), {});
+  var out = '';
+  (Array.isArray(res.content) ? res.content : []).forEach(function (c) { if (c && c.type === 'text') out += c.text; });
+  withLock_(function () { recordUsage_(res.usage, model, '메신저'); });
+  var answers = answersFrom_(out, count).map(function (a) { return body_(a, 600).trim(); }).filter(String);
+  if (!answers.length) return { ok: false, error: 'AI 가 답장을 만들지 못했습니다 — 다시 눌러 주세요.' };
+  return { ok: true, answers: answers };
 }
 
 // ---------- 화면: 상품명 요청 (AI) ----------

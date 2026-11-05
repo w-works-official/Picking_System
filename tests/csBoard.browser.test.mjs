@@ -53,7 +53,7 @@ try {
       const req = route.request();
       const p = new URL(req.url()).pathname;
       helperCalls.push({ path: p, method: req.method(), body: req.postData() ? JSON.parse(req.postData()) : null });
-      const body = p === "/msn/ping" ? { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 } : p === "/msn/arrange" ? { ok: true, placed: 2, windows: 2, slots: 3 } : p === "/msn/release" ? { ok: true, released: 2 } : { ok: true, slots: 3, managed: 0 };
+      const body = p === "/msn/ping" ? { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 } : p === "/msn/arrange" ? { ok: true, placed: 2, windows: 2, slots: 3 } : p === "/msn/release" ? { ok: true, released: 2 } : p === "/msn/send" ? { ok: true, slot: 0 } : p === "/msn/windows" ? { ok: true, windows: [{ exe: "nateonmain.exe", title: "김대리", w: 420, h: 600, tool: true, min: false, ok: true }] } : { ok: true, slots: 3, managed: 0 };
       return route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": origin }, body: JSON.stringify(body) });
     });
     const page = await context.newPage();
@@ -130,6 +130,31 @@ try {
     assert.ok(helperCalls.some((c) => c.path === "/msn/arrange" && c.method === "POST"));
     await page.locator('[data-msn-act="release"]').click();
     await page.locator("[data-msn-msg]", { hasText: "항상 위'를 풀었습니다" }).waitFor();
+    // 11-05: Enter = 붙은 대화창에 붙여넣기 + Enter (커서는 그 칸에) · Shift+Enter 줄바꿈 · Tab / Tab+숫자 = 다른 슬롯
+    await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+    const ta0 = page.locator('[data-msn-text="0"]');
+    await ta0.click();
+    await page.keyboard.type("안녕하세요");
+    await page.keyboard.press("Shift+Enter");
+    await page.keyboard.type("확인했습니다");
+    assert.equal(await ta0.inputValue(), "안녕하세요\n확인했습니다", "Shift+Enter 는 줄바꿈");
+    await page.keyboard.press("Enter");
+    await page.locator("[data-msn-msg]", { hasText: "슬롯 1: 보냈습니다" }).waitFor();
+    const sendCall = helperCalls.filter((c) => c.path === "/msn/send").at(-1);
+    assert.deepEqual(sendCall.body, { slot: 0, enter: true });
+    assert.equal(await ta0.inputValue(), "", "보낸 뒤 칸 비움");
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset?.msnText), "0", "커서는 그 칸에 그대로");
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), "안녕하세요\n확인했습니다", "클립보드에 넣고 도우미가 붙여넣기");
+    await page.keyboard.press("Tab");
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset?.msnText), "1", "Tab = 다음 슬롯");
+    await page.keyboard.down("Tab"); await page.keyboard.press("3"); await page.keyboard.up("Tab");
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset?.msnText), "2", "Tab+3 = 슬롯 3");
+    await page.keyboard.down("Tab"); await page.keyboard.press("ArrowLeft"); await page.keyboard.up("Tab");
+    assert.equal(await page.evaluate(() => document.activeElement?.dataset?.msnText), "1", "Tab+← = 이전 슬롯");
+    assert.equal(await page.locator('[data-msn-slot="1"]').evaluate((el) => el.classList.contains("is-typing")), true);
+    // 연결된 상태에서 🪄 표시 = 진단 (찾은 대화창 목록)
+    await page.locator("[data-msn-helper]").click();
+    await page.locator("[data-msn-msg]", { hasText: "nateonmain.exe" }).waitFor();
     // 💬 메신저 슬롯 (2026-11-03): 기본 3칸 · 틀(분홍 모서리) + 아래 대답 영역 · 칸 수 바꾸기
     assert.equal(await page.locator("[data-msn-slot]").count(), 3, "기본 슬롯 3칸");
     assert.equal(await page.locator('[data-msn-slot="0"] .msn-mark').count(), 4);

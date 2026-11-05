@@ -41,11 +41,11 @@ export function msnSlotHtml(i, { name = "", height = 560 } = {}) {
         <button type="button" class="cs-btn cs-btn-mini is-pending" disabled title="다음 단계 — 메신저 화면을 AI 가 읽고 답변 추천">🤖 추천</button>
       </div>
       <img class="msn-peek" data-msn-peek="${i}" alt="슬롯 ${i + 1} 이 보고 있는 화면" hidden>
-      <textarea data-msn-text="${i}" placeholder="보낼 답변 — 쓰고 [📋 복사] → 메신저 창에 붙여넣기(Ctrl+V)"></textarea>
+      <textarea data-msn-text="${i}" placeholder="보낼 답변 — Enter = 보내기 · Shift+Enter = 줄바꿈 · Tab(+←→ 또는 숫자) = 다른 슬롯"></textarea>
       <div class="cs-row">
         <button type="button" class="cs-btn cs-btn-mini" data-msn-act="clear" data-i="${i}">지우기</button>
         <span class="cs-flex"></span>
-        <button type="button" class="cs-btn cs-btn-green" data-msn-act="copy" data-i="${i}">📋 복사</button>
+        <button type="button" class="cs-btn cs-btn-green" data-msn-act="send" data-i="${i}" title="붙은 대화창에 붙여넣기 + Enter (커서는 이 칸에 그대로) — 창 도우미가 없으면 복사만">↵ 보내기</button>
       </div>
     </div>
   </div>`;
@@ -230,7 +230,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
         else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
         st.helper.perm = perm;
       });
-      el.title = on ? `수집기 PC 웹연결 ${js.ver || ""} — 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (CS 관리 ⚙ 설정 → ⬆ 웹연결 업데이트). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
+      el.title = on ? `수집기 PC 웹연결 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (CS 관리 ⚙ 설정 → ⬆ 웹연결 업데이트). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
     }
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
     const cta = $("[data-msn-cta]");
@@ -259,6 +259,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   }
   // 🪄 표시를 누르면: 사람이 누른 순간에 접속 → 크롬이 '로컬 네트워크 액세스'를 물음 → [허용]
   async function connectHelper() {
+    if (st.helper.on) { diagnose(); return; }
     say("창 도우미에 연결하는 중… 크롬이 '로컬 네트워크의 기기에 액세스'를 물으면 [허용]을 눌러 주세요.");
     await pingHelper();
     if (st.helper.on) { say("창 도우미 연결됨 — 대화창을 슬롯 가까이 끌어다 놓거나 [📐 일괄 정렬]을 누르세요.", "is-ok"); syncSlots(true); return; }
@@ -266,6 +267,17 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     say(perm === "denied"
       ? "이 화면의 PC 접속이 막혀 있습니다 — 앱: 오른쪽 위 ⋮ → 앱 정보 → '로컬 네트워크 액세스' 허용 (크롬 탭: 주소창 왼쪽 아이콘 → '로컬 네트워크 액세스' 켜기) → 새로고침(F5)."
       : "창 도우미에 연결하지 못했습니다 — ① 수집기 PC 웹연결 1.10 이상이 켜져 있는지 ② 이 화면을 수집기 PC(카톡이 있는 PC)에서 열었는지 확인해 주세요.", "is-bad");
+  }
+
+  // 🔍 진단 (연결된 상태에서 🪄 표시를 누르면): 도우미가 보는 카톡·네이트온 프로그램 창 목록
+  async function diagnose() {
+    try {
+      const r = await helperCall("/windows");
+      const list = r.windows || [];
+      const ok = list.filter((w) => w.ok);
+      const lines = list.map((w) => `${w.ok ? "✓" : "✕"} ${w.exe} · ${w.title || "(제목 없음)"} · ${w.w}×${w.h}${w.tool ? " · 도구창" : ""}${w.min ? " · 최소화" : ""}`);
+      say(`창 도우미가 찾은 대화창 ${ok.length}개 (✓ = 붙일 수 있음)${lines.length ? `\n${lines.join("\n")}` : " — 카톡·네이트온 창이 하나도 안 보입니다"}`, ok.length ? "is-ok" : "is-bad");
+    } catch (error) { say(`진단 실패: ${error?.message || error} — 수집기 PC 웹연결을 1.11 로 업데이트해 주세요`, "is-bad"); }
   }
 
   async function arrange() {
@@ -286,13 +298,55 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     } catch (error) { say(`놓아주기 실패: ${error?.message || error}`, "is-bad"); }
   }
 
-  async function copy(i) {
+  // ↵ 보내기 (2026-11-05): 복사 → 창 도우미가 붙은 대화창에 붙여넣기 + Enter → 커서는 이 칸으로 되돌아옴
+  async function send(i) {
     const ta = root.querySelector(`[data-msn-text="${i}"]`);
     const text = ta?.value || "";
-    if (!text.trim()) { say(`슬롯 ${i + 1}: 복사할 답변이 없습니다.`, "is-bad"); return; }
+    if (!text.trim()) { say(`슬롯 ${i + 1}: 보낼 답변이 없습니다.`, "is-bad"); return; }
     try { await navigator.clipboard.writeText(text); } catch { ta.select(); document.execCommand?.("copy"); }
-    say(`슬롯 ${i + 1}: 답변을 복사했습니다 — 메신저 창에서 Ctrl+V`, "is-ok");
+    if (!st.helper.on) { say(`슬롯 ${i + 1}: 창 도우미가 연결되지 않아 복사만 했습니다 — 메신저 창에서 Ctrl+V 후 Enter`, "is-bad"); ta?.focus(); return; }
+    try {
+      await helperCall("/send", { slot: i, enter: true });
+      ta.value = "";
+      say(`슬롯 ${i + 1}: 보냈습니다.`, "is-ok");
+    } catch (error) {
+      say(`슬롯 ${i + 1}: 보내지 못함 — ${error?.message || error} (복사는 됨: 메신저 창에서 Ctrl+V)`, "is-bad");
+    }
+    ta?.focus();
   }
+
+  // 키보드: Enter = 보내기 · Shift+Enter = 줄바꿈 · Tab = 다음 슬롯 (Shift+Tab 이전) · Tab 누른 채 ←→↑↓ 또는 숫자 = 그 슬롯
+  const kb = { tab: false, used: false };
+  function focusSlot(i) {
+    const n = prefs.count;
+    const j = ((i % n) + n) % n;
+    const ta = root.querySelector(`[data-msn-text="${j}"]`);
+    if (!ta) return;
+    ta.focus();
+    ta.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    root.querySelectorAll("[data-msn-slot]").forEach((el) => el.classList.toggle("is-typing", Number(el.dataset.msnSlot) === j));
+  }
+  function onKeyDown(e) {
+    const ta = e.target.closest?.("[data-msn-text]");
+    if (!ta) return;
+    const i = Number(ta.dataset.msnText);
+    if (e.key === "Tab") { e.preventDefault(); if (!kb.tab) { kb.tab = true; kb.used = false; kb.shift = e.shiftKey; } return; }
+    if (kb.tab) {
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+      if (step) { e.preventDefault(); kb.used = true; focusSlot(i + step); return; }
+      if (/^[1-9]$/.test(e.key) && Number(e.key) <= prefs.count) { e.preventDefault(); kb.used = true; focusSlot(Number(e.key) - 1); return; }
+    }
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); send(i); }
+  }
+  function onKeyUp(e) {
+    if (e.key !== "Tab" || !kb.tab) return;
+    const ta = e.target.closest?.("[data-msn-text]");
+    if (!kb.used && ta) focusSlot(Number(ta.dataset.msnText) + (kb.shift ? -1 : 1));
+    kb.tab = false;
+  }
+  root.addEventListener("keydown", onKeyDown);
+  root.addEventListener("keyup", onKeyUp);
+  root.addEventListener("focusin", (e) => { const ta = e.target.closest?.("[data-msn-text]"); if (ta) focusSlot(Number(ta.dataset.msnText)); });
 
   root.addEventListener("click", (e) => {
     const b = e.target.closest("[data-msn-act]");
@@ -310,7 +364,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     else if (act === "arrange") arrange();
     else if (act === "helper") connectHelper();
     else if (act === "release") release();
-    else if (act === "copy") copy(i);
+    else if (act === "send") send(i);
     else if (act === "clear") { const ta = root.querySelector(`[data-msn-text="${i}"]`); if (ta) ta.value = ""; }
     else if (act === "peek") {
       const peek = root.querySelector(`[data-msn-peek="${i}"]`);
@@ -336,7 +390,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   if (!can) say("이 기기는 화면 연결을 지원하지 않습니다 — 메신저 감지는 PC 크롬에서.", "is-bad");
   window.setInterval?.(helperTick, HELPER_SYNC_MS);
   window.addEventListener?.("resize", () => syncSlots(true));
-  return { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, arrange, release, syncSlots, pingHelper, slotScreenRects };
+  return { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose };
 }
 
 if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]")) {

@@ -2023,3 +2023,7 @@ a.cs-btn {
 .cs-btn.msn-cta-btn { min-height: 44px; padding: 8px 18px; font-size: 15px; font-weight: 800; white-space: nowrap; background: #7c3aed; border-color: #7c3aed; }
 .msn-cta { justify-content: flex-start; flex-wrap: wrap; }
 .msn-cta .msn-cta-btn { order: -1; }
+
+/* 2026-11-05: 메신저 보내기 — 지금 입력 중인 슬롯 표시, 진단 여러 줄 */
+.msn-slot.is-typing { box-shadow: 0 0 0 3px #8b5cf6; }
+.msn-msg { white-space: pre-line; }

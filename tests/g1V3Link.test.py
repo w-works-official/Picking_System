@@ -781,6 +781,7 @@ assert not L.msn_origin_ok("https://evil.example") and not L.msn_origin_ok("")
 assert L.msn_is_messenger("KakaoTalk.exe", "고객 A") and L.msn_is_messenger("NateOn.exe", "거래처 김대리"), "카톡·네이트온 대화창"
 assert not L.msn_is_messenger("NateOn.exe", "네이트온") and not L.msn_is_messenger("KakaoTalk.exe", "카카오톡"), "본 창(친구 목록)은 제외"
 assert not L.msn_is_messenger("chrome.exe", "고객 A") and not L.msn_is_messenger("nateon.exe", "  ")
+assert L.msn_is_messenger("NateOnMain.exe", "김대리") and L.msn_is_messenger("nateonmsg.exe", "대화"), "1.11: 네이트온 여러 프로그램 이름"
 assert L.msn_clean_slots([{"x": 10, "y": 20, "w": 400, "h": 560}, {"x": "a"}, {"x": 0, "y": 0, "w": 50, "h": 50}]) == [(10, 20, 400, 560)]
 S3 = [(100, 200, 400, 560), (520, 200, 400, 560), (940, 200, 400, 560)]
 assert L.msn_snap_target((560, 240, 900, 700), S3) == 1, "왼쪽 위 모서리가 가까우면 그 슬롯"
@@ -811,6 +812,12 @@ class FakeMsnApi:
 
     def topmost(self, h, on):
         self.top[h] = on
+
+    def send(self, h, enter=True):
+        self.sent = (h, enter)
+
+    def scan(self):
+        return [{"exe": "nateonmain.exe", "title": "김대리", "w": 400, "h": 600, "tool": True, "min": False, "ok": True}]
 
 
 fa = FakeMsnApi()
@@ -882,7 +889,13 @@ assert _req("/slots", "POST", {"slots": [{"x": 10, "y": 10, "w": 400, "h": 560}]
 assert _req("/slots", "POST", {"slots": [{"x": 10, "y": 10, "w": 400, "h": 560}]})[2]["slots"] == 1
 st_, _, js = _req("/arrange", "POST", {})
 assert js["placed"] == 1 and fa2.wins[7][1] == (10, 10, 410, 570)
+st_, _, js = _req("/send", "POST", {"slot": 0})
+assert js["ok"] and fa2.sent == (7, True), "1.11: 슬롯 1 창에 붙여넣기 + Enter"
+assert _req("/send", "POST", {"slot": 2})[2]["ok"] is False, "붙은 창 없는 슬롯은 안 보냄"
+assert _req("/windows")[2]["windows"][0]["exe"] == "nateonmain.exe", "진단 목록"
+assert _req("/windows", origin="https://evil.example")[0] == 403
 assert _req("/release", "POST", {})[2]["released"] == 1 and fa2.top[7] is False
+assert _req("/send", "POST", {"slot": 0})[2]["ok"] is False, "놓아주면 보내기 안 함"
 _srv.shutdown()
 
 print("g1V3Link.test: OK")

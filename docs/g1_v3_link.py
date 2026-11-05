@@ -70,6 +70,11 @@
   · 웹 [📐 일괄 정렬] = 열린 대화창을 슬롯에 같은 크기로 한 번에 / [📌 놓아주기] = 항상 위 풀기
   · 127.0.0.1:47811 에서만 받고 System V3 화면에서 온 요청만 따름. 카톡 창 위치·크기만 바꿈 (Windows 에서만, 실패해도 연결은 그대로)
   · 1.10.1: 네이트온 대화창도 붙임 (NateOn.exe — 친구 목록 본 창은 제외)
+
+1.11 (2026-11-05) 메신저 보내기
+  · 웹 슬롯 [↵ 보내기]·Enter = 붙은 대화창에 붙여넣기(Ctrl+V) + Enter, 커서는 System V3 입력칸으로 되돌림
+  · 네이트온: 프로그램 이름이 nateon 으로 시작하면 모두 (NateOnMain.exe 등), 도구 창 모양이어도 붙임
+  · 진단 GET /msn/windows: 카톡·네이트온 프로그램 창 목록 (이 PC 화면에만)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -77,7 +82,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.10.1 (2026-11-05)"
+LINK_VER = "1.11 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1507,7 +1512,7 @@ def log_file():
 # 이 PC 안(127.0.0.1)에서만 받고, System V3 화면(w-works-official.github.io)에서 온 요청만 따름. 카톡 창 위치·크기만 바꿈(내용은 안 봄)
 MSN_PORT = 47811
 MSN_ORIGINS = ("https://w-works-official.github.io",)
-MSN_PROCS = ("kakaotalk.exe", "nateon.exe")                  # 1.10.1: 네이트온도
+MSN_PROCS = ("kakaotalk", "nateon")                          # 프로그램 이름 앞부분 (1.11: NateOnMain.exe 등 네이트온 여러 이름)
 MSN_SKIP_TITLES = ("카카오톡", "kakaotalk", "네이트온", "nateon")   # 친구 목록(본 창)은 붙이지 않음
 MSN_SNAP_PX = 90          # 창 왼쪽 위 모서리가 슬롯 왼쪽 위에서 이만큼(px) 안이면 붙임 (창 가운데가 슬롯 안이어도 붙임)
 MSN_TICK = 0.15
@@ -1521,7 +1526,8 @@ def msn_origin_ok(origin):
 def msn_is_messenger(exe, title):
     """메신저 대화창인가 (카톡·네이트온, 본 창·제목 없는 창 제외)"""
     t = str(title or "").strip()
-    return str(exe or "").lower() in MSN_PROCS and bool(t) and t.lower() not in MSN_SKIP_TITLES
+    e = str(exe or "").lower()
+    return e.endswith(".exe") and e.startswith(MSN_PROCS) and bool(t) and t.lower() not in MSN_SKIP_TITLES
 
 
 def msn_clean_slots(raw):
@@ -1653,6 +1659,21 @@ class MsnHelper:
                     placed += 1
             return {"ok": True, "placed": placed, "windows": len(wins), "slots": len(self.slots)}
 
+    def send(self, i, enter=True):
+        """슬롯 i 에 붙은 창에 붙여넣기 + Enter"""
+        with self.lock:
+            h = next((h for h, j in self.managed.items() if j == i), None)
+        if h is None:
+            return {"ok": False, "error": f"슬롯 {i + 1} 에 붙은 대화창이 없음 — 창을 슬롯에 끌어다 놓거나 [📐 일괄 정렬]"}
+        self.api.send(h, enter)
+        return {"ok": True, "slot": i}
+
+    def scan(self):
+        try:
+            return {"ok": True, "windows": self.api.scan()}
+        except Exception as e:
+            return {"ok": False, "error": f"{e}"[:200]}
+
     def release_all(self):
         with self.lock:
             n = len(self.managed)
@@ -1688,7 +1709,8 @@ class MsnWin:
                                 ("GetWindowRect", [H, ctypes.POINTER(W.RECT)], W.BOOL), ("GetWindowThreadProcessId", [H, ctypes.POINTER(W.DWORD)], W.DWORD),
                                 ("GetWindowLongW", [H, ctypes.c_int], ctypes.c_long), ("ShowWindow", [H, ctypes.c_int], W.BOOL),
                                 ("SetWindowPos", [H, H, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, W.UINT], W.BOOL),
-                                ("GetAsyncKeyState", [ctypes.c_int], ctypes.c_short)):
+                                ("GetAsyncKeyState", [ctypes.c_int], ctypes.c_short), ("GetForegroundWindow", [], H),
+                                ("SetForegroundWindow", [H], W.BOOL), ("keybd_event", [ctypes.c_ubyte, ctypes.c_ubyte, W.DWORD, ctypes.c_void_p], None)):
             f = getattr(self.u, name)
             f.argtypes, f.restype = args, res
         self.k.OpenProcess.argtypes, self.k.OpenProcess.restype = [W.DWORD, W.BOOL, W.DWORD], W.HANDLE
@@ -1738,15 +1760,16 @@ class MsnWin:
             try:
                 if not self.u.IsWindowVisible(hwnd) or self.u.IsIconic(hwnd):
                     return True
-                if self.u.GetWindowLongW(hwnd, -20) & 0x80:   # 도구 창(WS_EX_TOOLWINDOW) 제외
-                    return True
                 n = self.u.GetWindowTextLengthW(hwnd)
                 buf = self.c.create_unicode_buffer(n + 1)
                 self.u.GetWindowTextW(hwnd, buf, n + 1)
                 title = buf.value.strip()
                 if not title or title.lower() in MSN_SKIP_TITLES:
                     return True
-                if not msn_is_messenger(self._exe_of(hwnd), title):
+                exe = self._exe_of(hwnd)
+                if not msn_is_messenger(exe, title):
+                    return True
+                if exe.startswith("kakaotalk") and self.u.GetWindowLongW(hwnd, -20) & 0x80:   # 카톡 도구 창(WS_EX_TOOLWINDOW) 제외
                     return True
                 l, t, r, b = self._visible(hwnd)
                 if r - l < 200 or b - t < 200:      # 알림 팝업 같은 작은 창 제외
@@ -1760,6 +1783,56 @@ class MsnWin:
 
     def mouse_down(self):
         return bool(self.u.GetAsyncKeyState(0x01) & 0x8000)
+
+    def scan(self):
+        """진단: 보이는 창 중 카톡·네이트온 프로그램 창 목록 (이 PC 화면에만 보여 줌)"""
+        out = []
+
+        def cb(hwnd, _):
+            try:
+                if not self.u.IsWindowVisible(hwnd):
+                    return True
+                exe = self._exe_of(hwnd)
+                if "kakao" not in exe and "nate" not in exe:
+                    return True
+                n = self.u.GetWindowTextLengthW(hwnd)
+                buf = self.c.create_unicode_buffer(n + 1)
+                self.u.GetWindowTextW(hwnd, buf, n + 1)
+                l, t, r, b = self._visible(hwnd)
+                out.append({"exe": exe, "title": buf.value.strip()[:40], "w": r - l, "h": b - t,
+                            "tool": bool(self.u.GetWindowLongW(hwnd, -20) & 0x80), "min": bool(self.u.IsIconic(hwnd)),
+                            "ok": msn_is_messenger(exe, buf.value) and r - l >= 200 and b - t >= 200})
+            except Exception:
+                pass
+            return len(out) < 30
+        self.u.EnumWindows(self.c.WINFUNCTYPE(self.W.BOOL, self.W.HWND, self.W.LPARAM)(cb), 0)
+        return out
+
+    def _key(self, vk, up=False):
+        self.u.keybd_event(vk, 0, 2 if up else 0, 0)
+
+    def _activate(self, hwnd):
+        """다른 창을 앞으로 (Windows 가 막는 경우를 피하려고 Alt 를 한 번 눌렀다 뗌)"""
+        if not hwnd:
+            return False
+        if self.u.IsIconic(hwnd):
+            self.u.ShowWindow(hwnd, 9)
+        self._key(0x12); self._key(0x12, True)
+        return bool(self.u.SetForegroundWindow(hwnd))
+
+    def send(self, hwnd, enter=True):
+        """메신저 창에 붙여넣기(Ctrl+V) + Enter → 원래 앞에 있던 창(System V3)으로 커서 되돌림. 클립보드는 웹이 미리 넣어 둠"""
+        prev = self.u.GetForegroundWindow()
+        self._activate(hwnd)
+        time.sleep(0.18)
+        self._key(0x11); self._key(0x56); self._key(0x56, True); self._key(0x11, True)   # Ctrl+V
+        time.sleep(0.12)
+        if enter:
+            self._key(0x0D); self._key(0x0D, True)
+            time.sleep(0.15)
+        if prev and prev != hwnd:
+            self._activate(prev)
+        return True
 
     def place(self, hwnd, slot):
         if self.u.IsZoomed(hwnd) or self.u.IsIconic(hwnd):
@@ -1810,6 +1883,8 @@ def msn_server(helper, port=MSN_PORT):
                 return self._json({"ok": False, "error": "origin"}, 403)
             if self.path.split("?")[0] == "/msn/ping":
                 return self._json(helper.status())
+            if self.path.split("?")[0] == "/msn/windows" and msn_origin_ok(o or ""):
+                return self._json(helper.scan())
             return self._json({"ok": False, "error": "not found"}, 404)
 
         def do_POST(self):
@@ -1828,6 +1903,8 @@ def msn_server(helper, port=MSN_PORT):
                     return self._json(helper.arrange())
                 if p == "/msn/release":
                     return self._json(helper.release_all())
+                if p == "/msn/send":
+                    return self._json(helper.send(int(body.get("slot", -1)), body.get("enter", True) is not False))
             except Exception as e:
                 return self._json({"ok": False, "error": f"{e}"[:200]}, 500)
             return self._json({"ok": False, "error": "not found"}, 404)

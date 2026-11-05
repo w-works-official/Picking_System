@@ -2014,3 +2014,12 @@ a.cs-btn {
 .msn-helper.is-on { background: #ede9fe; color: #6d28d9; }
 .msn-helper { border: 0; cursor: pointer; font-family: inherit; }
 .msn-helper.is-off { background: #fef3c7; color: #92400e; }
+
+/* 창 도우미 연결 안내 (연결 전에만) */
+.msn-cta { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 8px 12px 0; padding: 12px 14px; border: 1px solid #c4b5fd; border-radius: 10px; background: #f5f3ff; }
+.msn-cta[hidden] { display: none; }
+.msn-cta strong { font-size: 14px; color: #4c1d95; }
+.msn-cta p { margin: 4px 0 0; font-size: 12px; color: #5b21b6; }
+.cs-btn.msn-cta-btn { min-height: 44px; padding: 8px 18px; font-size: 15px; font-weight: 800; white-space: nowrap; background: #7c3aed; border-color: #7c3aed; }
+.msn-cta { justify-content: flex-start; flex-wrap: wrap; }
+.msn-cta .msn-cta-btn { order: -1; }

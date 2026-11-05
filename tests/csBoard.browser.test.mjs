@@ -118,6 +118,7 @@ try {
     assert.equal(await page.locator("[data-right-title]").textContent(), "💬 메신저 답변");
     // 🪄 창 도우미: 메신저 탭을 열면 연결 확인 → 슬롯 화면 위치를 보냄 → [📐 일괄 정렬]
     await page.locator("[data-msn-helper].is-on").waitFor({ timeout: 8000 });
+    assert.equal(await page.locator("[data-msn-cta]").isHidden(), true, "연결되면 연결 안내 숨김");
     for (let i = 0; i < 40 && !helperCalls.some((c) => c.path === "/msn/slots"); i += 1) await page.waitForTimeout(200);
     const slotPost = helperCalls.find((c) => c.path === "/msn/slots");
     assert.ok(slotPost, "슬롯 위치를 도우미에 보냄");

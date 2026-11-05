@@ -224,6 +224,8 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       el.className = `msn-helper ${on ? "is-on" : "is-off"}`;
       if (!on) lnaState().then((perm) => {
         if (st.helper.on || !el) return;
+        const note = $("[data-msn-cta-note]");
+        if (perm === "denied" && note) note.innerHTML = "크롬에서 막혀 있습니다 — 주소창 맨 왼쪽 <b>아이콘</b>(조절 모양)을 누르면 나오는 목록에서 <b>'로컬 네트워크 액세스'</b> 스위치를 켜고 새로고침(F5) 하세요.";
         if (perm === "denied") el.textContent = "🪄 창 도우미 ⛔ 크롬이 막음 — 주소창 왼쪽 아이콘 → 로컬 네트워크 액세스 [허용]";
         else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
         st.helper.perm = perm;
@@ -231,6 +233,8 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       el.title = on ? `수집기 PC 웹연결 ${js.ver || ""} — 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (CS 관리 ⚙ 설정 → ⬆ 웹연결 업데이트). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
     }
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
+    const cta = $("[data-msn-cta]");
+    if (cta) cta.hidden = on;
   }
   const panelShown = () => document.visibilityState !== "hidden" && !!root.getClientRects?.().length && root.offsetWidth > 0;
   async function pingHelper() {

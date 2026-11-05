@@ -219,6 +219,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   function setHelper(on, js = {}) {
     st.helper.on = on;
     if (!on) st.helper.sent = "";
+    if (on && Array.isArray(js.used)) autoStarOff(js.used);
     const el = $("[data-msn-helper]");
     if (el) {
       el.textContent = on ? "🪄 창 도우미 ● 연결됨" : "🪄 창 도우미 ○ 없음 — 눌러서 연결";
@@ -247,7 +248,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (!rects.length) return;
     const key = JSON.stringify(rects);
     if (!force && key === st.helper.sent) return;
-    try { await helperCall("/slots", { slots: rects }); st.helper.sent = key; } catch { setHelper(false); }
+    try { const r = await helperCall("/slots", { slots: rects }); st.helper.sent = key; if (Array.isArray(r?.used)) autoStarOff(r.used); } catch { setHelper(false); }
   }
   async function helperTick() {
     if (st.helper.busy || !panelShown()) return;
@@ -259,6 +260,11 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     } finally { st.helper.busy = false; }
   }
   // ★ 주목 표시 (빨강 별) — 주목이 필요한 대화창 구분용, 이 기기에 기억
+  //  11-05: 창 도우미(웹연결 1.13+)가 알려 준 '대화창이 붙은 슬롯(used)' 에 없는 슬롯은 ★·빨강 테두리를 저절로 끔
+  function autoStarOff(used) {
+    const has = new Set(used.map(Number));
+    for (let i = 0; i < prefs.count; i += 1) if (prefs.stars[i] === true && !has.has(i)) toggleStar(i);
+  }
   function toggleStar(i) {
     prefs.stars[i] = !(prefs.stars[i] === true);
     for (let k = 0; k < prefs.count; k += 1) if (prefs.stars[k] !== true) prefs.stars[k] = false;

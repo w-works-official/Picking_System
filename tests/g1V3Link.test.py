@@ -848,6 +848,7 @@ fa.down = True; fa.wins[11] = ("고객 A", (2000, 2000, 2400, 2600)); mh.tick();
 assert 11 not in mh.managed and fa.top[11] is False, "슬롯 밖으로 끌어내면 항상 위 풀림"
 r = mh.arrange()                                               # 일괄 정렬: 위에 있는 창부터 빈 슬롯에, 같은 크기
 assert r["placed"] == 2 and mh.managed == {11: 0, 22: 1} and fa.wins[22][1] == (520, 200, 920, 760)
+assert mh.status()["used"] == [0, 1], "1.13: 대화창이 붙은 슬롯 번호"
 S3b = [(x + 30, y, w, h) for x, y, w, h in S3]
 mh.set_slots(S3b)                                              # 브라우저를 옮기면 붙은 창도 따라감
 assert fa.wins[11][1][0] == 130 and fa.wins[22][1][0] == 550

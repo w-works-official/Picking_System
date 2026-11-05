@@ -49,11 +49,12 @@ try {
     await context.route("**/src/domain/csBoard.mjs*", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: withEndpoint(domainSource, "") }));
     // 2026-11-05: 수집기 PC 웹연결 1.10 메신저 창 도우미 (127.0.0.1:47811) 흉내
     const helperCalls = [];
+    let helperUsed = null;                 // 1.13: 대화창이 붙은 슬롯 번호 (null = 예전 버전처럼 알려 주지 않음)
     await context.route("http://127.0.0.1:47811/**", (route) => {
       const req = route.request();
       const p = new URL(req.url()).pathname;
       helperCalls.push({ path: p, method: req.method(), body: req.postData() ? JSON.parse(req.postData()) : null });
-      const body = p === "/msn/ping" ? { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 } : p === "/msn/arrange" ? { ok: true, placed: 2, windows: 2, slots: 3 } : p === "/msn/release" ? { ok: true, released: 2 } : p === "/msn/send" ? { ok: true, slot: 0 } : p === "/msn/windows" ? { ok: true, windows: [{ exe: "nateonmain.exe", title: "김대리", w: 420, h: 600, tool: true, min: false, ok: true }] } : { ok: true, slots: 3, managed: 0 };
+      const body = p === "/msn/ping" ? { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 } : p === "/msn/arrange" ? { ok: true, placed: 2, windows: 2, slots: 3 } : p === "/msn/release" ? { ok: true, released: 2 } : p === "/msn/send" ? { ok: true, slot: 0 } : p === "/msn/windows" ? { ok: true, windows: [{ exe: "nateonmain.exe", title: "김대리", w: 420, h: 600, tool: true, min: false, ok: true }] } : { ok: true, slots: 3, managed: 0, ...(helperUsed ? { used: helperUsed } : {}) };
       return route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": origin }, body: JSON.stringify(body) });
     });
     const page = await context.newPage();
@@ -197,6 +198,16 @@ try {
     assert.deepEqual(JSON.parse(await page.evaluate(() => localStorage.getItem("system_v3_cs_msn_slots"))).stars.slice(0, 2), [false, true], "별은 이 기기에 기억");
     await page.locator('[data-msn-act="star"][data-i="1"]').click();
     assert.equal(await page.locator('[data-msn-slot="1"]').evaluate((el) => el.classList.contains("is-star")), false, "다시 누르면 끔");
+    // 11-05: 창 도우미가 '대화창 붙은 슬롯'을 알려 주면(1.13) 빈 슬롯의 ★·빨강 테두리는 저절로 꺼짐
+    helperUsed = [0];
+    await page.locator('[data-msn-act="star"][data-i="0"]').click();
+    await page.locator('[data-msn-act="star"][data-i="1"]').click();
+    await page.locator("[data-msn-width]").selectOption("520");
+    await page.waitForFunction(() => !document.querySelector('[data-msn-slot="1"]').classList.contains("is-star"), null, { timeout: 5000 });
+    assert.equal(await page.locator('[data-msn-slot="0"]').evaluate((el) => el.classList.contains("is-star")), true, "창이 붙은 슬롯의 ★ 은 그대로");
+    await page.locator('[data-msn-act="star"][data-i="0"]').click();
+    helperUsed = null;
+    await page.locator("[data-msn-width]").selectOption("410");
     await page.locator('[data-msn-act="suggest"][data-i="0"]').click();
     await page.locator("[data-msn-msg]", { hasText: "CS 시트에 연결된 뒤" }).waitFor();
     await page.locator("[data-msn-count]").selectOption("2");

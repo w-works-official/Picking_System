@@ -79,6 +79,9 @@
 1.12 (2026-11-05) 메신저 AI 추천
   · POST /msn/capture: 슬롯에 붙은 대화창이 보이는 자리를 그림(PNG)으로 → 웹 [🤖 추천]이 시트 v9(msnSuggest)로 AI 답장 후보를 받음
   · 슬롯 최대 10칸 (위 5 · 아래 5)
+
+1.13 (2026-11-05) 메신저 빈 슬롯 알림
+  · /msn/ping · /msn/slots 응답에 used = 대화창이 붙어 있는 슬롯 번호 → 웹은 빈 슬롯의 ★ 주목 표시를 저절로 끔
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -86,7 +89,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.12 (2026-11-05)"
+LINK_VER = "1.13 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1600,7 +1603,7 @@ class MsnHelper:
                 wins = len(self.api.windows())
             except Exception:
                 wins = -1
-            return {"ok": True, "ver": LINK_VER, "slots": len(self.slots), "windows": wins, "managed": len(self.managed)}
+            return {"ok": True, "ver": LINK_VER, "slots": len(self.slots), "windows": wins, "managed": len(self.managed), "used": sorted(set(self.managed.values()))}
 
     def _place(self, h, i):
         for other, j in list(self.managed.items()):
@@ -1661,7 +1664,7 @@ class MsnHelper:
                         self.moving.discard(h)
                     else:
                         self._release(h)
-            return {"ok": True, "slots": len(self.slots), "managed": len(self.managed)}
+            return {"ok": True, "slots": len(self.slots), "managed": len(self.managed), "used": sorted(set(self.managed.values()))}
 
     def arrange(self):
         """열린 대화창을 슬롯에 차례로 (이미 붙은 창은 그 자리, 나머지는 위에 있는 창부터 빈 슬롯에)"""

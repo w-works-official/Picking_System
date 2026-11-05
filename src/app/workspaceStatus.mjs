@@ -4,7 +4,7 @@
 // CS 관리 화면은 수집기 PC·CS 연결 표시를 CS 화면이 직접 그리므로(같은 칸 id) 여기서는 러너만 채웁니다.
 // 토큰은 각 화면이 이 기기에 저장해 둔 값만 읽습니다(코드에 비밀값 없음).
 import { REMOTE_BOARD_STORAGE_KEY, REMOTE_BOARD_URL, isRemoteBoardTokenValid, remoteRunnerStates } from "../domain/remoteBoard.mjs?v=20261103-autohide2";
-import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, collectorStatus, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261104-login3";
+import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, collectorStatus, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261105-point1";
 
 export const WS_RUNNER_POLL_MS = 30000; // 러너: 30초마다 (켜짐 판정이 60초 기준)
 export const WS_SHEET_POLL_MS = 60000;  // CS 시트: 1분마다 (CS 화면 자동 새로고침과 같은 간격)

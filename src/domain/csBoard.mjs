@@ -32,7 +32,9 @@ export const CS_STATUS = {
 };
 
 // 수집기(g1_register.SUPPORTED)가 자동 등록할 수 있는 게시판 — 나머지는 복사·바로가기로 직접 등록
-export const CS_REGISTER_SUPPORTED = ["스마트스토어|상품문의", "스마트스토어|고객문의"];
+export const CS_REGISTER_SUPPORTED = ["스마트스토어|상품문의", "스마트스토어|고객문의", "메이크샵|리뷰"];   // 메이크샵 리뷰 = 시트 v10 + 웹연결 1.14
+// 메이크샵 리뷰 적립금 (시트 v10): 실구매금액 × pct %, unit 원 미만 버림
+export const CS_POINT_DEFAULT = { pct: 0, unit: 10, msg: "[PRODUCT_NAME] 리뷰 적립금", max: 30, by: "", at: "" };
 
 // 웹에서 수집기 PC에 보내는 요청 종류 (시트 JOB_KINDS 와 같음)
 export const CS_JOB_KINDS = {
@@ -194,9 +196,9 @@ export function isRegisterSupported(row) {
   return CS_REGISTER_SUPPORTED.includes(`${row.vendor}|${row.board}`);
 }
 
-// 📤 등록 확인 창: 채택된 문의를 자동 등록(스마트스토어)·직접 등록(나머지)으로 나눔
-export function registerCandidates(rows = []) {
-  const picked = rows.filter((row) => row.kind === "문의" && !isCsRowLocked(row) && !row.choice.hold && row.choice.pick >= 0 && pickedText(row).trim());
+// 📤 등록 확인 창: 채택된 문의(또는 리뷰)를 자동 등록·직접 등록으로 나눔
+export function registerCandidates(rows = [], kind = "문의") {
+  const picked = rows.filter((row) => row.kind === kind && !isCsRowLocked(row) && !row.choice.hold && row.choice.pick >= 0 && pickedText(row).trim());
   return { auto: picked.filter(isRegisterSupported), manual: picked.filter((row) => !isRegisterSupported(row)) };
 }
 
@@ -344,6 +346,7 @@ export function parseCsBoardResponse(json) {
     usage: json.usage && typeof json.usage === "object" ? json.usage : null,
     hasRows: Array.isArray(json.rows),
     aiEnabled: json.aiEnabled === true,
+    point: json.point && typeof json.point === "object" ? normalizeCsPoint(json.point) : null,
     added: Math.max(0, Number(json.added) || 0),
     serverTime: line(json.serverTime, 40),
   };
@@ -546,4 +549,34 @@ export function csLoginStatus(vendor, { jobs = [], last = null, saved = false } 
     ? (login.ok ? `✓ 로그인됨 (${csShortTime(login.at)})` : `로그인 실패 (${csShortTime(login.at)})`)
     : collected ? (collectOk ? "✓ 로그인 상태 (지난 수집)" : `지난 수집: ${collected.state}`) : "수집 기록 없음";
   return { ok, resolved: ok === true || (ok === null && saved), changed: !!note, note, text, saved: !!saved };
+}
+
+// 메이크샵 리뷰 적립금 설정 (시트 v10 point)
+export function normalizeCsPoint(raw = {}) {
+  const pct = Number(raw.pct);
+  const unit = Math.max(1, Math.trunc(Number(raw.unit)) || CS_POINT_DEFAULT.unit);
+  return {
+    pct: pct >= 0 && pct <= 100 ? Math.round(pct * 10) / 10 : 0,
+    unit,
+    msg: line(raw.msg, 60) || CS_POINT_DEFAULT.msg,
+    max: Math.max(1, Number(raw.max) || CS_POINT_DEFAULT.max),
+    by: line(raw.by, 40),
+    at: line(raw.at, 40),
+  };
+}
+
+// 적립금 = 실구매금액 × pct % → unit 원 미만 버림 (웹연결 1.14 와 같은 계산)
+export function csPointAmount(price, pct, unit = CS_POINT_DEFAULT.unit) {
+  const won = Math.max(0, Number(String(price ?? "").replace(/[^0-9.]/g, "")) || 0);
+  const p = Math.max(0, Number(pct) || 0);
+  if (!won || !p) return 0;
+  const u = Math.max(1, Math.trunc(unit) || 1);
+  const pct10 = Math.round(p * 10);                       // 소수 한 자리 → 정수 계산 (부동소수 오차 없이)
+  return Math.floor(Math.floor((Math.trunc(won) * pct10) / 1000) / u) * u;
+}
+
+export function csPointPayload(set, editor = "") {
+  const pct = Number(set?.pct);
+  if (!(pct >= 0 && pct <= CS_POINT_DEFAULT.max)) throw new Error(`적립률은 0 ~ ${CS_POINT_DEFAULT.max}% 사이로 넣어 주세요.`);
+  return { action: "point", set: { pct: Math.round(pct * 10) / 10, msg: String(set?.msg ?? "").trim().slice(0, 60) }, editor: line(editor, 40) };
 }

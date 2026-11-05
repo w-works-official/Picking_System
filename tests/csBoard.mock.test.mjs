@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 9 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 10 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 9);
+  assert.equal(g5.get().version, 10);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -737,4 +737,33 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.equal(Object.values(used)[0].kinds["메신저"], 1, "사용량은 '메신저'로");
   assert.equal(JSON.stringify(g9.sheets.map((sh) => sh.data)).includes(img.slice(0, 40)), false, "그림은 시트에 저장 안 함");
   console.log("csBoard.mock.test (msnSuggest v9): OK");
+}
+
+// 2026-11-05 시트 v10: 메이크샵 리뷰 답글 자동 등록 + 적립금 설정 (실구매금액 × %)
+{
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR } });
+  let r = g.post({ action: "point", token: TOKEN });
+  assert.deepEqual([r.ok, r.point.pct, r.point.unit, r.point.msg], [true, 0, 10, "[PRODUCT_NAME] 리뷰 적립금"], "처음엔 0% = 답글만");
+  assert.equal(g.post({ action: "point", token: COLLECTOR }).denied, true, "직원 비밀번호만");
+  assert.equal(g.post({ action: "point", token: TOKEN, set: { pct: 31 } }).ok, false, "최대 30%");
+  assert.equal(g.post({ action: "point", token: TOKEN, set: { pct: -1 } }).ok, false);
+  assert.equal(g.post({ action: "point", token: TOKEN, set: { pct: 2, msg: "가".repeat(51) } }).ok, false, "사유 한글 50자까지");
+  r = g.post({ action: "point", token: TOKEN, set: { pct: 2.55, msg: "리뷰 감사 [PRODUCT_NAME]" }, editor: "희진" });
+  assert.deepEqual([r.ok, r.point.pct, r.point.msg, r.point.by], [true, 2.6, "리뷰 감사 [PRODUCT_NAME]", "희진"]);
+  assert.equal(g.post({ action: "list", token: TOKEN }).point.pct, 2.6, "목록에도 설정");
+  g.post({ action: "ingest", token: COLLECTOR, autoSuggest: false, rows: [
+    { 업체: "메이크샵", 게시판: "리뷰", id: "817322", 날짜: "2026-11-04 21:10", 상품명: "리본 피어싱", 별점: 5, 내용: "예뻐요", 답변안: ["감사합니다"] },
+  ], snapshot: { kind: "리뷰", vendors: { 메이크샵: { 상태: "ok" } }, days: 30, collectedAt: "2026-11-05 12:00" } });
+  const key = "메이크샵_리뷰_817322";
+  g.post({ action: "save", token: TOKEN, key, baseVersion: 0, choice: { pick: 0 } });
+  r = g.post({ action: "request", token: TOKEN, kind: "register", keys: [key], editor: "희진" });
+  assert.equal(r.ok, true, "메이크샵 리뷰는 자동 등록 대상");
+  const job = g.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+  const item = JSON.parse(JSON.stringify(job.body.items[0]));
+  assert.deepEqual([item.vendor, item.board, item.id, item.text], ["메이크샵", "리뷰", "817322", "감사합니다"]);
+  assert.deepEqual([item.point.pct, item.point.unit, item.point.msg], [2.6, 10, "리뷰 감사 [PRODUCT_NAME]"], "등록하는 순간의 적립금 설정을 같이 보냄");
+  g.post({ action: "finish", token: COLLECTOR, id: job.id, ok: true, message: "등록 1건", results: [{ key, state: "등록완료", note: "답글 ✓ · 적립금 110원 ✓" }] });
+  const row = g.post({ action: "list", token: TOKEN }).rows.find((x) => x.key === key);
+  assert.deepEqual([row.closed, row.reg.state, row.reg.note], [true, "완료", "답글 ✓ · 적립금 110원 ✓"], "등록완료 → 종료 + 적립금 결과 메모");
+  console.log("csBoard.mock.test (ms review point v10): OK");
 }

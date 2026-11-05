@@ -909,4 +909,88 @@ assert _req("/release", "POST", {})[2]["released"] == 1 and fa2.top[7] is False
 assert _req("/send", "POST", {"slot": 0})[2]["ok"] is False, "놓아주면 보내기 안 함"
 _srv.shutdown()
 
+
+# ── 1.14 메이크샵 리뷰 답글 + 적립금 ──
+assert L.ms_point_amount("4,277", 2.6) == 110 and L.ms_point_amount("4,277", 2) == 80 and L.ms_point_amount("15,000", 1) == 150
+assert L.ms_point_amount("0", 5) == 0 and L.ms_point_amount("4,277", 0) == 0 and L.ms_point_amount("4,277", 31) == 0, "0원·0%·30% 넘으면 0"
+assert L.ms_point_amount("999", 1, 10) == 0 and L.ms_point_amount("1,000", 1, 10) == 10, "10원 미만 버림"
+
+
+class MsPage:
+    def __init__(self, rows):
+        self.rows = rows                       # num1 → 목록 항목
+        self.url = ""
+        self.calls = []
+        self.handlers = {}
+        self.context = types.SimpleNamespace(cookies=lambda: [{"domain": ".www.makeshop.co.kr"}, {"domain": "special346.makeshop.co.kr"}])
+    def on(self, ev, fn): self.handlers[ev] = fn
+    def goto(self, url, **kw): self.url = url; self.calls.append(("goto", url))
+    def wait_for_timeout(self, ms): pass
+    def evaluate(self, js, arg=None):
+        if js == L.MS_READY_JS:
+            return "special346.makeshop.co.kr" in self.url
+        if js == L.MS_FIND_JS:
+            self.calls.append(("find", tuple(arg["nums"])))
+            return {"out": {n: dict(self.rows[n]) for n in arg["nums"] if n in self.rows}, "pages": 1}
+        if js == L.MS_COMMENT_JS:
+            self.calls.append(("comment", arg["num1"], arg["text"], arg["hname"], arg["code"]))
+            self.rows[arg["num1"]]["comments"] += 1
+            return {"ok": True, "msg": "등록되었습니다."}
+        if js == L.MS_RESERVE_JS:
+            self.calls.append(("reserve", arg["num1"], arg["member"], arg["amount"], arg["msg"], arg["branduid"]))
+            if "dialog" in self.handlers:
+                self.handlers["dialog"](types.SimpleNamespace(message="적립금이 지급되었습니다.", accept=lambda: None))
+            if arg["member"] != "noreserve":
+                self.rows[arg["num1"]]["reserved"] = "1"
+            return {"ok": True, "step": "send", "msg": ""}
+        raise AssertionError("unexpected js")
+
+
+def _row(num1, member="sangah1013", price="4,277", reserved="0", comments=0):
+    return {"num1": num1, "num2": "00000", "code": "curiouswiz_board3", "member": member, "brandname": "리본피어싱", "branduid": "2085727",
+            "price": price, "reserved": reserved, "comments": comments, "commentText": "[]"}
+
+
+ms_rows = {"817322": _row("817322"), "817300": _row("817300", comments=1), "817200": _row("817200", member="", price="0"),
+           "817100": _row("817100", reserved="1"), "817050": _row("817050", member="noreserve")}
+ms_page = MsPage(ms_rows)
+
+
+class MsBrowser:
+    def __init__(self, show=False): pass
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def page(self): return ms_page
+
+
+keepB = G.Browser
+G.Browser = MsBrowser
+pt = {"pct": 2.6, "unit": 10, "msg": "[PRODUCT_NAME] 리뷰 적립금"}
+mk = lambda n, text="감사합니다 :)": {"key": f"메이크샵_리뷰_{n}", "vendor": "메이크샵", "board": "리뷰", "id": n, "date": "", "text": text, "point": pt}
+items = [mk("817322"), mk("817300"), mk("817200"), mk("817100"), mk("817050"), mk("999999")]
+ok, msg, results = L.run_register_job({"id": "JM1", "kind": "register", "body": {"items": items}}, {"out_dir": out_dir}, say)
+by = {r["key"].split("_")[-1]: (r["state"], r["note"]) for r in results}
+assert ok and msg == "등록 3건 · 확인 필요 2건 · 건너뜀 1건", msg
+assert by["817322"] == ("등록완료", "답글 ✓ · 적립금 110원 ✓ (실구매 4,277원 × 2.6%)"), by["817322"]
+assert by["817300"][0] == "건너뜀" and "이미 답글" in by["817300"][1]
+assert by["817200"] == ("등록완료", "답글 ✓ · 적립금 없음(쇼핑몰 회원 아님 — 네이버페이 등)")
+assert by["817100"] == ("등록완료", "답글 ✓ · 적립금 이미 지급됨")
+assert by["817050"][0] == "확인 필요" and "110원 확인 안 됨" in by["817050"][1] and "적립금이 지급되었습니다" in by["817050"][1]
+assert by["999999"][0] == "확인 필요" and "찾지 못함" in by["999999"][1]
+coms = [c for c in ms_page.calls if c[0] == "comment"]
+assert [c[1] for c in coms] == ["817322", "817200", "817100", "817050"], "이미 답글 있는 리뷰·못 찾은 리뷰는 답글 안 씀"
+assert coms[0][2:] == ("감사합니다 :)", "핑크로켓", "curiouswiz_board3")
+res = [c for c in ms_page.calls if c[0] == "reserve"]
+assert res[0] == ("reserve", "817322", "sangah1013", 110, "[PRODUCT_NAME] 리뷰 적립금", "2085727") and len(res) == 2, res
+assert ms_page.calls[0] == ("goto", "https://special346.makeshop.co.kr/makeshop/newmanager/power_review_list.html"), "쿠키에서 관리자 주소"
+# 0% = 답글만
+ms_rows["817400"] = _row("817400")
+ok, msg, results = L.run_register_job({"id": "JM2", "kind": "register", "body": {"items": [dict(mk("817400"), point={"pct": 0})]}}, {"out_dir": out_dir}, say)
+assert results[0]["state"] == "등록완료" and results[0]["note"] == "답글 ✓" and ms_rows["817400"]["reserved"] == "0"
+# 관리자 화면을 못 열면 아무것도 안 함
+ms_page.context = types.SimpleNamespace(cookies=lambda: [])
+ok, msg, results = L.run_register_job({"id": "JM3", "kind": "register", "body": {"items": [mk("817500")]}}, {"out_dir": out_dir}, say)
+assert not ok and results[0]["state"] == "확인 필요" and "로그인" in results[0]["note"]
+G.Browser = keepB
+
 print("g1V3Link.test: OK")

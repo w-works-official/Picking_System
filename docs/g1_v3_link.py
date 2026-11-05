@@ -82,6 +82,12 @@
 
 1.13 (2026-11-05) 메신저 빈 슬롯 알림
   · /msn/ping · /msn/slots 응답에 used = 대화창이 붙어 있는 슬롯 번호 → 웹은 빈 슬롯의 ★ 주목 표시를 저절로 끔
+
+1.14 (2026-11-05) 메이크샵 리뷰 답글 + 적립금
+  · 웹 ⭐ 리뷰 [📤 등록] (시트 v10) → 메이크샵 파워리뷰 관리 화면에서 답글 등록(CommentProc INSERT) → 적립금 지급
+  · 적립금 = 파워리뷰 목록의 (상품 실구매 금액) × 시트 설정 % → 10원 미만 버림 · 사유 = 시트 설정 ([PRODUCT_NAME] = 상품명)
+  · 등록 직전 다시 조회: 이미 답글 있으면 건너뜀(적립금도 안 줌) · 회원 아님(네이버페이)·이미 적립됨·실구매 0원이면 답글만
+  · 적립금은 사람이 누르는 [적립금] 창(reserve_money.html)을 화면 밖 작은 틀에 열어 같은 순서로 채우고 [지급] → 다시 조회해 지급됨 확인
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -89,7 +95,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.13 (2026-11-05)"
+LINK_VER = "1.14 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -613,9 +619,21 @@ def ss_api(cfg, say):
         return None
 
 
-def run_register_job(job, cfg, say):
-    import g1_register as RG
+def run_register_job(job, cfg, say, d=None):
     items = (job.get("body") or {}).get("items") or []
+    ms = [x for x in items if x.get("vendor") == "메이크샵" and x.get("board") == "리뷰"]
+    rest = [x for x in items if not (x.get("vendor") == "메이크샵" and x.get("board") == "리뷰")]
+    if not ms:
+        return run_ss_register(job, rest, cfg, say)
+    ok1, msg1, res1 = run_ms_review_register(ms, cfg, say, d)
+    if not rest:
+        return ok1, msg1, res1
+    ok2, msg2, res2 = run_ss_register(job, rest, cfg, say)
+    return ok1 and ok2, f"메이크샵 리뷰: {msg1} / 스마트스토어: {msg2}", res1 + res2
+
+
+def run_ss_register(job, items, cfg, say):
+    import g1_register as RG
     ans = os.path.join(os.path.dirname(cfg["out_dir"].rstrip("\\/")), "답변안", "승인")
     os.makedirs(ans, exist_ok=True)
     approved = os.path.join(ans, f"V3_등록요청_{job['id']}.json")
@@ -640,6 +658,220 @@ def run_register_job(job, cfg, say):
         else:
             results.append(dict(key=r["key"], state="건너뜀", note=r.get("판정", "")))
     return True, f"등록 {n_ok}건 · 확인 필요 {n_bad}건 · 건너뜀 {len(rows) - n_ok - n_bad}건", results
+
+
+# ───────── 메이크샵 파워리뷰 답글 + 적립금 (1.14) ─────────
+MS_REVIEW_PATH = "/makeshop/newmanager/power_review_list.html"
+MS_REVIEW_HNAME = "핑크로켓"               # 답글 작성자 이름 (설정 ms_review_hname 로 바꿀 수 있음, 한글 5자)
+MS_POINT_MAX_PCT = 30
+
+
+def ms_point_amount(price, pct, unit=10):
+    """실구매금액 × pct % → unit 원 미만 버림 (웹 csPointAmount 와 같은 정수 계산)"""
+    won = int(re.sub(r"[^0-9]", "", str(price or "")) or 0)
+    try:
+        p10 = int(round(float(pct or 0) * 10))
+    except (TypeError, ValueError):
+        p10 = 0
+    if won <= 0 or p10 <= 0 or p10 > MS_POINT_MAX_PCT * 10:
+        return 0
+    unit = max(1, int(unit or 1))
+    return (won * p10 // 1000) // unit * unit
+
+
+def ms_admin_hosts(pg, cfg, d=None):
+    """메이크샵 관리자 주소 후보: 설정 ms_admin_host → 부운영자 상점 URL → 브라우저 쿠키의 *.makeshop.co.kr"""
+    out = []
+    def add(h):
+        h = re.sub(r"^https?://", "", str(h or "").strip()).split("/")[0].strip()
+        if h and h not in out:
+            out.append(h)
+    add(cfg.get("ms_admin_host"))
+    try:
+        c = load_cred(d, "메이크샵") if d is not None else None
+        sub = parse_sub(c["id"]) if c else None
+        if sub:
+            add(sub[0])
+    except Exception:
+        pass
+    try:
+        for ck in pg.context.cookies():
+            dom = str(ck.get("domain") or "").lstrip(".")
+            if dom.endswith("makeshop.co.kr") and dom.split(".")[0] not in ("www", "help", "makeshop", "image", "img"):
+                add(dom)
+    except Exception:
+        pass
+    return out
+
+
+MS_READY_JS = "() => !!document.querySelector('#search_form') && typeof window.jQuery === 'function'"
+
+# 리뷰 목록(관리자 화면이 부르는 GetRevewList)을 날짜 범위만 넓혀 쪽마다 조회 → 찾는 num1 만
+MS_FIND_JS = r"""async (a) => {
+  const $f = jQuery('#search_form');
+  const set = (n, v) => { const el = $f.find('[name="' + n + '"]'); if (el.length) el.val(v); };
+  const ymd = (t) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const months = Number($f.find('[name="power_review_search_max_num"]').val()) || 3;
+  const days = Math.min(a.days, months * 30 - 1);
+  set('date_start', ymd(Date.now() - days * 86400000)); set('date_end', ymd(Date.now()));
+  const lims = $f.find('[name="list_limit"] option').map((i, o) => Number(o.value) || 0).get();
+  const lim = lims.length ? Math.max(...lims) : 30;
+  if (lims.length) set('list_limit', String(lim));
+  set('action_type', 'GetRevewList');
+  const want = new Set(a.nums.map(String)), out = {};
+  let pages = 0, seen = 0;
+  for (let p = 1; p <= a.maxPages && Object.keys(out).length < want.size; p++) {
+    set('page', String(p));
+    const j = await jQuery.ajax({ url: 'power_review_list.action.html', type: 'POST', data: $f.serialize(), dataType: 'json' });
+    if (!j || j.status === false) return { error: String((j && j.msg) || '목록 조회 실패'), out };
+    const list = Array.isArray(j.data) ? j.data : [];
+    pages = p; seen += list.length;
+    for (const it of list) {
+      const k = String(it.num1);
+      if (!want.has(k) || out[k]) continue;
+      out[k] = { num1: k, num2: String(it.num2 || '00000'), code: String(it.code || ''), member: String(it.id || ''), brandname: String(it.brandname2 || ''),
+                 branduid: String(it.brand_uid || ''), price: String(it.sell_price || '0'), reserved: String(it.reserve_check || '0'), reserveDate: String(it.reserve_date || ''),
+                 comments: Number(it.comment) || 0, commentText: JSON.stringify(it.comment_list || []).slice(0, 6000) };
+    }
+    if (list.length < lim) break;
+  }
+  return { out, pages, seen, days };
+}"""
+
+MS_COMMENT_JS = r"""async (a) => {
+  const r = await jQuery.ajax({ url: 'power_review_list.action.html', type: 'POST', dataType: 'json',
+    data: { action_type: 'CommentProc', comment_type: 'INSERT', board_code: a.code, num1: a.num1, num2: '00000', uid: '', comment: a.text, hname: a.hname, power_review: '' } });
+  return { ok: !!(r && r.status === true), msg: String((r && r.msg) || '') };
+}"""
+
+# 사람이 [적립금] 을 누를 때와 같은 순서: reserve 양식 → reserve_money.html(작은 창 대신 화면 밖 틀) → 지급(+)·금액·사유 → send()
+MS_RESERVE_JS = r"""async (a) => {
+  const wait = (fr, ms) => new Promise((res) => { const t = setTimeout(() => res(false), ms); fr.addEventListener('load', () => { clearTimeout(t); res(true); }, { once: true }); });
+  let fr = document.querySelector('iframe[name="v3reserve"]');
+  if (!fr) { fr = document.createElement('iframe'); fr.name = 'v3reserve'; fr.style.cssText = 'position:absolute;left:-9999px;top:0;width:520px;height:320px'; document.body.appendChild(fr); }
+  const f = document.forms.namedItem('reserve');
+  if (!f) return { ok: false, step: 'form', msg: '관리자 화면에 적립금 양식(reserve)이 없습니다' };
+  const put = (form, n, v) => { const el = form.elements.namedItem(n); if (el) el.value = v; };
+  put(f, 'id', a.member); put(f, 'type', 'board'); put(f, 'num1', a.num1); put(f, 'num2', a.num2); put(f, 'brandname', a.brandname); put(f, 'branduid', a.branduid); put(f, 'date', a.num1);
+  if (a.code) put(f, 'code', a.code);
+  const oldTarget = f.target, oldAction = f.getAttribute('action');
+  f.target = 'v3reserve'; f.action = 'reserve_money.html';
+  let w = wait(fr, 20000); f.submit();
+  f.target = oldTarget || ''; if (oldAction !== null) f.setAttribute('action', oldAction);
+  if (!(await w)) return { ok: false, step: 'open', msg: '적립금 창이 열리지 않음' };
+  const doc = fr.contentDocument, g = doc && (doc.forms.namedItem('form1') || [...doc.forms].find((x) => x.elements.namedItem('reserve')));
+  const text = () => ((fr.contentDocument && fr.contentDocument.body && fr.contentDocument.body.textContent) || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  if (!g) return { ok: false, step: 'open', msg: '적립금 창을 읽지 못함: ' + text() };
+  const gb = g.elements.namedItem('gubun');
+  if (gb) gb.value = '+';
+  put(g, 'reserve', String(a.amount)); put(g, 'content', a.msg);
+  if (typeof fr.contentWindow.send !== 'function') return { ok: false, step: 'open', msg: '적립금 창의 [지급] 기능을 찾지 못함' };
+  w = wait(fr, 20000); fr.contentWindow.send();
+  const done = await w;
+  return { ok: done, step: 'send', msg: text() };
+}"""
+
+
+def ms_open_review_page(pg, cfg, say, d=None):
+    tried = []
+    for host in ms_admin_hosts(pg, cfg, d):
+        try:
+            pg.goto(f"https://{host}{MS_REVIEW_PATH}", wait_until="domcontentloaded", timeout=60000)
+            pg.wait_for_timeout(2500)
+            if pg.evaluate(MS_READY_JS):
+                return host
+        except Exception as e:
+            say(f"  메이크샵 {host}: {str(e)[:120]}")
+        tried.append(host)
+    say(f"⚠ 메이크샵 파워리뷰 관리 화면을 열지 못함 (시도: {', '.join(tried) or '주소 후보 없음'}) — 로그인 확인")
+    return None
+
+
+def ms_find(pg, nums, cfg):
+    days = max(30, int(cfg.get("review_days") or 30) + 30)
+    r = pg.evaluate(MS_FIND_JS, {"nums": [str(n) for n in nums], "days": days, "maxPages": 40}) or {}
+    if r.get("error"):
+        raise RuntimeError(r["error"])
+    return r.get("out") or {}
+
+
+def ms_review_one(pg, x, it, point, cfg, say, dialogs):
+    """한 건: 답글 → (조건 맞으면) 적립금. 돌려주는 값 = (state, note)"""
+    num = str(x.get("id") or "")
+    if not it:
+        return "확인 필요", "파워리뷰 목록에서 이 리뷰를 찾지 못함 (기간 밖·삭제?) — 등록 안 함"
+    if it.get("comments", 0) > 0:
+        return "건너뜀", "이미 답글 있음 — 덮어쓰지 않음 (적립금도 안 줌)"
+    hname = str(cfg.get("ms_review_hname") or MS_REVIEW_HNAME)[:5]
+    text = str(x.get("text") or "").strip()
+    if not text:
+        return "건너뜀", "답글 문안 없음"
+    dialogs.clear()
+    r = pg.evaluate(MS_COMMENT_JS, {"code": it["code"], "num1": num, "text": text, "hname": hname}) or {}
+    if not r.get("ok"):
+        return "확인 필요", f"답글 등록 실패: {r.get('msg') or '응답 없음'}"
+    after = (ms_find(pg, [num], cfg) or {}).get(num) or {}
+    if after.get("comments", 0) <= 0:
+        return "확인 필요", f"답글 등록 응답은 성공({r.get('msg', '')}) — 다시 조회에서 안 보임"
+    note = "답글 ✓"
+    pct = float((point or {}).get("pct") or 0)
+    unit = int((point or {}).get("unit") or 10)
+    amount = ms_point_amount(it.get("price"), pct, unit)
+    if pct <= 0:
+        return "등록완료", note
+    if not it.get("member"):
+        return "등록완료", note + " · 적립금 없음(쇼핑몰 회원 아님 — 네이버페이 등)"
+    if str(it.get("reserved")) == "1":
+        return "등록완료", note + " · 적립금 이미 지급됨"
+    if amount <= 0:
+        return "등록완료", note + f" · 적립금 0원 (실구매 {it.get('price')}원 × {pct}%)"
+    msg = str((point or {}).get("msg") or "[PRODUCT_NAME] 리뷰 적립금")
+    dialogs.clear()
+    rr = pg.evaluate(MS_RESERVE_JS, {"member": it["member"], "num1": num, "num2": it["num2"], "brandname": it["brandname"], "branduid": it["branduid"],
+                                     "code": it["code"], "amount": amount, "msg": msg}) or {}
+    said = " / ".join(dialogs)[:150]
+    chk = (ms_find(pg, [num], cfg) or {}).get(num) or {}
+    if str(chk.get("reserved")) == "1":
+        return "등록완료", note + f" · 적립금 {amount:,}원 ✓ (실구매 {it.get('price')}원 × {pct}%)"
+    return "확인 필요", note + f" · 적립금 {amount:,}원 확인 안 됨 — 관리자 화면에서 확인 ({rr.get('step', '')}: {rr.get('msg', '')[:80]}{' · ' + said if said else ''})"
+
+
+def run_ms_review_register(items, cfg, say, d=None):
+    G = _G()
+    point = (items[0].get("point") if items else None) or {"pct": 0}
+    if not G.RUN_LOCK.acquire(blocking=False):
+        return False, "수집 중이라 지금 못 함 — 끝난 뒤 다시", [dict(key=x["key"], state="건너뜀", note="수집 중이라 못 함 — 다시 요청") for x in items]
+    results = []
+    try:
+        with G.Browser(bool(cfg.get("show_browser"))) as br:
+            pg = br.page()
+            dialogs = []
+            def on_dialog(dg):
+                try:
+                    dialogs.append(str(dg.message or "")[:120])
+                    dg.accept()
+                except Exception:
+                    pass
+            try:
+                pg.on("dialog", on_dialog)
+            except Exception:
+                pass
+            host = ms_open_review_page(pg, cfg, say, d)
+            if not host:
+                return False, "메이크샵 관리자 화면 접근 안 됨 (로그인 필요)", [dict(key=x["key"], state="확인 필요", note="메이크샵 관리자 화면 접근 안 됨 — 로그인 후 다시") for x in items]
+            say(f"📤 메이크샵 리뷰 {len(items)}건 · 적립금 {point.get('pct', 0)}% ({host})")
+            found = ms_find(pg, [x.get("id") for x in items], cfg)
+            for x in items:
+                try:
+                    state, note = ms_review_one(pg, x, found.get(str(x.get("id"))), point, cfg, say, dialogs)
+                except Exception as e:
+                    state, note = "확인 필요", f"오류: {str(e)[:150]}"
+                say(f"  {x.get('id')}: {state} — {note}")
+                results.append(dict(key=x["key"], state=state, note=note))
+    finally:
+        G.RUN_LOCK.release()
+    n = {k: sum(1 for r in results if r["state"] == k) for k in ("등록완료", "확인 필요", "건너뜀")}
+    return True, f"등록 {n['등록완료']}건 · 확인 필요 {n['확인 필요']}건 · 건너뜀 {n['건너뜀']}건", results
 
 
 # ───────── 잠금(RSA-OAEP) — 웹에서 비밀번호·API 키를 잠가 보내고 이 PC만 풂 ─────────
@@ -1405,7 +1637,7 @@ def handle(link, job, cfg, say, d=None):
     try:
         kind = job["kind"]
         if kind == "register":
-            ok, msg, results = run_register_job(job, cfg, say)
+            ok, msg, results = run_register_job(job, cfg, say, d)
         elif kind == "login":
             ok, msg, data = run_login_job(job, cfg, say, progress, d)
             if ok and (job.get("body") or {}).get("collectAfter"):

@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -65,7 +65,11 @@ var DEFAULT_NAME_RULES = '당신은 피어싱·귀걸이 쇼핑몰 \'핑크로�
 var SECRET_KINDS = ['login', 'apiKey'];               // 가져가면 [요청] 탭의 암호문을 지움
 var BOARD_VENDORS = ['스마트스토어', '지그재그', '에이블리', '메이크샵'];
 var REVIEW_VENDORS = ['지그재그', '에이블리', '메이크샵'];
-var REGISTER_SUPPORTED = { '스마트스토어|상품문의': true, '스마트스토어|고객문의': true }; // 수집기 g1_register.SUPPORTED 와 같음
+var REGISTER_SUPPORTED = { '스마트스토어|상품문의': true, '스마트스토어|고객문의': true, '메이크샵|리뷰': true }; // 스마트스토어 = 수집기 g1_register · 메이크샵 리뷰 = 웹연결 1.14 (v10)
+// v10: 메이크샵 리뷰 적립금 — 실구매금액 × MS_POINT_PCT % (MS_POINT_UNIT 원 미만 버림). 0 이면 답글만
+var POINT_MAX_PCT = 30;
+var POINT_UNIT = 10;
+var POINT_MSG_DEFAULT = '[PRODUCT_NAME] 리뷰 적립금';
 var MAX_INGEST = 300;
 var MAX_DRAFTS = 40;
 var MAX_AUTO_SUGGEST = 20;
@@ -117,7 +121,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 9 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 10 });
 }
 
 function doPost(e) {
@@ -194,7 +198,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -211,6 +215,7 @@ function route_(body) {
   if (action === 'usage') return { ok: true, usage: usage_() };
   if (action === 'name') return name_(body);
   if (action === 'msnSuggest') return msnSuggest_(body);
+  if (action === 'point') return withLock_(function () { return point_(body); });
   if (action === 'ingest') {
     var result = withLock_(function () { return ingest_(sheet_(), body.rows, body.snapshot); });
     if (result.ok && result.newKeys && result.newKeys.length && body.autoSuggest !== false) result.suggested = autoSuggest_(result.newKeys);
@@ -474,6 +479,7 @@ function list_() {
     ok: true,
     rows: openRows_(sheet_()),
     aiEnabled: !!prop_('CLAUDE_KEY'),
+    point: pointSetting_(),
     collector: collectorState_(),
     jobs: recentJobs_(10),
     serverTime: new Date().toISOString(),
@@ -860,12 +866,14 @@ function registerItems_(keys, by) {
     var edits = choice.edits || {};
     var text = String(Object.prototype.hasOwnProperty.call(edits, choice.pick) ? edits[choice.pick] : (row.drafts[choice.pick] && row.drafts[choice.pick].text) || '').trim();
     if (!text) continue;
-    items.push({ key: key, vendor: row.vendor, board: row.board, id: row.id, date: row.date, text: text });
+    var item = { key: key, vendor: row.vendor, board: row.board, id: row.id, date: row.date, text: text };
+    if (row.vendor === '메이크샵' && row.board === '리뷰') item.point = pointSetting_();   // v10: 등록하는 순간의 적립금 설정을 같이 보냄
+    items.push(item);
     var reg = { state: '요청', at: now.toISOString(), by: by };
     sheet.getRange(found.index, COL.reg, 1, 1).setValues([[stringify_(reg)]]);
     sheet.getRange(found.index, COL.status, 1, 1).setValues([[statusOf_(false, row.drafts, choice, reg)]]);
   }
-  if (!items.length) return { error: '등록할 수 있는 문의가 없습니다 (채택·스마트스토어만 자동 등록).' };
+  if (!items.length) return { error: '등록할 수 있는 글이 없습니다 (채택된 스마트스토어 문의·메이크샵 리뷰만 자동 등록).' };
   return { items: items };
 }
 
@@ -905,6 +913,31 @@ function releaseRegister_(items, results) {
     }
     sheet.getRange(found.index, COL.status, 1, 1).setValues([[statusOf_(state === '완료' || row.closed, row.drafts, row.choice, reg)]]);
   }
+}
+
+// ---------- 화면: 메이크샵 리뷰 적립금 설정 (v10, 2026-11-05) ----------
+// MS_POINT_PCT = 실구매금액의 몇 % (0 = 답글만, 소수 한 자리) · MS_POINT_MSG = 적립금 사유 (한글 50자, [PRODUCT_NAME] = 상품명)
+function pointSetting_() {
+  var pct = Number(prop_('MS_POINT_PCT'));
+  if (!(pct >= 0 && pct <= POINT_MAX_PCT)) pct = 0;
+  var msg = prop_('MS_POINT_MSG') || POINT_MSG_DEFAULT;
+  return { pct: Math.round(pct * 10) / 10, unit: POINT_UNIT, msg: msg, max: POINT_MAX_PCT, by: prop_('MS_POINT_BY'), at: prop_('MS_POINT_AT') };
+}
+
+function point_(body) {
+  if (body.set && typeof body.set === 'object') {
+    var pct = Number(body.set.pct);
+    if (!(pct >= 0 && pct <= POINT_MAX_PCT)) return { ok: false, error: '적립률은 0 ~ ' + POINT_MAX_PCT + '% 사이로 넣어 주세요.' };
+    var msg = plain_(clean_(body.set.msg, 60)).trim() || POINT_MSG_DEFAULT;
+    var bytes = 0;
+    for (var i = 0; i < msg.length; i++) bytes += msg.charCodeAt(i) > 127 ? 2 : 1;
+    if (bytes > 100) return { ok: false, error: '적립금 사유는 한글 50자(영문 100자)까지입니다 — 메이크샵 제한.' };
+    setProp_('MS_POINT_PCT', String(Math.round(pct * 10) / 10));
+    setProp_('MS_POINT_MSG', msg);
+    setProp_('MS_POINT_BY', plain_(clean_(body.editor, 40)));
+    setProp_('MS_POINT_AT', new Date().toISOString());
+  }
+  return { ok: true, point: pointSetting_() };
 }
 
 // ---------- 화면: 메신저 AI 추천 (v9, 2026-11-05) ----------

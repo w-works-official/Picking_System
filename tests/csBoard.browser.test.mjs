@@ -441,7 +441,11 @@ try {
     await page.waitForFunction(() => /채택 1/.test(document.querySelector("#cs-review-summary").textContent) && /자동 저장됨/.test(document.querySelector("#cs-review-summary").textContent));
     assert.equal(gas.post({ action: "list", token: TOKEN }).rows.find((r) => r.key === "지그재그_리뷰_r1").choice.pick, 1);
     assert.equal(await page.locator('[data-right-panel="review"] [data-job="reviews"]').isDisabled(), false);
-    assert.equal(await page.locator('[data-right-panel="review"] button', { hasText: "📤 등록" }).isDisabled(), true, "review posting stays red");
+    assert.equal(await page.locator('[data-right-panel="review"] button', { hasText: "📤 등록" }).isDisabled(), false, "11-05: 리뷰 📤 등록 작동 (메이크샵 리뷰 자동)");
+    await page.locator("#cs-review-register-open").click();
+    await page.locator("#cs-modal-body", { hasText: "직접 등록 1건" }).waitFor();
+    assert.equal(await page.locator("#cs-modal-ok").isDisabled(), true, "지그재그 리뷰는 아직 직접 등록 — 자동 0건이면 못 누름");
+    await page.locator("#cs-modal-cancel").click();
     assert.match(await page.locator('[data-review-status="지그재그"]').textContent(), /✓/, "리뷰 탭 업체 칸 = 리뷰 수집 결과");
     await page.screenshot({ path: path.join(output, "cs-board-review-live.png") });
     await page.locator('[data-left-tab="board"]').click();
@@ -708,8 +712,26 @@ try {
     } else {
       console.log("  (엑셀 시험 건너뜀 — 이 PC에 xlsx 부품 없음)");
     }
+    // 11-05: ⭐ 리뷰 → 💰 메이크샵 리뷰 적립금 설정 (시트 v10 point) + 리뷰 📤 등록 확인 창
+    await page.locator('[data-left-tab="review"]').click();
+    await page.locator("#cs-point-state", { hasText: "0% — 답글만" }).waitFor();
+    await page.locator("#cs-point-pct").fill("2");
+    assert.match(await page.locator("#cs-point-example").textContent(), /4,277원 × 2% = 80원/, "예시 계산 (10원 미만 버림)");
+    await page.locator("#cs-point-msg").fill("리뷰 감사 적립금 [PRODUCT_NAME]");
+    await page.locator("#cs-point-save").click();
+    await page.locator("#cs-point-state", { hasText: "실구매금액 × 2%" }).waitFor();
+    assert.deepEqual([gas.properties.MS_POINT_PCT, gas.properties.MS_POINT_MSG, gas.properties.MS_POINT_BY], ["2", "리뷰 감사 적립금 [PRODUCT_NAME]", "시험"], "시트에 저장");
+    await page.locator("#cs-point-pct").fill("31");
+    await page.locator("#cs-point-save").click();
+    await page.locator("#cs-toast", { hasText: "0 ~ 30%" }).waitFor();
+    assert.equal(gas.properties.MS_POINT_PCT, "2", "범위 밖은 저장 안 함");
+    await page.locator("#cs-review-register-open").click();
+    await page.locator("#cs-modal-body", { hasText: "실구매금액 × 2%" }).waitFor();
+    assert.match(await page.locator("#cs-modal-body").textContent(), /메이크샵 리뷰 — 답글 \+ 적립금/);
+    await page.locator("#cs-modal-cancel").click();
+    await page.locator('[data-left-tab="board"]').click();
     const stillRed = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => el.textContent.trim()));
-    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["📤 등록"], "11-05: 메신저 💻 AI추천도 작동 — 리뷰 답글 등록만 아직 회색 (업데이트는 새 버전을 기다림)");
+    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), [], "11-05: 리뷰 📤 등록(메이크샵 리뷰 답글 + 적립금)도 작동 (업데이트는 새 버전을 기다림)");
 
     // ⬆ 웹연결 업데이트: 저장소 main 최신 커밋 파일 → 확인값 → 수집기 PC에 요청
     const fakeCommit = "d".repeat(40);

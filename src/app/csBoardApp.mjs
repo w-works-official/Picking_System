@@ -49,7 +49,10 @@ import {
   withPick,
   csLoginBoth,
   csLoginStatus,
-} from "../domain/csBoard.mjs?v=20261104-login3";
+  csPointAmount,
+  csPointPayload,
+  CS_POINT_DEFAULT,
+} from "../domain/csBoard.mjs?v=20261105-point1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261103-loginmemo1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
@@ -362,6 +365,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     sample: false,
     connected: false,
     aiEnabled: false,
+    point: { ...CS_POINT_DEFAULT },
+    pointDirty: false,
     loading: false,
     loadedAt: 0,
     filter: { vendor: "", status: "전체", search: "" },
@@ -1305,18 +1310,58 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     }, active ? 10000 : 60000);
   }
 
-  // ---------- 📤 등록 확인 창 ----------
-  function openRegister() {
+  // ---------- 💰 메이크샵 리뷰 적립금 설정 (시트 v10) ----------
+  function pointLine(p = state.point) {
+    return p.pct > 0 ? `실구매금액 × ${p.pct}% (${p.unit}원 미만 버림) · 사유 "${p.msg}"` : "0% — 답글만 (적립금 안 줌)";
+  }
+  function renderPoint() {
+    const pct = $("#cs-point-pct"), msg = $("#cs-point-msg"), st = $("#cs-point-state");
+    if (pct && msg && !state.pointDirty && document.activeElement !== pct && document.activeElement !== msg) {
+      pct.value = String(state.point.pct);
+      msg.value = state.point.msg;
+    }
+    if (st) st.textContent = `지금: ${pointLine()}${state.point.at ? ` · ${state.point.by || ""} ${state.point.at.slice(5, 16).replace("T", " ")} 저장` : ""}`;
+    renderPointExample();
+  }
+  function renderPointExample() {
+    const el = $("#cs-point-example");
+    if (!el) return;
+    const pct = Number($("#cs-point-pct")?.value ?? state.point.pct) || 0;
+    el.textContent = pct > 0 ? `예) 실구매 4,277원 × ${pct}% = ${csPointAmount(4277, pct, state.point.unit).toLocaleString("ko-KR")}원 · 15,000원 × ${pct}% = ${csPointAmount(15000, pct, state.point.unit).toLocaleString("ko-KR")}원` : "0% 면 답글만 등록합니다.";
+  }
+  async function savePoint() {
     if (!live()) return;
-    const { auto, manual } = registerCandidates(state.rows);
+    let body;
+    try { body = csPointPayload({ pct: $("#cs-point-pct")?.value, msg: $("#cs-point-msg")?.value }, state.editor); } catch (error) { toast(error.message); return; }
+    try {
+      const result = await post(body);
+      if (result.point) state.point = result.point;
+      state.pointDirty = false;
+      renderPoint();
+      toast(`적립금 설정 저장 — ${pointLine()}`);
+      log(`💰 메이크샵 리뷰 적립금: ${pointLine()}`);
+    } catch (error) {
+      if (error.denied) handleDenied(error);
+      toast(`적립금 설정 저장 실패: ${error.message}`);
+    }
+  }
+
+  // ---------- 📤 등록 확인 창 ----------
+  function openRegister(kind = "문의") {
+    if (!live()) return;
+    const review = kind === "리뷰";
+    const { auto, manual } = registerCandidates(state.rows, review ? "리뷰" : "문의");
     const pendingSaves = state.timers.size + state.saving.size;
     const list = (rows, cls) => rows.map((row) => `<li class="${cls}"><span class="cs-vendor-chip" data-vendor="${escapeHtml(row.vendor)}">${escapeHtml(row.vendor)}</span> ${escapeHtml(row.board)} · ${escapeHtml(row.id)}<div class="cs-note">${escapeHtml(pickedText(row).slice(0, 120))}</div></li>`).join("");
     $("#cs-modal-body").innerHTML = `
       <p class="cs-note">'등록 대상'만 올라갑니다. 수집기 PC가 등록 직전에 한 번 더 조회해서 이미 답변이 있으면 덮어쓰지 않고 건너뜁니다.</p>
       ${pendingSaves ? `<p class="cs-pending-text">저장 중인 선택이 있습니다 — 잠시 뒤 다시 눌러 주세요.</p>` : ""}
-      <h3>자동 등록 ${auto.length}건 <small>(스마트스토어 상품문의·고객문의)</small></h3>
+      ${review ? `<h3>자동 등록 ${auto.length}건 <small>(메이크샵 리뷰 — 답글 + 적립금)</small></h3>
+      <p class="cs-note cs-point-note">💰 적립금: <b>${escapeHtml(pointLine())}</b><br>네이버페이 리뷰(쇼핑몰 회원 아님)·이미 적립된 리뷰는 답글만 올립니다. 설정은 왼쪽 [💰 메이크샵 리뷰 적립금].</p>
+      ${auto.length ? `<ul class="cs-reg-list">${list(auto, "")}</ul>` : `<p class="cs-note">채택된 메이크샵 리뷰가 없습니다.</p>`}
+      <h3>직접 등록 ${manual.length}건 <small>(스마트스토어·지그재그 리뷰 — 아직 자동 등록 없음 · 에이블리는 답글 기능 없음)</small></h3>` : `<h3>자동 등록 ${auto.length}건 <small>(스마트스토어 상품문의·고객문의)</small></h3>
       ${auto.length ? `<ul class="cs-reg-list">${list(auto, "")}</ul>` : `<p class="cs-note">채택된 스마트스토어 문의가 없습니다.</p>`}
-      <h3>직접 등록 ${manual.length}건 <small>(지그재그·에이블리·메이크샵 — 아직 자동 등록 기능 없음)</small></h3>
+      <h3>직접 등록 ${manual.length}건 <small>(지그재그·에이블리·메이크샵 — 아직 자동 등록 기능 없음)</small></h3>`}
       ${manual.length ? `<ul class="cs-reg-list">${list(manual, "is-manual")}</ul><p class="cs-note">각 카드의 [📋 복사] → [바로가기]로 열어 붙여넣어 주세요.</p>` : `<p class="cs-note">없음</p>`}`;
     const ok = $("#cs-modal-ok");
     ok.textContent = `${auto.length}건 등록 요청`;
@@ -1405,6 +1450,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       state.rows = result.rows.map((row) => local.get(row.key) || row);
       state.connected = true;
       state.aiEnabled = result.aiEnabled;
+      if (result.point) { state.point = result.point; renderPoint(); }
       state.loadedAt = now();
       applyJobs(result);
       if (hadActive && !state.jobs.some(isJobActive)) {
@@ -1583,7 +1629,10 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-progress")?.addEventListener("click", (e) => { const b = e.target.closest("[data-progress-close]"); if (b) { progress.hidden = b.dataset.progressClose; renderProgress(); } });
     $("#cs-jobs")?.addEventListener("click", (e) => { const b = e.target.closest("[data-job-cancel]"); if (b) cancelJob(b.dataset.jobCancel); });
     $$("[data-vendor-group]").forEach((g) => g.addEventListener("click", onVendorToggle));
-    $("#cs-register-open")?.addEventListener("click", openRegister);
+    $("#cs-register-open")?.addEventListener("click", () => openRegister("문의"));
+    $("#cs-review-register-open")?.addEventListener("click", () => openRegister("리뷰"));
+    $("#cs-point-save")?.addEventListener("click", savePoint);
+    ["#cs-point-pct", "#cs-point-msg"].forEach((sel) => $(sel)?.addEventListener("input", () => { state.pointDirty = true; renderPointExample(); }));
     $("#cs-modal-cancel")?.addEventListener("click", closeModal);
     $("#cs-modal")?.addEventListener("click", (e) => { if (e.target.id === "cs-modal") closeModal(); });
     document.addEventListener("keydown", (e) => {

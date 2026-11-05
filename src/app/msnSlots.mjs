@@ -3,7 +3,7 @@
 //  · [🖥 화면 연결] → 전체 화면 공유 → 슬롯 영역만 1초마다 작게 잘라 비교 → 바뀌면 "🔔 새 변화"
 //  · 화면 그림은 이 브라우저 안에서만 씀 (어디에도 보내거나 저장하지 않음). AI 읽기·추천은 다음 단계
 import { MSN_LIMITS, cornerMarks, fitFromMarks, frameDiff, markBox, readMsnPrefs, regionOnVideo, screenCss, stepSlot } from "../domain/msnCapture.mjs?v=20261105-msn3";
-import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY } from "../domain/csBoard.mjs?v=20261104-login3";
+import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY } from "../domain/csBoard.mjs?v=20261105-point1";
 
 const PREF_KEY = "system_v3_cs_msn_slots";
 // 2026-11-05: 수집기 PC 웹연결 1.10 의 "메신저 창 도우미" (이 PC 안 127.0.0.1) — 카톡 창을 슬롯에 붙이기·항상 위·일괄 정렬

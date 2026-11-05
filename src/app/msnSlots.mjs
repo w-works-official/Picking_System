@@ -225,8 +225,8 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       if (!on) lnaState().then((perm) => {
         if (st.helper.on || !el) return;
         const note = $("[data-msn-cta-note]");
-        if (perm === "denied" && note) note.innerHTML = "크롬에서 막혀 있습니다 — 주소창 맨 왼쪽 <b>아이콘</b>(조절 모양)을 누르면 나오는 목록에서 <b>'로컬 네트워크 액세스'</b> 스위치를 켜고 새로고침(F5) 하세요.";
-        if (perm === "denied") el.textContent = "🪄 창 도우미 ⛔ 크롬이 막음 — 주소창 왼쪽 아이콘 → 로컬 네트워크 액세스 [허용]";
+        if (perm === "denied" && note) note.innerHTML = "예전에 [차단]을 눌러 막혀 있습니다 — <b>앱</b>: 오른쪽 위 <b>⋮</b> → <b>앱 정보</b> → <b>'로컬 네트워크 액세스'</b> 허용 / <b>크롬 탭</b>: 주소창 맨 왼쪽 아이콘 → <b>'로컬 네트워크 액세스'</b> 켜기 → 그다음 새로고침(F5).";
+        if (perm === "denied") el.textContent = "🪄 창 도우미 ⛔ 막힘 — 앱 ⋮ → 앱 정보 → 로컬 네트워크 액세스 허용";
         else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
         st.helper.perm = perm;
       });
@@ -264,7 +264,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (st.helper.on) { say("창 도우미 연결됨 — 대화창을 슬롯 가까이 끌어다 놓거나 [📐 일괄 정렬]을 누르세요.", "is-ok"); syncSlots(true); return; }
     const perm = await lnaState();
     say(perm === "denied"
-      ? "크롬이 이 화면의 PC 접속을 막고 있습니다 — 주소창 왼쪽 아이콘(ⓘ/자물쇠) → 사이트 설정 → '로컬 네트워크 액세스' 를 [허용]으로 바꾼 뒤 새로고침."
+      ? "이 화면의 PC 접속이 막혀 있습니다 — 앱: 오른쪽 위 ⋮ → 앱 정보 → '로컬 네트워크 액세스' 허용 (크롬 탭: 주소창 왼쪽 아이콘 → '로컬 네트워크 액세스' 켜기) → 새로고침(F5)."
       : "창 도우미에 연결하지 못했습니다 — ① 수집기 PC 웹연결 1.10 이상이 켜져 있는지 ② 이 화면을 수집기 PC(카톡이 있는 PC)에서 열었는지 확인해 주세요.", "is-bad");
   }
 

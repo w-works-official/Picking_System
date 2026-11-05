@@ -61,7 +61,7 @@ try {
     const page = await context.newPage();
     const msnR = page.locator('[data-msn-panel="reply"]');
     page.on("pageerror", (e) => pageErrors.push(e.message));
-    await page.goto(`${origin}/cs/?master=1`);
+    await page.goto(`${origin}/cs/`);
     await page.locator("#cs-board-list [data-card]").first().waitFor();
     assert.equal(await page.locator("#cs-connection").textContent(), "🧪 가상셋팅");
     assert.equal(await page.locator("#cs-board-list [data-card]").count(), 4);
@@ -353,20 +353,17 @@ try {
     const page = await context.newPage();
     const msnR = page.locator('[data-msn-panel="reply"]');
     page.on("pageerror", (e) => pageErrors.push(e.message));
-    await page.goto(`${origin}/cs/`);                 // 11-05: 일반 이용자 = 마스터 PC 설정 안 보임
+    await page.goto(`${origin}/cs/`);                 // 11-05: 🖥 마스터 PC 설정은 맨 아래 접혀 있음 (눌러서 열기)
     await page.locator("#cs-board-list .cs-empty").waitFor();
     await page.locator('[data-left-tab="settings"]').click();
-    assert.equal(await page.locator(".cs-master").isVisible(), false, "일반 이용자에겐 🖥 마스터 PC 설정이 아예 안 보임");
-    assert.equal(await page.locator("#cs-onetouch").isVisible(), false);
+    assert.equal(await page.locator(".cs-master > summary").isVisible(), true, "접힌 버튼은 보임");
+    assert.equal(await page.locator("#cs-onetouch").isVisible(), false, "기본은 접혀 있어 안 보임");
     assert.equal(await page.locator(".cs-other-pc").isVisible(), true, "💻 이 PC 에서 메신저 쓰기(설치)는 보임");
     assert.match(await page.locator(".cs-other-pc legend").textContent(), /이 PC 에서 메신저 쓰기/);
-    await page.goto(`${origin}/cs/?master=1`);
-    await page.locator('[data-left-tab="settings"]').click();
-    assert.equal(await page.locator(".cs-master").isVisible(), true, "?master=1 로 연 브라우저에만 보임");
-    await page.goto(`${origin}/cs/`);
-    await page.locator('[data-left-tab="settings"]').click();
-    assert.equal(await page.locator(".cs-master").isVisible(), true, "이 브라우저에 기억");
-    await page.locator("#cs-board-list .cs-empty").waitFor({ state: "attached" });
+    assert.equal(await page.evaluate(() => { const p = document.querySelector('[data-left-panel="settings"]'); return p.lastElementChild.classList.contains("cs-master"); }), true, "마스터 PC 설정 버튼은 맨 아래");
+    await page.locator(".cs-master > summary").click();
+    assert.equal(await page.locator("#cs-onetouch").isVisible(), true, "누르면 펼쳐짐");
+    await page.locator(".cs-master > summary").click();
     assert.match(await page.locator("#cs-board-list").textContent(), /\[설정\] 탭에서 비밀번호/);
     assert.equal(await page.locator("#cs-connection").textContent(), "비밀번호 필요");
     await page.locator('[data-left-tab="settings"]').click();
@@ -408,7 +405,7 @@ try {
     const page = await context.newPage();
     const msnR = page.locator('[data-msn-panel="reply"]');
     page.on("pageerror", (e) => pageErrors.push(e.message));
-    await page.goto(`${origin}/cs/?master=1`);
+    await page.goto(`${origin}/cs/`);
     await page.locator("#cs-board-list [data-card]").first().waitFor();
     assert.equal(await page.locator("#cs-connection").textContent(), "연결됨 · 2건");
     assert.equal(requests[0].action, "list");
@@ -551,6 +548,7 @@ try {
     });
     assert.equal(await page.locator("#cs-set-browser").isChecked(), true);
     assert.match(await page.locator("#cs-set-note").textContent(), /OFFICE-PC[\s\S]*스마트스토어·지그재그/);
+    await page.locator(".cs-master").evaluate((d) => { d.open = true; });   // 🖥 마스터 PC 설정 펼치기
     await page.locator("#cs-onetouch").click();
     await page.locator("#cs-guide:not([hidden])").waitFor();
     assert.equal(await page.locator(".cs-guide-step.is-focus").getAttribute("data-guide-step"), "auto", "one-touch jumps to the first unfinished step");

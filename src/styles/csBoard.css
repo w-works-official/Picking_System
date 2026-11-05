@@ -2107,8 +2107,13 @@ a.cs-btn {
 .cs-master-title small { font-size: 12px; color: #6366f1; font-weight: 700; }
 .cs-master-warn { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: #fef3c7; color: #92400e; font-size: 12.5px; line-height: 1.5; }
 
-/* 🖥 마스터 PC 설정은 대표님 브라우저(?master=1)에서만 · 일반 이용자에겐 아예 안 보임 */
-html:not(.cs-is-master) .cs-master,
-html:not(.cs-is-master) #cs-guide,
-html:not(.cs-is-master) .cs-master-only { display: none !important; }
-html.cs-is-master .cs-user-only { display: none !important; }
+/* 🖥 마스터 PC 설정: 맨 아래 접어 둠 (눌러서 열기) */
+.cs-master > summary { cursor: pointer; list-style: none; }
+.cs-master > summary::-webkit-details-marker { display: none; }
+.cs-master > summary::before { content: "▸ "; color: #6366f1; }
+.cs-master[open] > summary::before { content: "▾ "; }
+.cs-master:not([open]) { padding-bottom: 10px; background: #f8fafc; border-color: #e2e8f0; }
+.cs-master:not([open]) > summary { color: #64748b; }
+.cs-master[open] > summary { margin-bottom: 6px; }
+/* 접힌 [🖥 마스터 PC 설정] 버튼은 설정 칸 하단에 붙어 있음 (스크롤해도 아래에 고정) */
+.cs-master:not([open]) { position: sticky; bottom: 0; z-index: 2; margin-top: 6px; box-shadow: 0 -6px 12px rgba(255, 255, 255, 0.9); }

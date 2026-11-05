@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261102-status1">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261105-yellow1">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261105-fold1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -272,12 +272,30 @@
                   <li>💬 메신저 / 📦 거래처 탭 → <b>🪄 창 도우미 연결하기</b> → 크롬이 물으면 <b>[허용]</b> (처음 한 번)</li>
                   <li>꺼져 있으면 <b>[▶ 창 도우미 켜기]</b> (크롬이 물으면 [열기]) · 끄기: <code>C:\SystemV3\msn_helper.bat stop</code></li>
                 </ol>
-                <p class="cs-note cs-master-only">⚠ 다른 PC 에서는 아래 <b>마스터 PC 설정</b>(설치 파일·원터치 설정·웹연결)을 하지 마세요.</p>
               </fieldset>
 
-              <section class="cs-master" aria-label="마스터 PC 설정">
-                <h3 class="cs-master-title">🖥 마스터 PC 설정 <small>(수집기 PC — 사무실 PC 한 대만)</small></h3>
-                <p class="cs-master-warn">수집·등록·로그인을 맡는 PC는 <b>한 대만</b> 둡니다. 두 대가 켜지면 요청을 나눠 가져가고, 메이크샵은 같은 계정 동시 로그인이 안 돼서 서로 로그아웃시킵니다. 다른 PC에서는 위의 <b>💻 이 PC 에서 메신저 쓰기</b>만 하세요. (이 칸은 <code>?master=1</code> 로 연 이 브라우저에만 보임 · 숨기기 <code>?master=0</code>)</p>
+              <fieldset class="cs-box">
+                <legend>Claude API 키</legend>
+                <p class="cs-note">웹 AI 추천 키는 <b>시트 Apps Script 스크립트 속성(CLAUDE_KEY)</b>에만 둡니다. 이 화면에서는 입력하지 않습니다.</p>
+                <p class="cs-note">AI 추천: <b id="cs-ai-state">연결 전</b></p>
+              </fieldset>
+
+              <fieldset class="cs-box">
+                <legend>🤖 AI 사용량 (웹 · 원화, 1달러 1,400원 기준)</legend>
+                <div class="cs-row">
+                  <button type="button" id="cs-usage-prev" class="cs-btn cs-btn-mini is-pending" disabled data-live data-pending="시트 연결 후 작동">◀</button>
+                  <strong id="cs-usage-month" class="cs-small">—</strong>
+                  <button type="button" id="cs-usage-next" class="cs-btn cs-btn-mini is-pending" disabled data-live data-pending="시트 연결 후 작동">▶</button>
+                  <span class="cs-flex"></span>
+                  <button type="button" id="cs-usage-reload" class="cs-btn cs-btn-mini is-pending" disabled data-live data-pending="시트 연결 후 작동">⟳</button>
+                </div>
+                <p id="cs-usage-sum" class="cs-note">웹 AI 추천 사용량 (수집기 PC 메신저 사용량은 수집기 창에서)</p>
+                <div id="cs-usage-days" class="cs-usage-days"></div>
+              </fieldset>
+
+              <details class="cs-master">
+                <summary class="cs-master-title">🖥 마스터 PC 설정 <small>(수집기 PC — 사무실 PC 한 대만 · 눌러서 열기)</small></summary>
+                <p class="cs-master-warn">수집·등록·로그인을 맡는 PC는 <b>한 대만</b> 둡니다. 두 대가 켜지면 요청을 나눠 가져가고, 메이크샵은 같은 계정 동시 로그인이 안 돼서 서로 로그아웃시킵니다. 다른 PC에서는 위의 <b>💻 이 PC 에서 메신저 쓰기</b>만 하세요.</p>
               <div class="cs-onetouch">
                 <strong>마스터 PC(수집기 PC)를 처음 준비할 때만</strong>
                 <p>웹 연결 → 수집기 PC 준비 → 로그인 → 자동 시작까지 순서대로 안내합니다. (✅ 는 자동으로 체크됩니다)</p>
@@ -343,26 +361,7 @@
                 </div>
                 <p class="cs-note">누르면 수집기 PC가 GitHub 저장소에서 새 버전을 받아 <b>확인값(해시)·문법을 검사한 뒤</b> 같은 자리에서 바꾸고, 30초 안에 새 버전으로 다시 켜집니다. 예전 파일은 수집기 폴더 <code>_patch</code> 에 백업 — 드라이브 이름 겹침 (1) 이나 수집기 PC 앞 작업이 필요 없습니다.</p>
               </fieldset>
-              </section>
-
-              <fieldset class="cs-box">
-                <legend>Claude API 키</legend>
-                <p class="cs-note">웹 AI 추천 키는 <b>시트 Apps Script 스크립트 속성(CLAUDE_KEY)</b>에만 둡니다. 이 화면에서는 입력하지 않습니다.</p>
-                <p class="cs-note">AI 추천: <b id="cs-ai-state">연결 전</b></p>
-              </fieldset>
-
-              <fieldset class="cs-box">
-                <legend>🤖 AI 사용량 (웹 · 원화, 1달러 1,400원 기준)</legend>
-                <div class="cs-row">
-                  <button type="button" id="cs-usage-prev" class="cs-btn cs-btn-mini is-pending" disabled data-live data-pending="시트 연결 후 작동">◀</button>
-                  <strong id="cs-usage-month" class="cs-small">—</strong>
-                  <button type="button" id="cs-usage-next" class="cs-btn cs-btn-mini is-pending" disabled data-live data-pending="시트 연결 후 작동">▶</button>
-                  <span class="cs-flex"></span>
-                  <button type="button" id="cs-usage-reload" class="cs-btn cs-btn-mini is-pending" disabled data-live data-pending="시트 연결 후 작동">⟳</button>
-                </div>
-                <p id="cs-usage-sum" class="cs-note">웹 AI 추천 사용량 (수집기 PC 메신저 사용량은 수집기 창에서)</p>
-                <div id="cs-usage-days" class="cs-usage-days"></div>
-              </fieldset>
+              </details>
             </div>
           </div>
         </section>
@@ -527,7 +526,7 @@
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261105-yellow1"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261105-fold1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
     <script type="module" src="../src/app/msnSlots.mjs?v=20261105-master1"></script>
   </body>

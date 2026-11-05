@@ -63,6 +63,12 @@
   · 스마트스토어 리뷰: 화면 기본 1주일 대신 리뷰 기간(30일) 전체 — 화면이 보낸 검색 요청(reviews/search)을 날짜만 바꿔 쪽마다 다시 조회
     (11/4 첫 수집은 1주일치 150건만 — 11/1~11/4)
   · 요청 빨리 가져가기: 시트 v8 이 "누가 CS 화면을 보고 있음(hot)"을 알려 주면 3초마다 요청 확인 (평소 15초 그대로)
+  · 로그인 뒤 [게시판 + 리뷰 수집] 체크 = 로그인 → 게시판 → 리뷰 차례로
+
+1.10 (2026-11-05) 메신저 창 도우미
+  · 웹 💬 메신저 탭 슬롯에 카톡 대화창을 끌어 가까이 놓으면 슬롯에 딱 맞춰 붙임 + '항상 위'(브라우저 뒤로 안 숨음)
+  · 웹 [📐 일괄 정렬] = 열린 대화창을 슬롯에 같은 크기로 한 번에 / [📌 놓아주기] = 항상 위 풀기
+  · 127.0.0.1:47811 에서만 받고 System V3 화면에서 온 요청만 따름. 카톡 창 위치·크기만 바꿈 (Windows 에서만, 실패해도 연결은 그대로)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -70,7 +76,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.9 (2026-11-04)"
+LINK_VER = "1.10 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1492,6 +1498,365 @@ def log_file():
     return os.path.join(_G().BASE, "v3link_log.txt")
 
 
+# ───────── 메신저 창 도우미 (1.10, 2026-11-05) ─────────
+# 웹 CS 관리 💬 메신저 탭의 슬롯(빈 틀)에 카톡 대화창을 붙여 쓰기 쉽게:
+#  · 대화창을 끌어 슬롯 가까이 놓으면 → 슬롯 크기·위치에 딱 맞춰 붙임 (네 모서리 맞추기 필요 없음)
+#  · 붙은 창은 '항상 위' — 브라우저를 눌러도 뒤로 숨지 않음 (슬롯 밖으로 끌어내면 풀림)
+#  · 웹 [📐 일괄 정렬] → 열린 대화창을 슬롯 1·2·3… 에 같은 크기로 한 번에
+# 이 PC 안(127.0.0.1)에서만 받고, System V3 화면(w-works-official.github.io)에서 온 요청만 따름. 카톡 창 위치·크기만 바꿈(내용은 안 봄)
+MSN_PORT = 47811
+MSN_ORIGINS = ("https://w-works-official.github.io",)
+MSN_PROCS = ("kakaotalk.exe",)
+MSN_SKIP_TITLES = ("카카오톡", "kakaotalk")
+MSN_SNAP_PX = 90          # 창 왼쪽 위 모서리가 슬롯 왼쪽 위에서 이만큼(px) 안이면 붙임 (창 가운데가 슬롯 안이어도 붙임)
+MSN_TICK = 0.15
+
+
+def msn_origin_ok(origin):
+    o = str(origin or "")
+    return o in MSN_ORIGINS or re.match(r"^http://(127\.0\.0\.1|localhost)(:\d+)?$", o) is not None
+
+
+def msn_clean_slots(raw):
+    """웹이 보낸 슬롯 화면 좌표(물리 px) → [(x, y, w, h)] (이상한 값은 버림, 최대 6칸)"""
+    out = []
+    for s in (raw if isinstance(raw, list) else [])[:6]:
+        try:
+            x, y, w, h = (int(round(float(s[k]))) for k in ("x", "y", "w", "h"))
+        except Exception:
+            continue
+        if 120 <= w <= 5000 and 120 <= h <= 5000 and -30000 < x < 30000 and -30000 < y < 30000:
+            out.append((x, y, w, h))
+    return out
+
+
+def msn_snap_target(rect, slots, snap=MSN_SNAP_PX):
+    """창(보이는 테두리 l,t,r,b)이 가까이 온 슬롯 번호 — 왼쪽 위 모서리가 snap px 안이거나 창 가운데가 슬롯 안. 없으면 None"""
+    l, t, r, b = rect
+    cx, cy = (l + r) / 2, (t + b) / 2
+    best, bd = None, None
+    for i, (x, y, w, h) in enumerate(slots):
+        d = max(abs(l - x), abs(t - y))
+        if d <= snap or (x <= cx <= x + w and y <= cy <= y + h):
+            if bd is None or d < bd:
+                best, bd = i, d
+    return best
+
+
+def msn_outer_rect(slot, margins):
+    """보이는 테두리가 슬롯에 딱 맞도록 창 바깥 크기 계산 (margins = 보이지 않는 테두리 왼·위·오·아래)"""
+    x, y, w, h = slot
+    ml, mt, mr, mb = margins
+    return (x - ml, y - mt, w + ml + mr, h + mt + mb)
+
+
+class MsnHelper:
+    """창 붙이기 판단 (Windows 호출은 api 가 함 — 시험에서는 가짜 api)"""
+
+    def __init__(self, api, say=print):
+        self.api, self.say = api, say
+        self.slots, self.managed, self.last, self.moving = [], {}, {}, set()
+        self.lock = threading.Lock()
+        self.seen = 0.0
+
+    def status(self):
+        with self.lock:
+            try:
+                wins = len(self.api.windows())
+            except Exception:
+                wins = -1
+            return {"ok": True, "ver": LINK_VER, "slots": len(self.slots), "windows": wins, "managed": len(self.managed)}
+
+    def _place(self, h, i):
+        for other, j in list(self.managed.items()):
+            if j == i and other != h:              # 같은 슬롯에 있던 창은 '항상 위'만 풀고 그대로 둠
+                self._release(other)
+        self.api.place(h, self.slots[i])
+        self.managed[h] = i
+        self.last.pop(h, None)                     # 실제 자리는 다음 확인 때 다시 기억 (창 최소 크기 때문에 슬롯과 조금 달라도 계속 다시 붙이지 않게)
+        self.moving.discard(h)
+
+    def _release(self, h):
+        try:
+            self.api.topmost(h, False)
+        except Exception:
+            pass
+        self.managed.pop(h, None)
+
+    def tick(self):
+        with self.lock:
+            wins = self.api.windows()
+            alive = {h for h, _, _ in wins}
+            for h in list(self.managed):
+                if h not in alive:
+                    self.managed.pop(h, None)
+            for h in list(self.last):
+                if h not in alive:
+                    self.last.pop(h, None)
+                    self.moving.discard(h)
+            down = self.api.mouse_down()
+            for h, title, rect in wins:
+                prev = self.last.get(h)
+                self.last[h] = rect
+                if prev is not None and prev != rect:
+                    self.moving.add(h)
+                if down or h not in self.moving:
+                    continue
+                self.moving.discard(h)              # 끌기가 끝남 (마우스 뗌)
+                if not self.slots:
+                    continue
+                i = msn_snap_target(rect, self.slots)
+                if i is None:
+                    if h in self.managed:
+                        self._release(h)
+                        self.say(f"💬 '{title}' 슬롯에서 뗌 (항상 위 풀림)")
+                    continue
+                self._place(h, i)
+                self.say(f"💬 '{title}' → 슬롯 {i + 1} 에 붙임")
+
+    def set_slots(self, slots):
+        with self.lock:
+            self.seen = time.time()
+            if slots != self.slots:
+                self.slots = slots
+                for h, i in list(self.managed.items()):  # 브라우저를 옮기거나 크기를 바꾸면 붙은 창도 따라감
+                    if i < len(slots):
+                        self.api.place(h, slots[i])
+                        self.last.pop(h, None)
+                        self.moving.discard(h)
+                    else:
+                        self._release(h)
+            return {"ok": True, "slots": len(self.slots), "managed": len(self.managed)}
+
+    def arrange(self):
+        """열린 대화창을 슬롯에 차례로 (이미 붙은 창은 그 자리, 나머지는 위에 있는 창부터 빈 슬롯에)"""
+        with self.lock:
+            if not self.slots:
+                return {"ok": False, "error": "슬롯 위치를 아직 못 받음 — 메신저 탭을 연 채로 몇 초 뒤 다시"}
+            wins = self.api.windows()
+            used = set(self.managed.values())
+            free = [i for i in range(len(self.slots)) if i not in used]
+            placed = 0
+            for h, title, rect in wins:
+                if h in self.managed:
+                    self._place(h, self.managed[h])
+                    placed += 1
+                elif free:
+                    self._place(h, free.pop(0))
+                    placed += 1
+            return {"ok": True, "placed": placed, "windows": len(wins), "slots": len(self.slots)}
+
+    def release_all(self):
+        with self.lock:
+            n = len(self.managed)
+            for h in list(self.managed):
+                self._release(h)
+            return {"ok": True, "released": n}
+
+
+class MsnWin:
+    """Windows 창 다루기 (ctypes, 추가 설치 없음)"""
+
+    def __init__(self):
+        import ctypes
+        from ctypes import wintypes as W
+        self.c, self.W = ctypes, W
+        self.u = ctypes.WinDLL("user32", use_last_error=True)
+        self.k = ctypes.WinDLL("kernel32", use_last_error=True)
+        try:
+            self.dwm = ctypes.WinDLL("dwmapi")
+        except Exception:
+            self.dwm = None
+        try:                                        # 화면 배율(125%·150%)에서도 실제 픽셀로
+            self.u.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
+        except Exception:
+            try:
+                self.u.SetProcessDPIAware()
+            except Exception:
+                pass
+        H = W.HWND
+        self.u.EnumWindows.argtypes = [ctypes.WINFUNCTYPE(W.BOOL, H, W.LPARAM), W.LPARAM]
+        for name, args, res in (("IsWindowVisible", [H], W.BOOL), ("IsIconic", [H], W.BOOL), ("IsZoomed", [H], W.BOOL),
+                                ("GetWindowTextLengthW", [H], ctypes.c_int), ("GetWindowTextW", [H, W.LPWSTR, ctypes.c_int], ctypes.c_int),
+                                ("GetWindowRect", [H, ctypes.POINTER(W.RECT)], W.BOOL), ("GetWindowThreadProcessId", [H, ctypes.POINTER(W.DWORD)], W.DWORD),
+                                ("GetWindowLongW", [H, ctypes.c_int], ctypes.c_long), ("ShowWindow", [H, ctypes.c_int], W.BOOL),
+                                ("SetWindowPos", [H, H, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, W.UINT], W.BOOL),
+                                ("GetAsyncKeyState", [ctypes.c_int], ctypes.c_short)):
+            f = getattr(self.u, name)
+            f.argtypes, f.restype = args, res
+        self.k.OpenProcess.argtypes, self.k.OpenProcess.restype = [W.DWORD, W.BOOL, W.DWORD], W.HANDLE
+        self.k.QueryFullProcessImageNameW.argtypes = [W.HANDLE, W.DWORD, W.LPWSTR, ctypes.POINTER(W.DWORD)]
+        self.k.CloseHandle.argtypes = [W.HANDLE]
+        self._exe = {}
+
+    def _exe_of(self, hwnd):
+        pid = self.W.DWORD()
+        self.u.GetWindowThreadProcessId(hwnd, self.c.byref(pid))
+        p = pid.value
+        if p in self._exe:
+            return self._exe[p]
+        name = ""
+        h = self.k.OpenProcess(0x1000, False, p)       # PROCESS_QUERY_LIMITED_INFORMATION
+        if h:
+            try:
+                buf = self.c.create_unicode_buffer(600)
+                n = self.W.DWORD(600)
+                if self.k.QueryFullProcessImageNameW(h, 0, buf, self.c.byref(n)):
+                    name = os.path.basename(buf.value).lower()
+            finally:
+                self.k.CloseHandle(h)
+        if len(self._exe) > 300:
+            self._exe.clear()
+        self._exe[p] = name
+        return name
+
+    def _rect(self, hwnd):
+        r = self.W.RECT()
+        self.u.GetWindowRect(hwnd, self.c.byref(r))
+        return (r.left, r.top, r.right, r.bottom)
+
+    def _visible(self, hwnd):
+        """보이는 테두리 (Windows 10·11 창은 바깥에 보이지 않는 테두리가 있음)"""
+        if self.dwm:
+            r = self.W.RECT()
+            if self.dwm.DwmGetWindowAttribute(hwnd, 9, self.c.byref(r), self.c.sizeof(r)) == 0:   # DWMWA_EXTENDED_FRAME_BOUNDS
+                return (r.left, r.top, r.right, r.bottom)
+        return self._rect(hwnd)
+
+    def windows(self):
+        """보이는 메신저 대화창 [(hwnd, 제목, 보이는 테두리)] — 위에 있는 창부터"""
+        out = []
+
+        def cb(hwnd, _):
+            try:
+                if not self.u.IsWindowVisible(hwnd) or self.u.IsIconic(hwnd):
+                    return True
+                if self.u.GetWindowLongW(hwnd, -20) & 0x80:   # 도구 창(WS_EX_TOOLWINDOW) 제외
+                    return True
+                n = self.u.GetWindowTextLengthW(hwnd)
+                buf = self.c.create_unicode_buffer(n + 1)
+                self.u.GetWindowTextW(hwnd, buf, n + 1)
+                title = buf.value.strip()
+                if not title or title.lower() in MSN_SKIP_TITLES:
+                    return True
+                if self._exe_of(hwnd) not in MSN_PROCS:
+                    return True
+                l, t, r, b = self._visible(hwnd)
+                if r - l < 200 or b - t < 200:      # 알림 팝업 같은 작은 창 제외
+                    return True
+                out.append((int(hwnd), title, (l, t, r, b)))
+            except Exception:
+                pass
+            return True
+        self.u.EnumWindows(self.c.WINFUNCTYPE(self.W.BOOL, self.W.HWND, self.W.LPARAM)(cb), 0)
+        return out
+
+    def mouse_down(self):
+        return bool(self.u.GetAsyncKeyState(0x01) & 0x8000)
+
+    def place(self, hwnd, slot):
+        if self.u.IsZoomed(hwnd) or self.u.IsIconic(hwnd):
+            self.u.ShowWindow(hwnd, 9)                  # SW_RESTORE
+        o, v = self._rect(hwnd), self._visible(hwnd)
+        margins = (v[0] - o[0], v[1] - o[1], o[2] - v[2], o[3] - v[3])
+        x, y, w, h = msn_outer_rect(slot, margins)
+        self.u.SetWindowPos(hwnd, -1, x, y, w, h, 0x0010 | 0x0040)   # HWND_TOPMOST, SWP_NOACTIVATE | SWP_SHOWWINDOW
+
+    def topmost(self, hwnd, on):
+        self.u.SetWindowPos(hwnd, -1 if on else -2, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
+
+
+def msn_server(helper, port=MSN_PORT):
+    """127.0.0.1 전용 작은 HTTP — GET /msn/ping · POST /msn/slots · /msn/arrange · /msn/release"""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def _head(self, code):
+            o = self.headers.get("Origin", "")
+            self.send_response(code)
+            if msn_origin_ok(o):
+                self.send_header("Access-Control-Allow-Origin", o)
+                self.send_header("Vary", "Origin")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "content-type")
+                self.send_header("Access-Control-Allow-Private-Network", "true")
+
+        def _json(self, obj, code=200):
+            b = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self._head(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(b)))
+            self.end_headers()
+            self.wfile.write(b)
+
+        def do_OPTIONS(self):
+            self._head(204)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def do_GET(self):
+            o = self.headers.get("Origin")
+            if o and not msn_origin_ok(o):
+                return self._json({"ok": False, "error": "origin"}, 403)
+            if self.path.split("?")[0] == "/msn/ping":
+                return self._json(helper.status())
+            return self._json({"ok": False, "error": "not found"}, 404)
+
+        def do_POST(self):
+            if not msn_origin_ok(self.headers.get("Origin", "")):   # 다른 사이트가 이 PC 창을 건드리지 못하게
+                return self._json({"ok": False, "error": "origin"}, 403)
+            n = min(int(self.headers.get("Content-Length") or 0), 20000)
+            try:
+                body = json.loads(self.rfile.read(n) or b"{}")
+            except Exception:
+                body = {}
+            p = self.path.split("?")[0]
+            try:
+                if p == "/msn/slots":
+                    return self._json(helper.set_slots(msn_clean_slots(body.get("slots"))))
+                if p == "/msn/arrange":
+                    return self._json(helper.arrange())
+                if p == "/msn/release":
+                    return self._json(helper.release_all())
+            except Exception as e:
+                return self._json({"ok": False, "error": f"{e}"[:200]}, 500)
+            return self._json({"ok": False, "error": "not found"}, 404)
+
+    return ThreadingHTTPServer(("127.0.0.1", port), H)
+
+
+def msn_helper_start(say, api=None, port=MSN_PORT):
+    """Windows 에서만 · 실패해도 연결 프로그램은 그대로 (메신저 도우미만 꺼짐)"""
+    if api is None and os.name != "nt":
+        return None
+    try:
+        api = api or MsnWin()
+        helper = MsnHelper(api, say)
+        srv = msn_server(helper, port)
+    except Exception as e:
+        say(f"⚠ 메신저 창 도우미를 켜지 못함 (연결 프로그램은 그대로): {e!r}")
+        return None
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    def loop():
+        errs = 0
+        while True:
+            try:
+                helper.tick()
+                errs = 0
+            except Exception as e:
+                errs += 1
+                if errs in (1, 50):
+                    say(f"⚠ 메신저 창 도우미: {e!r}")
+            time.sleep(MSN_TICK)
+    threading.Thread(target=loop, daemon=True).start()
+    say(f"💬 메신저 창 도우미 켜짐 (127.0.0.1:{port})")
+    return helper, srv
+
+
 class Beat:
     """상태(idle 대기 · busy 요청 실행 중 · error 시트 연결 안 됨/설정 필요 · off 꺼짐)를 파일로 남김.
     요청 실행이 몇 분 걸려도 신호가 끊기지 않게 별도 스레드가 10초마다 다시 적음"""
@@ -1576,6 +1941,7 @@ def main_loop(once=False, bg=False):
         print("이미 이 PC에서 연결 프로그램이 실행 중입니다 (창 없이 도는 중일 수 있음 — 시계 옆 트레이 아이콘 확인). 이 창은 닫아도 됩니다."); return
     say = lambda m: print(f"{datetime.datetime.now():%m-%d %H:%M:%S} {m}", flush=True)
     beat = Beat().start()
+    msn_helper_start(say)                      # 1.10: 메신저 창 도우미 (Windows 에서만, 실패해도 연결은 그대로)
     try:
         with open(pid_path(), "w") as f:
             f.write(str(os.getpid()))

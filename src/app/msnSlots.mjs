@@ -5,6 +5,10 @@
 import { MSN_LIMITS, cornerMarks, fitFromMarks, frameDiff, markBox, readMsnPrefs, regionOnVideo, screenCss, stepSlot } from "../domain/msnCapture.mjs?v=20261103-msn1";
 
 const PREF_KEY = "system_v3_cs_msn_slots";
+// 2026-11-05: 수집기 PC 웹연결 1.10 의 "메신저 창 도우미" (이 PC 안 127.0.0.1) — 카톡 창을 슬롯에 붙이기·항상 위·일괄 정렬
+export const MSN_HELPER_URL = "http://127.0.0.1:47811/msn";
+const HELPER_SYNC_MS = 1500;
+const HELPER_PING_EVERY = 6;          // 동기화 6번(약 9초)마다 연결 확인
 const TICK_MS = 1000;
 const SMALL_W = 96;                   // 비교용으로 줄인 폭
 
@@ -52,7 +56,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   if (!root) return null;
   const $ = (sel) => root.querySelector(sel);
   const prefs = readMsnPrefs(storage, PREF_KEY);
-  const st = { stream: null, video: null, timer: 0, slots: [], prev: [], snaps: [], fit: prefs.fit };
+  const st = { stream: null, video: null, timer: 0, slots: [], prev: [], snaps: [], fit: prefs.fit, helper: { on: false, ver: "", sent: "", n: 0, busy: false } };
   const can = !!navigator?.mediaDevices?.getDisplayMedia;
 
   function save() {
@@ -178,6 +182,82 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     }
   }
 
+  // ---------- 🪄 창 도우미 (수집기 PC 웹연결 1.10) ----------
+  // 슬롯 틀의 화면 위치(물리 픽셀): 영역 맞춤을 했으면 그 값(정확), 아니면 브라우저 창 위치 × 화면 배율로 어림
+  function slotScreenRects() {
+    const out = [];
+    for (let i = 0; i < prefs.count; i += 1) {
+      const rect = frameRect(i);
+      if (!rect || rect.width < 60 || rect.height < 60) return [];
+      const v = videoSize();
+      const r = st.fit && v.width ? regionOnVideo(rect, window, window.screen, v, st.fit) : null;
+      if (r) { out.push({ x: r.x, y: r.y, w: r.w, h: r.h }); continue; }
+      const c = screenCss(rect, window, window.screen);
+      const dpr = window.devicePixelRatio || 1;
+      const sl = Number.isFinite(window.screen?.left) ? window.screen.left : (window.screen?.availLeft || 0);
+      const stp = Number.isFinite(window.screen?.top) ? window.screen.top : (window.screen?.availTop || 0);
+      out.push({ x: Math.round((sl + c.x) * dpr), y: Math.round((stp + c.y) * dpr), w: Math.round(c.w * dpr), h: Math.round(c.h * dpr) });
+    }
+    return out;
+  }
+  async function helperCall(path, body) {
+    const opt = body === undefined ? { method: "GET" } : { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) };
+    if (window.AbortSignal?.timeout) opt.signal = window.AbortSignal.timeout(2500);
+    const res = await window.fetch(`${MSN_HELPER_URL}${path}`, opt);
+    const js = await res.json().catch(() => ({}));
+    if (!res.ok || js.ok === false) throw new Error(js.error || `HTTP ${res.status}`);
+    return js;
+  }
+  function setHelper(on, js = {}) {
+    st.helper.on = on;
+    if (!on) st.helper.sent = "";
+    const el = $("[data-msn-helper]");
+    if (el) {
+      el.textContent = on ? `🪄 창 도우미 ● 연결됨${Number.isFinite(js.managed) ? ` · 붙은 창 ${js.managed}` : ""}` : "🪄 창 도우미 ○ 없음";
+      el.className = `msn-helper ${on ? "is-on" : ""}`;
+      el.title = on ? `수집기 PC 웹연결 ${js.ver || ""} — 카톡 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (CS 관리 ⚙ 설정 → ⬆ 웹연결 업데이트). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
+    }
+    root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
+  }
+  const panelShown = () => document.visibilityState !== "hidden" && !!root.getClientRects?.().length && root.offsetWidth > 0;
+  async function pingHelper() {
+    try { setHelper(true, await helperCall("/ping")); } catch { setHelper(false); }
+  }
+  async function syncSlots(force = false) {
+    if (!st.helper.on || !panelShown()) return;
+    const rects = slotScreenRects();
+    if (!rects.length) return;
+    const key = JSON.stringify(rects);
+    if (!force && key === st.helper.sent) return;
+    try { await helperCall("/slots", { slots: rects }); st.helper.sent = key; } catch { setHelper(false); }
+  }
+  async function helperTick() {
+    if (st.helper.busy || !panelShown()) return;
+    st.helper.busy = true;
+    try {
+      st.helper.n += 1;
+      if (!st.helper.on || st.helper.n % HELPER_PING_EVERY === 0) await pingHelper();
+      await syncSlots();
+    } finally { st.helper.busy = false; }
+  }
+  async function arrange() {
+    if (!st.helper.on) await pingHelper();
+    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — 수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (⚙ 설정 → ⬆ 웹연결 업데이트).", "is-bad"); return; }
+    try {
+      await syncSlots(true);
+      const r = await helperCall("/arrange", {});
+      say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위).` : "열린 카톡 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
+      pingHelper();
+    } catch (error) { say(`일괄 정렬 실패: ${error?.message || error}`, "is-bad"); }
+  }
+  async function release() {
+    try {
+      const r = await helperCall("/release", {});
+      say(`대화창 ${r.released || 0}개의 '항상 위'를 풀었습니다 (자리는 그대로).`, "is-ok");
+      pingHelper();
+    } catch (error) { say(`놓아주기 실패: ${error?.message || error}`, "is-bad"); }
+  }
+
   async function copy(i) {
     const ta = root.querySelector(`[data-msn-text="${i}"]`);
     const text = ta?.value || "";
@@ -198,7 +278,9 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (!b) return;
     const act = b.dataset.msnAct, i = Number(b.dataset.i);
     if (act === "connect") connect();
-    else if (act === "fit") fit();
+    else if (act === "fit") fit().then(() => syncSlots(true));
+    else if (act === "arrange") arrange();
+    else if (act === "release") release();
     else if (act === "copy") copy(i);
     else if (act === "clear") { const ta = root.querySelector(`[data-msn-text="${i}"]`); if (ta) ta.value = ""; }
     else if (act === "peek") {
@@ -212,8 +294,8 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     }
   });
   root.addEventListener("change", (e) => {
-    if (e.target.matches("[data-msn-count]")) { prefs.count = Number(e.target.value) || 3; save(); render(); }
-    else if (e.target.matches("[data-msn-height]")) { prefs.height = Number(e.target.value) || 560; save(); render(); }
+    if (e.target.matches("[data-msn-count]")) { prefs.count = Number(e.target.value) || 3; save(); render(); syncSlots(true); }
+    else if (e.target.matches("[data-msn-height]")) { prefs.height = Number(e.target.value) || 560; save(); render(); syncSlots(true); }
   });
   root.addEventListener("input", (e) => {
     if (e.target.matches("[data-msn-name]")) { prefs.names[Number(e.target.dataset.msnName)] = e.target.value; save(); }
@@ -221,8 +303,11 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
 
   render();
   setConn(false);
+  setHelper(false);
   if (!can) say("이 기기는 화면 연결을 지원하지 않습니다 — 메신저 감지는 PC 크롬에서.", "is-bad");
-  return { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS };
+  window.setInterval?.(helperTick, HELPER_SYNC_MS);
+  window.addEventListener?.("resize", () => syncSlots(true));
+  return { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, arrange, release, syncSlots, pingHelper, slotScreenRects };
 }
 
 if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]")) {

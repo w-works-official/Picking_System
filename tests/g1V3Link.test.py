@@ -775,4 +775,111 @@ L.handle(link, {"id": "JCB", "kind": "login", "body": {"vendors": ["지그재그
 assert calls == [], "체크 안 하면 로그인만"
 L.run_login_job, L.run_collect_job, L._G = keep_login, keep_collect, keep_G
 
+# 2026-11-05 (1.10): 메신저 창 도우미 — 끌어 가까이 놓으면 슬롯에 딱 맞춤 · 항상 위 · 일괄 정렬 · 127.0.0.1 + System V3 화면만
+assert L.msn_origin_ok("https://w-works-official.github.io") and L.msn_origin_ok("http://127.0.0.1:5173")
+assert not L.msn_origin_ok("https://evil.example") and not L.msn_origin_ok("")
+assert L.msn_clean_slots([{"x": 10, "y": 20, "w": 400, "h": 560}, {"x": "a"}, {"x": 0, "y": 0, "w": 50, "h": 50}]) == [(10, 20, 400, 560)]
+S3 = [(100, 200, 400, 560), (520, 200, 400, 560), (940, 200, 400, 560)]
+assert L.msn_snap_target((560, 240, 900, 700), S3) == 1, "왼쪽 위 모서리가 가까우면 그 슬롯"
+assert L.msn_snap_target((950, 300, 1300, 800), S3) == 2, "창 가운데가 슬롯 안이면 그 슬롯"
+assert L.msn_snap_target((2000, 2000, 2400, 2500), S3) is None
+assert L.msn_outer_rect((100, 200, 400, 560), (7, 0, 7, 7)) == (93, 200, 414, 567), "보이지 않는 테두리만큼 넓혀서 보이는 테두리가 슬롯에 맞게"
+
+
+class FakeMsnApi:
+    def __init__(self):
+        self.wins = {}      # hwnd → (title, rect)
+        self.order = []     # 위에 있는 창부터
+        self.down = False
+        self.top = {}
+        self.placed = []
+
+    def windows(self):
+        return [(h, self.wins[h][0], self.wins[h][1]) for h in self.order if h in self.wins]
+
+    def mouse_down(self):
+        return self.down
+
+    def place(self, h, slot):
+        x, y, w, hh = slot
+        self.wins[h] = (self.wins[h][0], (x, y, x + w, y + hh))
+        self.top[h] = True
+        self.placed.append((h, slot))
+
+    def topmost(self, h, on):
+        self.top[h] = on
+
+
+fa = FakeMsnApi()
+logs = []
+mh = L.MsnHelper(fa, logs.append)
+fa.wins = {11: ("고객 A", (50, 50, 450, 650)), 22: ("고객 B", (1500, 100, 1900, 700))}
+fa.order = [11, 22]
+mh.tick()                                                      # 처음 위치 기억
+assert mh.set_slots(S3)["slots"] == 3
+fa.down = True; fa.wins[11] = ("고객 A", (130, 210, 530, 810)); mh.tick()   # 끄는 중 — 아직 안 붙임
+assert 11 not in mh.managed and not fa.placed
+fa.down = False; mh.tick()                                     # 마우스 뗌 → 슬롯 1 에 딱 맞춤 + 항상 위
+assert mh.managed == {11: 0} and fa.wins[11][1] == (100, 200, 500, 760) and fa.top[11] is True
+assert any("슬롯 1" in m for m in logs)
+mh.tick(); mh.tick()
+assert fa.placed.count((11, S3[0])) == 1, "가만히 있으면 다시 안 건드림"
+# 창 최소 크기 때문에 슬롯보다 크게 남아도 계속 다시 붙이지 않음
+fa_place = fa.place
+fa.place = lambda h, slot: (fa_place(h, slot), fa.wins.__setitem__(h, (fa.wins[h][0], (slot[0], slot[1], slot[0] + 450, slot[1] + 600))))
+fa.down = True; fa.wins[11] = ("고객 A", (110, 205, 510, 805)); mh.tick(); fa.down = False; mh.tick()
+n0 = len(fa.placed); mh.tick(); mh.tick(); mh.tick()
+assert len(fa.placed) == n0, "붙인 뒤 크기가 조금 달라도 반복해서 옮기지 않음"
+fa.place = fa_place
+fa.down = True; fa.wins[11] = ("고객 A", (2000, 2000, 2400, 2600)); mh.tick(); fa.down = False; mh.tick()
+assert 11 not in mh.managed and fa.top[11] is False, "슬롯 밖으로 끌어내면 항상 위 풀림"
+r = mh.arrange()                                               # 일괄 정렬: 위에 있는 창부터 빈 슬롯에, 같은 크기
+assert r["placed"] == 2 and mh.managed == {11: 0, 22: 1} and fa.wins[22][1] == (520, 200, 920, 760)
+S3b = [(x + 30, y, w, h) for x, y, w, h in S3]
+mh.set_slots(S3b)                                              # 브라우저를 옮기면 붙은 창도 따라감
+assert fa.wins[11][1][0] == 130 and fa.wins[22][1][0] == 550
+mh.tick()                                                      # (실제로는 끄는 동안 여러 번 확인함)
+fa.down = True; fa.wins[22] = ("고객 B", (140, 210, 540, 770)); mh.tick(); fa.down = False; mh.tick()
+assert mh.managed == {22: 0} and fa.top[11] is False, "같은 슬롯에 새 창을 붙이면 원래 창은 항상 위만 풀림"
+del fa.wins[22]; mh.tick()
+assert mh.managed == {}, "닫힌 창은 잊음"
+assert mh.release_all()["ok"]
+assert L.MsnHelper(fa).arrange()["ok"] is False, "슬롯 위치를 못 받았으면 정렬 안 함"
+assert L.msn_helper_start(print) is None or os.name == "nt", "Windows 가 아니면 켜지 않음"
+
+# 로컬 HTTP: System V3 화면 Origin 만 POST 허용 · 미리 확인(OPTIONS) 에 사설망 허용 머리말
+import socket as _sock, urllib.request as _ur, urllib.error as _ue
+_s = _sock.socket(); _s.bind(("127.0.0.1", 0)); _port = _s.getsockname()[1]; _s.close()
+fa2 = FakeMsnApi(); fa2.wins = {7: ("고객 C", (0, 0, 500, 600))}; fa2.order = [7]
+started = L.msn_helper_start(lambda m: None, api=fa2, port=_port)
+assert started, "가짜 api 로는 어디서나 켜짐"
+_srv = started[1]
+_base = f"http://127.0.0.1:{_port}/msn"
+ORI = "https://w-works-official.github.io"
+
+
+def _req(path, method="GET", body=None, origin=ORI):
+    rq = _ur.Request(_base + path, method=method, data=json.dumps(body).encode() if body is not None else None)
+    if origin:
+        rq.add_header("Origin", origin)
+    if body is not None:
+        rq.add_header("Content-Type", "text/plain;charset=utf-8")
+    try:
+        with _ur.urlopen(rq, timeout=5) as rs:
+            return rs.status, dict(rs.headers), json.loads(rs.read() or b"{}")
+    except _ue.HTTPError as e:
+        return e.code, dict(e.headers), json.loads(e.read() or b"{}")
+
+
+st_, hd, js = _req("/ping")
+assert st_ == 200 and js["ok"] and js["ver"] == L.LINK_VER and js["windows"] == 1 and hd.get("Access-Control-Allow-Origin") == ORI
+st_, hd, _ = _req("/slots", "OPTIONS")
+assert st_ == 204 and hd.get("Access-Control-Allow-Private-Network") == "true"
+assert _req("/slots", "POST", {"slots": [{"x": 10, "y": 10, "w": 400, "h": 560}]}, origin="https://evil.example")[0] == 403, "다른 사이트는 거절"
+assert _req("/slots", "POST", {"slots": [{"x": 10, "y": 10, "w": 400, "h": 560}]})[2]["slots"] == 1
+st_, _, js = _req("/arrange", "POST", {})
+assert js["placed"] == 1 and fa2.wins[7][1] == (10, 10, 410, 570)
+assert _req("/release", "POST", {})[2]["released"] == 1 and fa2.top[7] is False
+_srv.shutdown()
+
 print("g1V3Link.test: OK")

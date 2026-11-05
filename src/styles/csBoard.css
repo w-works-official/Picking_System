@@ -2008,3 +2008,7 @@ a.cs-btn {
 
 /* 2026-11-05: 게시판·리뷰 [수집할 업체] 칸의 ☑ 수집 — 22px 에서 30% 줄여 15px */
 .cs-vendor-grid[data-vendor-group] .cs-vendor-check { font-size: 15px; font-weight: 800; line-height: 1.1; }
+
+/* 2026-11-05: 메신저 창 도우미 상태 */
+.msn-helper { padding: 2px 8px; border-radius: 5px; background: #f1f2f4; color: var(--cs-sub); font-size: 12px; font-weight: 800; cursor: help; }
+.msn-helper.is-on { background: #ede9fe; color: #6d28d9; }

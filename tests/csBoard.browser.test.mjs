@@ -47,6 +47,15 @@ try {
     await context.route("**/*", (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort("blockedbyclient")));
     const domainSource = await readFile(path.join(root, "src/domain/csBoard.mjs"), "utf8");
     await context.route("**/src/domain/csBoard.mjs*", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: withEndpoint(domainSource, "") }));
+    // 2026-11-05: 수집기 PC 웹연결 1.10 메신저 창 도우미 (127.0.0.1:47811) 흉내
+    const helperCalls = [];
+    await context.route("http://127.0.0.1:47811/**", (route) => {
+      const req = route.request();
+      const p = new URL(req.url()).pathname;
+      helperCalls.push({ path: p, method: req.method(), body: req.postData() ? JSON.parse(req.postData()) : null });
+      const body = p === "/msn/ping" ? { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 } : p === "/msn/arrange" ? { ok: true, placed: 2, windows: 2, slots: 3 } : p === "/msn/release" ? { ok: true, released: 2 } : { ok: true, slots: 3, managed: 0 };
+      return route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": origin }, body: JSON.stringify(body) });
+    });
     const page = await context.newPage();
     page.on("pageerror", (e) => pageErrors.push(e.message));
     await page.goto(`${origin}/cs/`);
@@ -107,6 +116,19 @@ try {
     await page.screenshot({ path: path.join(output, "cs-board-review.png") });
     await page.locator('[data-left-tab="msn"]').click();
     assert.equal(await page.locator("[data-right-title]").textContent(), "💬 메신저 답변");
+    // 🪄 창 도우미: 메신저 탭을 열면 연결 확인 → 슬롯 화면 위치를 보냄 → [📐 일괄 정렬]
+    await page.locator("[data-msn-helper].is-on").waitFor({ timeout: 8000 });
+    for (let i = 0; i < 40 && !helperCalls.some((c) => c.path === "/msn/slots"); i += 1) await page.waitForTimeout(200);
+    const slotPost = helperCalls.find((c) => c.path === "/msn/slots");
+    assert.ok(slotPost, "슬롯 위치를 도우미에 보냄");
+    assert.equal(slotPost.body.slots.length, 3, "슬롯 3칸");
+    assert.ok(slotPost.body.slots.every((r) => r.w >= 120 && r.h >= 120 && Number.isFinite(r.x)), JSON.stringify(slotPost.body.slots));
+    assert.ok(slotPost.body.slots[1].x > slotPost.body.slots[0].x, "슬롯은 왼쪽부터");
+    await page.locator('[data-msn-act="arrange"]').click();
+    await page.locator("[data-msn-msg]", { hasText: "대화창 2개를 슬롯에 같은 크기로" }).waitFor();
+    assert.ok(helperCalls.some((c) => c.path === "/msn/arrange" && c.method === "POST"));
+    await page.locator('[data-msn-act="release"]').click();
+    await page.locator("[data-msn-msg]", { hasText: "항상 위'를 풀었습니다" }).waitFor();
     // 💬 메신저 슬롯 (2026-11-03): 기본 3칸 · 틀(분홍 모서리) + 아래 대답 영역 · 칸 수 바꾸기
     assert.equal(await page.locator("[data-msn-slot]").count(), 3, "기본 슬롯 3칸");
     assert.equal(await page.locator('[data-msn-slot="0"] .msn-mark').count(), 4);

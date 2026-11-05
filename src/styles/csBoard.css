@@ -2012,3 +2012,5 @@ a.cs-btn {
 /* 2026-11-05: 메신저 창 도우미 상태 */
 .msn-helper { padding: 2px 8px; border-radius: 5px; background: #f1f2f4; color: var(--cs-sub); font-size: 12px; font-weight: 800; cursor: help; }
 .msn-helper.is-on { background: #ede9fe; color: #6d28d9; }
+.msn-helper { border: 0; cursor: pointer; font-family: inherit; }
+.msn-helper.is-off { background: #fef3c7; color: #92400e; }

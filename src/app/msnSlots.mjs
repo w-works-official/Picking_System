@@ -208,13 +208,26 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (!res.ok || js.ok === false) throw new Error(js.error || `HTTP ${res.status}`);
     return js;
   }
+  // 크롬 '로컬 네트워크 액세스' 허가 상태 (이 화면 → 이 PC 안 프로그램 접속) — granted / prompt / denied / ""(모름)
+  async function lnaState() {
+    for (const name of ["local-network-access", "loopback-network", "local-network"]) {
+      try { const r = await navigator?.permissions?.query({ name }); if (r?.state) return r.state; } catch { /* 이 이름은 없음 */ }
+    }
+    return "";
+  }
   function setHelper(on, js = {}) {
     st.helper.on = on;
     if (!on) st.helper.sent = "";
     const el = $("[data-msn-helper]");
     if (el) {
-      el.textContent = on ? `🪄 창 도우미 ● 연결됨${Number.isFinite(js.managed) ? ` · 붙은 창 ${js.managed}` : ""}` : "🪄 창 도우미 ○ 없음";
-      el.className = `msn-helper ${on ? "is-on" : ""}`;
+      el.textContent = on ? `🪄 창 도우미 ● 연결됨${Number.isFinite(js.managed) ? ` · 붙은 창 ${js.managed}` : ""}` : "🪄 창 도우미 ○ 없음 — 눌러서 연결";
+      el.className = `msn-helper ${on ? "is-on" : "is-off"}`;
+      if (!on) lnaState().then((perm) => {
+        if (st.helper.on || !el) return;
+        if (perm === "denied") el.textContent = "🪄 창 도우미 ⛔ 크롬이 막음 — 주소창 왼쪽 아이콘 → 로컬 네트워크 액세스 [허용]";
+        else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
+        st.helper.perm = perm;
+      });
       el.title = on ? `수집기 PC 웹연결 ${js.ver || ""} — 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (CS 관리 ⚙ 설정 → ⬆ 웹연결 업데이트). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
     }
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
@@ -240,6 +253,17 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       await syncSlots();
     } finally { st.helper.busy = false; }
   }
+  // 🪄 표시를 누르면: 사람이 누른 순간에 접속 → 크롬이 '로컬 네트워크 액세스'를 물음 → [허용]
+  async function connectHelper() {
+    say("창 도우미에 연결하는 중… 크롬이 '로컬 네트워크의 기기에 액세스'를 물으면 [허용]을 눌러 주세요.");
+    await pingHelper();
+    if (st.helper.on) { say("창 도우미 연결됨 — 대화창을 슬롯 가까이 끌어다 놓거나 [📐 일괄 정렬]을 누르세요.", "is-ok"); syncSlots(true); return; }
+    const perm = await lnaState();
+    say(perm === "denied"
+      ? "크롬이 이 화면의 PC 접속을 막고 있습니다 — 주소창 왼쪽 아이콘(ⓘ/자물쇠) → 사이트 설정 → '로컬 네트워크 액세스' 를 [허용]으로 바꾼 뒤 새로고침."
+      : "창 도우미에 연결하지 못했습니다 — ① 수집기 PC 웹연결 1.10 이상이 켜져 있는지 ② 이 화면을 수집기 PC(카톡이 있는 PC)에서 열었는지 확인해 주세요.", "is-bad");
+  }
+
   async function arrange() {
     if (!st.helper.on) await pingHelper();
     if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — 수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (⚙ 설정 → ⬆ 웹연결 업데이트).", "is-bad"); return; }
@@ -280,6 +304,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (act === "connect") connect();
     else if (act === "fit") fit().then(() => syncSlots(true));
     else if (act === "arrange") arrange();
+    else if (act === "helper") connectHelper();
     else if (act === "release") release();
     else if (act === "copy") copy(i);
     else if (act === "clear") { const ta = root.querySelector(`[data-msn-text="${i}"]`); if (ta) ta.value = ""; }

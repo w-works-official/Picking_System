@@ -116,7 +116,7 @@ try {
     await page.screenshot({ path: path.join(output, "cs-board-review.png") });
     await page.locator('[data-left-tab="msn"]').click();
     assert.equal(await page.locator("[data-right-title]").textContent(), "💬 메신저 답변");
-    // 🪄 창 도우미: 메신저 탭을 열면 연결 확인 → 슬롯 화면 위치를 보냄 → [📐 일괄 정렬]
+    // 🪄 창 도우미: 메신저 탭을 열면 연결 확인 → 슬롯 화면 위치를 보냄 → [📐 일괄 붙이기]
     await page.locator("[data-msn-helper].is-on").waitFor({ timeout: 8000 });
     assert.equal(await page.locator("[data-msn-cta]").isHidden(), true, "연결되면 연결 안내 숨김");
     for (let i = 0; i < 40 && !helperCalls.some((c) => c.path === "/msn/slots"); i += 1) await page.waitForTimeout(200);
@@ -128,8 +128,11 @@ try {
     await page.locator('[data-msn-act="arrange"]').click();
     await page.locator("[data-msn-msg]", { hasText: "대화창 2개를 슬롯에 같은 크기로" }).waitFor();
     assert.ok(helperCalls.some((c) => c.path === "/msn/arrange" && c.method === "POST"));
-    await page.locator('[data-msn-act="release"]').click();
-    await page.locator("[data-msn-msg]", { hasText: "항상 위'를 풀었습니다" }).waitFor();
+    // 11-05 오후: 놓아주기 없음 · 순서 = 화면 연결 / 영역 맞춤 / 일괄 붙이기 → 크기 고르기 → 오른쪽 끝에 연결 상태
+    assert.equal(await page.locator('[data-msn-act="release"]').count(), 0, "놓아주기 버튼 없음");
+    assert.deepEqual((await page.locator('[data-msn-panel] .cs-answer-top > button, [data-msn-panel] .cs-answer-top > span').evaluateAll((els) => els.map((e) => e.dataset.msnAct || e.className.trim()))), ["connect", "fit", "arrange", "msn-size", "cs-flex", "msn-conn", "helper"]);
+    assert.equal((await page.locator("[data-msn-helper]").textContent()).trim(), "🪄 창 도우미 ● 연결됨", "붙은 창 수 표시 없음");
+    assert.equal(await page.locator("[data-msn-count]").evaluate((el) => getComputedStyle(el).fontSize), "16px", "크기 고르기 30% 크게");
     // 11-05: Enter = 붙은 대화창에 붙여넣기 + Enter (커서는 그 칸에) · Shift+Enter 줄바꿈 · Tab / Tab+숫자 = 다른 슬롯
     await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
     const ta0 = page.locator('[data-msn-text="0"]');
@@ -152,17 +155,24 @@ try {
     await page.keyboard.down("Tab"); await page.keyboard.press("ArrowLeft"); await page.keyboard.up("Tab");
     assert.equal(await page.evaluate(() => document.activeElement?.dataset?.msnText), "1", "Tab+← = 이전 슬롯");
     assert.equal(await page.locator('[data-msn-slot="1"]').evaluate((el) => el.classList.contains("is-typing")), true);
+    assert.deepEqual(await page.locator('[data-msn-slot="1"]').evaluate((el) => { const c = getComputedStyle(el); return [c.outlineStyle, c.borderTopColor, c.boxShadow]; }), ["none", "rgb(22, 163, 74)", "rgb(22, 163, 74) 0px 0px 0px 4px"], "11-05: 입력 중 = 초록 굵은 선 하나");
+    assert.equal(await page.locator('[data-msn-act="star"][data-i="1"]').evaluate((el) => getComputedStyle(el).fontSize), "17px", "★ 30% 크게 (13 → 17px)");
     // 연결된 상태에서 🪄 표시 = 진단 (찾은 대화창 목록)
     await page.locator("[data-msn-helper]").click();
     await page.locator("[data-msn-msg]", { hasText: "nateonmain.exe" }).waitFor();
     // 💬 메신저 슬롯 (2026-11-03): 기본 3칸 · 틀(분홍 모서리) + 아래 대답 영역 · 칸 수 바꾸기
     assert.equal(await page.locator("[data-msn-slot]").count(), 3, "기본 슬롯 3칸");
     assert.equal(await page.locator('[data-msn-slot="0"] .msn-mark').count(), 4);
+    assert.equal(await page.locator('[data-msn-slot="0"] .msn-mark').first().isVisible(), false, "11-05: 분홍 점은 화면 연결 중에만");
+    assert.equal(await page.locator('[data-msn-slot="0"] .msn-frame-guide').textContent().then((t) => t.trim()), "여기에 메신저 창을 끌어다 놓으세요", "안내는 한 줄만");
+    assert.equal(await page.locator("[data-msn-last], [data-msn-act=peek]").count(), 0, "마지막 변화·보기 없음");
+    assert.equal((await page.locator('[data-msn-act="suggest"][data-i="0"]').textContent()).trim(), "💻 AI추천");
+    assert.equal(await page.locator("[data-msn-name='0']").getAttribute("placeholder"), "메모 (예: 카톡 · 고객)");
     const frameBox = await page.locator('[data-msn-frame="0"]').boundingBox();
     const answerBox = await page.locator('[data-msn-slot="0"] [data-msn-text]').boundingBox();
     assert.ok(answerBox.y > frameBox.y + frameBox.height - 1, "대답 영역은 슬롯 틀 아래");
     // 11-05: 슬롯 최대 10칸 — 위 5 · 아래 5 / 높이 4단계 / 폭 2가지 / ★ 주목 (화면 연결 전엔 '창 없음' 자리에 ★)
-    assert.deepEqual(await page.locator("[data-msn-height] option").evaluateAll((o) => o.map((x) => x.value)), ["420", "560", "700", "840"]);
+    assert.deepEqual(await page.locator("[data-msn-height] option").evaluateAll((o) => o.map((x) => x.value)), ["550", "730", "910", "1090"]);
     assert.equal(await page.locator("[data-msn-count] option").count(), 10);
     await page.locator("[data-msn-count]").selectOption("10");
     const tops = await page.locator("[data-msn-slot]").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
@@ -171,14 +181,14 @@ try {
     assert.equal(new Set(tops.slice(5)).size, 1, "아래 5칸 한 줄");
     assert.ok(tops[5] > tops[0], "아래 줄");
     const w0 = await page.locator('[data-msn-slot="0"]').evaluate((el) => el.getBoundingClientRect().width);
-    await page.locator("[data-msn-width]").selectOption("460");
+    await page.locator("[data-msn-width]").selectOption("520");
     const w1 = await page.locator('[data-msn-slot="0"]').evaluate((el) => el.getBoundingClientRect().width);
-    assert.ok(Math.round(w0) === 340 && Math.round(w1) === 460, `폭 ${w0} → ${w1}`);
-    await page.locator("[data-msn-width]").selectOption("340");
-    await page.locator("[data-msn-height]").selectOption("840");
+    assert.ok(Math.round(w0) === 410 && Math.round(w1) === 520, `폭 ${w0} → ${w1}`);
+    await page.locator("[data-msn-width]").selectOption("410");
+    await page.locator("[data-msn-height]").selectOption("1090");
     const h4 = Math.round(await page.locator('[data-msn-frame="0"]').evaluate((el) => el.getBoundingClientRect().height));
-    assert.ok(h4 >= 840 && h4 <= 846, `4단계 = 840px (+테두리) ${h4}`);
-    await page.locator("[data-msn-height]").selectOption("560");
+    assert.ok(h4 >= 1090 && h4 <= 1096, `4단계 = 1090px (+테두리) ${h4}`);
+    await page.locator("[data-msn-height]").selectOption("730");
     assert.equal(await page.locator('[data-msn-state="0"]').isVisible(), false, "화면 연결 전에는 상태 대신 ★");
     await page.locator('[data-msn-act="star"][data-i="1"]').click();
     assert.equal(await page.locator('[data-msn-slot="1"]').evaluate((el) => el.classList.contains("is-star")), true);
@@ -234,9 +244,8 @@ try {
     await page.evaluate(() => { window.__screen.text = "안녕하세요 바 길이 변경 되나요?"; });
     await page.waitForFunction(() => !document.querySelector('[data-msn-badge="0"]').hidden, null, { timeout: 8000 });
     assert.match(await page.locator('[data-msn-badge="0"]').textContent(), /🔔 1/);
-    assert.match(await page.locator('[data-msn-last="0"]').textContent(), /마지막 변화 \d/);
-    await page.locator('[data-msn-act="peek"][data-i="0"]').click();
-    assert.match(await page.locator('[data-msn-peek="0"]').getAttribute("src"), /^data:image\/jpeg/);
+    assert.match(await page.locator('[data-msn-badge="0"]').getAttribute("title"), /마지막 새 메시지 \d/);
+    assert.equal(await page.locator('[data-msn-slot="0"] .msn-mark').first().isVisible(), true, "화면 연결 중엔 분홍 점");
     await page.locator('[data-msn-text="0"]').click();
     await page.locator('[data-msn-text="0"]').fill("네 고객님, 바 길이 변경 가능합니다 :)");
     assert.equal(await page.locator('[data-msn-badge="0"]').isVisible(), false, "슬롯을 누르면 새 변화 표시 지움");
@@ -581,7 +590,7 @@ try {
     const msJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
     gas.post({ action: "finish", token: COLLECTOR, id: msJob.id, ok: true, message: "메이크샵 ✓", data: { login: { 메이크샵: { state: "ok" } } } });
 
-    // 11-05: 💬 메신저 [🤖 추천] — 창 도우미가 붙은 대화창 그림을 주고 → 시트 v9 msnSuggest → 답장 후보를 눌러 입력칸에
+    // 11-05: 💬 메신저 [💻 AI추천] — 창 도우미가 붙은 대화창 그림을 주고 → 시트 v9 msnSuggest → 답장 후보를 눌러 입력칸에
     await context.route("http://127.0.0.1:47811/**", (route) => {
       const p = new URL(route.request().url()).pathname;
       const body = p === "/msn/capture" ? { ok: true, mime: "image/png", data: "iVBORw0KGgo" + "A".repeat(300), w: 400, h: 600 } : { ok: true, ver: "1.12 (2026-11-05)", slots: 3, windows: 1, managed: 1 };
@@ -689,7 +698,7 @@ try {
       console.log("  (엑셀 시험 건너뜀 — 이 PC에 xlsx 부품 없음)");
     }
     const stillRed = await page.locator("button.is-pending").evaluateAll((els) => els.map((el) => el.textContent.trim()));
-    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["📤 등록"], "11-05: 메신저 🤖 추천도 작동 — 리뷰 답글 등록만 아직 회색 (업데이트는 새 버전을 기다림)");
+    assert.deepEqual(stillRed.filter((t) => !t.startsWith("⬆ 업데이트")).sort(), ["📤 등록"], "11-05: 메신저 💻 AI추천도 작동 — 리뷰 답글 등록만 아직 회색 (업데이트는 새 버전을 기다림)");
 
     // ⬆ 웹연결 업데이트: 저장소 main 최신 커밋 파일 → 확인값 → 수집기 PC에 요청
     const fakeCommit = "d".repeat(40);

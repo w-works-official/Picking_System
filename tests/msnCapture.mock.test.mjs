@@ -54,10 +54,11 @@ r = stepSlot(r.state, { marks: 3 }); assert.equal(r.state.mode, "none", "브라�
 assert.equal(r.state.events, 1, "알림 개수는 유지");
 
 // 설정 읽기
-assert.deepEqual(readMsnPrefs(null, "k"), { count: 3, height: 560, names: [], fit: null, width: 340, stars: [] });
+assert.deepEqual(readMsnPrefs(null, "k"), { count: 3, height: 730, names: [], fit: null, width: 410, stars: [] });
 const st = { getItem: () => JSON.stringify({ count: 12, height: 840, width: 460, stars: [true, "x", false], names: ["카톡"], fit: { ax: 1, ay: 1, bx: 0, by: "x" } }) };
-assert.deepEqual(readMsnPrefs(st, "k"), { count: 10, height: 840, names: ["카톡"], fit: null, width: 460, stars: [true, false, false] }, "11-05: 최대 10칸 · 높이 4단계 · 폭 2가지 · 별표");
-assert.equal(readMsnPrefs({ getItem: () => JSON.stringify({ width: 999, height: 999 }) }, "k").width, 340);
+assert.deepEqual(readMsnPrefs(st, "k"), { count: 10, height: 1090, names: ["카톡"], fit: null, width: 520, stars: [true, false, false] }, "11-05: 최대 10칸 · 높이 4단계 · 폭 2가지 · 별표 (예전 840·460 → 같은 단계 1090·520)");
+assert.deepEqual([550, 730, 910, 1090].map((h) => readMsnPrefs({ getItem: () => JSON.stringify({ height: h, width: 520 }) }, "k").height), [550, 730, 910, 1090]);
+assert.equal(readMsnPrefs({ getItem: () => JSON.stringify({ width: 999, height: 999 }) }, "k").width, 410);
 assert.deepEqual(readMsnPrefs({ getItem: () => "{bad" }, "k").count, 3);
 
 console.log("msnCapture.mock.test: OK");

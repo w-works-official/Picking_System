@@ -2,7 +2,7 @@
 //  · 슬롯 위쪽 = 메신저 창을 올려놓을 틀 (네 모서리 분홍 표시) / 아래쪽 = 대답 영역(보낼 답변·복사)
 //  · [🖥 화면 연결] → 전체 화면 공유 → 슬롯 영역만 1초마다 작게 잘라 비교 → 바뀌면 "🔔 새 변화"
 //  · 화면 그림은 이 브라우저 안에서만 씀 (어디에도 보내거나 저장하지 않음). AI 읽기·추천은 다음 단계
-import { MSN_LIMITS, cornerMarks, fitFromMarks, frameDiff, markBox, readMsnPrefs, regionOnVideo, screenCss, stepSlot } from "../domain/msnCapture.mjs?v=20261105-msn2";
+import { MSN_LIMITS, cornerMarks, fitFromMarks, frameDiff, markBox, readMsnPrefs, regionOnVideo, screenCss, stepSlot } from "../domain/msnCapture.mjs?v=20261105-msn3";
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY } from "../domain/csBoard.mjs?v=20261104-login3";
 
 const PREF_KEY = "system_v3_cs_msn_slots";
@@ -17,12 +17,12 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-export function msnSlotHtml(i, { name = "", height = 560, star = false } = {}) {
+export function msnSlotHtml(i, { name = "", height = MSN_LIMITS.heights[1], star = false } = {}) {
   return `
   <div class="msn-slot${star ? " is-star" : ""}" data-msn-slot="${i}">
     <div class="msn-slot-head">
       <b>슬롯 ${i + 1}</b>
-      <input class="msn-name" data-msn-name="${i}" value="${esc(name)}" placeholder="이름 (예: 카톡 · 고객)" maxlength="30">
+      <input class="msn-name" data-msn-name="${i}" value="${esc(name)}" placeholder="메모 (예: 카톡 · 고객)" maxlength="30">
       <span class="msn-badge" data-msn-badge="${i}" hidden>🔔 0</span>
       <span class="msn-state is-none" data-msn-state="${i}">창 없음</span>
       <button type="button" class="msn-star${star ? " is-on" : ""}" data-msn-act="star" data-i="${i}" aria-pressed="${star}" title="주목 표시 켜기/끄기 (주목이 필요한 대화창 구분용)">${star ? "★" : "☆"}</button>
@@ -31,18 +31,13 @@ export function msnSlotHtml(i, { name = "", height = 560, star = false } = {}) {
       <i class="msn-mark tl"></i><i class="msn-mark tr"></i><i class="msn-mark bl"></i><i class="msn-mark br"></i>
       <div class="msn-frame-guide">
         <b>여기에 메신저 창을 끌어다 놓으세요</b>
-        <span>카톡 대화창을 이 테두리 안에 맞춰 놓으면<br>이 칸만 보고 새 메시지를 알려 줍니다</span>
-        <small>네 모서리 분홍 점이 가려지게 덮어 주세요</small>
       </div>
     </div>
     <div class="msn-answer">
       <div class="msn-answer-top">
-        <span class="msn-last" data-msn-last="${i}">마지막 변화 —</span>
         <span class="cs-flex"></span>
-        <button type="button" class="cs-btn cs-btn-mini" data-msn-act="peek" data-i="${i}" title="이 슬롯이 보고 있는 화면 (이 브라우저 안에서만)">👁 보기</button>
-        <button type="button" class="cs-btn cs-btn-mini msn-ai-btn" data-msn-act="suggest" data-i="${i}" title="붙은 대화창을 AI 가 읽고 답장 후보를 만듭니다 (그림은 저장 안 함)">🤖 추천</button>
+        <button type="button" class="cs-btn cs-btn-mini msn-ai-btn" data-msn-act="suggest" data-i="${i}" title="붙은 대화창을 AI 가 읽고 답장 후보를 만듭니다 (그림은 저장 안 함)">💻 AI추천</button>
       </div>
-      <img class="msn-peek" data-msn-peek="${i}" alt="슬롯 ${i + 1} 이 보고 있는 화면" hidden>
       <div class="msn-sugg" data-msn-sugg="${i}" hidden></div>
       <textarea data-msn-text="${i}" placeholder="보낼 답변 — Enter = 보내기 · Shift+Enter = 줄바꿈 · Tab(+←→ 또는 숫자) = 다른 슬롯"></textarea>
       <div class="cs-row">
@@ -122,9 +117,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
         const badge = root.querySelector(`[data-msn-badge="${i}"]`);
         badge.hidden = false; badge.textContent = `🔔 ${r.state.events}`;
         root.querySelector(`[data-msn-slot="${i}"]`).classList.add("is-new");
-        root.querySelector(`[data-msn-last="${i}"]`).textContent = `마지막 변화 ${new Date(r.state.last).toLocaleTimeString("ko-KR", { hour12: false })}`;
-        const peek = root.querySelector(`[data-msn-peek="${i}"]`);
-        if (!peek.hidden) peek.src = shot(region);
+        badge.title = `마지막 새 메시지 ${new Date(r.state.last).toLocaleTimeString("ko-KR", { hour12: false })}`;
       }
     }
   }
@@ -228,7 +221,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (!on) st.helper.sent = "";
     const el = $("[data-msn-helper]");
     if (el) {
-      el.textContent = on ? `🪄 창 도우미 ● 연결됨${Number.isFinite(js.managed) ? ` · 붙은 창 ${js.managed}` : ""}` : "🪄 창 도우미 ○ 없음 — 눌러서 연결";
+      el.textContent = on ? "🪄 창 도우미 ● 연결됨" : "🪄 창 도우미 ○ 없음 — 눌러서 연결";
       el.className = `msn-helper ${on ? "is-on" : "is-off"}`;
       if (!on) lnaState().then((perm) => {
         if (st.helper.on || !el) return;
@@ -277,7 +270,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (b) { b.textContent = on ? "★" : "☆"; b.classList.toggle("is-on", on); b.setAttribute("aria-pressed", String(on)); }
   }
 
-  // 🤖 추천 (2026-11-05): 붙은 대화창 그림(창 도우미) 또는 화면 공유 그림 → CS 시트 v9 msnSuggest → 답장 후보를 눌러 입력칸에
+  // 💻 AI추천 (2026-11-05): 붙은 대화창 그림(창 도우미) 또는 화면 공유 그림 → CS 시트 v9 msnSuggest → 답장 후보를 눌러 입력칸에
   function sheetAuth() {
     try { return { endpoint: CS_BOARD_ENDPOINT, token: String(JSON.parse(storage?.getItem(CS_BOARD_STORAGE_KEY) || "{}").token || "") }; } catch { return { endpoint: CS_BOARD_ENDPOINT, token: "" }; }
   }
@@ -302,8 +295,8 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   async function suggest(i) {
     const btn = root.querySelector(`[data-msn-act="suggest"][data-i="${i}"]`);
     const { endpoint, token } = sheetAuth();
-    if (!endpoint || !token) { say("🤖 추천은 CS 시트에 연결된 뒤 쓸 수 있습니다 ([⚙ 설정] → 웹 연결 비밀번호).", "is-bad"); return; }
-    if (btn) { btn.disabled = true; btn.textContent = "🤖 읽는 중…"; }
+    if (!endpoint || !token) { say("AI추천은 CS 시트에 연결된 뒤 쓸 수 있습니다 ([⚙ 설정] → 웹 연결 비밀번호).", "is-bad"); return; }
+    if (btn) { btn.disabled = true; btn.textContent = "💻 읽는 중…"; }
     try {
       const img = await slotImage(i);
       if (!img) { say(`슬롯 ${i + 1}: 대화창 그림을 가져오지 못했습니다 — 대화창을 슬롯에 붙이거나(창 도우미) [🖥 화면 연결]을 해 주세요.`, "is-bad"); return; }
@@ -317,7 +310,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     } catch (error) {
       say(`슬롯 ${i + 1}: AI 추천 실패 — ${error?.message || error}`, "is-bad");
     } finally {
-      if (btn) { btn.disabled = false; btn.textContent = "🤖 추천"; }
+      if (btn) { btn.disabled = false; btn.textContent = "💻 AI추천"; }
     }
   }
 
@@ -326,7 +319,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (st.helper.on) { diagnose(); return; }
     say("창 도우미에 연결하는 중… 크롬이 '로컬 네트워크의 기기에 액세스'를 물으면 [허용]을 눌러 주세요.");
     await pingHelper();
-    if (st.helper.on) { say("창 도우미 연결됨 — 대화창을 슬롯 가까이 끌어다 놓거나 [📐 일괄 정렬]을 누르세요.", "is-ok"); syncSlots(true); return; }
+    if (st.helper.on) { say("창 도우미 연결됨 — 대화창을 슬롯 가까이 끌어다 놓거나 [📐 일괄 붙이기]를 누르세요.", "is-ok"); syncSlots(true); return; }
     const perm = await lnaState();
     say(perm === "denied"
       ? "이 화면의 PC 접속이 막혀 있습니다 — 앱: 오른쪽 위 ⋮ → 앱 정보 → '로컬 네트워크 액세스' 허용 (크롬 탭: 주소창 왼쪽 아이콘 → '로컬 네트워크 액세스' 켜기) → 새로고침(F5)."
@@ -352,7 +345,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       const r = await helperCall("/arrange", {});
       say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위).` : "열린 카톡·네이트온 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
       pingHelper();
-    } catch (error) { say(`일괄 정렬 실패: ${error?.message || error}`, "is-bad"); }
+    } catch (error) { say(`일괄 붙이기 실패: ${error?.message || error}`, "is-bad"); }
   }
   async function release() {
     try {
@@ -439,19 +432,10 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     else if (act === "suggest") suggest(i);
     else if (act === "star") toggleStar(i);
     else if (act === "clear") { const ta = root.querySelector(`[data-msn-text="${i}"]`); if (ta) ta.value = ""; }
-    else if (act === "peek") {
-      const peek = root.querySelector(`[data-msn-peek="${i}"]`);
-      peek.hidden = !peek.hidden;
-      if (!peek.hidden) {
-        const rect = frameRect(i);
-        const region = st.video && rect ? regionOnVideo(rect, window, window.screen, videoSize(), st.fit) : null;
-        if (region) peek.src = shot(region); else { peek.hidden = true; say("먼저 [🖥 화면 연결]을 해 주세요.", "is-bad"); }
-      }
-    }
   });
   root.addEventListener("change", (e) => {
     if (e.target.matches("[data-msn-count]")) { prefs.count = Number(e.target.value) || 3; save(); render(); syncSlots(true); }
-    else if (e.target.matches("[data-msn-height]")) { prefs.height = Number(e.target.value) || 560; save(); render(); syncSlots(true); }
+    else if (e.target.matches("[data-msn-height]")) { prefs.height = Number(e.target.value) || MSN_LIMITS.heights[1]; save(); render(); syncSlots(true); }
     else if (e.target.matches("[data-msn-width]")) { prefs.width = Number(e.target.value) || MSN_LIMITS.widths[0]; save(); render(); syncSlots(true); }
   });
   root.addEventListener("input", (e) => {

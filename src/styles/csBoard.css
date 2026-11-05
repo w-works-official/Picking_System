@@ -2052,7 +2052,7 @@ a.cs-btn {
 .msn-mark { display: none; }
 .msn-live .msn-mark { display: block; }
 .msn-frame-guide b { font-size: 16px; }
-/* 상단 줄: 화면 연결 · 영역 맞춤 · 일괄 붙이기 → 슬롯·높이·폭 (30%↑ 12 → 16px) → 오른쪽 끝 연결 상태 */
-.msn-size { display: inline-flex; align-items: center; gap: 10px; margin-left: 8px; font-size: 16px; font-weight: 700; }
+/* 상단 줄: 화면 연결 · 영역 맞춤 · 일괄 붙이기 → 연결 상태 → 오른쪽 끝 슬롯·높이·폭 (16px 에서 20%↓ = 13px) */
+.msn-size { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
 .msn-size label { display: inline-flex; align-items: center; gap: 4px; }
-.cs-board-workspace .msn-size select { font-size: 16px; min-height: 34px; padding: 3px 6px; }
+.cs-board-workspace .msn-size select { font-size: 13px; min-height: 27px; padding: 2px 5px; }

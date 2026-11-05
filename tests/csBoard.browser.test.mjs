@@ -128,11 +128,11 @@ try {
     await page.locator('[data-msn-act="arrange"]').click();
     await page.locator("[data-msn-msg]", { hasText: "대화창 2개를 슬롯에 같은 크기로" }).waitFor();
     assert.ok(helperCalls.some((c) => c.path === "/msn/arrange" && c.method === "POST"));
-    // 11-05 오후: 놓아주기 없음 · 순서 = 화면 연결 / 영역 맞춤 / 일괄 붙이기 → 크기 고르기 → 오른쪽 끝에 연결 상태
+    // 11-05 오후: 놓아주기 없음 · 순서 = 화면 연결 / 영역 맞춤 / 일괄 붙이기 → 연결 상태 → 오른쪽 끝에 크기 고르기
     assert.equal(await page.locator('[data-msn-act="release"]').count(), 0, "놓아주기 버튼 없음");
-    assert.deepEqual((await page.locator('[data-msn-panel] .cs-answer-top > button, [data-msn-panel] .cs-answer-top > span').evaluateAll((els) => els.map((e) => e.dataset.msnAct || e.className.trim()))), ["connect", "fit", "arrange", "msn-size", "cs-flex", "msn-conn", "helper"]);
+    assert.deepEqual((await page.locator('[data-msn-panel] .cs-answer-top > button, [data-msn-panel] .cs-answer-top > span').evaluateAll((els) => els.map((e) => e.dataset.msnAct || e.className.trim()))), ["connect", "fit", "arrange", "msn-conn", "helper", "cs-flex", "msn-size"]);
     assert.equal((await page.locator("[data-msn-helper]").textContent()).trim(), "🪄 창 도우미 ● 연결됨", "붙은 창 수 표시 없음");
-    assert.equal(await page.locator("[data-msn-count]").evaluate((el) => getComputedStyle(el).fontSize), "16px", "크기 고르기 30% 크게");
+    assert.equal(await page.locator("[data-msn-count]").evaluate((el) => getComputedStyle(el).fontSize), "13px", "크기 고르기 (16px 에서 20% 줄임)");
     // 11-05: Enter = 붙은 대화창에 붙여넣기 + Enter (커서는 그 칸에) · Shift+Enter 줄바꿈 · Tab / Tab+숫자 = 다른 슬롯
     await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
     const ta0 = page.locator('[data-msn-text="0"]');

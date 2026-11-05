@@ -69,6 +69,7 @@
   · 웹 💬 메신저 탭 슬롯에 카톡 대화창을 끌어 가까이 놓으면 슬롯에 딱 맞춰 붙임 + '항상 위'(브라우저 뒤로 안 숨음)
   · 웹 [📐 일괄 정렬] = 열린 대화창을 슬롯에 같은 크기로 한 번에 / [📌 놓아주기] = 항상 위 풀기
   · 127.0.0.1:47811 에서만 받고 System V3 화면에서 온 요청만 따름. 카톡 창 위치·크기만 바꿈 (Windows 에서만, 실패해도 연결은 그대로)
+  · 1.10.1: 네이트온 대화창도 붙임 (NateOn.exe — 친구 목록 본 창은 제외)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -76,7 +77,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.10 (2026-11-05)"
+LINK_VER = "1.10.1 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1506,8 +1507,8 @@ def log_file():
 # 이 PC 안(127.0.0.1)에서만 받고, System V3 화면(w-works-official.github.io)에서 온 요청만 따름. 카톡 창 위치·크기만 바꿈(내용은 안 봄)
 MSN_PORT = 47811
 MSN_ORIGINS = ("https://w-works-official.github.io",)
-MSN_PROCS = ("kakaotalk.exe",)
-MSN_SKIP_TITLES = ("카카오톡", "kakaotalk")
+MSN_PROCS = ("kakaotalk.exe", "nateon.exe")                  # 1.10.1: 네이트온도
+MSN_SKIP_TITLES = ("카카오톡", "kakaotalk", "네이트온", "nateon")   # 친구 목록(본 창)은 붙이지 않음
 MSN_SNAP_PX = 90          # 창 왼쪽 위 모서리가 슬롯 왼쪽 위에서 이만큼(px) 안이면 붙임 (창 가운데가 슬롯 안이어도 붙임)
 MSN_TICK = 0.15
 
@@ -1515,6 +1516,12 @@ MSN_TICK = 0.15
 def msn_origin_ok(origin):
     o = str(origin or "")
     return o in MSN_ORIGINS or re.match(r"^http://(127\.0\.0\.1|localhost)(:\d+)?$", o) is not None
+
+
+def msn_is_messenger(exe, title):
+    """메신저 대화창인가 (카톡·네이트온, 본 창·제목 없는 창 제외)"""
+    t = str(title or "").strip()
+    return str(exe or "").lower() in MSN_PROCS and bool(t) and t.lower() not in MSN_SKIP_TITLES
 
 
 def msn_clean_slots(raw):
@@ -1739,7 +1746,7 @@ class MsnWin:
                 title = buf.value.strip()
                 if not title or title.lower() in MSN_SKIP_TITLES:
                     return True
-                if self._exe_of(hwnd) not in MSN_PROCS:
+                if not msn_is_messenger(self._exe_of(hwnd), title):
                     return True
                 l, t, r, b = self._visible(hwnd)
                 if r - l < 200 or b - t < 200:      # 알림 팝업 같은 작은 창 제외

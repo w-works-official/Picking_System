@@ -778,6 +778,9 @@ L.run_login_job, L.run_collect_job, L._G = keep_login, keep_collect, keep_G
 # 2026-11-05 (1.10): 메신저 창 도우미 — 끌어 가까이 놓으면 슬롯에 딱 맞춤 · 항상 위 · 일괄 정렬 · 127.0.0.1 + System V3 화면만
 assert L.msn_origin_ok("https://w-works-official.github.io") and L.msn_origin_ok("http://127.0.0.1:5173")
 assert not L.msn_origin_ok("https://evil.example") and not L.msn_origin_ok("")
+assert L.msn_is_messenger("KakaoTalk.exe", "고객 A") and L.msn_is_messenger("NateOn.exe", "거래처 김대리"), "카톡·네이트온 대화창"
+assert not L.msn_is_messenger("NateOn.exe", "네이트온") and not L.msn_is_messenger("KakaoTalk.exe", "카카오톡"), "본 창(친구 목록)은 제외"
+assert not L.msn_is_messenger("chrome.exe", "고객 A") and not L.msn_is_messenger("nateon.exe", "  ")
 assert L.msn_clean_slots([{"x": 10, "y": 20, "w": 400, "h": 560}, {"x": "a"}, {"x": 0, "y": 0, "w": 50, "h": 50}]) == [(10, 20, 400, 560)]
 S3 = [(100, 200, 400, 560), (520, 200, 400, 560), (940, 200, 400, 560)]
 assert L.msn_snap_target((560, 240, 900, 700), S3) == 1, "왼쪽 위 모서리가 가까우면 그 슬롯"

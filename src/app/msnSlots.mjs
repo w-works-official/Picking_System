@@ -215,7 +215,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (el) {
       el.textContent = on ? `🪄 창 도우미 ● 연결됨${Number.isFinite(js.managed) ? ` · 붙은 창 ${js.managed}` : ""}` : "🪄 창 도우미 ○ 없음";
       el.className = `msn-helper ${on ? "is-on" : ""}`;
-      el.title = on ? `수집기 PC 웹연결 ${js.ver || ""} — 카톡 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (CS 관리 ⚙ 설정 → ⬆ 웹연결 업데이트). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
+      el.title = on ? `수집기 PC 웹연결 ${js.ver || ""} — 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (CS 관리 ⚙ 설정 → ⬆ 웹연결 업데이트). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
     }
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
   }
@@ -246,7 +246,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     try {
       await syncSlots(true);
       const r = await helperCall("/arrange", {});
-      say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위).` : "열린 카톡 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
+      say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위).` : "열린 카톡·네이트온 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
       pingHelper();
     } catch (error) { say(`일괄 정렬 실패: ${error?.message || error}`, "is-bad"); }
   }

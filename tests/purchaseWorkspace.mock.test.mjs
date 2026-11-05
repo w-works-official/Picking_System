@@ -42,6 +42,7 @@ assert.match(page, /id="workspace-purchase-link" class="workspace-link is-curren
 assert.match(page, /data-purchase-tab="order"[^>]*>발주</);
 assert.match(page, /data-purchase-tab="receiving">입고</);
 assert.match(page, /data-purchase-tab="naming">상품명 요청</);
+assert.match(page, /<\/nav>\s*<!--[^>]*-->\s*<a class="purchase-hub-link"[^>]*href="https:\/\/w-works-official\.github\.io\/Operation_Hub\/mockups\/operations-hub\/"[^>]*target="_blank"/, "사이드바 맨 아래 운영 허브 바로가기 (새 탭)");
 assert.doesNotMatch(page, /supabase|pickingAuth|pickingApp\.mjs/, "screen frame only: no data access yet");
 
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");

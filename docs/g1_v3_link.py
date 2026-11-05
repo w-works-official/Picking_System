@@ -93,6 +93,9 @@
   · 슬롯 묶음 2개: 메신저 답변(reply) · 거래처 메신저(vendor). 슬롯 최대 30칸
   · 다른 탭으로 바꾸면 그 탭 슬롯의 대화창은 내려두고(최소화), 돌아오면 다시 붙임
   · [📐 일괄 붙이기] = 창 제목에 슬롯 메모 이름이 들어 있으면 그 슬롯에 (예: 메모 '헤세드' ↔ 창 '0-헤세드 >아트'), 남은 창은 메모 없는 빈 슬롯에
+
+1.16 (2026-11-05) 거래처 일괄 붙이기 = 메모 이름이 맞는 창만
+  · 거래처 탭 [📐 일괄 붙이기]는 메모 이름과 맞는 카톡 창만 붙임 (다른 창은 그대로 둠) · 메신저 답변 탭은 예전처럼 남은 창도 빈 슬롯에
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -100,7 +103,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.15 (2026-11-05)"
+LINK_VER = "1.16 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1988,6 +1991,8 @@ class MsnHelper:
                     placed += 1; named += 1
                 else:
                     rest.append(h)
+            if self.group == "vendor":                  # 1.16: 거래처는 메모 이름이 맞는 창만
+                rest = []
             free = [i for i in range(n) if i not in used and (not msn_norm_name(names[i]) or self.group == "reply")]
             free.sort(key=lambda i: bool(msn_norm_name(names[i])))   # 메모 없는 슬롯 먼저
             for h in rest:

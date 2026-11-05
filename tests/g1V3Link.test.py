@@ -901,7 +901,7 @@ assert mv.status()["group"] == "reply"
 mv.set_slots(SV, "vendor", ["헤세드", "세븐피어싱", ""])
 assert mv.managed == {3: 0, 2: 1}, "거래처 탭 창도 그대로 돌아옴"
 mv.arrange()
-assert mv.managed.get(4) == 2, "메모 없는 빈 슬롯에는 남은 창"
+assert 4 not in mv.managed, "1.16: 거래처는 메모 이름이 맞는 창만 (메모 없는 슬롯에도 다른 창 안 붙임)"
 
 # 로컬 HTTP: System V3 화면 Origin 만 POST 허용 · 미리 확인(OPTIONS) 에 사설망 허용 머리말
 import socket as _sock, urllib.request as _ur, urllib.error as _ue

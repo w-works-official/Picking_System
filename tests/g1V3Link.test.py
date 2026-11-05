@@ -1035,4 +1035,14 @@ ok, msg, results = L.run_register_job({"id": "JM3", "kind": "register", "body": 
 assert not ok and results[0]["state"] == "확인 필요" and "로그인" in results[0]["note"]
 G.Browser = keepB
 
+# 1.17 메신저 전용 모드: 도우미만 켜고 시트는 안 부름
+_ms_logs = []
+_keep_start = L.msn_helper_start
+L.msn_helper_start = lambda say: ("helper", "srv")
+_ticks = iter([False, False, True])
+assert L.msn_only(_ms_logs.append, stop=lambda: next(_ticks)) is True and any("메신저 전용 모드" in m for m in _ms_logs)
+L.msn_helper_start = lambda say: None
+assert L.msn_only(_ms_logs.append, stop=lambda: True) is False
+L.msn_helper_start = _keep_start
+
 print("g1V3Link.test: OK")

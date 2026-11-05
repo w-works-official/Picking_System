@@ -96,6 +96,10 @@
 
 1.16 (2026-11-05) 거래처 일괄 붙이기 = 메모 이름이 맞는 창만
   · 거래처 탭 [📐 일괄 붙이기]는 메모 이름과 맞는 카톡 창만 붙임 (다른 창은 그대로 둠) · 메신저 답변 탭은 예전처럼 남은 창도 빈 슬롯에
+
+1.17 (2026-11-05) 메신저 전용 모드 (--msn)
+  · 수집기 PC가 아닌 PC(집 PC 등)에서 메신저 창 도우미만 켬: python g1_v3_link.py --msn
+  · 시트 요청은 안 가져감 (수집·등록·로그인은 수집기 PC 한 대만) · 시트 주소·비밀번호 설정도 필요 없음
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -103,7 +107,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.16 (2026-11-05)"
+LINK_VER = "1.17 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -2535,11 +2539,29 @@ JOB_LABEL = {"collect": "게시판 수집", "test": "테스트 수집", "reviews
              "update": "웹연결 업데이트"}
 
 
+def msn_only(say=print, stop=None):
+    """1.17: 메신저 창 도우미만 (시트 요청은 안 가져감) — 수집기 PC가 아닌 PC용"""
+    started = msn_helper_start(say)
+    if not started:
+        say("메신저 창 도우미를 켜지 못했습니다 — Windows 에서만 됩니다 (이미 켜져 있으면 그 창을 쓰세요).")
+        return False
+    say(f"웹연결 {LINK_VER} · 메신저 전용 모드 — 시트 요청은 가져가지 않습니다 (수집·등록은 수집기 PC 한 대만)")
+    say("System V3 CS 관리 → 💬 메신저 / 📦 거래처 탭을 여세요. 이 창을 닫으면 창 도우미도 꺼집니다.")
+    try:
+        while not (stop and stop()):
+            time.sleep(1)
+    except KeyboardInterrupt:
+        pass
+    return True
+
+
 if __name__ == "__main__":
     BG = "--bg" in sys.argv or sys.stdout is None      # pythonw 로 켜지면 창이 없음
     if BG:
         to_log_file()
-    if "--setup" in sys.argv:
+    if "--msn" in sys.argv:
+        msn_only()
+    elif "--setup" in sys.argv:
         setup()
     else:
         main_loop(once="--once" in sys.argv, bg=BG)

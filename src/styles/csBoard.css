@@ -2095,3 +2095,14 @@ a.cs-btn {
 .cs-left-tab { padding: 8px 6px; font-size: 12.5px; min-width: 0; }
 .msn-panel { min-width: 0; }
 .msn-slots { min-width: 0; max-width: 100%; }
+
+/* ▶ 창 도우미 켜기 / ⬇ 처음 한 번 설치 파일 (11-05) */
+.msn-cta-launch { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex-basis: 100%; }
+.msn-cta-launch small { color: #5b21b6; font-size: 12px; }
+
+/* ⚙ 설정: 다른 PC(메신저) · 🖥 마스터 PC 설정 나누기 (11-05) */
+.cs-other-pc { border-color: #5eead4; background: #f0fdfa; }
+.cs-master { margin-top: 14px; padding: 10px 10px 4px; border: 2px solid #c7d2fe; border-radius: 12px; background: #f8faff; }
+.cs-master-title { margin: 0 0 6px; font-size: 15px; color: #3730a3; }
+.cs-master-title small { font-size: 12px; color: #6366f1; font-weight: 700; }
+.cs-master-warn { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: #fef3c7; color: #92400e; font-size: 12.5px; line-height: 1.5; }

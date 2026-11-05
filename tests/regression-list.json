@@ -79,6 +79,7 @@
   "workspaceStatus.mock.test.mjs",
   "csBoard.mock.test.mjs",
   "orderSheet.mock.test.mjs",
+  "msnHelperBat.contract.test.mjs",
   "productNames.mock.test.mjs",
   "tabletIos.contract.test.mjs"
 ]

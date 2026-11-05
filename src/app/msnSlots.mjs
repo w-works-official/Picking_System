@@ -425,6 +425,11 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   root.addEventListener("focusin", (e) => { const ta = e.target.closest?.("[data-msn-text]"); if (ta) focusSlot(Number(ta.dataset.msnText)); });
 
   root.addEventListener("click", (e) => {
+    if (e.target.closest("[data-msn-launch]")) {        // ▶ 창 도우미 켜기 (v3msn://) → 켜질 때까지 몇 번 확인
+      say("창 도우미를 켜는 중… 크롬이 'msn_helper 열기'를 물으면 [열기] (항상 허용 체크하면 다음부터 안 물음). 처음이면 [⬇ 처음 한 번: 도우미 설치 파일]부터.");
+      [3000, 6000, 10000, 15000, 22000].forEach((ms) => window.setTimeout(() => { if (!st.helper.on) pingHelper().then(() => { if (st.helper.on) { say("창 도우미 연결됨", "is-ok"); syncSlots(true); } }); }, ms));
+      return;
+    }
     const b = e.target.closest("[data-msn-act]");
     const slot = e.target.closest("[data-msn-slot]");
     if (slot && !b) {                         // 슬롯을 누르면 새 변화 표시 지움

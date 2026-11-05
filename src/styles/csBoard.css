@@ -2056,3 +2056,5 @@ a.cs-btn {
 .msn-size { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; }
 .msn-size label { display: inline-flex; align-items: center; gap: 4px; }
 .cs-board-workspace .msn-size select { font-size: 13px; min-height: 27px; padding: 2px 5px; }
+/* 입력 중 초록 테두리(바깥 6px)가 위쪽에서 잘리지 않게 — 슬롯 줄(옆 스크롤 상자) 위에 여유 */
+.msn-slots { padding-top: 8px; }

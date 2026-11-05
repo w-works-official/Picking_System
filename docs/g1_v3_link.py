@@ -88,6 +88,11 @@
   · 적립금 = 파워리뷰 목록의 (상품 실구매 금액) × 시트 설정 % → 10원 미만 버림 · 사유 = 시트 설정 ([PRODUCT_NAME] = 상품명)
   · 등록 직전 다시 조회: 이미 답글 있으면 건너뜀(적립금도 안 줌) · 회원 아님(네이버페이)·이미 적립됨·실구매 0원이면 답글만
   · 적립금은 사람이 누르는 [적립금] 창(reserve_money.html)을 화면 밖 작은 틀에 열어 같은 순서로 채우고 [지급] → 다시 조회해 지급됨 확인
+
+1.15 (2026-11-05) 거래처 메신저
+  · 슬롯 묶음 2개: 메신저 답변(reply) · 거래처 메신저(vendor). 슬롯 최대 30칸
+  · 다른 탭으로 바꾸면 그 탭 슬롯의 대화창은 내려두고(최소화), 돌아오면 다시 붙임
+  · [📐 일괄 붙이기] = 창 제목에 슬롯 메모 이름이 들어 있으면 그 슬롯에 (예: 메모 '헤세드' ↔ 창 '0-헤세드 >아트'), 남은 창은 메모 없는 빈 슬롯에
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -95,7 +100,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.14 (2026-11-05)"
+LINK_VER = "1.15 (2026-11-05)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1769,10 +1774,14 @@ def msn_is_messenger(exe, title):
     return e.endswith(".exe") and e.startswith(MSN_PROCS) and bool(t) and t.lower() not in MSN_SKIP_TITLES
 
 
+MSN_SLOTS_MAX = 30
+MSN_GROUPS = ("reply", "vendor")
+
+
 def msn_clean_slots(raw):
-    """웹이 보낸 슬롯 화면 좌표(물리 px) → [(x, y, w, h)] (이상한 값은 버림, 최대 10칸)"""
+    """웹이 보낸 슬롯 화면 좌표(물리 px) → [(x, y, w, h)] (이상한 값은 버림, 최대 30칸)"""
     out = []
-    for s in (raw if isinstance(raw, list) else [])[:10]:
+    for s in (raw if isinstance(raw, list) else [])[:MSN_SLOTS_MAX]:
         try:
             x, y, w, h = (int(round(float(s[k]))) for k in ("x", "y", "w", "h"))
         except Exception:
@@ -1780,6 +1789,28 @@ def msn_clean_slots(raw):
         if 120 <= w <= 5000 and 120 <= h <= 5000 and -30000 < x < 30000 and -30000 < y < 30000:
             out.append((x, y, w, h))
     return out
+
+
+def msn_clean_names(raw):
+    return [str(x or "").strip()[:40] for x in (raw if isinstance(raw, list) else [])[:MSN_SLOTS_MAX]]
+
+
+def msn_norm_name(s):
+    """메모·업체 이름 비교용: 앞 '0-' · 끝 '[ 1 ]' · 띄어쓰기 빼고 소문자"""
+    s = re.sub(r"\[\s*\d+\s*\]\s*$", "", str(s or "").strip())
+    s = re.sub(r"^\d+\s*-\s*", "", s)
+    return re.sub(r"\s+", "", s).lower()
+
+
+def msn_name_slot(title, names, skip=()):
+    """창 제목에 메모 이름이 들어 있는 슬롯 번호 (긴 이름 먼저 — '아트'보다 '아트피어스'). 없으면 None"""
+    t = re.sub(r"\s+", "", str(title or "")).lower()
+    best = None
+    for i, n in enumerate(names or []):
+        k = msn_norm_name(n)
+        if len(k) >= 2 and i not in skip and k in t and (best is None or len(k) > best[1]):
+            best = (i, len(k))
+    return best[0] if best else None
 
 
 def msn_snap_target(rect, slots, snap=MSN_SNAP_PX):
@@ -1828,6 +1859,30 @@ class MsnHelper:
         self.slots, self.managed, self.last, self.moving = [], {}, {}, set()
         self.lock = threading.Lock()
         self.seen = 0.0
+        self.group, self.names, self.parked = "reply", [], {}   # 1.15: 슬롯 묶음(메신저 답변·거래처) · 메모 이름 · 내려둔 창
+
+    def _switch(self, group):
+        """다른 탭(슬롯 묶음)으로: 지금 붙은 창은 내려두고(최소화) 기억 → 그 탭에 붙어 있던 창은 다시 띄움"""
+        parked = {}
+        for h, i in list(self.managed.items()):
+            self._release(h)
+            try:
+                self.api.hide(h)
+            except Exception:
+                pass
+            parked[h] = i
+        self.parked[self.group] = parked
+        self.managed, self.last, self.moving = {}, {}, set()
+        self.group = group
+        back = {}
+        for h, i in (self.parked.pop(group, {}) or {}).items():
+            try:
+                if self.api.alive(h):
+                    self.api.show(h)
+                    back[h] = i
+            except Exception:
+                pass
+        return back
 
     def status(self):
         with self.lock:
@@ -1835,7 +1890,7 @@ class MsnHelper:
                 wins = len(self.api.windows())
             except Exception:
                 wins = -1
-            return {"ok": True, "ver": LINK_VER, "slots": len(self.slots), "windows": wins, "managed": len(self.managed), "used": sorted(set(self.managed.values()))}
+            return {"ok": True, "ver": LINK_VER, "slots": len(self.slots), "windows": wins, "managed": len(self.managed), "used": sorted(set(self.managed.values())), "group": self.group}
 
     def _place(self, h, i):
         for other, j in list(self.managed.items()):
@@ -1843,6 +1898,8 @@ class MsnHelper:
                 self._release(other)
         self.api.place(h, self.slots[i])
         self.managed[h] = i
+        for kept in self.parked.values():          # 1.15: 한 창은 한 탭(슬롯 묶음)에만
+            kept.pop(h, None)
         self.last.pop(h, None)                     # 실제 자리는 다음 확인 때 다시 기억 (창 최소 크기 때문에 슬롯과 조금 달라도 계속 다시 붙이지 않게)
         self.moving.discard(h)
 
@@ -1884,10 +1941,22 @@ class MsnHelper:
                 self._place(h, i)
                 self.say(f"💬 '{title}' → 슬롯 {i + 1} 에 붙임")
 
-    def set_slots(self, slots):
+    def set_slots(self, slots, group="reply", names=None):
         with self.lock:
             self.seen = time.time()
-            if slots != self.slots:
+            group = group if group in MSN_GROUPS else "reply"
+            if names is not None:
+                self.names = list(names)
+            if group != self.group:
+                back = self._switch(group)
+                self.slots = slots
+                for h, i in back.items():
+                    if i < len(slots):
+                        self.api.place(h, slots[i])
+                        self.managed[h] = i
+                    else:
+                        self._release(h)
+            elif slots != self.slots:
                 self.slots = slots
                 for h, i in list(self.managed.items()):  # 브라우저를 옮기거나 크기를 바꾸면 붙은 창도 따라감
                     if i < len(slots):
@@ -1896,7 +1965,7 @@ class MsnHelper:
                         self.moving.discard(h)
                     else:
                         self._release(h)
-            return {"ok": True, "slots": len(self.slots), "managed": len(self.managed), "used": sorted(set(self.managed.values()))}
+            return {"ok": True, "slots": len(self.slots), "managed": len(self.managed), "used": sorted(set(self.managed.values())), "group": self.group}
 
     def arrange(self):
         """열린 대화창을 슬롯에 차례로 (이미 붙은 창은 그 자리, 나머지는 위에 있는 창부터 빈 슬롯에)"""
@@ -1904,17 +1973,29 @@ class MsnHelper:
             if not self.slots:
                 return {"ok": False, "error": "슬롯 위치를 아직 못 받음 — 메신저 탭을 연 채로 몇 초 뒤 다시"}
             wins = self.api.windows()
+            n = len(self.slots)
+            names = (self.names + [""] * n)[:n]
             used = set(self.managed.values())
-            free = [i for i in range(len(self.slots)) if i not in used]
-            placed = 0
+            placed, named, rest = 0, 0, []
             for h, title, rect in wins:
                 if h in self.managed:
                     self._place(h, self.managed[h])
                     placed += 1
-                elif free:
-                    self._place(h, free.pop(0))
-                    placed += 1
-            return {"ok": True, "placed": placed, "windows": len(wins), "slots": len(self.slots)}
+                    continue
+                i = msn_name_slot(title, names, skip=used)   # 1.15: 창 제목 ↔ 슬롯 메모 이름
+                if i is not None:
+                    self._place(h, i); used.add(i)
+                    placed += 1; named += 1
+                else:
+                    rest.append(h)
+            free = [i for i in range(n) if i not in used and (not msn_norm_name(names[i]) or self.group == "reply")]
+            free.sort(key=lambda i: bool(msn_norm_name(names[i])))   # 메모 없는 슬롯 먼저
+            for h in rest:
+                if not free:
+                    break
+                self._place(h, free.pop(0))
+                placed += 1
+            return {"ok": True, "placed": placed, "named": named, "windows": len(wins), "slots": n, "group": self.group}
 
     def send(self, i, enter=True):
         """슬롯 i 에 붙은 창에 붙여넣기 + Enter"""
@@ -1976,7 +2057,8 @@ class MsnWin:
                                 ("GetWindowLongW", [H, ctypes.c_int], ctypes.c_long), ("ShowWindow", [H, ctypes.c_int], W.BOOL),
                                 ("SetWindowPos", [H, H, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, W.UINT], W.BOOL),
                                 ("GetAsyncKeyState", [ctypes.c_int], ctypes.c_short), ("GetForegroundWindow", [], H),
-                                ("SetForegroundWindow", [H], W.BOOL), ("keybd_event", [ctypes.c_ubyte, ctypes.c_ubyte, W.DWORD, ctypes.c_void_p], None)):
+                                ("SetForegroundWindow", [H], W.BOOL), ("keybd_event", [ctypes.c_ubyte, ctypes.c_ubyte, W.DWORD, ctypes.c_void_p], None),
+                                ("IsWindow", [H], W.BOOL)):
             f = getattr(self.u, name)
             f.argtypes, f.restype = args, res
         self.k.OpenProcess.argtypes, self.k.OpenProcess.restype = [W.DWORD, W.BOOL, W.DWORD], W.HANDLE
@@ -2146,6 +2228,15 @@ class MsnWin:
     def topmost(self, hwnd, on):
         self.u.SetWindowPos(hwnd, -1 if on else -2, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)
 
+    def hide(self, hwnd):
+        self.u.ShowWindow(hwnd, 6)                      # SW_MINIMIZE — 다른 탭 슬롯 창은 내려둠
+
+    def show(self, hwnd):
+        self.u.ShowWindow(hwnd, 9)                      # SW_RESTORE
+
+    def alive(self, hwnd):
+        return bool(self.u.IsWindow(hwnd))
+
 
 def msn_server(helper, port=MSN_PORT):
     """127.0.0.1 전용 작은 HTTP — GET /msn/ping · POST /msn/slots · /msn/arrange · /msn/release"""
@@ -2199,7 +2290,8 @@ def msn_server(helper, port=MSN_PORT):
             p = self.path.split("?")[0]
             try:
                 if p == "/msn/slots":
-                    return self._json(helper.set_slots(msn_clean_slots(body.get("slots"))))
+                    return self._json(helper.set_slots(msn_clean_slots(body.get("slots")), str(body.get("group") or "reply"),
+                                                       msn_clean_names(body.get("names")) if "names" in body else None))
                 if p == "/msn/arrange":
                     return self._json(helper.arrange())
                 if p == "/msn/release":

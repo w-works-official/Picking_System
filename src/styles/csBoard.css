@@ -2066,3 +2066,32 @@ a.cs-btn {
 .cs-point-msg input { flex: 1 1 auto; min-width: 0; padding: 4px 6px; border: 1px solid var(--cs-line); border-radius: 6px; font: inherit; font-weight: 400; }
 #cs-point-state { color: #b45309; font-weight: 700; }
 .cs-point-note { padding: 8px 10px; border-radius: 8px; background: #fffbeb; border: 1px solid #fde68a; }
+
+/* 📦 거래처 메신저 (11-05) */
+.cs-left-tab.tab-vendor { background: #ccfbf1; color: #0d9488; }
+.cs-left-tab.tab-vendor.active { background: #0d9488; color: #ffffff; }
+.cs-right-title[data-tone="vendor"] { color: #0d9488; }
+.vo-box { margin: 8px 12px 4px; }
+.vo-drop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; border: 2px dashed #5eead4; border-radius: 10px; background: #f0fdfa; }
+.vo-drop.is-over { border-color: #0d9488; background: #ccfbf1; }
+.vo-summary { flex: 1 1 260px; font-size: 13px; font-weight: 700; color: #0f766e; }
+.vo-memo-box { margin-top: 6px; font-size: 13px; }
+.vo-memo-box summary { cursor: pointer; font-weight: 700; color: #0f766e; }
+.vo-memo-box textarea { display: block; width: 100%; box-sizing: border-box; margin: 6px 0; padding: 6px 8px; border: 1px solid var(--cs-line); border-radius: 6px; font: inherit; }
+.vo-msg { margin: 6px 0 0; font-size: 13px; color: var(--cs-sub); white-space: pre-line; }
+.vo-msg.is-ok { color: #15803d; font-weight: 700; }
+.vo-msg.is-bad { color: #b91c1c; font-weight: 700; }
+.vo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
+.vo-item { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--cs-line); border-radius: 8px; background: #ffffff; font-size: 13px; }
+.vo-item.is-nomatch { background: #f9fafb; color: #6b7280; }
+.vo-item.is-off { opacity: 0.6; }
+.vo-slot { color: #0f766e; font-weight: 700; }
+.vo-item.is-nomatch .vo-slot { color: #b45309; }
+.vo-state.is-ok { color: #15803d; font-weight: 700; }
+.vo-state.is-bad { color: #b91c1c; font-weight: 700; }
+.vo-thumb img { display: block; max-width: 100%; max-height: 120px; object-fit: contain; object-position: left top; border: 1px solid var(--cs-line); border-radius: 4px; }
+/* 왼쪽 탭 6개가 한 줄에 (거래처 추가) · 슬롯 줄은 패널 폭 안에서 옆으로 스크롤 (패널 전체가 밀리지 않게) */
+.cs-left-tabs { gap: 3px; }
+.cs-left-tab { padding: 8px 6px; font-size: 12.5px; min-width: 0; }
+.msn-panel { min-width: 0; }
+.msn-slots { min-width: 0; max-width: 100%; }

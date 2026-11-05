@@ -822,6 +822,18 @@ class FakeMsnApi:
     def scan(self):
         return [{"exe": "nateonmain.exe", "title": "김대리", "w": 400, "h": 600, "tool": True, "min": False, "ok": True}]
 
+    def hide(self, h):
+        self.hidden = getattr(self, "hidden", set()) | {h}
+        self.order = [x for x in self.order if x != h]      # 최소화된 창은 windows() 에 안 나옴
+
+    def show(self, h):
+        self.hidden = getattr(self, "hidden", set()) - {h}
+        if h in self.wins and h not in self.order:
+            self.order.append(h)
+
+    def alive(self, h):
+        return h in self.wins
+
 
 fa = FakeMsnApi()
 logs = []
@@ -860,6 +872,36 @@ assert mh.managed == {}, "닫힌 창은 잊음"
 assert mh.release_all()["ok"]
 assert L.MsnHelper(fa).arrange()["ok"] is False, "슬롯 위치를 못 받았으면 정렬 안 함"
 assert L.msn_helper_start(print) is None or os.name == "nt", "Windows 가 아니면 켜지 않음"
+
+# 1.15 거래처 메신저: 메모 이름 ↔ 창 제목으로 일괄 붙이기 · 탭(슬롯 묶음)을 바꾸면 내려두고 돌아오면 다시 붙임 · 최대 30칸
+assert L.msn_norm_name("0-세븐피어싱 [ 1 ]") == "세븐피어싱" and L.msn_norm_name(" 헤세드 ") == "헤세드"
+assert L.msn_name_slot("0-헤세드 >아트", ["", "헤세드", "아트"]) == 1, "더 긴 이름 먼저"
+assert L.msn_name_slot("0-아트피어스", ["아트", "아트피어스"]) == 1
+assert L.msn_name_slot("고객 A", ["헤세드"]) is None and L.msn_name_slot("가", ["가"]) is None, "한 글자 메모는 안 맞춤"
+assert len(L.msn_clean_slots([{"x": 0, "y": 0, "w": 300, "h": 300}] * 40)) == 30
+fv = FakeMsnApi()
+fv.wins = {1: ("고객 A", (0, 0, 400, 600)), 2: ("0-세븐피어싱", (0, 0, 400, 600)), 3: ("0-헤세드 >아트", (0, 0, 400, 600)), 4: ("기타방", (0, 0, 400, 600))}
+fv.order = [1, 2, 3, 4]
+mv = L.MsnHelper(fv)
+S2 = [(100, 200, 400, 560), (520, 200, 400, 560)]
+mv.set_slots(S2, "reply")
+mv.arrange()
+assert mv.managed == {1: 0, 2: 1}, "메신저 답변 탭: 위에 있는 창부터 빈 슬롯에 (예전과 같음)"
+SV = [(100, 200, 400, 560), (520, 200, 400, 560), (940, 200, 400, 560)]
+r = mv.set_slots(SV, "vendor", ["헤세드", "세븐피어싱", "없는업체"])
+assert r["group"] == "vendor" and mv.managed == {} and fv.hidden == {1, 2}, "탭을 바꾸면 메신저 답변 창은 내려둠"
+r = mv.arrange()
+assert mv.managed == {3: 0} and r["named"] == 1 and 4 not in mv.managed, "메모 이름이 맞는 창만 · 메모 있는 빈 슬롯엔 다른 창 안 붙임"
+fv.show(2)                                                   # (사람이 세븐피어싱 창을 다시 띄움)
+mv.arrange()
+assert mv.managed == {3: 0, 2: 1}
+r = mv.set_slots(S2, "reply", ["", ""])
+assert mv.group == "reply" and mv.managed == {1: 0} and 3 in fv.hidden and 2 in fv.hidden and fv.top[1] is True, "돌아오면 다시 띄워 붙임 (거래처로 옮긴 창은 거래처 쪽에만)"
+assert mv.status()["group"] == "reply"
+mv.set_slots(SV, "vendor", ["헤세드", "세븐피어싱", ""])
+assert mv.managed == {3: 0, 2: 1}, "거래처 탭 창도 그대로 돌아옴"
+mv.arrange()
+assert mv.managed.get(4) == 2, "메모 없는 빈 슬롯에는 남은 창"
 
 # 로컬 HTTP: System V3 화면 Origin 만 POST 허용 · 미리 확인(OPTIONS) 에 사설망 허용 머리말
 import socket as _sock, urllib.request as _ur, urllib.error as _ue

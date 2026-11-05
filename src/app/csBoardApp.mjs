@@ -408,7 +408,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   // ---------- 탭·접기 ----------
   // 2026-11-04: 왼쪽 탭 = 메뉴 이동 (게시판·리뷰·메신저는 오른쪽 답변 화면도 같이), 오른쪽은 제목만
-  const TAB_COLORS = { main: "#e11d74", board: "#2563eb", review: "#ff7a00", msn: "#00b84a", settings: "#64748b" };
+  const TAB_COLORS = { main: "#e11d74", board: "#2563eb", review: "#ff7a00", msn: "#00b84a", vendor: "#0d9488", settings: "#64748b" };
   function showLeft(tab) {
     $$("[data-left-tab]").forEach((b) => { const on = b.dataset.leftTab === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
     $$("[data-left-panel]").forEach((p) => { p.hidden = p.dataset.leftPanel !== tab; });
@@ -418,7 +418,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
   }
 
-  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변" };
+  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저" };
   function showRight(tab) {
     $$("[data-right-panel]").forEach((p) => { p.hidden = p.dataset.rightPanel !== tab; });
     const title = $("[data-right-title]");

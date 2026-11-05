@@ -61,7 +61,7 @@ try {
     const page = await context.newPage();
     const msnR = page.locator('[data-msn-panel="reply"]');
     page.on("pageerror", (e) => pageErrors.push(e.message));
-    await page.goto(`${origin}/cs/`);
+    await page.goto(`${origin}/cs/?master=1`);
     await page.locator("#cs-board-list [data-card]").first().waitFor();
     assert.equal(await page.locator("#cs-connection").textContent(), "🧪 가상셋팅");
     assert.equal(await page.locator("#cs-board-list [data-card]").count(), 4);
@@ -353,8 +353,20 @@ try {
     const page = await context.newPage();
     const msnR = page.locator('[data-msn-panel="reply"]');
     page.on("pageerror", (e) => pageErrors.push(e.message));
-    await page.goto(`${origin}/cs/`);
+    await page.goto(`${origin}/cs/`);                 // 11-05: 일반 이용자 = 마스터 PC 설정 안 보임
     await page.locator("#cs-board-list .cs-empty").waitFor();
+    await page.locator('[data-left-tab="settings"]').click();
+    assert.equal(await page.locator(".cs-master").isVisible(), false, "일반 이용자에겐 🖥 마스터 PC 설정이 아예 안 보임");
+    assert.equal(await page.locator("#cs-onetouch").isVisible(), false);
+    assert.equal(await page.locator(".cs-other-pc").isVisible(), true, "💻 이 PC 에서 메신저 쓰기(설치)는 보임");
+    assert.match(await page.locator(".cs-other-pc legend").textContent(), /이 PC 에서 메신저 쓰기/);
+    await page.goto(`${origin}/cs/?master=1`);
+    await page.locator('[data-left-tab="settings"]').click();
+    assert.equal(await page.locator(".cs-master").isVisible(), true, "?master=1 로 연 브라우저에만 보임");
+    await page.goto(`${origin}/cs/`);
+    await page.locator('[data-left-tab="settings"]').click();
+    assert.equal(await page.locator(".cs-master").isVisible(), true, "이 브라우저에 기억");
+    await page.locator("#cs-board-list .cs-empty").waitFor({ state: "attached" });
     assert.match(await page.locator("#cs-board-list").textContent(), /\[설정\] 탭에서 비밀번호/);
     assert.equal(await page.locator("#cs-connection").textContent(), "비밀번호 필요");
     await page.locator('[data-left-tab="settings"]').click();
@@ -396,7 +408,7 @@ try {
     const page = await context.newPage();
     const msnR = page.locator('[data-msn-panel="reply"]');
     page.on("pageerror", (e) => pageErrors.push(e.message));
-    await page.goto(`${origin}/cs/`);
+    await page.goto(`${origin}/cs/?master=1`);
     await page.locator("#cs-board-list [data-card]").first().waitFor();
     assert.equal(await page.locator("#cs-connection").textContent(), "연결됨 · 2건");
     assert.equal(requests[0].action, "list");

@@ -243,7 +243,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
         else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
         st.helper.perm = perm;
       });
-      el.title = on ? `수집기 PC 웹연결 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (CS 관리 ⚙ 설정 → ⬆ 웹연결 업데이트). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
+      el.title = on ? `창 도우미 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "이 PC에 창 도우미가 켜져 있어야 합니다 (처음이면 ⚙ 설정 → 💻 이 PC 에서 메신저 쓰기). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
     }
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
     const cta = $("[data-msn-cta]");
@@ -341,7 +341,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     const perm = await lnaState();
     say(perm === "denied"
       ? "이 화면의 PC 접속이 막혀 있습니다 — 앱: 오른쪽 위 ⋮ → 앱 정보 → '로컬 네트워크 액세스' 허용 (크롬 탭: 주소창 왼쪽 아이콘 → '로컬 네트워크 액세스' 켜기) → 새로고침(F5)."
-      : "창 도우미에 연결하지 못했습니다 — ① 수집기 PC 웹연결 1.10 이상이 켜져 있는지 ② 이 화면을 수집기 PC(카톡이 있는 PC)에서 열었는지 확인해 주세요.", "is-bad");
+      : "창 도우미에 연결하지 못했습니다 — [▶ 창 도우미 켜기]를 누르거나, 처음이면 [⬇ 처음 한 번: 도우미 설치 파일]을 받아 더블클릭하세요 (카톡이 있는 이 PC에서).", "is-bad");
   }
 
   // 🔍 진단 (연결된 상태에서 🪄 표시를 누르면): 도우미가 보는 카톡·네이트온 프로그램 창 목록
@@ -352,12 +352,12 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       const ok = list.filter((w) => w.ok);
       const lines = list.map((w) => `${w.ok ? "✓" : "✕"} ${w.exe} · ${w.title || "(제목 없음)"} · ${w.w}×${w.h}${w.tool ? " · 도구창" : ""}${w.min ? " · 최소화" : ""}`);
       say(`창 도우미가 찾은 대화창 ${ok.length}개 (✓ = 붙일 수 있음)${lines.length ? `\n${lines.join("\n")}` : " — 카톡·네이트온 창이 하나도 안 보입니다"}`, ok.length ? "is-ok" : "is-bad");
-    } catch (error) { say(`진단 실패: ${error?.message || error} — 수집기 PC 웹연결을 1.11 로 업데이트해 주세요`, "is-bad"); }
+    } catch (error) { say(`진단 실패: ${error?.message || error} — [▶ 창 도우미 켜기]를 한 번 눌러 최신으로 다시 켜 주세요`, "is-bad"); }
   }
 
   async function arrange() {
     if (!st.helper.on) await pingHelper();
-    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — 수집기 PC 웹연결 1.10 이상이 이 PC에서 켜져 있어야 합니다 (⚙ 설정 → ⬆ 웹연결 업데이트).", "is-bad"); return; }
+    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [▶ 창 도우미 켜기]를 누르거나, 처음이면 ⚙ 설정 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
     try {
       await syncSlots(true);
       const r = await helperCall("/arrange", {});

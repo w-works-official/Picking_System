@@ -347,6 +347,8 @@ export function jobsHtml(jobs = [], collector = null) {
 }
 
 // ---------- 앱 ----------
+export const CS_MASTER_KEY = "system_v3_cs_master";
+
 export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOINT, fetchImpl, storage, samples = {}, now = () => Date.now() } = {}) {
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -1735,7 +1737,21 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     });
   }
 
+  // 🖥 마스터 PC 설정(수집기 PC)은 대표님 브라우저에서만 보임 — 주소 끝에 ?master=1 (끄기 ?master=0), 이 브라우저에 기억
+  function applyMaster() {
+    let on = false;
+    try {
+      const q = new URLSearchParams(window.location?.search || "").get("master");
+      if (q === "1") storage?.setItem(CS_MASTER_KEY, "1");
+      if (q === "0") storage?.removeItem(CS_MASTER_KEY);
+      on = storage?.getItem(CS_MASTER_KEY) === "1";
+    } catch { /* 이번 화면만 */ }
+    document.documentElement.classList.toggle("cs-is-master", on);
+    return on;
+  }
+
   function start() {
+    applyMaster();
     // 빨간 버튼에 마우스를 올리면 왜 아직 안 되는지 보이게
     $$("[data-pending]").forEach((el) => { if (!el.title) el.title = el.dataset.pending; });
     bind();

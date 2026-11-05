@@ -271,14 +271,17 @@ try {
     await page.locator('[data-left-tab="vendor"]').click();
     const msnV = page.locator('[data-msn-panel="vendor"]');
     assert.equal(await page.locator("[data-right-title]").textContent(), "📦 거래처 메신저");
-    assert.equal(await msnV.locator("[data-msn-count] option").count(), 30, "거래처는 최대 30칸");
-    await msnV.locator("[data-msn-count]").selectOption("3");
+    assert.deepEqual(await msnV.locator("[data-msn-count] option").evaluateAll((o) => o.map((x) => x.value)), ["5", "10", "20", "30"], "거래처는 5 · 10 · 20 · 30칸");
+    assert.equal(await msnV.locator("[data-msn-slot]").count(), 5, "처음엔 5칸 (예전 값 3 → 5)");
+    await msnV.locator("[data-msn-count]").selectOption("20");
+    assert.equal(await msnV.locator("[data-msn-slot]").count(), 20);
+    await msnV.locator("[data-msn-count]").selectOption("10");
     assert.match(await msnV.locator("[data-msn-name='0']").getAttribute("placeholder"), /업체명/);
     await msnV.locator("[data-msn-name='0']").fill("세븐피어싱");
     await msnV.locator("[data-msn-name='1']").fill("헤세드");
     for (let i = 0; i < 40 && !helperCalls.some((c) => c.path === "/msn/slots" && c.body.group === "vendor" && c.body.names?.[1] === "헤세드"); i += 1) await page.waitForTimeout(200);
     const vSlots = helperCalls.filter((c) => c.path === "/msn/slots" && c.body.group === "vendor").pop();
-    assert.ok(vSlots && vSlots.body.slots.length === 3 && vSlots.body.names[0] === "세븐피어싱", "거래처 탭 슬롯 위치 + 메모 이름을 도우미에 보냄");
+    assert.ok(vSlots && vSlots.body.slots.length === 10 && vSlots.body.names[0] === "세븐피어싱", "거래처 탭 슬롯 위치 + 메모 이름을 도우미에 보냄");
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem("system_v3_cs_msn_vendor"))).names[1], "헤세드", "거래처 메모는 따로 저장");
     // 가짜 PT-LIST (xlsx = zip: 시트 + 그림)
     const zip = (files) => {

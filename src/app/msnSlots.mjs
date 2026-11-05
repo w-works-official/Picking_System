@@ -59,6 +59,10 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   const memo = vendor ? "업체명·카톡방 이름 (예: 세븐피어싱)" : "메모 (예: 카톡 · 고객)";
   const $ = (sel) => root.querySelector(sel);
   const prefs = readMsnPrefs(storage, prefKey, slotsMax);
+  // 거래처: 슬롯 수는 5 · 10 · 20 · 30 중에서
+  const countOptions = vendor ? [5, 10, 20, 30] : Array.from({ length: slotsMax }, (_, k) => k + 1);
+  const fitCount = (n) => (vendor ? countOptions.find((c) => c >= (Number(n) || 10)) || 30 : Number(n) || 3);
+  prefs.count = fitCount(prefs.count);
   const st = { stream: null, video: null, timer: 0, slots: [], prev: [], snaps: [], fit: prefs.fit, helper: { on: false, ver: "", sent: "", n: 0, busy: false } };
   const can = !!navigator?.mediaDevices?.getDisplayMedia;
 
@@ -73,7 +77,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     const box = $("[data-msn-slots]");
     box.innerHTML = Array.from({ length: prefs.count }, (_, i) => msnSlotHtml(i, { name: prefs.names[i] || "", height: prefs.height, star: prefs.stars[i] === true, memo })).join("");
     const csel = $("[data-msn-count]");
-    if (csel && csel.options.length !== slotsMax) csel.innerHTML = Array.from({ length: slotsMax }, (_, k) => `<option>${k + 1}</option>`).join("");
+    if (csel && csel.options.length !== countOptions.length) csel.innerHTML = countOptions.map((n) => `<option value="${n}">${n}</option>`).join("");
     box.style.setProperty("--msn-w", `${prefs.width}px`);
     box.style.setProperty("--msn-cols", String(Math.min(prefs.count, MSN_LIMITS.perRow)));
     st.slots = Array.from({ length: prefs.count }, () => ({}));
@@ -449,7 +453,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     else if (act === "clear") { const ta = root.querySelector(`[data-msn-text="${i}"]`); if (ta) ta.value = ""; }
   });
   root.addEventListener("change", (e) => {
-    if (e.target.matches("[data-msn-count]")) { prefs.count = Number(e.target.value) || 3; save(); render(); syncSlots(true); }
+    if (e.target.matches("[data-msn-count]")) { prefs.count = fitCount(e.target.value); save(); render(); syncSlots(true); }
     else if (e.target.matches("[data-msn-height]")) { prefs.height = Number(e.target.value) || MSN_LIMITS.heights[1]; save(); render(); syncSlots(true); }
     else if (e.target.matches("[data-msn-width]")) { prefs.width = Number(e.target.value) || MSN_LIMITS.widths[0]; save(); render(); syncSlots(true); }
   });

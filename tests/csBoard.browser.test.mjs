@@ -107,6 +107,15 @@ try {
     assert.equal(await page.locator("#cs-token-input").isDisabled(), true, "no endpoint → token form red");
     await page.locator("#cs-fold").click();
     assert.equal(await page.locator("#cs-left").isVisible(), false);
+    // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 · 다른 탭으로 가면 그 탭의 마지막 상태
+    await page.locator("#cs-fold").click();                          // (설정 탭에서 다시 펼침)
+    await page.locator('[data-left-tab="msn"]').click();
+    assert.equal(await page.locator("#cs-left").isVisible(), false, "메신저 = 접힘 기본");
+    await page.locator('[data-left-tab="vendor"]').click();
+    assert.equal(await page.locator("#cs-left").isVisible(), false, "거래처 = 접힘 기본");
+    await page.locator('[data-left-tab="settings"]').click();
+    assert.equal(await page.locator("#cs-left").isVisible(), true, "설정 = 마지막 상태(펼침)");
+    await page.locator("#cs-fold").click();
     // 11-06: 접힘·보던 탭 = 마지막 상태 그대로 (새로고침해도)
     assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem("system_v3_cs_left_fold"))), { tab: "settings", folded: true });
     await page.reload();

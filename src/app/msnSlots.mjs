@@ -162,7 +162,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     return grab(region, w, h).c.toDataURL("image/jpeg", 0.8);
   }
 
-  async function connect() {
+  async function connect({ launched = false } = {}) {
     if (st.stream) return disconnect();
     if (!can) { say("이 브라우저는 화면 연결을 지원하지 않습니다 — PC 크롬에서 열어 주세요.", "is-bad"); return; }
     try {
@@ -184,7 +184,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       if (vendor) { await fit({ quiet: true }); return; }   // 11-06: 거래처는 [🎯 영역 맞춤] 버튼 없이 연결할 때 자동으로
       say(st.fit ? "연결됨 — 메신저 창을 슬롯 틀에 올려 주세요." : "연결됨 — 먼저 슬롯 위에 다른 창이 없는 상태에서 [🎯 영역 맞춤]을 눌러 주세요.", "is-ok");
     } catch (error) {
-      say(error?.name === "NotAllowedError" ? "화면 공유를 취소했습니다." : `화면 연결 실패: ${error?.message || error}`, "is-bad");
+      say(launched ? "창 도우미를 켜는 중입니다 — 화면 공유 창이 안 떴으면 [🖥 화면 연결]을 한 번 더 눌러 주세요." : error?.name === "NotAllowedError" ? "화면 공유를 취소했습니다." : `화면 연결 실패: ${error?.message || error}`, launched ? "" : "is-bad");
     }
   }
 
@@ -267,7 +267,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (on && Array.isArray(js.used)) autoStarOff(js.used);
     const el = $("[data-msn-helper]");
     if (el) {
-      el.textContent = on ? "🪄 창 도우미 ● 연결됨" : "🪄 창 도우미 ○ 없음 — 눌러서 연결";
+      el.textContent = on ? "🪄 창 도우미 ● 연결됨" : "🪄 창 도우미 ○ 꺼짐 — [🖥 화면 연결]";
       el.className = `msn-helper ${on ? "is-on" : "is-off"}`;
       if (!on) lnaState().then((perm) => {
         if (st.helper.on || !el) return;
@@ -367,6 +367,16 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   }
 
   // 🪄 표시를 누르면: 사람이 누른 순간에 접속 → 크롬이 '로컬 네트워크 액세스'를 물음 → [허용]
+  // 11-06: [🖥 화면 연결] 하나로 — 창 도우미가 꺼져 있으면 켜고(v3msn://) 연결 + 화면 공유 (+ 거래처는 영역 자동 맞춤)
+  async function connectAll() {
+    if (st.stream) { disconnect(); return; }
+    let launched = false;
+    if (!st.helper.on) {
+      await pingHelper();
+      if (!st.helper.on) { root.querySelector("[data-msn-launch]")?.click(); launched = true; }
+    }
+    await connect({ launched });
+  }
   async function connectHelper() {
     if (st.helper.on) { diagnose(); return; }
     say("창 도우미에 연결하는 중… 크롬이 '로컬 네트워크의 기기에 액세스'를 물으면 [허용]을 눌러 주세요.");
@@ -375,7 +385,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     const perm = await lnaState();
     say(perm === "denied"
       ? "이 화면의 PC 접속이 막혀 있습니다 — 앱: 오른쪽 위 ⋮ → 앱 정보 → '로컬 네트워크 액세스' 허용 (크롬 탭: 주소창 왼쪽 아이콘 → '로컬 네트워크 액세스' 켜기) → 새로고침(F5)."
-      : "창 도우미에 연결하지 못했습니다 — [▶ 창 도우미 켜기]를 누르거나, 처음이면 [⬇ 처음 한 번: 도우미 설치 파일]을 받아 더블클릭하세요 (카톡이 있는 이 PC에서).", "is-bad");
+      : "창 도우미에 연결하지 못했습니다 — [🖥 화면 연결]을 누르거나, 처음이면 [⬇ 처음 한 번: 도우미 설치 파일]을 받아 더블클릭하세요 (카톡이 있는 이 PC에서).", "is-bad");
   }
 
   // 🔍 진단 (연결된 상태에서 🪄 표시를 누르면): 도우미가 보는 카톡·네이트온 프로그램 창 목록
@@ -386,7 +396,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       const ok = list.filter((w) => w.ok);
       const lines = list.map((w) => `${w.ok ? "✓" : "✕"} ${w.exe} · ${w.title || "(제목 없음)"} · ${w.w}×${w.h}${w.tool ? " · 도구창" : ""}${w.min ? " · 최소화" : ""}`);
       say(`창 도우미가 찾은 대화창 ${ok.length}개 (✓ = 붙일 수 있음)${lines.length ? `\n${lines.join("\n")}` : " — 카톡·네이트온 창이 하나도 안 보입니다"}`, ok.length ? "is-ok" : "is-bad");
-    } catch (error) { say(`진단 실패: ${error?.message || error} — [▶ 창 도우미 켜기]를 한 번 눌러 최신으로 다시 켜 주세요`, "is-bad"); }
+    } catch (error) { say(`진단 실패: ${error?.message || error} — [🖥 화면 연결]을 다시 눌러 주세요`, "is-bad"); }
   }
 
   // 11-06: 크롬 확대 비율이 100%가 아니면 창 자리 계산이 어긋남 → 알려 줌 (Ctrl+0)
@@ -398,7 +408,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   }
   async function arrange() {
     if (!st.helper.on) await pingHelper();
-    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [▶ 창 도우미 켜기]를 누르거나, 처음이면 ⚙ 설정 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
+    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [🖥 화면 연결]을 누르거나, 처음이면 ⚙ 설정 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
     try {
       await syncSlots(true);
       if (vendor) say("카톡에서 업체 대화방을 찾아 여는 중… (업체가 많으면 몇십 초)");
@@ -499,7 +509,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     }
     if (!b) return;
     const act = b.dataset.msnAct, i = Number(b.dataset.i);
-    if (act === "connect") connect();
+    if (act === "connect") connectAll();
     else if (act === "fit") fit().then(() => syncSlots(true));
     else if (act === "arrange") arrange();
     else if (act === "helper") connectHelper();

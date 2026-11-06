@@ -120,6 +120,10 @@
 
 1.22 (2026-11-06) 붙은 대화창을 옮길 때 [이미지 전송] 창도 같이
   · 브라우저를 옮기거나 화면을 내려서 대화창이 슬롯을 따라 움직이면, 대화창에 딸린 [이미지 전송]·미리보기 창도 같은 만큼 따라 움직임
+
+1.23 (2026-11-06) [클립보드 이미지 전송] 창 찾기 보강
+  · 카톡 이미지 전송 창이 대화창에 '딸린 창'으로 안 잡히는 경우가 있어, 붙여넣기 직후 새로 뜬 카톡 창을 그 대화창의 전송 창으로 기억
+  · 그 창이 대화창을 따라 움직이고 · [📨 선택 보내기] Enter · [🗑 일괄 비우기] 닫기에 같이 쓰임
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -127,7 +131,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.22 (2026-11-06)"
+LINK_VER = "1.23 (2026-11-06)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -2481,9 +2485,50 @@ class MsnWin:
             self.u.ReleaseDC(None, sdc)
         return w, h, msn_png(w, h, buf.raw)
 
+    def _pid(self, hwnd):
+        pid = self.W.DWORD()
+        self.u.GetWindowThreadProcessId(hwnd, self.c.byref(pid))
+        return pid.value
+
+    def _proc_windows(self, pid):
+        """그 프로그램(pid)의 보이는 창들"""
+        out = []
+
+        def cb(h, _):
+            try:
+                if self.u.IsWindowVisible(h) and self._pid(h) == pid:
+                    out.append(int(h))
+            except Exception:
+                pass
+            return True
+        self.u.EnumWindows(self.c.WINFUNCTYPE(self.W.BOOL, self.W.HWND, self.W.LPARAM)(cb), 0)
+        return out
+
+    def popups(self, hwnd):
+        """1.23: 대화창의 전송·미리보기 창 — 딸린 창(GW_ENABLEDPOPUP·GW_OWNER) + 붙여넣기 직후 새로 뜬 것으로 기억한 창"""
+        if not hasattr(self, "_fw"):
+            self._kakao_search_edit()
+        found = []
+        try:
+            p = self.u.GetWindow(hwnd, 6)
+            if p and int(p) != int(hwnd) and self.u.IsWindowVisible(p):
+                found.append(int(p))
+        except Exception:
+            pass
+        for h in getattr(self, "_paste_popups", {}).get(int(hwnd), []):
+            try:
+                if h not in found and self.u.IsWindow(h) and self.u.IsWindowVisible(h):
+                    found.append(h)
+            except Exception:
+                pass
+        return found
+
     def send(self, hwnd, enter=True):
-        """메신저 창에 붙여넣기(Ctrl+V) + Enter → 원래 앞에 있던 창(System V3)으로 커서 되돌림. 클립보드는 웹이 미리 넣어 둠"""
+        """메신저 창에 붙여넣기(Ctrl+V) + Enter → 원래 앞에 있던 창(System V3)으로 커서 되돌림. 클립보드는 웹이 미리 넣어 둠
+           1.23: Enter 없이 붙여넣기(그림)면 새로 뜬 카톡 창(클립보드 이미지 전송)을 이 대화창 것으로 기억"""
         prev = self.u.GetForegroundWindow()
+        pid = self._pid(hwnd) if not enter else 0
+        before = set(self._proc_windows(pid)) if pid else set()
         self._activate(hwnd)
         time.sleep(0.18)
         self._key(0x11); self._key(0x56); self._key(0x56, True); self._key(0x11, True)   # Ctrl+V
@@ -2491,6 +2536,17 @@ class MsnWin:
         if enter:
             self._key(0x0D); self._key(0x0D, True)
             time.sleep(0.15)
+        else:
+            new = []
+            for _ in range(10):                          # 전송 창이 뜰 때까지 최대 1.5초
+                time.sleep(0.15)
+                new = [h for h in self._proc_windows(pid) if h not in before and h != int(hwnd)]
+                if new:
+                    break
+            if new:
+                if not hasattr(self, "_paste_popups"):
+                    self._paste_popups = {}
+                self._paste_popups[int(hwnd)] = new[:2]
         if prev and prev != hwnd:
             self._activate(prev)
         return True
@@ -2539,10 +2595,10 @@ class MsnWin:
         """대화창 닫기 (딸린 이미지 전송 창 먼저) — 창만 닫음, 카톡방은 그대로"""
         if not hasattr(self, "_fw"):
             self._kakao_search_edit()
-        popup = self.u.GetWindow(hwnd, 6)                                            # GW_ENABLEDPOPUP
-        if popup and int(popup) != int(hwnd):
+        for popup in self.popups(hwnd):
             self.u.PostMessageW(popup, 0x0010, 0, 0)                                 # WM_CLOSE
-            time.sleep(0.25)
+            time.sleep(0.2)
+        getattr(self, "_paste_popups", {}).pop(int(hwnd), None)
         self.topmost(hwnd, False)
         self.u.PostMessageW(hwnd, 0x0010, 0, 0)
         return True
@@ -2551,14 +2607,16 @@ class MsnWin:
         """대화창에 딸린 미리보기 창(사진 보내기)을 앞으로 → Enter → 원래 창으로. 미리보기 창이 없으면 False(아무것도 안 누름)"""
         if not hasattr(self, "_fw"):
             self._kakao_search_edit()
-        popup = self.u.GetWindow(hwnd, 6)                                            # GW_ENABLEDPOPUP
-        if not popup or int(popup) == int(hwnd):
+        pops = self.popups(hwnd)
+        if not pops:
             return False
+        popup = pops[0]
         prev = self.u.GetForegroundWindow()
         self._activate(popup)
         time.sleep(0.2)
         self._key(0x0D); self._key(0x0D, True)
         time.sleep(0.3)
+        getattr(self, "_paste_popups", {}).pop(int(hwnd), None)
         if prev and prev != popup:
             self._activate(prev)
         return True
@@ -2569,16 +2627,12 @@ class MsnWin:
         o, v = self._rect(hwnd), self._visible(hwnd)
         margins = (v[0] - o[0], v[1] - o[1], o[2] - v[2], o[3] - v[3])
         x, y, w, h = msn_outer_rect(slot, margins)
-        popup = None
-        try:                                            # 1.22: 딸린 [이미지 전송] 창
-            if not hasattr(self, "_fw"):
-                self._kakao_search_edit()
-            p = self.u.GetWindow(hwnd, 6)                # GW_ENABLEDPOPUP
-            popup = p if p and int(p) != int(hwnd) and self.u.IsWindowVisible(p) else None
+        try:                                            # 1.22·1.23: 딸린 [이미지 전송] 창들
+            pops = self.popups(hwnd)
         except Exception:
-            popup = None
+            pops = []
         self.u.SetWindowPos(hwnd, -1, x, y, w, h, 0x0010 | 0x0040)   # HWND_TOPMOST, SWP_NOACTIVATE | SWP_SHOWWINDOW
-        if popup:
+        for popup in pops:
             try:
                 to = msn_follow(o, self._rect(hwnd), self._rect(popup))
                 if to:

@@ -423,10 +423,11 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     fold.title = folded ? "왼쪽 창 펴기" : "왼쪽 창 접기";
   }
   function saveFold() { try { storage?.setItem(FOLD_KEY, JSON.stringify({ tab: leftTab, folded: foldState.folded })); } catch { /* 이번 화면만 */ } }
+  const AUTO_FOLD = ["msn", "vendor"];       // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 (슬롯을 넓게)
   function showLeft(tab, { open = false } = {}) {
     leftTab = tab;
     if (open) foldState.folded = false;     // 로그인·설정으로 바로 가는 버튼은 펼쳐서 보여 줌
-    setFold(foldState.folded);
+    setFold(open ? false : AUTO_FOLD.includes(tab) ? true : foldState.folded);
     saveFold();
     $$("[data-left-tab]").forEach((b) => { const on = b.dataset.leftTab === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
     $$("[data-left-panel]").forEach((p) => { p.hidden = p.dataset.leftPanel !== tab; });
@@ -1741,8 +1742,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function bind() {
     $$("[data-left-tab]").forEach((b) => b.addEventListener("click", () => showLeft(b.dataset.leftTab)));
     $("#cs-fold")?.addEventListener("click", () => {
-      foldState.folded = !$("#cs-main").classList.contains("left-folded");
-      setFold(foldState.folded);
+      const folded = !$("#cs-main").classList.contains("left-folded");
+      if (!AUTO_FOLD.includes(leftTab)) foldState.folded = folded;   // 메신저·거래처 탭에서 편 것은 그 탭에서만
+      setFold(folded);
       saveFold();
     });
     $$("[data-log-toggle]").forEach((b) => b.addEventListener("click", () => {

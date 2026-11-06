@@ -226,14 +226,23 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     for (let i = 0; i < prefs.count; i += 1) {
       const rect = frameRect(i);
       if (!rect || rect.width < 60 || rect.height < 60) return [];
-      const v = videoSize();
-      const r = st.fit && v.width ? regionOnVideo(rect, window, window.screen, v, st.fit) : null;
-      if (r) { out.push({ x: r.x, y: r.y, w: r.w, h: r.h }); continue; }
       const c = screenCss(rect, window, window.screen);
       const dpr = window.devicePixelRatio || 1;
       const sl = Number.isFinite(window.screen?.left) ? window.screen.left : (window.screen?.availLeft || 0);
       const stp = Number.isFinite(window.screen?.top) ? window.screen.top : (window.screen?.availTop || 0);
-      out.push({ x: Math.round((sl + c.x) * dpr), y: Math.round((stp + c.y) * dpr), w: Math.round(c.w * dpr), h: Math.round(c.h * dpr) });
+      const est = { x: Math.round((sl + c.x) * dpr), y: Math.round((stp + c.y) * dpr), w: Math.round(c.w * dpr), h: Math.round(c.h * dpr) };
+      // 화면 연결로 맞춘 자리(영역 맞춤)가 있으면 그것을 씀 — 단 화면 그림 크기 ≠ 실제 화면 픽셀(4K·배율)일 수 있어 실제 픽셀로 환산 (11-06)
+      const v = videoSize();
+      const r = st.fit && v.width ? regionOnVideo(rect, window, window.screen, v, st.fit) : null;
+      if (r) {
+        const k = ((window.screen?.width || v.width) * dpr) / v.width;
+        const fx = { x: Math.round(sl * dpr + r.x * k), y: Math.round(stp * dpr + r.y * k), w: Math.round(r.w * k), h: Math.round(r.h * k) };
+        // 맞춘 자리가 예전 것(확대 비율 바뀜 등)이면 크기가 크게 어긋남 → 계산한 자리로 (크기는 확대 비율과 상관없이 계산이 정확)
+        const off = Math.abs(fx.w - est.w) > est.w * 0.25 || Math.abs(fx.h - est.h) > est.h * 0.25;
+        out.push(off ? est : fx);
+        continue;
+      }
+      out.push(est);
     }
     return out;
   }
@@ -380,6 +389,13 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     } catch (error) { say(`진단 실패: ${error?.message || error} — [▶ 창 도우미 켜기]를 한 번 눌러 최신으로 다시 켜 주세요`, "is-bad"); }
   }
 
+  // 11-06: 크롬 확대 비율이 100%가 아니면 창 자리 계산이 어긋남 → 알려 줌 (Ctrl+0)
+  function zoomWarn() {
+    const ow = window.outerWidth || 0, iw = window.innerWidth || 0;
+    if (!ow || !iw) return "";
+    const z = (ow - 16) / iw;
+    return z < 0.93 || z > 1.12 ? `크롬 확대 비율이 100%가 아닌 것 같습니다 (약 ${Math.round(z * 100)}%) — 창 자리가 어긋나면 Ctrl+0 으로 100%에 맞추고 다시 [📐 일괄 붙이기]` : "";
+  }
   async function arrange() {
     if (!st.helper.on) await pingHelper();
     if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [▶ 창 도우미 켜기]를 누르거나, 처음이면 ⚙ 설정 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
@@ -390,11 +406,14 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       const named = Number(r.named) || 0;
       if (vendor) {               // 11-06: 전체 안내 글 없이 슬롯마다 노란 안내 → 이어서 그림 붙여넣기(사진적용 합침)
         st.notes = r.notes || {}; applyNotes();
-        say("");
+        const zw = zoomWarn();
+        say(zw, zw ? "is-bad" : "");
         await pingHelper();
         await api.afterArrange?.();
         return;
       }
+      const zw = zoomWarn();
+      if (zw) { say(zw, "is-bad"); pingHelper(); return; }
       say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위)${named ? ` — 그중 ${named}개는 메모 이름으로` : ""}.` : vendor ? "메모 이름과 맞는 카톡 창이 없습니다 — 업체 대화창을 먼저 열고, 슬롯 메모에 카톡방 이름(일부)을 적어 주세요." : "열린 카톡·네이트온 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
       pingHelper();
     } catch (error) { say(`일괄 붙이기 실패: ${error?.message || error}`, "is-bad"); }

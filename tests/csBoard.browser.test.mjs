@@ -455,6 +455,16 @@ try {
     const collectButton = page.locator('[data-left-panel="main"] [data-job="collect"]');
     assert.equal(await collectButton.isDisabled(), false, "unlocked once connected");
     assert.notEqual(await collectButton.evaluate((el) => getComputedStyle(el).color), "rgb(220, 38, 38)");
+    // 11-06: 웹 연결 — 연결된 상태면 비밀번호 칸 없이 "🟢 연결중"
+    assert.equal(await page.locator("#cs-token-state").textContent(), "🟢 연결중");
+    assert.equal(await page.locator("#cs-token-input").evaluate((el) => el.closest("label").hidden), true, "비밀번호 칸 숨김");
+    assert.equal(await page.locator("#cs-token-clear").textContent(), "연결 끊기");
+    // 11-06: 판매자센터 로그인은 평소 접혀서 한 줄 → 누르면 펼침
+    assert.equal(await page.locator("#cs-login").evaluate((el) => el.open), false, "기본 접힘");
+    const foldH = (await page.locator("#cs-login").boundingBox()).height;
+    assert.ok(foldH < 60, `접히면 한 줄 (${foldH}px)`);
+    await page.locator("#cs-login-title").click();
+    assert.equal(await page.locator("#cs-login").evaluate((el) => el.open), true, "누르면 펼침");
     assert.equal(await page.locator("#cs-login-ok").isDisabled(), false, "login works from V3 now");
     assert.match(await page.locator("#cs-login").textContent(), /전체 선택 \+ 게시판 \+ 리뷰 수집/);
     // 업체 끄기 → 요청에 반영 (게시판 탭)
@@ -488,6 +498,18 @@ try {
     assert.match(await page.locator("#cs-jobs").textContent(), /완료[\s\S]*수집_261029_1200\.json/);
     assert.match(await page.locator('[data-left-panel="main"] [data-vendor-status="에이블리"]').textContent(), /로그인 필요/);
     assert.match(await page.locator('#cs-vendor-grid [data-vendor-status="에이블리"]').textContent(), /로그인 필요/, "게시판 탭 업체 칸에도");
+    // 11-06: 로그인 경고 문구 = 누르면 연결 (메인보드 = 전체연결 · 게시판 탭 = 게시판 연결) · 정상 칸은 그대로
+    const ablyMain = page.locator('[data-left-panel="main"] [data-vendor-status="에이블리"]');
+    assert.deepEqual(await ablyMain.evaluate((el) => [el.dataset.pc, el.dataset.conn, el.dataset.connVendor, el.getAttribute("role"), el.classList.contains("is-login-link")]), ["conn", "all", "에이블리", "button", true]);
+    assert.match(await ablyMain.textContent(), /🔑 눌러서 전체연결$/);
+    assert.equal(await page.locator('#cs-vendor-grid [data-vendor-status="에이블리"]').getAttribute("data-conn"), "board", "게시판 탭 = 게시판 연결");
+    assert.equal(await page.locator('[data-left-panel="main"] [data-vendor-status="지그재그"]').getAttribute("data-pc"), null, "정상 칸은 누를 수 없음");
+    await ablyMain.evaluate((el) => el.click());
+    await page.locator("#cs-toast", { hasText: "에이블리 전체연결" }).waitFor().catch(() => {});
+    const linkJob = gas.post({ action: "poll", token: COLLECTOR, pc: "OFFICE-PC" }).job;
+    assert.equal(linkJob.kind, "login", "경고 문구 → 로그인 요청");
+    assert.deepEqual([linkJob.body.vendors, linkJob.body.collectAfter], [["에이블리"], true], "메인보드 = 전체연결 (로그인 → 수집)");
+    gas.post({ action: "finish", token: COLLECTOR, id: linkJob.id, ok: false, message: "테스트 — 취소" });
     assert.match(await page.locator('[data-left-panel="main"] [data-log="warn"]').textContent(), /에이블리: 로그인 필요[\s\S]*\[🔑 로그인\]/);
     await page.screenshot({ path: path.join(output, "cs-board-collector.png") });
 
@@ -529,7 +551,8 @@ try {
     await page.locator("#cs-modal-cancel").click();
     assert.match(await page.locator('[data-review-status="지그재그"]').textContent(), /✓/, "리뷰 탭 업체 칸 = 리뷰 수집 결과");
     assert.match(await page.locator('[data-review-status="스마트스토어"]').textContent(), /⚠ 로그인 필요/, "그 뒤 로그인 전 = 경고");
-    assert.match(await page.locator('#cs-vendor-grid [data-vendor-status="스마트스토어"]').textContent(), /\n리뷰 ⚠ 로그인 필요 · 10-29 12:30$/, "11-06: 리뷰는 문의와 따로 셋째 줄 (리뷰 수집 시각)");
+    assert.equal(await page.locator('[data-review-status="스마트스토어"]').getAttribute("data-conn"), "review", "리뷰 탭 = 리뷰 연결");
+    assert.match(await page.locator('#cs-vendor-grid [data-vendor-status="스마트스토어"]').textContent(), /\n리뷰 ⚠ 로그인 필요 · 10-29 12:30\n🔑 눌러서 리뷰 연결$/, "11-06: 리뷰는 문의와 따로 셋째 줄 (리뷰 수집 시각)");
     await page.screenshot({ path: path.join(output, "cs-board-review-live.png") });
     await page.locator('[data-left-tab="board"]').click();
 
@@ -643,6 +666,7 @@ try {
     assert.equal(await page.locator('[data-review-status="스마트스토어"]').evaluate((el) => el.classList.contains("is-bad")), false);
     const ssMain = await page.locator('#cs-vendor-grid [data-vendor-status="스마트스토어"]').textContent();
     assert.doesNotMatch(ssMain, /⚠/, "옛 리뷰 경고 안 보임");
+    assert.equal(await page.locator('[data-review-status="스마트스토어"]').getAttribute("data-pc"), null, "해결되면 누르는 칸 아님");
     assert.match(ssMain, /문의 수집 .*\n리뷰 ✓ 로그인 해결 · 10-29 12:30$/);
     await waitText("#cs-progress", /로그인 완료/);
     assert.equal(await connBtn("에이블리", "board").textContent(), "📋연결완료", "로그인 성공 → 연결완료");
@@ -850,6 +874,9 @@ try {
 
     // 틀린 비밀번호 → 저장된 비밀번호 지움
     await page.locator('[data-left-tab="settings"]').click();
+    assert.equal(await page.locator("#cs-token-input").isVisible(), false, "연결중엔 비밀번호 칸 없음");
+    await page.locator("#cs-token-clear").click();                              // [연결 끊기] → 비밀번호 칸 다시 보임
+    assert.equal(await page.locator("#cs-token-input").isVisible(), true);
     await page.locator("#cs-token-input").fill("wrong-token-1-long-key-xx");   // 20자 이상 = 긴 키로 취급
     await page.locator("#cs-token-save").click();
     await page.locator("#cs-toast", { hasText: "비밀번호가 맞지 않습니다" }).waitFor();

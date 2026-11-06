@@ -669,6 +669,32 @@ assert fills == [("pinkrocket", "pw1")]
 a = own.args
 assert a[0] == "C:/chrome.exe" and f"--user-data-dir={os.path.join(tmp, 'native_profile')}" in a and any(x.startswith("--remote-debugging-port=") for x in a), a
 assert not any("automation" in x for x in a) and own.cdp.startswith("http://127.0.0.1:")
+# 1.18: 로그인 창 = V3 왼쪽 메뉴 보드를 가리지 않게 살짝 오른쪽 (모니터 왼쪽 끝 아님)
+assert "--window-position=560,100" in a and "--window-size=1000,1000" in a and not any("-32000" in x for x in a), a
+assert L.login_window_bounds((1920, 1080)) == (560, 100, 1000, 920)
+assert L.login_window_bounds((1366, 768)) == (346, 100, 1000, 608), "작은 화면이면 안으로 당김"
+assert L.login_window_bounds(None) == L.LOGIN_WINDOW
+assert any("-32000" in x for x in L.OFFSCREEN_ARGS), "화면 밖 수집 창은 그대로"
+# 1.18: 칸이 비어 있으면 저장된 아이디·비밀번호를 얹어 둠 ([로그인]은 안 누름)
+class PBox:
+    def __init__(self, v=""): self.v, self.vis = v, True
+    def is_visible(self): return self.vis
+    def input_value(self): return self.v
+    def fill(self, t): self.v = t
+    def click(self, **k): raise AssertionError("로그인 버튼 누르면 안 됨")
+class PLoc:
+    def __init__(self, items): self.items = items
+    def count(self): return len(self.items)
+    def nth(self, i): return self.items[i]
+class PPage:
+    def __init__(self, idv="", pwv=""): self.idb, self.pwb = PBox(idv), PBox(pwv)
+    def locator(self, sel): return PLoc([self.pwb]) if sel == "input[type=password]" else PLoc([self.idb])
+pp = PPage()
+assert L.prefill_login(pp, "pinkrocket", "pw1") is True and (pp.idb.v, pp.pwb.v) == ("pinkrocket", "pw1")
+pp2 = PPage(idv="사람이 치는 중")
+assert L.prefill_login(pp2, "pinkrocket", "pw1") is False and pp2.pwb.v == "", "사람이 입력 중이면 건드리지 않음"
+assert L.prefill_login(PPage(), "", "pw1") is False
+assert L.prefill_login(object(), "a", "b") is False, "칸 못 찾으면 그냥 넘어감"
 assert own.sent == ["Browser.close"], "로그인되면 창을 자동으로 닫음"
 assert [c["name"] for c in L.load_native_cookies(G)] == ["NID_SES"], "세션 쿠키까지 보관 (네이버 것만)"
 assert any("자동 로그인 한 번 시도" in m for m in msgs)

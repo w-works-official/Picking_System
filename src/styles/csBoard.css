@@ -1730,8 +1730,11 @@ a.cs-btn {
 }
 
 .cs-login-inline {
-  display: grid;
-  gap: 8px;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  align-self: start;
   padding: 10px 12px 12px;
   border: 1px solid #f5c2da;
   border-radius: 9px;
@@ -2117,3 +2120,23 @@ a.cs-btn {
 .cs-master[open] > summary { margin-bottom: 6px; }
 /* 접힌 [🖥 마스터 PC 설정] 버튼은 설정 칸 하단에 붙어 있음 (스크롤해도 아래에 고정) */
 .cs-master:not([open]) { position: sticky; bottom: 0; z-index: 2; margin-top: 6px; box-shadow: 0 -6px 12px rgba(255, 255, 255, 0.9); }
+
+/* 11-06: 로그인 경고 문구 = 누르면 연결 (메인보드 전체연결 · 게시판 탭 게시판 연결 · 리뷰 탭 리뷰 연결) */
+.cs-vendor-status.is-login-link { cursor: pointer; }
+.cs-vendor-status.is-login-link:hover, .cs-vendor-status.is-login-link:focus-visible { border-color: #dc2626; background: #fee2e2; outline: none; text-decoration: underline; }
+
+/* 11-06: 판매자센터 로그인 = 접어서 한 줄 (누르면 펼침) */
+.cs-login-inner { display: grid; gap: 8px; margin-top: 8px; }
+.cs-login-fold > summary { display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer; list-style: none; user-select: none; }
+.cs-login-fold > summary::-webkit-details-marker { display: none; }
+.cs-login-fold > summary::before { content: "▶"; font-size: 11px; color: #e11d74; }
+.cs-login-fold[open] > summary::before { content: "▼"; }
+.cs-fold-hint { margin-left: auto; font-size: 12px; font-weight: 700; color: #9d174d; }
+.cs-fold-hint::after { content: "펼치기"; }
+.cs-login-fold[open] .cs-fold-hint::after { content: "접기"; }
+.cs-login-top { display: grid; gap: 8px; padding-bottom: 8px; border-bottom: 1px dashed #f5c2da; }
+.cs-login-fold:not([open]) > .cs-login-inner { display: none; }
+
+/* 11-06: 웹 연결 — 연결된 상태면 비밀번호 칸 없이 연결중 표시 */
+#cs-token-state.cs-token-on { color: #15803d; font-weight: 800; font-size: 14px; }
+#cs-token-form label[hidden] { display: none; }

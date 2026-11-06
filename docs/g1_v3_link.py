@@ -100,6 +100,10 @@
 1.17 (2026-11-05) 메신저 전용 모드 (--msn)
   · 수집기 PC가 아닌 PC(집 PC 등)에서 메신저 창 도우미만 켬: python g1_v3_link.py --msn
   · 시트 요청은 안 가져감 (수집·등록·로그인은 수집기 PC 한 대만) · 시트 주소·비밀번호 설정도 필요 없음
+
+1.18 (2026-11-06) 스마트스토어 로그인 창 자리 · 아이디·비밀번호 미리 채움
+  · 로그인 창(일반 크롬)을 모니터 왼쪽 끝이 아니라 V3 왼쪽 메뉴 보드를 가리지 않게 살짝 오른쪽에 (x 560 · y 100 · 1000×1000, 화면보다 크면 줄임)
+  · 자동 로그인이 막혀 사람에게 넘길 때: 아이디·비밀번호 칸이 비어 있으면 저장된 값으로 다시 채워 둠 ([로그인]은 누르지 않음 — 퀴즈·2단계 인증은 사람이)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -107,7 +111,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.17 (2026-11-05)"
+LINK_VER = "1.18 (2026-11-06)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -130,6 +134,71 @@ def _G():
 # → 브라우저가 숨김이면 리뷰만 '화면 밖에 띄운 창'(보이지 않는 위치)에서 엶. 로그인은 수집기 프로필의 쿠키를 복사해 씀
 # → 지그재그 리뷰 화면 기본값(최근 1주일) 대신 설정의 리뷰 기간(review_days)으로 다시 조회 (화면이 보낸 요청 그대로, 날짜만 바꿈)
 OFFSCREEN_ARGS = ["--window-position=-32000,-32000", "--window-size=1400,1000"]
+LOGIN_WINDOW = (560, 100, 1000, 1000)   # 1.18: 로그인 창 자리 (x, y, 폭, 높이) — V3 왼쪽 메뉴 보드(약 520px)를 가리지 않게
+
+
+def screen_size():
+    """주 모니터 크기 (윈도우) — 못 읽으면 None"""
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        try:
+            u.SetProcessDPIAware()
+        except Exception:
+            pass
+        return int(u.GetSystemMetrics(0)), int(u.GetSystemMetrics(1))
+    except Exception:
+        return None
+
+
+def login_window_bounds(screen=None):
+    """로그인 창 자리 — 화면보다 크면 오른쪽·아래가 화면 안에 들어오게 줄임 (작은 화면이면 왼쪽으로 당김)"""
+    x, y, w, h = LOGIN_WINDOW
+    if screen:
+        sw, sh = screen
+        w = min(w, max(600, sw - 40))
+        h = min(h, max(500, sh - y - 60))
+        x = max(0, min(x, sw - w - 20))
+        y = max(0, min(y, sh - h - 40))
+    return x, y, w, h
+
+
+def login_window_args(screen=None):
+    x, y, w, h = login_window_bounds(screen)
+    return [f"--window-position={x},{y}", f"--window-size={w},{h}"]
+
+
+def place_window(pg, screen=None):
+    """이미 떠 있는 창도 같은 자리로 (크롬이 지난번 창 위치를 기억하는 경우) — 실패해도 그냥 넘어감"""
+    try:
+        x, y, w, h = login_window_bounds(screen)
+        cdp = pg.context.new_cdp_session(pg)
+        wid = cdp.send("Browser.getWindowForTarget")["windowId"]
+        cdp.send("Browser.setWindowBounds", {"windowId": wid, "bounds": {"windowState": "normal"}})
+        cdp.send("Browser.setWindowBounds", {"windowId": wid, "bounds": {"left": x, "top": y, "width": w, "height": h}})
+        return True
+    except Exception:
+        return False
+
+
+def prefill_login(pg, uid, pw):
+    """아이디·비밀번호 칸이 둘 다 비어 있으면 채워 둠 ([로그인]은 안 누름 — 사람이 퀴즈·2단계 인증 후 누름) · 채웠으면 True"""
+    if not uid or not pw or parse_sub(uid):
+        return False
+    try:
+        pws = pg.locator("input[type=password]")
+        pbox = next((pws.nth(i) for i in range(min(pws.count(), 4)) if pws.nth(i).is_visible()), None)
+        if pbox is None or pbox.input_value():
+            return False
+        ids = pg.locator("input#id, input[name=id], input[type=email], input[type=text]:not([readonly]), input:not([type])")
+        ibox = next((ids.nth(i) for i in range(min(ids.count(), 6)) if ids.nth(i).is_visible()), None)
+        if ibox is None or ibox.input_value():
+            return False
+        ibox.fill(uid)
+        pbox.fill(pw)
+        return True
+    except Exception:
+        return False
 ZZ_REVIEW_MAX = 2000
 
 ZZ_REVIEW_FETCH_JS = r"""
@@ -1072,7 +1141,7 @@ class NativeChrome:
             raise RuntimeError("이 PC에서 크롬을 찾지 못했습니다")
         port = free_port()
         args = [self.chrome, f"--user-data-dir={native_profile(self.G)}", f"--remote-debugging-port={port}",
-                "--no-first-run", "--no-default-browser-check"] + (OFFSCREEN_ARGS if self.offscreen else []) + [self.start_url or "about:blank"]
+                "--no-first-run", "--no-default-browser-check"] + (OFFSCREEN_ARGS if self.offscreen else login_window_args(screen_size())) + [self.start_url or "about:blank"]
         self.proc = (self.popen or subprocess.Popen)(args)
         if self.pw is None:
             from playwright.sync_api import sync_playwright
@@ -1193,6 +1262,7 @@ def native_login(G, v, progress, say, creds=None, d=None, wait_sec=None, auto_se
             pg = br.page()
             pg.goto(LOGIN_URL[v], wait_until="domcontentloaded", timeout=60000)
         pg.wait_for_timeout(1500)
+        place_window(pg, screen_size())                # 1.18: V3 왼쪽 메뉴 보드를 가리지 않게 살짝 오른쪽
         if logged_in_somewhere(br, v):
             br.keep_cookies()
             return dict(state="ok", note="이미 로그인됨")
@@ -1216,6 +1286,8 @@ def native_login(G, v, progress, say, creds=None, d=None, wait_sec=None, auto_se
             say(f"🔑 {v}: 사람 로그인 기다림 (최대 {mins}분)")
             t1 = time.time()
             while time.time() - t1 < wait_sec and not logged_in_somewhere(br, v):
+                if use:                                # 1.18: 칸이 비어 있으면 저장된 아이디·비밀번호를 다시 얹어 둠 (로그인은 사람이)
+                    prefill_login(pg, use[0], use[1])
                 sleep(2)
         if logged_in_somewhere(br, v):
             sleep(2)                                   # 로그인 직후 쿠키가 자리 잡게

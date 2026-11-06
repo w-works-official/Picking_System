@@ -500,7 +500,18 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       if (off) el.title = "시트 주소 등록 후 작동";
       else el.removeAttribute("title");
     });
-    if (tokenState) tokenState.textContent = state.token ? (state.connected ? "연결됨" : "저장됨") : "저장된 비밀번호 없음";
+    // 11-06: 연결된 상태면 비밀번호 칸 없이 "🟢 연결중" (연결 버튼 = 이름 저장, [지우기] = 연결 끊기)
+    const linked = !!(state.token && state.connected && !state.sample);
+    const pwLabel = $("#cs-token-input")?.closest("label");
+    if (pwLabel) pwLabel.hidden = linked;
+    const saveBtn = $("#cs-token-save");
+    if (saveBtn) saveBtn.textContent = linked ? "이름 저장" : "연결";
+    const clearBtn = $("#cs-token-clear");
+    if (clearBtn) clearBtn.textContent = linked ? "연결 끊기" : "지우기";
+    if (tokenState) {
+      tokenState.textContent = state.token ? (state.connected ? "🟢 연결중" : "저장됨 (연결 안 됨)") : "저장된 비밀번호 없음";
+      tokenState.classList.toggle("cs-token-on", linked);
+    }
     if (ai) ai.textContent = !state.connected ? "연결 후 확인" : state.aiEnabled ? "사용 가능 (시트에 키 등록됨)" : "키 없음 — 스크립트 속성 CLAUDE_KEY 등록 필요";
   }
 
@@ -508,6 +519,24 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function reviewLoginFixed(vendor, r) {
     if (!r || r.state === "ok" || !/로그인|인증/.test(String(r.state || ""))) return false;
     return csLoginBoth(vendor, { jobs: state.jobs, last: state.collector?.last, reviewLast: state.collector?.reviewLast }).review === true;
+  }
+
+  // 경고 칸 → 연결 버튼처럼 (data-pc="conn") · part = all | board | review | null(보통 칸으로)
+  const LOGIN_RE = /로그인|인증/;
+  const CONN_LABEL = { all: "전체연결 (로그인 → 게시판 → 리뷰 수집)", board: "게시판 연결 (로그인)", review: "리뷰 연결 (로그인)" };
+  function setLoginLink(el, vendor, part) {
+    const on = !!part && live();
+    el.classList.toggle("is-login-link", on);
+    if (!on) {
+      if (el.dataset.pc === "conn") { delete el.dataset.pc; delete el.dataset.conn; delete el.dataset.connVendor; el.removeAttribute("role"); el.removeAttribute("tabindex"); }
+      return;
+    }
+    Object.assign(el.dataset, { pc: "conn", conn: part, connVendor: vendor });
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    if (part === "all") el.classList.toggle("is-clickable", !state.requesting);
+    el.textContent = `${el.textContent}\n🔑 눌러서 ${part === "all" ? "전체연결" : part === "board" ? "게시판 연결" : "리뷰 연결"}`;
+    el.title = [`눌러서 ${CONN_LABEL[part]} — 수집기(마스터) PC에서 로그인 시도`, el.title].filter(Boolean).join(" / ");
   }
 
   function renderVendorStatus() {
@@ -518,6 +547,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       if (!cells.length) continue;
       const cell = { set textContent(v) { cells.forEach((c) => { c.textContent = v; }); }, set className(v) { cells.forEach((c) => { c.className = v; }); }, set title(v) { cells.forEach((c) => { c.title = v; }); } };
       const rows = state.rows.filter((row) => row.vendor === vendor && !row.closed && row.kind === "문의");
+      cells.forEach((c) => setLoginLink(c, vendor, null));
       if (!state.sample && !state.connected) { cell.textContent = "아직 수집 전"; cell.className = "cs-vendor-status"; continue; }
       if (state.sample) { cell.textContent = `가상 문의 ${rows.length}건`; continue; }
       const v = last?.vendors.find((x) => x.vendor === vendor);
@@ -534,6 +564,10 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       cell.textContent = `${line1}\n${line2}${line3}`;
       cell.className = `cs-vendor-status${v && v.state !== "ok" && !fixed ? " is-bad" : ""}`;
       cell.title = [fixed ? login.note : "", v?.note, rFixed ? "" : r?.note].filter(Boolean).join(" / ");
+      // 11-06: 로그인 경고 문구를 누르면 그 메뉴에 맞는 연결 — 메인보드 = 전체연결 · 게시판 탭 = 게시판 연결 · (게시판 탭의 리뷰 줄만 경고면 리뷰 연결)
+      const boardNeed = !!v && !fixed && LOGIN_RE.test(String(v.state || ""));
+      const reviewNeed = !!r && !rFixed && LOGIN_RE.test(String(r.state || ""));
+      cells.forEach((c) => setLoginLink(c, vendor, c.closest("[data-login-grid]") ? (boardNeed || reviewNeed ? "all" : null) : boardNeed ? "board" : reviewNeed ? "review" : null));
     }
     // ⭐ 리뷰 탭 업체 칸: 지난 리뷰 수집 결과
     for (const vendor of VENDORS) {
@@ -547,6 +581,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       el.textContent = `${r ? (r.state === "ok" ? `✓ ${r.count}건` : rFixed ? "✓ 로그인 해결 (다음 수집부터 반영)" : `⚠ ${r.state}`) : `리뷰 ${rows.length}건`}\n${reviewLast?.at ? `마지막 수집 ${reviewLast.at.slice(5)}` : "수집 기록 없음"}`;
       el.className = `cs-vendor-status${r && r.state !== "ok" && r.state !== "미지원" && !rFixed ? " is-bad" : ""}`;
       el.title = rFixed ? "" : r?.note || "";
+      setLoginLink(el, vendor, r && !rFixed && LOGIN_RE.test(String(r.state || "")) ? "review" : null);   // 리뷰 탭 = 리뷰 연결
     }
   }
 
@@ -845,6 +880,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     showLeft("main");
     renderLogin({ vendor, force: true });
     const box = $("#cs-login");
+    if (box && "open" in box) box.open = true;   // 11-06: 접혀 있으면 펼침
     box?.scrollIntoView?.({ block: "start", behavior: "smooth" });
     if (vendor) box?.querySelector(`[data-login-row="${vendor}"]`)?.classList.add("is-flash");
   }
@@ -1659,7 +1695,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-onetouch")?.addEventListener("click", () => openGuide(true));
     document.addEventListener("click", onPcClick);
     document.addEventListener("keydown", (e) => {   // 카드(전체연결)도 Enter·Space 로
-      if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[data-login-grid] [data-conn="all"]')) { e.preventDefault(); onPcClick(e); }
+      if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[data-login-grid] [data-conn="all"], .cs-vendor-status[data-pc="conn"]')) { e.preventDefault(); onPcClick(e); }
     });
     $("#cs-login-ok")?.addEventListener("click", submitLogin);
     $("#cs-login-body")?.addEventListener("change", (e) => {   // [부운영자로 로그인] 체크하면 상점 URL 칸 보이기

@@ -527,6 +527,15 @@ try {
     assert.equal(await page.locator("#cs-token-state").textContent(), "🟢 연결중");
     assert.equal(await page.locator("#cs-token-input").evaluate((el) => el.closest("label").hidden), true, "비밀번호 칸 숨김");
     assert.equal(await page.locator("#cs-token-clear").textContent(), "연결 끊기");
+    // 11-06: 수집할 업체 = 고르면 빨간 ✓ · 안 고르면 빈 네모 (게시판·리뷰 같은 모양)
+    const cbMark = (sel) => page.locator(sel).evaluate((el) => getComputedStyle(el, "::after").content);
+    assert.equal(await page.locator("#cs-vendor-grid .cs-cb").count(), 4);
+    assert.equal(await cbMark('#cs-vendor-grid [data-vendor="스마트스토어"] .cs-cb'), '"✓"', "고른 업체 = ✓");
+    if (await page.locator('#cs-vendor-grid [data-vendor="메이크샵"]').isVisible()) {
+      await page.locator('#cs-vendor-grid [data-vendor="메이크샵"]').click();
+      assert.equal(await cbMark('#cs-vendor-grid [data-vendor="메이크샵"] .cs-cb'), "none", "안 고른 업체 = 빈 네모");
+      await page.locator('#cs-vendor-grid [data-vendor="메이크샵"]').click();
+    }
     // 11-06: 판매자센터 로그인은 늘 펼친 상태 (접기 버튼 없음)
     assert.equal(await page.locator("#cs-login > summary, #cs-login .cs-fold-hint").count(), 0, "접기 버튼 없음");
     assert.equal(await page.locator("#cs-login-ok").isVisible(), true);

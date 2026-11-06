@@ -2201,3 +2201,10 @@ a.cs-btn {
   .cs-main > .cs-left, .cs-main > .cs-right { grid-row: auto; }
 }
 .cs-main > .cs-left { grid-template-rows: minmax(0, 1fr); }
+
+/* 11-06: 수집할 업체 체크 = 흰 네모 칸 · 고르면 빨간 ✓ · 안 고르면 빈 칸(ㅁ) */
+.cs-vendor-check { display: inline-flex; align-items: center; gap: 6px; }
+.cs-cb { display: inline-grid; place-items: center; width: 22px; height: 22px; box-sizing: border-box; border: 2px solid #ffffff; border-radius: 5px; background: #ffffff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25); font-style: normal; font-size: 17px; font-weight: 900; line-height: 1; color: #dc2626; }
+.cs-vendor-card:not(.is-off) .cs-cb::after { content: "✓"; }
+.cs-vendor-card.is-off .cs-vendor-check { text-decoration: none; }
+.cs-vendor-card.is-off .cs-cb { border-color: #9ca3af; box-shadow: none; }

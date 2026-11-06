@@ -117,6 +117,9 @@
 
 1.21 (2026-11-06) 거래처 일괄 비우기
   · POST /msn/reset: 지금 탭(슬롯 묶음)에 붙은 대화창마다 [이미지 전송] 창을 닫고 대화창도 닫음 (카톡방을 나가는 것은 아님) — 웹 [🗑 일괄 비우기]
+
+1.22 (2026-11-06) 붙은 대화창을 옮길 때 [이미지 전송] 창도 같이
+  · 브라우저를 옮기거나 화면을 내려서 대화창이 슬롯을 따라 움직이면, 대화창에 딸린 [이미지 전송]·미리보기 창도 같은 만큼 따라 움직임
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -124,7 +127,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.21 (2026-11-06)"
+LINK_VER = "1.22 (2026-11-06)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -2036,6 +2039,14 @@ def msn_snap_target(rect, slots, snap=MSN_SNAP_PX):
     return best
 
 
+def msn_follow(before, after, popup):
+    """1.22: 대화창이 before → after 로 움직였을 때 딸린 창(popup)의 새 왼쪽 위 (같은 만큼) — 안 움직였으면 None"""
+    dx, dy = after[0] - before[0], after[1] - before[1]
+    if not dx and not dy:
+        return None
+    return popup[0] + dx, popup[1] + dy
+
+
 def msn_outer_rect(slot, margins):
     """보이는 테두리가 슬롯에 딱 맞도록 창 바깥 크기 계산 (margins = 보이지 않는 테두리 왼·위·오·아래)"""
     x, y, w, h = slot
@@ -2558,7 +2569,22 @@ class MsnWin:
         o, v = self._rect(hwnd), self._visible(hwnd)
         margins = (v[0] - o[0], v[1] - o[1], o[2] - v[2], o[3] - v[3])
         x, y, w, h = msn_outer_rect(slot, margins)
+        popup = None
+        try:                                            # 1.22: 딸린 [이미지 전송] 창
+            if not hasattr(self, "_fw"):
+                self._kakao_search_edit()
+            p = self.u.GetWindow(hwnd, 6)                # GW_ENABLEDPOPUP
+            popup = p if p and int(p) != int(hwnd) and self.u.IsWindowVisible(p) else None
+        except Exception:
+            popup = None
         self.u.SetWindowPos(hwnd, -1, x, y, w, h, 0x0010 | 0x0040)   # HWND_TOPMOST, SWP_NOACTIVATE | SWP_SHOWWINDOW
+        if popup:
+            try:
+                to = msn_follow(o, self._rect(hwnd), self._rect(popup))
+                if to:
+                    self.u.SetWindowPos(popup, -1, to[0], to[1], 0, 0, 0x0001 | 0x0010 | 0x0040)   # SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW
+            except Exception:
+                pass
 
     def topmost(self, hwnd, on):
         self.u.SetWindowPos(hwnd, -1 if on else -2, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0010)

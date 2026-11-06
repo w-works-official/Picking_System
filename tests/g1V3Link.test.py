@@ -1000,6 +1000,9 @@ assert mk2.open_named(search=True, sleep=lambda s: None) == {0: {"state": "nokak
 fk.confirm = lambda h: h == 1
 assert mk.confirm(0) == {"ok": True, "slot": 0, "popup": True}
 assert mk.confirm(7)["ok"] is False, "붙은 창 없는 슬롯"
+# 1.22 붙은 대화창이 움직이면 딸린 이미지 전송 창도 같은 만큼
+assert L.msn_follow((100, 200, 500, 800), (130, 150, 530, 750), (180, 300, 480, 600)) == (210, 250)
+assert L.msn_follow((1, 2, 3, 4), (1, 2, 9, 9), (5, 5, 6, 6)) is None, "크기만 바뀌면 안 옮김"
 # 1.21 일괄 비우기: 붙은 창 닫고 잊음
 closed = []
 fk.close = lambda h: closed.append(h)

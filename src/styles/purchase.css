@@ -286,7 +286,7 @@ body.purchase-workspace {
   }
 
   .purchase-tabs {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -835,3 +835,48 @@ body.purchase-workspace {
     max-width: 100%;
   }
 }
+
+/* ---- 📦 상품 현황 (2026-11-06): 셀피아 코드(옵션) 단위 사진 · 재고 · 출고 ---- */
+.product-board { display: grid; gap: 10px; min-width: 0; }
+.pb-bar { position: sticky; top: -14px; z-index: 2; display: grid; gap: 8px; margin: -14px -14px 0; padding: 12px 14px 10px; background: var(--purchase-panel); border-bottom: 1px solid var(--purchase-line-soft); }
+.pb-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+.pb-cat { border: 1px solid var(--purchase-line); border-radius: 999px; background: #fffdf2; color: var(--purchase-text); padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.pb-cat small { color: var(--purchase-muted); font-weight: 700; margin-left: 2px; }
+.pb-cat.is-on { background: var(--purchase-green); border-color: var(--purchase-green); color: #fff; }
+.pb-cat.is-on small { color: #d9f5e6; }
+.pb-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 13px; font-weight: 700; }
+.pb-search { flex: 1 1 320px; min-width: 0; height: 34px; padding: 0 12px; border: 1px solid var(--purchase-line); border-radius: 8px; font: inherit; font-size: 14px; }
+.pb-search:focus { outline: 2px solid #86d6ad; border-color: var(--purchase-green); }
+.pb-tools select { height: 32px; border: 1px solid var(--purchase-line); border-radius: 6px; font: inherit; font-size: 13px; background: #fff; }
+.pb-check { display: inline-flex; align-items: center; gap: 4px; }
+.pb-btn { height: 32px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.pb-btn:disabled { opacity: .5; cursor: default; }
+.pb-status { margin: 0; color: var(--purchase-muted); font-size: 12px; font-weight: 700; }
+.pb-status.is-bad { color: #dc2626; }
+.pb-list { display: grid; gap: 10px; }
+.pb-product { border: 1px solid var(--purchase-line); border-radius: 8px; background: #fff; overflow: hidden; }
+.pb-product > header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; background: #fffbea; border-bottom: 1px solid var(--purchase-line-soft); font-size: 13px; }
+.pb-code { font-size: 14px; }
+.pb-name { flex: 1 1 200px; min-width: 0; font-weight: 700; }
+.pb-sum { color: var(--purchase-muted); font-weight: 700; }
+.pb-sum b { color: var(--purchase-text); }
+.pb-tag { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; background: #f3f4f6; color: #374151; }
+.pb-tag-surgical { background: #e0f2fe; color: #075985; }
+.pb-tag-k14 { background: #fef3c7; color: #92400e; }
+.pb-tag-silver { background: #e5e7eb; color: #1f2937; }
+.pb-tag-earring { background: #fce7f3; color: #9d174d; }
+.pb-options { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.pb-opt { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto auto; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #f3f4f6; border-right: 1px solid #f3f4f6; }
+.pb-opt.is-zero .pb-num:not(.pb-sales) b { color: #dc2626; }
+.pb-photo { position: relative; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 6px; overflow: hidden; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 10px; font-weight: 800; color: #9ca3af; text-align: center; line-height: 1.25; }
+.pb-photo img { width: 100%; height: 100%; object-fit: cover; }
+.pb-photo.is-rep span { position: absolute; left: 0; bottom: 0; padding: 0 4px; background: rgba(17, 24, 39, .65); color: #fff; font-size: 10px; border-top-right-radius: 4px; }
+.pb-photo.is-missing { background: #fef08a; border-color: #eab308; color: #854d0e; }
+.pb-opt-text { display: grid; gap: 2px; min-width: 0; font-size: 13px; }
+.pb-opt-text b { overflow-wrap: anywhere; }
+.pb-opt-text small { color: var(--purchase-muted); font-size: 11px; overflow-wrap: anywhere; }
+.pb-num { display: grid; justify-items: end; gap: 1px; min-width: 44px; white-space: nowrap; font-size: 11px; color: var(--purchase-muted); font-weight: 700; }
+.pb-num b { font-size: 16px; color: var(--purchase-text); }
+.pb-sales b { color: var(--purchase-green-dark); }
+.pb-more-wrap { display: flex; justify-content: center; padding: 4px 0 10px; }
+.pb-empty { margin: 20px; text-align: center; color: var(--purchase-muted); font-weight: 700; }

@@ -15,7 +15,8 @@ assert.equal(workspaceHref("purchase", "", "https://evil.invalid/"), "./purchase
 assert.throws(() => workspaceHref("hub"));
 assert.equal(safeWorkspaceSearch("?write=1&write=0&returnUrl=x"), "?write=0");
 
-assert.deepEqual(PURCHASE_TABS, ["order", "receiving", "naming"]);
+assert.deepEqual(PURCHASE_TABS, ["order", "receiving", "naming", "products"]);
+assert.equal(purchaseTabFromHash("#products"), "products");
 assert.equal(purchaseTabFromHash("#naming"), "naming");
 assert.equal(purchaseTabFromHash("#receiving"), "receiving");
 assert.equal(purchaseTabFromHash("#nope"), "order");
@@ -42,6 +43,8 @@ assert.match(page, /id="workspace-purchase-link" class="workspace-link is-curren
 assert.match(page, /data-purchase-tab="order"[^>]*>발주</);
 assert.match(page, /data-purchase-tab="receiving">입고</);
 assert.match(page, /data-purchase-tab="naming">상품명 요청</);
+assert.match(page, /data-purchase-tab="products">상품 현황</);
+assert.match(page, /data-purchase-panel="products"[\s\S]*data-product-board/);
 assert.match(page, /<\/nav>\s*<!--[^>]*-->\s*<a class="purchase-hub-link"[^>]*href="https:\/\/w-works-official\.github\.io\/Operation_Hub\/mockups\/operations-hub\/"[^>]*target="_blank"/, "사이드바 맨 아래 운영 허브 바로가기 (새 탭)");
 assert.doesNotMatch(page, /supabase|pickingAuth|pickingApp\.mjs/, "screen frame only: no data access yet");
 

@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261102-status1">
-    <link rel="stylesheet" href="../src/styles/purchase.css?v=20261105-hub1">
+    <link rel="stylesheet" href="../src/styles/purchase.css?v=20261106-board1">
   </head>
   <body class="purchase-workspace">
     <div id="purchase-app" class="purchase-shell">
@@ -48,6 +48,7 @@
             <button class="purchase-tab active" type="button" data-purchase-tab="order" aria-current="page">발주</button>
             <button class="purchase-tab" type="button" data-purchase-tab="receiving">입고</button>
             <button class="purchase-tab" type="button" data-purchase-tab="naming">상품명 요청</button>
+            <button class="purchase-tab" type="button" data-purchase-tab="products">상품 현황</button>
           </nav>
           <!-- 2026-11-05: 운영 허브(Operation_Hub) 바로가기 — 사이드바 맨 아래 -->
           <a class="purchase-hub-link" id="purchase-hub-link" href="https://w-works-official.github.io/Operation_Hub/mockups/operations-hub/" target="_blank" rel="noopener" title="운영 허브 (새 탭)">🧭 운영 허브 <span aria-hidden="true">↗</span></a>
@@ -88,13 +89,26 @@
             <div class="product-names" data-product-names></div>
           </div>
         </section>
+
+        <section class="purchase-panel" data-purchase-panel="products" aria-labelledby="purchase-products-title" hidden>
+          <div class="purchase-panel-head">
+            <div>
+              <h2 id="purchase-products-title">상품 현황</h2>
+              <p>셀피아 코드(옵션) 단위 — 사진 · 옵션명 · 최근 재고 · 기간별 출고 수량 (읽기 전용)</p>
+            </div>
+          </div>
+          <div class="purchase-panel-body">
+            <div class="product-board" data-product-board></div>
+          </div>
+        </section>
       </main>
     </div>
     <div id="purchase-toast" class="purchase-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261028-purchase1"></script>
-    <script type="module" src="../src/app/purchaseApp.mjs?v=20261029-names1"></script>
+    <script type="module" src="../src/app/purchaseApp.mjs?v=20261106-board1"></script>
     <script type="module" src="../src/app/remoteBoardPanel.mjs?v=20261103-autohide2"></script>
     <script type="module" src="../src/app/productNamePanel.mjs?v=20261105-point1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
+    <script type="module" src="../src/app/productBoardPanel.mjs?v=20261106-board1"></script>
   </body>
 </html>

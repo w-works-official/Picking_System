@@ -504,6 +504,12 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (ai) ai.textContent = !state.connected ? "연결 후 확인" : state.aiEnabled ? "사용 가능 (시트에 키 등록됨)" : "키 없음 — 스크립트 속성 CLAUDE_KEY 등록 필요";
   }
 
+  // 리뷰 수집이 로그인 문제로 실패했어도 그 뒤 로그인이 성공했으면 true (옛 경고 숨김용)
+  function reviewLoginFixed(vendor, r) {
+    if (!r || r.state === "ok" || !/로그인|인증/.test(String(r.state || ""))) return false;
+    return csLoginBoth(vendor, { jobs: state.jobs, last: state.collector?.last, reviewLast: state.collector?.reviewLast }).review === true;
+  }
+
   function renderVendorStatus() {
     const last = state.collector?.last;
     const reviewLast = state.collector?.reviewLast;
@@ -519,10 +525,15 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       const login = csLoginStatus(vendor, { jobs: state.jobs, last, saved: (state.sample ? null : state.collector?.setup)?.savedLogins?.includes(vendor) });
       const fixed = v && v.state !== "ok" && login.changed && login.ok;   // 지난 수집은 실패였지만 그 뒤 로그인 성공 → 해결 표시 (바뀌었을 때만)
       const line1 = fixed ? `✓ 로그인 해결 (${login.text.replace(/^✓ 로그인됨 \(|\)$/g, "")})` : v ? (v.state === "ok" ? `✓ ${v.count}건` : `⚠ ${v.state}`) : `문의 ${rows.length}건`;
-      const line2 = last?.at ? `마지막 수집 ${last.at.slice(5)}` : "수집 기록 없음";
-      cell.textContent = `${line1}${r && r.state !== "ok" ? ` · 리뷰 ${r.state}` : ""}\n${line2}`;
+      const line2 = last?.at ? `문의 수집 ${last.at.slice(5)}` : "수집 기록 없음";
+      const rFixed = reviewLoginFixed(vendor, r);   // 11-06: 지난 리뷰 수집은 로그인 필요였지만 그 뒤 로그인 성공 → 옛 경고 숨김
+      // 11-06: 리뷰는 수집 시각이 따로 — 문의 시각과 섞이지 않게 셋째 줄
+      const line3 = r && r.state !== "미지원" && reviewLast?.at
+        ? `\n리뷰 ${r.state === "ok" ? `✓ ${r.count}건` : rFixed ? "✓ 로그인 해결" : `⚠ ${r.state}`} · ${reviewLast.at.slice(5)}`
+        : "";
+      cell.textContent = `${line1}\n${line2}${line3}`;
       cell.className = `cs-vendor-status${v && v.state !== "ok" && !fixed ? " is-bad" : ""}`;
-      cell.title = [fixed ? login.note : "", v?.note, r?.note].filter(Boolean).join(" / ");
+      cell.title = [fixed ? login.note : "", v?.note, rFixed ? "" : r?.note].filter(Boolean).join(" / ");
     }
     // ⭐ 리뷰 탭 업체 칸: 지난 리뷰 수집 결과
     for (const vendor of VENDORS) {
@@ -532,9 +543,10 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       if (state.sample) { el.textContent = `가상 리뷰 ${rows.length}건`; el.className = "cs-vendor-status"; continue; }
       if (!state.connected) { el.textContent = "아직 수집 전"; el.className = "cs-vendor-status"; continue; }
       const r = reviewLast?.vendors.find((x) => x.vendor === vendor);
-      el.textContent = `${r ? (r.state === "ok" ? `✓ ${r.count}건` : `⚠ ${r.state}`) : `리뷰 ${rows.length}건`}\n${reviewLast?.at ? `마지막 수집 ${reviewLast.at.slice(5)}` : "수집 기록 없음"}`;
-      el.className = `cs-vendor-status${r && r.state !== "ok" && r.state !== "미지원" ? " is-bad" : ""}`;
-      el.title = r?.note || "";
+      const rFixed = reviewLoginFixed(vendor, r);
+      el.textContent = `${r ? (r.state === "ok" ? `✓ ${r.count}건` : rFixed ? "✓ 로그인 해결 (다음 수집부터 반영)" : `⚠ ${r.state}`) : `리뷰 ${rows.length}건`}\n${reviewLast?.at ? `마지막 수집 ${reviewLast.at.slice(5)}` : "수집 기록 없음"}`;
+      el.className = `cs-vendor-status${r && r.state !== "ok" && r.state !== "미지원" && !rFixed ? " is-bad" : ""}`;
+      el.title = rFixed ? "" : r?.note || "";
     }
   }
 
@@ -593,7 +605,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function warnCollectorProblems() {
     const items = [...(state.collector?.last?.vendors || []).map((v) => ({ ...v, kind: "" })), ...(state.collector?.reviewLast?.vendors || []).map((v) => ({ ...v, kind: " 리뷰" }))]
       .filter((v) => v.state && v.state !== "ok" && v.state !== "미지원")
-      .filter((v) => !(v.state === "로그인 필요" && csLoginStatus(v.vendor, { jobs: state.jobs, last: state.collector?.last }).ok === true)); // 그 뒤 로그인 성공 = 해결
+      .filter((v) => !(v.kind ? reviewLoginFixed(v.vendor, v) : v.state === "로그인 필요" && csLoginStatus(v.vendor, { jobs: state.jobs, last: state.collector?.last }).ok === true)); // 그 뒤 로그인 성공 = 해결
     const text = items.map((v) => `${v.vendor}${v.kind}: ${v.state}${v.note ? ` (${v.note})` : ""}`).join(" / ");
     if (text && text !== warned) log(`수집기 확인 필요 — ${text}${items.some((v) => v.state === "로그인 필요") ? " → [🔑 로그인] (이 화면에서)" : ""}`, true);
     warned = text;

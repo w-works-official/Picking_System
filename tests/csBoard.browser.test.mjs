@@ -511,7 +511,7 @@ try {
     await page.locator('[data-card="스마트스토어_상품문의_s1"] .cs-reg-badge', { hasText: "등록완료" }).waitFor();
 
     // ⭐ 리뷰: 시트의 실제 리뷰 (새 리뷰는 AI 답변안이 미리 달림)
-    gas.post({ action: "ingest", token: COLLECTOR, rows: [{ 업체: "지그재그", 게시판: "리뷰", id: "r1", 날짜: "2026-10-29 08:00", 상품명: "가상 상품 A", 별점: 5, 내용: "예뻐요" }], snapshot: { kind: "리뷰", vendors: { 지그재그: { 상태: "ok" } }, days: 30, collectedAt: "2026-10-29 12:30" } });
+    gas.post({ action: "ingest", token: COLLECTOR, rows: [{ 업체: "지그재그", 게시판: "리뷰", id: "r1", 날짜: "2026-10-29 08:00", 상품명: "가상 상품 A", 별점: 5, 내용: "예뻐요" }], snapshot: { kind: "리뷰", vendors: { 지그재그: { 상태: "ok" }, 스마트스토어: { 상태: "로그인 필요", 메모: "판매자센터 로그인 필요" } }, days: 30, collectedAt: "2026-10-29 12:30" } });
     await reload();
     await page.locator('[data-left-tab="review"]').click();
     assert.equal(await page.locator("#cs-review-banner").isVisible(), false);
@@ -528,6 +528,8 @@ try {
     assert.equal(await page.locator("#cs-modal-ok").isDisabled(), true, "지그재그 리뷰는 아직 직접 등록 — 자동 0건이면 못 누름");
     await page.locator("#cs-modal-cancel").click();
     assert.match(await page.locator('[data-review-status="지그재그"]').textContent(), /✓/, "리뷰 탭 업체 칸 = 리뷰 수집 결과");
+    assert.match(await page.locator('[data-review-status="스마트스토어"]').textContent(), /⚠ 로그인 필요/, "그 뒤 로그인 전 = 경고");
+    assert.match(await page.locator('#cs-vendor-grid [data-vendor-status="스마트스토어"]').textContent(), /\n리뷰 ⚠ 로그인 필요 · 10-29 12:30$/, "11-06: 리뷰는 문의와 따로 셋째 줄 (리뷰 수집 시각)");
     await page.screenshot({ path: path.join(output, "cs-board-review-live.png") });
     await page.locator('[data-left-tab="board"]').click();
 
@@ -636,6 +638,12 @@ try {
     // 2026-11-04: 로그인 상태는 메인보드 로그인 현황에서 (리뷰 탭 업체 칸은 게시판과 같은 모양)
     assert.equal(await page.locator('[data-vendor-group="review"] [data-pc="login"]').count(), 0, "리뷰 탭에는 로그인 버튼 없음");
     assert.equal(await connBtn("스마트스토어", "review").textContent(), "⭐연결완료");
+    // 11-06: 지난 리뷰 수집은 로그인 필요였지만 그 뒤 로그인 성공 → 옛 경고 숨김
+    assert.match(await page.locator('[data-review-status="스마트스토어"]').textContent(), /✓ 로그인 해결/);
+    assert.equal(await page.locator('[data-review-status="스마트스토어"]').evaluate((el) => el.classList.contains("is-bad")), false);
+    const ssMain = await page.locator('#cs-vendor-grid [data-vendor-status="스마트스토어"]').textContent();
+    assert.doesNotMatch(ssMain, /⚠/, "옛 리뷰 경고 안 보임");
+    assert.match(ssMain, /문의 수집 .*\n리뷰 ✓ 로그인 해결 · 10-29 12:30$/);
     await waitText("#cs-progress", /로그인 완료/);
     assert.equal(await connBtn("에이블리", "board").textContent(), "📋연결완료", "로그인 성공 → 연결완료");
     assert.equal(await connBtn("에이블리", "board").locator(".cs-conn-state").evaluate((el) => getComputedStyle(el).color), "rgb(17, 17, 17)", "연결완료 = 검정");

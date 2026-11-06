@@ -661,10 +661,33 @@ try {
     assert.match(await page.locator("#cs-progress").getAttribute("class"), /is-run/);
     await page.waitForTimeout(400);
     await page.locator("#cs-progress").screenshot({ path: path.join(output, "cs-board-progress.png") });
+    // 11-06 🧩 원격 로그인 (시트 v11): 수집기가 로그인 창 그림을 올리면 화면에 작은 창 → 정답 넣고 로그인 / 그림 누르면 그 자리
+    assert.equal(await page.locator("#cs-remote").isVisible(), false, "그림 오기 전엔 안 보임");
+    const shotPng = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==";
+    gas.post({ action: "loginShot", token: COLLECTOR, id: lj.id, vendor: "스마트스토어", image: shotPng, w: 2, h: 2 });
+    await page.locator("#cs-remote").waitFor({ timeout: 8000 });
+    assert.match(await page.locator("#cs-remote-title").textContent(), /원격 로그인 — 스마트스토어/);
+    assert.equal(await page.locator("#cs-remote-img").getAttribute("src"), shotPng);
+    await page.locator("#cs-remote-answer").fill("1234");
+    await page.locator('#cs-remote-form [data-remote-submit="1"]').click();
+    await waitText("#cs-remote-state", /보냄/);
+    let got = gas.post({ action: "loginShot", token: COLLECTOR, id: lj.id }).answer;
+    assert.deepEqual([got.answer, got.submit], ["1234", true], "정답 넣고 로그인");
+    await page.locator("#cs-remote-answer").fill("56");
+    await page.locator('#cs-remote-form [data-remote-submit="0"]').click();
+    await waitText("#cs-remote-state", /보냄/);
+    got = gas.post({ action: "loginShot", token: COLLECTOR, id: lj.id }).answer;
+    assert.deepEqual([got.answer, got.submit], ["56", false], "넣기만");
+    await page.locator("#cs-remote-img").click();
+    await waitText("#cs-remote-state", /보냄/);
+    got = gas.post({ action: "loginShot", token: COLLECTOR, id: lj.id }).answer;
+    assert.ok(Array.isArray(got.click) && got.click.length === 2, "그림 누른 자리");
+    await page.locator("#cs-remote").screenshot({ path: path.join(output, "cs-board-remote-login.png") });
     gas.post({ action: "finish", token: COLLECTOR, id: lj.id, ok: true, message: "지그재그 ✓ · 에이블리 ✓", data: { login: { 지그재그: { state: "ok" }, 에이블리: { state: "ok" }, 스마트스토어: { state: "ok", note: "로그인됨 (자동)" } } } });
 
     // 메이크샵 부운영자 (웹연결 1.5): [부운영자로 로그인] → 상점 URL 칸 → 아이디가 "부운영자|상점URL|아이디" 로 잠겨 감
     await reload();
+    await page.locator("#cs-remote").waitFor({ state: "hidden" });   // 로그인 요청이 끝나면 원격 로그인 창도 닫힘
     // 2026-11-04: 로그인 상태는 메인보드 로그인 현황에서 (리뷰 탭 업체 칸은 게시판과 같은 모양)
     assert.equal(await page.locator('[data-vendor-group="review"] [data-pc="login"]').count(), 0, "리뷰 탭에는 로그인 버튼 없음");
     assert.equal(await connBtn("스마트스토어", "review").textContent(), "⭐연결완료");
@@ -697,8 +720,14 @@ try {
     assert.match(await page.locator('[data-login-row="스마트스토어"] summary').textContent(), /자동 시도용/);
     assert.equal(await page.locator('[data-login-pick][value="스마트스토어"]').isChecked(), false);
     await page.locator("#cs-login .cs-login-box, #cs-login").first().screenshot({ path: path.join(output, "cs-board-login-memo.png") });
+    // 11-06: 업체 줄은 평소 한 줄 (체크 + 이름 + 짧은 상태) → [자세히] 누르면 안내·아이디·비밀번호
     const msRow = page.locator('[data-login-row="메이크샵"]');
+    assert.equal(await msRow.locator("[data-login-detail]").isVisible(), false, "기본 한 줄");
+    assert.ok((await msRow.boundingBox()).height < 50, "업체 줄 한 줄 높이");
+    assert.match(await page.locator('[data-login-row="스마트스토어"] [data-login-mini]').textContent(), /✓/);
     await page.locator('[data-login-pick][value="메이크샵"]').check();
+    await msRow.locator("[data-login-more]").click();
+    assert.equal(await msRow.locator("[data-login-more]").textContent(), "접기 ▲");
     await msRow.locator("summary").click();
     assert.equal(await msRow.locator("[data-login-shop-wrap]").isVisible(), false, "운영자 로그인이 기본");
     await msRow.locator("[data-login-sub]").check();

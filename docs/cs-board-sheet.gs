@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -121,7 +121,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 10 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 11 });
 }
 
 function doPost(e) {
@@ -198,8 +198,8 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point'];
-  var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer'];
+  var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
   } else if (collector.indexOf(action) >= 0) {
@@ -216,6 +216,9 @@ function route_(body) {
   if (action === 'name') return name_(body);
   if (action === 'msnSuggest') return msnSuggest_(body);
   if (action === 'point') return withLock_(function () { return point_(body); });
+  if (action === 'loginShotGet') return loginShotGet_(body);
+  if (action === 'loginAnswer') return loginAnswer_(body);
+  if (action === 'loginShot') return loginShot_(body);
   if (action === 'ingest') {
     var result = withLock_(function () { return ingest_(sheet_(), body.rows, body.snapshot); });
     if (result.ok && result.newKeys && result.newKeys.length && body.autoSuggest !== false) result.suggested = autoSuggest_(result.newKeys);
@@ -1283,4 +1286,69 @@ function close_(sheet, keys) {
     changed++;
   }
   return { ok: true, changed: changed };
+}
+
+
+// ---------- 원격 로그인 (v11, 2026-11-06) ----------
+// 수집기 PC 로그인 창(네이버 퀴즈 등)을 웹에서 보고 정답을 넣음. 화면 그림은 CacheService 에 10분만 (시트에 안 남김)
+var REMOTE_TTL = 600;
+var REMOTE_CHUNK = 90000;
+function remoteId_(id) {
+  var v = plain_(clean_(id, 40));
+  return /^[A-Za-z0-9_-]{4,40}$/.test(v) ? v : '';
+}
+
+// 수집기: 화면 그림 올리기(바뀌었을 때만, 없으면 '') + 웹에서 넣은 정답 받아 가기(한 번 주면 지움)
+function loginShot_(body) {
+  var id = remoteId_(body.id);
+  if (!id) return { ok: false, error: '요청 번호가 없습니다.' };
+  var cache = CacheService.getScriptCache();
+  var image = String(body.image || '');
+  if (image) {
+    if (image.length > REMOTE_CHUNK * 4 || !/^data:image\/(jpeg|png);base64,[A-Za-z0-9+\/=]+$/.test(image)) return { ok: false, error: '그림 형식이 맞지 않습니다.' };
+    var parts = {}, n = Math.ceil(image.length / REMOTE_CHUNK);
+    for (var k = 0; k < n; k++) parts['ls_' + id + '_' + k] = image.slice(k * REMOTE_CHUNK, (k + 1) * REMOTE_CHUNK);
+    parts['ls_' + id] = JSON.stringify({ n: n, vendor: plain_(clean_(body.vendor, 20)), note: plain_(clean_(body.note, 200)), at: new Date().toISOString(), w: Number(body.w) || 0, h: Number(body.h) || 0 });
+    cache.putAll(parts, REMOTE_TTL);
+  } else if (body.note) {
+    var meta = parse_(cache.get('ls_' + id), null);
+    if (meta) { meta.note = plain_(clean_(body.note, 200)); cache.put('ls_' + id, JSON.stringify(meta), REMOTE_TTL); }
+  }
+  if (body.done) cache.removeAll(['ls_' + id, 'la_' + id]);
+  var answer = parse_(cache.get('la_' + id), null);
+  if (answer) cache.remove('la_' + id);
+  return { ok: true, answer: answer };
+}
+
+// 화면: 최신 화면 그림
+function loginShotGet_(body) {
+  var id = remoteId_(body.id);
+  if (!id) return { ok: false, error: '요청 번호가 없습니다.' };
+  var cache = CacheService.getScriptCache();
+  var meta = parse_(cache.get('ls_' + id), null);
+  if (!meta) return { ok: true, shot: null };
+  var keys = [];
+  for (var k = 0; k < meta.n; k++) keys.push('ls_' + id + '_' + k);
+  var got = cache.getAll(keys), image = '';
+  for (var j = 0; j < keys.length; j++) { if (!got[keys[j]]) return { ok: true, shot: null }; image += got[keys[j]]; }
+  return { ok: true, shot: { vendor: meta.vendor, note: meta.note, at: meta.at, w: meta.w, h: meta.h, image: image }, pending: !!cache.get('la_' + id) };
+}
+
+// 화면: 퀴즈 정답(또는 화면 클릭 자리) 넣기 → 수집기 PC가 다음 확인 때(몇 초 안) 가져가 넣음
+function loginAnswer_(body) {
+  var id = remoteId_(body.id);
+  if (!id) return { ok: false, error: '요청 번호가 없습니다.' };
+  var answer = { at: new Date().toISOString(), editor: plain_(clean_(body.editor, 20)) };
+  if (Array.isArray(body.click) && body.click.length === 2) {
+    var x = Math.round(Number(body.click[0])), y = Math.round(Number(body.click[1]));
+    if (!(x >= 0 && y >= 0 && x < 4000 && y < 4000)) return { ok: false, error: '누를 자리가 맞지 않습니다.' };
+    answer.click = [x, y];
+  } else {
+    var text = String(body.answer == null ? '' : body.answer).replace(/[\r\n\t]/g, ' ').trim().slice(0, 40);
+    if (!text) return { ok: false, error: '정답을 넣어 주세요.' };
+    answer.answer = text;
+    answer.submit = body.submit !== false;
+  }
+  CacheService.getScriptCache().put('la_' + id, JSON.stringify(answer), REMOTE_TTL);
+  return { ok: true };
 }

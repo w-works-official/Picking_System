@@ -695,6 +695,42 @@ pp2 = PPage(idv="사람이 치는 중")
 assert L.prefill_login(pp2, "pinkrocket", "pw1") is False and pp2.pwb.v == "", "사람이 입력 중이면 건드리지 않음"
 assert L.prefill_login(PPage(), "", "pw1") is False
 assert L.prefill_login(object(), "a", "b") is False, "칸 못 찾으면 그냥 넘어감"
+# 1.19 원격 로그인: 화면을 웹에 올리고(바뀌었을 때만) 웹에서 넣은 정답·클릭을 대신 넣음
+class RPage:
+    def __init__(self):
+        self.shots, self.clicks, self.cap, self.pw, self.submitted = 0, [], PBox(), PBox(), 0
+        self.mouse = types.SimpleNamespace(click=lambda x, y: self.clicks.append((x, y)))
+        self.viewport_size = {"width": 1000, "height": 900}
+        self.img = b"\xff\xd8frame1"
+    def screenshot(self, **kw):
+        self.shots += 1; return self.img
+    def locator(self, sel):
+        return PLoc([self.pw]) if sel == "input[type=password]" else PLoc([self.cap]) if sel == L.CAPTCHA_SEL else PLoc([])
+sent, answers = [], []
+def relay(**kw):
+    sent.append(kw); return {"answer": answers.pop(0) if answers else None}
+clk = {"t": 0.0}
+rp = RPage(); rl = L.RemoteLogin(relay, "스마트스토어", ("pinkrocket", "pw1"), msgs.append, clock=lambda: clk["t"])
+_sub = L.submit_login
+L.submit_login = lambda pg: (setattr(pg, "submitted", pg.submitted + 1) or "[로그인] 누름")
+rl.step(rp)
+assert sent[-1]["image"].startswith("data:image/jpeg;base64,") and sent[-1]["w"] == 1000, "처음엔 화면 그림"
+clk["t"] = 1; rl.step(rp); assert len(sent) == 1, "4초 안엔 안 보냄"
+clk["t"] = 5; rl.step(rp); assert sent[-1]["image"] == "", "같은 화면이면 그림 빼고 정답만 확인"
+answers.append({"answer": "1234", "submit": True})
+clk["t"] = 10; msg = rl.step(rp)
+assert (rp.cap.v, rp.pw.v, rp.submitted) == ("1234", "pw1", 1) and "정답 넣고" in msg, msg
+assert any("원격 로그인" in m for m in msgs)
+clk["t"] = 13; rl.step(rp); assert sent[-1]["image"].startswith("data:"), "넣은 뒤엔 화면을 곧 다시 보냄"
+answers.append({"click": [120, 340]})
+clk["t"] = 18; assert "누름" in rl.step(rp) and rp.clicks == [(120.0, 340.0)]
+rl.done(); assert sent[-1].get("done") is True, "끝나면 그림 지우기"
+assert L.RemoteLogin(None, "x").step(rp) is None, "시트 연결 없으면 아무것도 안 함"
+def bad_relay(**kw): raise RuntimeError("알 수 없는 요청입니다.")
+assert L.RemoteLogin(bad_relay, "x", clock=lambda: 99).step(RPage()) is None, "옛 시트(v10)여도 멈추지 않음"
+nocap = RPage(); nocap.locator = lambda sel: PLoc([])
+assert "찾지 못함" in L.apply_remote(nocap, {"answer": "1"})
+L.submit_login = _sub
 assert own.sent == ["Browser.close"], "로그인되면 창을 자동으로 닫음"
 assert [c["name"] for c in L.load_native_cookies(G)] == ["NID_SES"], "세션 쿠키까지 보관 (네이버 것만)"
 assert any("자동 로그인 한 번 시도" in m for m in msgs)

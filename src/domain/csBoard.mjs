@@ -349,7 +349,24 @@ export function parseCsBoardResponse(json) {
     point: json.point && typeof json.point === "object" ? normalizeCsPoint(json.point) : null,
     added: Math.max(0, Number(json.added) || 0),
     serverTime: line(json.serverTime, 40),
+    shot: normalizeCsShot(json.shot),
+    pending: json.pending === true,
   };
+}
+
+// 🧩 원격 로그인 (시트 v11): 수집기 PC 로그인 창 그림 — data:image(jpeg|png) 만
+export function normalizeCsShot(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const image = String(raw.image || "");
+  if (!/^data:image\/(jpeg|png);base64,[A-Za-z0-9+/=]+$/.test(image)) return null;
+  return { vendor: line(raw.vendor, 20), note: line(raw.note, 200), at: line(raw.at, 40), w: Math.max(0, Number(raw.w) || 0), h: Math.max(0, Number(raw.h) || 0), image };
+}
+
+// 화면에서 누른 자리 → 수집기 PC 창 좌표 (그림이 줄어 보여도 원래 크기로)
+export function csShotPoint(offsetX, offsetY, shownW, shownH, naturalW, naturalH) {
+  if (!(shownW > 0 && shownH > 0 && naturalW > 0 && naturalH > 0)) return null;
+  const x = Math.round((offsetX * naturalW) / shownW), y = Math.round((offsetY * naturalH) / shownH);
+  return x >= 0 && y >= 0 && x < naturalW && y < naturalH ? [x, y] : null;
 }
 
 // 지금 보이는 문안(고친 문안 우선)

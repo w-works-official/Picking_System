@@ -104,6 +104,11 @@
 1.18 (2026-11-06) 스마트스토어 로그인 창 자리 · 아이디·비밀번호 미리 채움
   · 로그인 창(일반 크롬)을 모니터 왼쪽 끝이 아니라 V3 왼쪽 메뉴 보드를 가리지 않게 살짝 오른쪽에 (x 560 · y 100 · 1000×1000, 화면보다 크면 줄임)
   · 자동 로그인이 막혀 사람에게 넘길 때: 아이디·비밀번호 칸이 비어 있으면 저장된 값으로 다시 채워 둠 ([로그인]은 누르지 않음 — 퀴즈·2단계 인증은 사람이)
+
+1.19 (2026-11-06) 원격 로그인 (시트 v11)
+  · 사람에게 넘긴 로그인 창 화면을 4초마다(바뀌었을 때만) 웹(V3 CS 관리)에 보여 줌 → 웹에서 퀴즈 정답을 넣으면 이 PC가 정답 칸에 넣고 [로그인]
+  · 웹에서 화면을 누르면 그 자리를 이 PC 창에서 누름 (탭·버튼 등). 퀴즈를 푸는 건 사람 — 프로그램은 옮겨 넣기만
+  · 화면 그림은 시트 임시 보관(10분)에만, 로그인이 끝나면 지움
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -111,7 +116,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.18 (2026-11-06)"
+LINK_VER = "1.19 (2026-11-06)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -179,6 +184,107 @@ def place_window(pg, screen=None):
         return True
     except Exception:
         return False
+
+
+CAPTCHA_SEL = ("input#captcha, input[name*='captcha' i], input[id*='captcha' i], input[placeholder*='정답'], "
+               "input[placeholder*='자동입력'], input[placeholder*='보이는'], input[placeholder*='문자']")
+
+
+def shoot(pg, limit=330000):
+    """로그인 창 화면(보이는 만큼) → data:image/jpeg;base64,… (너무 크면 화질을 낮춤) · 못 찍으면 ''"""
+    for q in (55, 40, 25):
+        try:
+            try:
+                raw = pg.screenshot(type="jpeg", quality=q, scale="css")
+            except TypeError:
+                raw = pg.screenshot(type="jpeg", quality=q)
+        except Exception:
+            return ""
+        url = "data:image/jpeg;base64," + base64.b64encode(raw).decode("ascii")
+        if len(url) <= limit:
+            return url
+    return ""
+
+
+def apply_remote(pg, ans, use=None):
+    """웹에서 넣은 것 → 이 PC 창에: 클릭 자리 또는 퀴즈 정답(+ 비밀번호 칸이 비었으면 저장된 값) + [로그인] · 결과 글 돌려줌"""
+    if ans.get("click"):
+        x, y = (float(v) for v in ans["click"][:2])
+        pg.mouse.click(x, y)
+        return f"화면 ({int(x)}, {int(y)}) 누름"
+    text = str(ans.get("answer") or "")[:40]
+    if not text:
+        return "정답이 비어 있음"
+    box = None
+    try:
+        cands = pg.locator(CAPTCHA_SEL)
+        box = next((cands.nth(i) for i in range(min(cands.count(), 6)) if cands.nth(i).is_visible()), None)
+    except Exception:
+        box = None
+    if box is None:
+        return "정답 칸을 찾지 못함 — 화면에서 정답 칸을 한 번 누른 뒤 다시 넣어 주세요"
+    box.fill(text)
+    if use and use[1]:
+        try:
+            pws = pg.locator("input[type=password]")
+            pbox = next((pws.nth(i) for i in range(min(pws.count(), 4)) if pws.nth(i).is_visible()), None)
+            if pbox is not None and not pbox.input_value():
+                pbox.fill(use[1])
+        except Exception:
+            pass
+    if ans.get("submit", True):
+        return "정답 넣고 " + (submit_login(pg) or "[로그인] 누름")
+    return "정답 넣음"
+
+
+class RemoteLogin:
+    """1.19 원격 로그인: 사람에게 넘긴 로그인 창 화면을 웹에 올리고(바뀌었을 때만), 웹에서 넣은 정답·클릭을 대신 넣음
+       relay(**kw) = 시트 loginShot 호출 (없으면 아무것도 안 함)"""
+    EVERY, RESEND = 4, 20
+
+    def __init__(self, relay, vendor, use=None, progress=None, clock=time.time):
+        self.relay, self.vendor, self.use, self.progress, self.clock = relay, vendor, use, progress, clock
+        self.last = self.sent = -1e9
+        self.sig = None
+
+    def step(self, pg):
+        if not self.relay:
+            return None
+        now = self.clock()
+        if now - self.last < self.EVERY:
+            return None
+        self.last = now
+        img = shoot(pg)
+        sig = hashlib.md5(img.encode("ascii")).hexdigest() if img else None
+        send = img if img and (sig != self.sig or now - self.sent > self.RESEND) else ""
+        try:
+            vp = pg.viewport_size or {}
+        except Exception:
+            vp = {}
+        try:
+            r = self.relay(vendor=self.vendor, image=send, note="", w=vp.get("width") or 0, h=vp.get("height") or 0) or {}
+        except Exception:
+            return None
+        if send:
+            self.sig, self.sent = sig, now
+        ans = r.get("answer")
+        if not ans:
+            return None
+        try:
+            msg = apply_remote(pg, ans, self.use)
+        except Exception as e:
+            msg = f"넣지 못함 ({str(e)[:60]})"
+        self.sig, self.last = None, now - self.EVERY + 1.5   # 넣은 뒤 화면을 곧 다시 보냄
+        if self.progress:
+            self.progress(f"{self.vendor}: 웹에서 받은 {'클릭' if ans.get('click') else '퀴즈 정답'} → {msg} (원격 로그인)")
+        return msg
+
+    def done(self):
+        if self.relay:
+            try:
+                self.relay(vendor=self.vendor, image="", done=True)
+            except Exception:
+                pass
 
 
 def prefill_login(pg, uid, pw):
@@ -1284,11 +1390,18 @@ def native_login(G, v, progress, say, creds=None, d=None, wait_sec=None, auto_se
                 pass
             progress(f"{v}: 자동 로그인이 막혔습니다 — 수집기 PC에 열린 크롬 창에서 직접 로그인해 주세요 (퀴즈·2단계 인증 포함, 최대 {mins}분). 로그인되면 창은 자동으로 닫힙니다")
             say(f"🔑 {v}: 사람 로그인 기다림 (최대 {mins}분)")
+            remote = RemoteLogin(getattr(progress, "relay", None), v, use, progress)   # 1.19: 웹(V3)에서 화면 보고 정답 넣기
+            if remote.relay:
+                progress(f"{v}: 자동 로그인이 막혔습니다 — V3 CS 관리에 뜬 [🧩 원격 로그인] 창에서 퀴즈 정답을 넣거나, 수집기 PC 크롬 창에서 직접 로그인 (최대 {mins}분)")
             t1 = time.time()
-            while time.time() - t1 < wait_sec and not logged_in_somewhere(br, v):
-                if use:                                # 1.18: 칸이 비어 있으면 저장된 아이디·비밀번호를 다시 얹어 둠 (로그인은 사람이)
-                    prefill_login(pg, use[0], use[1])
-                sleep(2)
+            try:
+                while time.time() - t1 < wait_sec and not logged_in_somewhere(br, v):
+                    if use:                            # 1.18: 칸이 비어 있으면 저장된 아이디·비밀번호를 다시 얹어 둠 (로그인은 사람이)
+                        prefill_login(pg, use[0], use[1])
+                    remote.step(pg)
+                    sleep(2)
+            finally:
+                remote.done()
         if logged_in_somewhere(br, v):
             sleep(2)                                   # 로그인 직후 쿠키가 자리 잡게
             n = br.keep_cookies()
@@ -1480,11 +1593,16 @@ def manual_login(pg, v, progress, say, wait_sec=None, step_ms=3000):
     progress(f"{v}: 수집기 PC 화면에 뜬 창에서 직접 로그인해 주세요 (아이디·비밀번호·퀴즈·2단계 인증까지, 최대 {mins}분)")
     say(f"🔑 {v}: 직접 로그인 기다리는 중 (최대 {mins}분)")
     t0 = time.time()
-    while time.time() - t0 < wait_sec:
-        pg.wait_for_timeout(step_ms)
-        if page_logged_in(pg):
-            pg.wait_for_timeout(2000)          # 로그인 직후 이동이 끝나 쿠키가 자리 잡게
-            return dict(state="ok", note="직접 로그인됨")
+    remote = RemoteLogin(getattr(progress, "relay", None), v, None, progress)   # 1.19
+    try:
+        while time.time() - t0 < wait_sec:
+            pg.wait_for_timeout(step_ms)
+            if page_logged_in(pg):
+                pg.wait_for_timeout(2000)          # 로그인 직후 이동이 끝나 쿠키가 자리 잡게
+                return dict(state="ok", note="직접 로그인됨")
+            remote.step(pg)
+    finally:
+        remote.done()
     return dict(state="manual_fail", note=f"{mins}분 안에 로그인이 끝나지 않음 — 수집기 PC 앞에서 다시 [🔑 로그인]")
 
 
@@ -1538,10 +1656,13 @@ def run_login_job(job, cfg, say, progress, d):
                     if not use and ("채워져 있지 않음" in str(how) or "자동 로그인 실패" in str(how)):
                         out[v] = dict(state="need_password", note="저장된 비밀번호 없음 — 웹에서 아이디·비밀번호를 한 번 넣어 주세요"); continue
                     t0, told, human = time.time(), False, False
+                    remote = RemoteLogin(getattr(progress, "relay", None), v, use, progress)   # 1.19: 사람에게 넘긴 뒤엔 웹에서도
                     while time.time() - t0 < LOGIN_WAIT_SEC:
                         pg.wait_for_timeout(2000)
                         if page_logged_in(pg):
                             break
+                        if human:
+                            remote.step(pg)
                         if not told and time.time() - t0 > 6:
                             progress(f"{v}: 휴대폰 2단계 인증이면 휴대폰에서 [확인]을 눌러 주세요 (최대 {max(1, round(LOGIN_WAIT_SEC / 60))}분 기다림)"); told = True
                         if not human and (time.time() - t0 > HUMAN_HINT_SEC or page_captcha(pg)):
@@ -1551,6 +1672,7 @@ def run_login_job(job, cfg, say, progress, d):
                             except Exception:
                                 pass
                             progress(f"{v}: 자동 로그인이 막혔습니다 — 수집기 PC에 열린 창에서 직접 로그인해 주세요. 로그인되면 창은 자동으로 닫힙니다"); human = True
+                    remote.done()
                     if page_logged_in(pg):
                         out[v] = dict(state="ok", note="로그인됨")
                         if given:
@@ -1718,6 +1840,7 @@ def handle(link, job, cfg, say, d=None):
             link.call("progress", id=job["id"], message=msg)
         except Exception:
             pass
+    progress.relay = lambda **kw: link.call("loginShot", id=job["id"], **kw)   # 1.19 원격 로그인 (시트 v11)
     try:
         kind = job["kind"]
         if kind == "register":

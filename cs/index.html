@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261102-status1">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261106-order1">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261106-remote1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -527,12 +527,24 @@
         </div>
       </div>
     </div>
+    <!-- 2026-11-06: 🧩 원격 로그인 — 수집기 PC 로그인 창(네이버 퀴즈 등)을 여기서 보고 정답 넣기 (시트 v11 · 웹연결 1.19) -->
+    <section id="cs-remote" class="cs-remote" aria-labelledby="cs-remote-title" hidden>
+      <div class="cs-remote-head"><b id="cs-remote-title">🧩 원격 로그인</b><button type="button" class="cs-btn cs-btn-mini" id="cs-remote-close" title="이 로그인 요청 동안 닫기">닫기</button></div>
+      <p class="cs-note">수집기 PC 로그인 창입니다. <b>퀴즈 정답</b>을 넣으면 수집기 PC가 대신 넣고 [로그인]을 누릅니다. 그림을 누르면 그 자리를 누릅니다 (탭·버튼).</p>
+      <img id="cs-remote-img" alt="수집기 PC 로그인 창 화면" title="누르면 수집기 PC 창의 이 자리를 누릅니다">
+      <form id="cs-remote-form" class="cs-row" autocomplete="off">
+        <input id="cs-remote-answer" type="text" maxlength="40" placeholder="퀴즈 정답" aria-label="퀴즈 정답">
+        <button type="submit" class="cs-btn cs-btn-primary" data-remote-submit="1">정답 넣고 로그인</button>
+        <button type="submit" class="cs-btn" data-remote-submit="0">넣기만</button>
+      </form>
+      <p class="cs-note" id="cs-remote-state"></p>
+    </section>
     <!-- 2026-11-04: 수집·로그인 진행 작은 창 -->
     <div id="cs-progress" class="cs-progress" role="status" aria-live="polite" hidden></div>
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261106-loginlink1"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261106-remote1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
     <script type="module" src="../src/app/msnSlots.mjs?v=20261106-order1"></script>
   </body>

@@ -36,6 +36,7 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
   const calls = [];
   const logs = [];
   const fetchAllCalls = [];
+  const cache = new Map();
   let timeZone = "America/New_York";
   const ctx = {
     SpreadsheetApp: {
@@ -48,6 +49,17 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
       }),
     },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
+    // v11 원격 로그인: 임시 보관 (만료는 흉내 안 냄 · 100KB 넘으면 거절 = 실제 CacheService 와 같음)
+    CacheService: {
+      getScriptCache: () => ({
+        get: (k) => (cache.has(k) ? cache.get(k) : null),
+        getAll: (ks) => Object.fromEntries(ks.filter((k) => cache.has(k)).map((k) => [k, cache.get(k)])),
+        put: (k, v) => { if (String(v).length > 100000) throw new Error("Argument too large"); cache.set(k, String(v)); },
+        putAll: (o) => { for (const [k, v] of Object.entries(o)) { if (String(v).length > 100000) throw new Error("Argument too large"); cache.set(k, String(v)); } },
+        remove: (k) => cache.delete(k),
+        removeAll: (ks) => ks.forEach((k) => cache.delete(k)),
+      }),
+    },
     ContentService: { MimeType: { JSON: "json" }, createTextOutput: (text) => ({ text, setMimeType() { return this; } }) },
     PropertiesService: {
       getScriptProperties: () => ({

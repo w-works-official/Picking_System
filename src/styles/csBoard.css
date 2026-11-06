@@ -2144,3 +2144,19 @@ a.cs-btn {
 /* 11-06: 거래처 슬롯 틀 = 그 업체 주문 그림 미리보기 (카톡 창이 붙으면 뒤로 가려짐) */
 .msn-frame { position: relative; }
 .msn-frame-pic { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); object-fit: contain; object-position: top center; background: #fff; border-radius: 6px; opacity: .95; pointer-events: none; }
+
+/* 11-06: 🧩 원격 로그인 창 (화면 오른쪽 위, 다른 것 위에) */
+.cs-remote { position: fixed; top: 76px; right: 16px; z-index: 60; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 92px); overflow: auto; display: grid; gap: 8px; padding: 12px; border: 2px solid #e11d74; border-radius: 10px; background: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+.cs-remote[hidden] { display: none; }
+.cs-remote-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; }
+#cs-remote-img { width: 100%; height: auto; border: 1px solid #e5e7eb; border-radius: 6px; cursor: crosshair; background: #f9fafb; }
+#cs-remote-form input { flex: 1 1 160px; min-width: 0; height: 38px; padding: 0 10px; border: 2px solid #e11d74; border-radius: 8px; font: inherit; font-size: 16px; }
+
+/* 11-06: 판매자센터 로그인 업체 줄 = 한 줄 (자세히 누르면 펼침) */
+.cs-login-head { display: flex; align-items: center; gap: 8px; min-height: 26px; }
+.cs-login-head .cs-check { flex: 1 1 auto; min-width: 0; }
+.cs-login-mini { font-size: 12px; font-weight: 800; color: #15803d; white-space: nowrap; }
+.cs-login-mini.is-bad { color: #dc2626; }
+.cs-login-more { border: 0; background: none; color: #2563eb; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 2px 4px; white-space: nowrap; }
+.cs-login-detail { display: grid; gap: 4px; margin-top: 4px; }
+.cs-login-detail[hidden] { display: none; }

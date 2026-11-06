@@ -52,7 +52,8 @@ import {
   csPointAmount,
   csPointPayload,
   CS_POINT_DEFAULT,
-} from "../domain/csBoard.mjs?v=20261105-point1";
+  csShotPoint,
+} from "../domain/csBoard.mjs?v=20261106-remote1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261103-loginmemo1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
@@ -651,6 +652,67 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (!box) return;
     box.innerHTML = live() ? jobsHtml(state.jobs, state.collector) : `<p class="cs-note">${state.sample ? "가상셋팅 중에는 요청을 보내지 않습니다." : "시트 연결 후 보입니다."}</p>`;
     renderProgress();
+    remoteSync();
+  }
+
+  // ---------- 🧩 원격 로그인 (11-06 · 시트 v11 · 웹연결 1.19) ----------
+  //  로그인 요청이 실행 중이면 3초마다 수집기 PC 로그인 창 그림을 확인 → 있으면 작은 창으로 보여 줌
+  //  정답 칸에 넣고 [정답 넣고 로그인] → 수집기 PC가 몇 초 안에 정답 칸에 넣고 [로그인] · 그림을 누르면 그 자리를 수집기 PC 창에서 누름
+  //  퀴즈를 푸는 건 사람 (AI·자동 풀이 없음)
+  const remote = { job: "", at: "", timer: 0, busy: false, closed: new Set() };
+  const remoteJob = () => (live() ? state.jobs.find((j) => j.kind === "login" && j.status === "실행중") : null);
+  function remoteSync() {
+    const job = remoteJob();
+    if (!job) { window.clearInterval(remote.timer); remote.timer = 0; remote.job = ""; const box = $("#cs-remote"); if (box) box.hidden = true; return; }
+    if (remote.job !== job.id) { remote.job = job.id; remote.at = ""; }
+    if (!remote.timer) { remote.timer = window.setInterval(remotePoll, 3000); remotePoll(); }
+  }
+  async function remotePoll() {
+    const job = remoteJob();
+    if (!job) { remoteSync(); return; }
+    if (remote.busy || remote.closed.has(job.id)) return;
+    remote.busy = true;
+    try {
+      const r = await post({ action: "loginShotGet", id: job.id });
+      if (r.shot) showRemote(job, r.shot, r.pending);
+    } catch { /* 옛 시트(v10)면 조용히 */ } finally { remote.busy = false; }
+  }
+  function showRemote(job, shot, pending) {
+    const box = $("#cs-remote");
+    if (!box) return;
+    box.hidden = false;
+    $("#cs-remote-title").textContent = `🧩 원격 로그인 — ${shot.vendor || "로그인"} (수집기 PC 화면)`;
+    const img = $("#cs-remote-img");
+    if (remote.at !== shot.at) { remote.at = shot.at; img.src = shot.image; }
+    const ago = Math.max(0, Math.round((Date.now() - Date.parse(shot.at)) / 1000));
+    $("#cs-remote-state").textContent = `${Number.isFinite(ago) ? `${ago}초 전 화면` : "화면"}${pending ? " · 보낸 것을 수집기 PC가 넣는 중…" : ""}`;
+  }
+  async function remoteSend(extra) {
+    const job = remoteJob();
+    if (!job) { toast("실행 중인 로그인 요청이 없습니다."); return; }
+    try {
+      await post({ action: "loginAnswer", id: job.id, editor: state.editor, ...extra });
+      $("#cs-remote-state").textContent = "보냄 — 수집기 PC가 몇 초 안에 넣습니다";
+      window.setTimeout(remotePoll, 1500);
+    } catch (error) { toast(error.message || "보내지 못했습니다."); }
+  }
+  function bindRemote() {
+    const box = $("#cs-remote");
+    if (!box) return;
+    $("#cs-remote-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = $("#cs-remote-answer");
+      const answer = String(input?.value || "").trim();
+      if (!answer) { toast("퀴즈 정답을 넣어 주세요."); return; }
+      remoteSend({ answer, submit: e.submitter?.dataset?.remoteSubmit !== "0" });
+      input.value = "";
+    });
+    $("#cs-remote-img")?.addEventListener("click", (e) => {
+      const img = e.currentTarget;
+      const pt = csShotPoint(e.offsetX, e.offsetY, img.clientWidth, img.clientHeight, img.naturalWidth, img.naturalHeight);
+      if (pt) remoteSend({ click: pt });
+    });
+    $("#cs-remote-close")?.addEventListener("click", () => { if (remote.job) remote.closed.add(remote.job); box.hidden = true; });
   }
 
   // ---------- 진행 작은 창 (2026-11-04: 수집 중·로그인 중에 화면 오른쪽 아래) ----------
@@ -876,8 +938,10 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   // 🔑 판매자센터 로그인 (2026-11-04: 메인보드 안에 늘 펼쳐 둠 — 창 아님)
   //  고르거나 입력하는 중(loginDirty)에는 다시 그리지 않고 상태 글자만 바꿈
   let loginDirty = false;
+  const loginOpen = new Map();   // 11-06: [자세히]/[접기]로 고른 업체 줄 (업체 → 펼침 여부)
   function openLogin(vendor = "") {
     showLeft("main");
+    if (vendor) loginOpen.set(vendor, true);
     renderLogin({ vendor, force: true });
     const box = $("#cs-login");
     if (box && "open" in box) box.open = true;   // 11-06: 접혀 있으면 펼침
@@ -912,8 +976,16 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       const apiOnly = v === "스마트스토어" && ssApi;
       const done = st.resolved || saved || apiOnly;
       const manual = CS_MANUAL_LOGIN.includes(v);
-      return `<div class="cs-login-row" data-login-row="${escapeHtml(v)}">
-        <label class="cs-check"><input type="checkbox" data-login-pick value="${escapeHtml(v)}"${pick.includes(v) ? " checked" : ""}> <b>${escapeHtml(v)}</b></label>
+      // 11-06: 업체 줄은 평소 한 줄(체크 + 이름 + 짧은 상태) — [자세히]를 누르면 안내·아이디·비밀번호
+      const open = loginOpen.has(v) ? loginOpen.get(v) : pick.includes(v) && !done && !manual && !apiOnly;
+      const mini = apiOnly ? "✓ API" : st.ok === true || saved ? "✓" : st.ok === false ? "⚠ 로그인 필요" : "—";
+      return `<div class="cs-login-row${open ? " is-open" : ""}" data-login-row="${escapeHtml(v)}">
+        <div class="cs-login-head">
+          <label class="cs-check"><input type="checkbox" data-login-pick value="${escapeHtml(v)}"${pick.includes(v) ? " checked" : ""}> <b>${escapeHtml(v)}</b></label>
+          <span class="cs-login-mini${mini.startsWith("⚠") ? " is-bad" : ""}" data-login-mini>${mini}</span>
+          <button type="button" class="cs-login-more" data-login-more="${escapeHtml(v)}" aria-expanded="${open}">${open ? "접기 ▲" : "자세히 ▼"}</button>
+        </div>
+        <div class="cs-login-detail" data-login-detail${open ? "" : " hidden"}>
         <span class="cs-note${st.ok === false && !apiOnly ? " cs-login-bad" : ""}" data-login-state>${apiOnly ? "✓ 문의는 커머스 API 사용 중 (로그인 필요 없음) · 리뷰 수집만 판매자센터 로그인 필요" : escapeHtml(st.changed ? st.note : st.text)}${saved && !manual ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
         ${manual ? `<p class="cs-note" data-login-manual>🙋 <b>자동 한 번 → 막히면 직접 로그인</b> — 수집기 PC에 <b>일반 크롬 창</b>이 뜨고 저장된 아이디·비밀번호로 한 번 로그인해 봅니다. 막히면 그 창에서 평소처럼 직접 로그인(퀴즈·2단계 인증 포함, 최대 5분)하시면, 로그인되는 순간 <b>창은 자동으로 닫힙니다</b>. 수집기 PC 앞에 계실 때 누르세요.</p>` : ""}<details${pick.includes(v) && !done && !manual ? " open" : ""}><summary>새 아이디·비밀번호 넣기${manual ? " (자동 시도용 — 처음 한 번)" : apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
           ${canLock ? `<div class="cs-form cs-login-creds">
@@ -923,6 +995,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
             <label>비밀번호 <input type="password" data-login-pw autocomplete="new-password"></label>
           </div>` : `<p class="cs-note">수집기 PC 웹연결 1.3 이상이 켜져 있어야 비밀번호를 잠가 보낼 수 있습니다.</p>`}
         </details>
+        </div>
       </div>`;
     }).join("");
     loginDirty = !!vendor;
@@ -1697,6 +1770,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     document.addEventListener("keydown", (e) => {   // 카드(전체연결)도 Enter·Space 로
       if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[data-login-grid] [data-conn="all"], .cs-vendor-status[data-pc="conn"]')) { e.preventDefault(); onPcClick(e); }
     });
+    bindRemote();
     $("#cs-login-ok")?.addEventListener("click", submitLogin);
     $("#cs-login-body")?.addEventListener("change", (e) => {   // [부운영자로 로그인] 체크하면 상점 URL 칸 보이기
       if (!e.target.matches?.("[data-login-sub]")) return;
@@ -1712,6 +1786,17 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       keepPick();
     });
     $("#cs-login-body")?.addEventListener("click", (e) => { if (e.target.closest("summary")) loginDirty = true; });
+    $("#cs-login-body")?.addEventListener("click", (e) => {   // 11-06: 업체 줄 [자세히]/[접기] — 다시 그리지 않고 그 자리에서 (입력한 값 유지)
+      const b = e.target.closest("[data-login-more]");
+      if (!b) return;
+      const v = b.dataset.loginMore, row = b.closest("[data-login-row]");
+      const open = !row.classList.contains("is-open");
+      loginOpen.set(v, open);
+      row.classList.toggle("is-open", open);
+      row.querySelector("[data-login-detail]").hidden = !open;
+      b.setAttribute("aria-expanded", String(open));
+      b.textContent = open ? "접기 ▲" : "자세히 ▼";
+    });
     $("#cs-excel-file")?.addEventListener("change", (e) => importExcel(e.target.files?.[0]));
     $("#cs-set-save")?.addEventListener("click", saveSettings);
     $("#cs-update-check")?.addEventListener("click", () => checkUpdate());

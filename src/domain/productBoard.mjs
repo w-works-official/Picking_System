@@ -106,6 +106,8 @@ export function buildProducts(skuRows = [], index = photoIndex([])) {
     products.get(code).options.push({
       sku, option: String(r.sellpia_option_name || "").trim(), ownSku: String(r.own_sku || "").trim(),
       stock: num(r.stock), available: num(r.available_stock), photo: photoFor(sku, code, index),
+      buy: num(r.buy ?? r.raw_payload?.purchase_price), sell: num(r.sell ?? r.raw_payload?.sell_price),   // 11-06: 매입가 · 출고가(판매가)
+      s7: 0, s30: 0, s90: 0, sAll: 0,
     });
   }
   const cmp = (a, b) => String(a).localeCompare(String(b), "en", { numeric: true });
@@ -113,8 +115,107 @@ export function buildProducts(skuRows = [], index = photoIndex([])) {
   for (const p of list) {
     p.options.sort((a, b) => cmp(a.sku, b.sku));
     p.stock = p.options.reduce((s, o) => s + o.stock, 0);
+    // 대표 사진 (상품 단위로 볼 때 한 장): 대표코드 사진 → 없으면 첫 옵션 사진
+    p.rep = index.byStem.get(code_(p.code))?.file || p.options.find((o) => o.photo.file)?.photo.file || "";
   }
   return list;
+}
+const code_ = (c) => String(c || "");
+
+// ---------- 11-06 상품 현황 2: 기간별 출고 · 검색 기준 · 상품/옵션 단위 · 선택 ----------
+export const SALES_PERIODS = [7, 30, 90];
+export const salesKey = (days) => (days === 7 ? "s7" : days === 30 ? "s30" : days === 90 ? "s90" : "sAll");
+
+// 출고 수량을 옵션마다 미리 계산 (7 · 30 · 90 · 전체)
+export function attachSales(products = [], sales = null, today = "") {
+  for (const p of products) for (const o of p.options) {
+    o.s7 = sales ? salesSum(sales, o.sku, 7, today) : 0;
+    o.s30 = sales ? salesSum(sales, o.sku, 30, today) : 0;
+    o.s90 = sales ? salesSum(sales, o.sku, 90, today) : 0;
+    o.sAll = sales ? salesSum(sales, o.sku, 0, today) : 0;
+  }
+  return products;
+}
+
+const hasPhoto = (o) => o.photo.kind === "option" || o.photo.kind === "product";
+const inRange = (v, min, max) => (min === "" || min == null || v >= Number(min)) && (max === "" || max == null || v <= Number(max));
+
+// 옵션들 합계·범위
+export function optionStats(options = []) {
+  const st = { stock: 0, available: 0, s7: 0, s30: 0, s90: 0, sAll: 0, buyMin: 0, buyMax: 0, sellMin: 0, sellMax: 0 };
+  let first = true;
+  for (const o of options) {
+    st.stock += o.stock; st.available += o.available;
+    st.s7 += o.s7; st.s30 += o.s30; st.s90 += o.s90; st.sAll += o.sAll;
+    if (first) { st.buyMin = st.buyMax = o.buy; st.sellMin = st.sellMax = o.sell; first = false; }
+    else { st.buyMin = Math.min(st.buyMin, o.buy); st.buyMax = Math.max(st.buyMax, o.buy); st.sellMin = Math.min(st.sellMin, o.sell); st.sellMax = Math.max(st.sellMax, o.sell); }
+  }
+  return st;
+}
+
+// 검색: f = { cat, q, stockMin, stockMax, photo: all|none|has, days, salesMin, salesMax, unit: option|product, only: Set(sku)|null }
+//  · 재고·사진·출고(옵션 단위) = 옵션마다 거름 / 출고(상품 단위) = 남은 옵션 합계로 거름
+//  · only(선택 모아보기) = 선택한 옵션만 (다른 조건은 무시)
+export function boardView(products = [], f = {}) {
+  const key = salesKey(Number(f.days) || 0);
+  const out = [];
+  for (const p of products) {
+    let options;
+    if (f.only) {
+      options = p.options.filter((o) => f.only.has(o.sku));
+    } else {
+      if (f.cat && f.cat !== "all" && p.category !== f.cat) continue;
+      if (!matchProduct(p, f.q)) continue;
+      options = p.options.filter((o) => inRange(o.stock, f.stockMin, f.stockMax)
+        && (f.photo === "none" ? !hasPhoto(o) : f.photo === "has" ? hasPhoto(o) : true)
+        && (f.unit === "product" || inRange(o[key], f.salesMin, f.salesMax)));
+    }
+    if (!options.length) continue;
+    const stats = optionStats(options);
+    if (!f.only && f.unit === "product" && !inRange(stats[key], f.salesMin, f.salesMax)) continue;
+    out.push({ p, options, stats });
+  }
+  return out;
+}
+
+export function sortView(view = [], sort = "code", days = 30) {
+  const key = salesKey(Number(days) || 0);
+  const by = {
+    sales: (a, b) => b.stats[key] - a.stats[key],
+    salesLow: (a, b) => a.stats[key] - b.stats[key],
+    stockLow: (a, b) => a.stats.stock - b.stats.stock,
+    stockHigh: (a, b) => b.stats.stock - a.stats.stock,
+  }[sort];
+  return by ? [...view].sort(by) : view;
+}
+
+// 한 쪽(페이지) — 상품 단위로 size 개씩
+export function pageOf(view = [], page = 1, size = 100) {
+  const pages = Math.max(1, Math.ceil(view.length / size));
+  const at = Math.min(Math.max(1, page), pages);
+  return { items: view.slice((at - 1) * size, at * size), page: at, pages, total: view.length };
+}
+
+// 선택 상태: 상품(보이는 옵션) 전체 · 일부 · 없음
+export function pickState(options = [], picked = new Set()) {
+  const n = options.filter((o) => picked.has(o.sku)).length;
+  return n === 0 ? "none" : n === options.length ? "all" : "some";
+}
+
+// 선택한 옵션 → 엑셀 줄 (상품코드 순)
+export const PB_EXCEL_COLUMNS = [
+  { title: "사진", width: 12 }, { title: "셀피아코드", width: 12 }, { title: "상품명", width: 40 }, { title: "옵션명", width: 24 },
+  { title: "자사코드", width: 16 }, { title: "대분류", width: 12 }, { title: "재고", width: 8 }, { title: "가용재고", width: 9 },
+  { title: "매입가", width: 9 }, { title: "출고가", width: 9 }, { title: "출고 7일", width: 9 }, { title: "출고 30일", width: 9 }, { title: "출고 90일", width: 9 },
+];
+export function excelRows(products = [], picked = new Set()) {
+  const label = Object.fromEntries(PB_CATEGORIES.map((c) => [c.key, c.label]));
+  const rows = [];
+  for (const p of products) for (const o of p.options) {
+    if (!picked.has(o.sku)) continue;
+    rows.push({ photo: o.photo.file || p.rep || "", cells: ["", o.sku, p.name, o.option, o.ownSku, label[p.category] || "", o.stock, o.available, o.buy, o.sell, o.s7, o.s30, o.s90] });
+  }
+  return rows;
 }
 
 // 검색: 띄어쓰기로 나눈 낱말이 모두 (코드 · 상품명 · 옵션명 · 자사코드) 어딘가에 들어 있으면

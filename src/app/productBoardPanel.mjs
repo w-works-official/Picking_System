@@ -1,8 +1,10 @@
-// 📦 상품 현황 (2026-11-06) — 상품 관리 사이드 메뉴. 셀피아 코드(옵션) 단위로 사진 · 옵션명 · 최근 재고 · 기간별 출고 수량
-//  · 재고·사진 = 운영 허브 DB(sellpia_stock_latest · Storage product-images/sellpia) — 로그인 없이 읽기만
+// 📦 상품 현황 (2026-11-06 · 2차) — 상품 관리 사이드 메뉴. 셀피아 코드(옵션) 단위로 사진 · 옵션명 · 최근 재고 · 매입가 · 출고가 · 7/30/90일 출고
+//  · 재고·사진·가격 = 운영 허브 DB(sellpia_stock_latest · Storage product-images/sellpia) — 로그인 없이 읽기만
 //  · 출고 수량 = 피킹 주문 데이터(orders.receipt_date × order_items.qty) — 이 탭에 피킹 로그인이 있을 때만
+//  · 1열 · 한 쪽에 상품 100개 · 검색 기준(재고 · 사진 · 출고 기간 × 수량) · 옵션 단위 / 상품 단위 · 선택 · 선택 모아보기 · 사진 포함 엑셀
 //  · 읽기 전용: 어디에도 쓰지 않음
-import { PB_CATEGORIES, buildProducts, buildSales, categoryCounts, matchProduct, photoIndex, salesSum } from "../domain/productBoard.mjs?v=20261106-board1";
+import { PB_CATEGORIES, PB_EXCEL_COLUMNS, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261106-board2";
+import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
 
 const HUB_URL = "https://bpgvqmtsjgegnrdzmpep.supabase.co";
 const HUB_KEY = "sb_publishable__NVp6Ra227_e1TQqQE40oA_O2PVwv5C";
@@ -12,11 +14,13 @@ const PICK_SESSION_KEY = "system-v3-picking-session-v1";
 const BUCKET = "product-images";
 const FOLDER = "sellpia";
 const PAGE = 1000;
-const SHOW_STEP = 40;          // 한 번에 보여 줄 상품 수 (더 보기)
+const PAGE_SIZE = 100;          // 한 쪽에 상품 100개 (옵션 수 아님)
 const PERIODS = [{ days: 7, label: "7일" }, { days: 30, label: "30일" }, { days: 90, label: "90일" }, { days: 0, label: "전체" }];
+const THUMB = 80;               // 엑셀 사진 크기(px)
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
+const range = (a, b) => (a === b ? fmt(a) : `${fmt(a)}~${fmt(b)}`);
 export const photoUrl = (file) => `${HUB_URL}/storage/v1/object/public/${BUCKET}/${FOLDER}/${encodeURIComponent(file)}`;
 
 async function pagedRest(fetchImpl, base, path, headers, onPage) {
@@ -53,71 +57,138 @@ async function listPhotos(fetchImpl, onPage) {
 export function mountProductBoard({ document, window, storages = [], fetchImpl = (...a) => window.fetch(...a), today = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10) } = {}) {
   const root = document.querySelector("[data-product-board]");
   if (!root) return null;
-  const st = { products: [], sales: null, salesNote: "", snapshotAt: "", photos: 0, cat: "all", q: "", days: 30, sort: "code", inStock: false, show: SHOW_STEP, loading: false, loaded: false };
+  const st = {
+    products: [], sales: null, salesNote: "", snapshotAt: "", photos: 0, loading: false, loaded: false,
+    cat: "all", q: "", days: 30, sort: "code", unit: "option", stockMin: "", stockMax: "", photo: "all", salesMin: "", salesMax: "",
+    page: 1, picked: new Set(), collect: false, open: new Set(), allOpen: false, busy: false,
+  };
   root.innerHTML = `
     <div class="pb-bar">
       <div class="pb-cats" data-pb-cats></div>
       <div class="pb-tools">
         <input type="search" class="pb-search" data-pb-search placeholder="검색 — 셀피아 코드 · 상품명 · 옵션명 · 자사코드 (띄어쓰기로 여러 낱말)" aria-label="상품 검색">
-        <label>출고 <select data-pb-days>${PERIODS.map((p) => `<option value="${p.days}"${p.days === 30 ? " selected" : ""}>${p.label}</option>`).join("")}</select></label>
-        <label>정렬 <select data-pb-sort><option value="code">코드 순</option><option value="sales">출고 많은 순</option><option value="stockLow">재고 적은 순</option><option value="stockHigh">재고 많은 순</option></select></label>
-        <label class="pb-check"><input type="checkbox" data-pb-instock> 재고 있는 옵션만</label>
+        <span class="pb-seg" role="group" aria-label="표시 방법"><button type="button" data-pb-unit="option" class="is-on">옵션 단위</button><button type="button" data-pb-unit="product">상품 단위</button></span>
+        <label>정렬 <select data-pb-sort><option value="code">코드 순</option><option value="sales">출고 많은 순</option><option value="salesLow">출고 적은 순</option><option value="stockLow">재고 적은 순</option><option value="stockHigh">재고 많은 순</option></select></label>
         <button type="button" class="pb-btn" data-pb-reload>⟳ 새로고침</button>
+      </div>
+      <div class="pb-filters">
+        <label>재고 <input type="number" inputmode="numeric" data-pb-f="stockMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="stockMax" placeholder="최대"></label>
+        <label>사진 <select data-pb-f="photo"><option value="all">전체</option><option value="none">사진 없는 것</option><option value="has">사진 있는 것</option></select></label>
+        <label>출고 기간 <select data-pb-days>${PERIODS.map((p) => `<option value="${p.days}"${p.days === 30 ? " selected" : ""}>${p.label}</option>`).join("")}</select></label>
+        <label>출고 수량 <input type="number" inputmode="numeric" data-pb-f="salesMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="salesMax" placeholder="최대"></label>
+        <button type="button" class="pb-btn pb-btn-mini" data-pb-clear>조건 지우기</button>
+      </div>
+      <div class="pb-pickbar">
+        <label class="pb-check"><input type="checkbox" data-pb-pick-all> <span data-pb-all-label>검색 결과 전체 선택</span></label>
+        <span class="pb-picked" data-pb-picked>선택 0</span>
+        <button type="button" class="pb-btn" data-pb-collect>👁 선택 모아보기</button>
+        <button type="button" class="pb-btn pb-btn-green" data-pb-excel>⬇ 선택 엑셀 (사진 포함)</button>
+        <button type="button" class="pb-btn pb-btn-mini" data-pb-unpick>선택 비우기</button>
+        <span class="cs-flex"></span>
+        <button type="button" class="pb-btn pb-btn-mini" data-pb-openall hidden>옵션 모두 펼치기</button>
       </div>
       <p class="pb-status" data-pb-status>불러오는 중…</p>
     </div>
+    <div class="pb-pager" data-pb-pager="top"></div>
+    <div class="pb-head" data-pb-head></div>
     <div class="pb-list" data-pb-list></div>
-    <div class="pb-more-wrap"><button type="button" class="pb-btn pb-more" data-pb-more hidden>더 보기</button></div>`;
+    <div class="pb-pager" data-pb-pager="bottom"></div>`;
   const $ = (s) => root.querySelector(s);
+  const status = (t, tone = "") => { const el = $("[data-pb-status]"); el.textContent = t; el.className = `pb-status ${tone}`; };
+  const filter = () => ({ cat: st.cat, q: st.q, stockMin: st.stockMin, stockMax: st.stockMax, photo: st.photo, days: st.days, salesMin: st.salesMin, salesMax: st.salesMax, unit: st.unit, only: st.collect ? st.picked : null });
+  const view = () => sortView(boardView(st.products, filter()), st.sort, st.days);
+  const key = () => salesKey(st.days);
+  const sales = (n) => (st.sales ? fmt(n) : "—");
+  const periodCls = (d) => (st.days === d ? " is-period" : "");
 
-  function filtered() {
-    let list = st.products.filter((p) => (st.cat === "all" || p.category === st.cat) && matchProduct(p, st.q));
-    const t = today();
-    const sale = (o) => (st.sales ? salesSum(st.sales, o.sku, st.days, t) : 0);
-    list = list.map((p) => {
-      const options = st.inStock ? p.options.filter((o) => o.stock > 0) : p.options;
-      return { ...p, options, sales: options.reduce((s, o) => s + sale(o), 0), shownStock: options.reduce((s, o) => s + o.stock, 0) };
-    }).filter((p) => p.options.length);
-    if (st.sort === "sales") list.sort((a, b) => b.sales - a.sales);
-    else if (st.sort === "stockLow") list.sort((a, b) => a.shownStock - b.shownStock);
-    else if (st.sort === "stockHigh") list.sort((a, b) => b.shownStock - a.shownStock);
-    return { list, sale };
+  function photoCell(file, kind = "option") {
+    if (file) {
+      const url = photoUrl(file);
+      return `<a class="pb-photo${kind === "product" ? " is-rep" : ""}" href="${esc(url)}" target="_blank" rel="noopener" title="눌러서 크게"><img src="${esc(url)}" alt="" loading="lazy">${kind === "product" ? "<span>대표</span>" : ""}</a>`;
+    }
+    return kind === "missing" ? `<span class="pb-photo is-missing" title="이 상품은 옵션 사진이 있는데 이 옵션만 사진이 없습니다">옵션 사진<br>없음</span>` : `<span class="pb-photo is-none">사진 없음</span>`;
+  }
+  const nums = (x) => `
+    <span class="pb-n">${fmt(x.stock)}${x.available !== x.stock ? `<small>가용 ${fmt(x.available)}</small>` : ""}</span>
+    <span class="pb-n pb-price">${x.buyMin === undefined ? fmt(x.buy) : range(x.buyMin, x.buyMax)}</span>
+    <span class="pb-n pb-price">${x.sellMin === undefined ? fmt(x.sell) : range(x.sellMin, x.sellMax)}</span>
+    <span class="pb-n pb-s${periodCls(7)}">${sales(x.s7)}</span>
+    <span class="pb-n pb-s${periodCls(30)}">${sales(x.s30)}</span>
+    <span class="pb-n pb-s${periodCls(90)}">${sales(x.s90)}</span>`;
+  const optRow = (p, o, withPhoto) => `
+    <div class="pb-row pb-opt${o.stock <= 0 ? " is-zero" : ""}${st.picked.has(o.sku) ? " is-picked" : ""}${withPhoto ? "" : " no-photo"}" data-pb-sku="${esc(o.sku)}">
+      <input type="checkbox" data-pb-pick-sku="${esc(o.sku)}"${st.picked.has(o.sku) ? " checked" : ""} aria-label="${esc(o.sku)} 선택">
+      ${withPhoto ? photoCell(o.photo.file, o.photo.kind) : "<span></span>"}
+      <span class="pb-txt"><b>${esc(o.option || "(옵션 없음)")}</b><small>${esc(o.sku)}${o.ownSku ? ` · ${esc(o.ownSku)}` : ""}</small></span>
+      ${nums(o)}
+    </div>`;
+
+  function renderHead() {
+    $("[data-pb-head]").innerHTML = `<div class="pb-row pb-headrow"><span></span><span>사진</span><span>${st.unit === "product" ? "상품" : "옵션"}</span><span class="pb-n">재고</span><span class="pb-n">매입가</span><span class="pb-n">출고가</span><span class="pb-n${periodCls(7)}">7일</span><span class="pb-n${periodCls(30)}">30일</span><span class="pb-n${periodCls(90)}">90일</span></div>`;
   }
 
-  function photoCell(o) {
-    const k = o.photo.kind;
-    if (k === "option" || k === "product") {
-      const url = photoUrl(o.photo.file);
-      return `<a class="pb-photo${k === "product" ? " is-rep" : ""}" href="${esc(url)}" target="_blank" rel="noopener" title="${k === "product" ? "대표코드 사진" : "옵션 사진"} — 눌러서 크게"><img src="${esc(url)}" alt="${esc(o.sku)}" loading="lazy">${k === "product" ? "<span>대표</span>" : ""}</a>`;
+  function renderPager(pg) {
+    const btn = (n, label = n, on = false) => `<button type="button" data-pb-page="${n}"${on ? ' class="is-on" aria-current="page"' : ""}>${label}</button>`;
+    let html = "";
+    if (pg.pages > 1) {
+      const from = Math.max(1, pg.page - 4), to = Math.min(pg.pages, from + 8);
+      html = `${pg.page > 1 ? btn(pg.page - 1, "◀") : ""}${from > 1 ? `${btn(1)}<span>…</span>` : ""}${Array.from({ length: to - from + 1 }, (_, i) => btn(from + i, from + i, from + i === pg.page)).join("")}${to < pg.pages ? `<span>…</span>${btn(pg.pages)}` : ""}${pg.page < pg.pages ? btn(pg.page + 1, "▶") : ""}`;
     }
-    return k === "missing" ? `<span class="pb-photo is-missing" title="이 상품은 옵션 사진이 있는데 이 옵션만 사진이 없습니다">옵션 사진<br>없음</span>` : `<span class="pb-photo is-none">사진 없음</span>`;
+    root.querySelectorAll("[data-pb-pager]").forEach((el) => { el.innerHTML = html; });
   }
 
   function render() {
     const counts = categoryCounts(st.products);
-    $("[data-pb-cats]").innerHTML = [{ key: "all", label: "전체" }, ...PB_CATEGORIES].map((c) => `<button type="button" class="pb-cat${st.cat === c.key ? " is-on" : ""}" data-pb-cat="${c.key}">${c.label} <small>${fmt(c.key === "all" ? st.products.length : counts[c.key])}</small></button>`).join("");
+    $("[data-pb-cats]").innerHTML = [{ key: "all", label: "전체" }, ...PB_CATEGORIES].map((c) => `<button type="button" class="pb-cat${st.cat === c.key && !st.collect ? " is-on" : ""}" data-pb-cat="${c.key}">${c.label} <small>${fmt(c.key === "all" ? st.products.length : counts[c.key])}</small></button>`).join("");
+    root.querySelectorAll("[data-pb-unit]").forEach((b) => b.classList.toggle("is-on", b.dataset.pbUnit === st.unit));
+    $("[data-pb-openall]").hidden = st.unit !== "product";
+    $("[data-pb-openall]").textContent = st.allOpen ? "옵션 모두 접기" : "옵션 모두 펼치기";
+    $("[data-pb-collect]").classList.toggle("is-on", st.collect);
+    $("[data-pb-collect]").textContent = st.collect ? "← 검색 결과로" : "👁 선택 모아보기";
+    renderHead();
     if (!st.loaded) return;
-    const { list, sale } = filtered();
-    const periodLabel = PERIODS.find((p) => p.days === st.days)?.label || "";
-    $("[data-pb-list]").innerHTML = list.length ? list.slice(0, st.show).map((p) => `
-      <article class="pb-product" data-pb-product="${esc(p.code)}">
-        <header><b class="pb-code">${esc(p.code)}</b><span class="pb-name">${esc(p.name)}</span><span class="pb-tag pb-tag-${p.category}">${esc(PB_CATEGORIES.find((c) => c.key === p.category)?.label || "")}</span><span class="pb-sum">재고 <b>${fmt(p.shownStock)}</b>${st.sales ? ` · 출고(${periodLabel}) <b>${fmt(p.sales)}</b>` : ""}</span></header>
-        <div class="pb-options">${p.options.map((o) => `
-          <div class="pb-opt${o.stock <= 0 ? " is-zero" : ""}" data-pb-sku="${esc(o.sku)}">
-            ${photoCell(o)}
-            <div class="pb-opt-text"><b>${esc(o.option || "(옵션 없음)")}</b><small>${esc(o.sku)}${o.ownSku ? ` · ${esc(o.ownSku)}` : ""}</small></div>
-            <div class="pb-num"><small>재고</small><b>${fmt(o.stock)}</b>${o.available !== o.stock ? `<small>가용 ${fmt(o.available)}</small>` : ""}</div>
-            <div class="pb-num pb-sales"><small>출고 ${esc(periodLabel)}</small><b>${st.sales ? fmt(sale(o)) : "—"}</b></div>
-          </div>`).join("")}
-        </div>
-      </article>`).join("") : `<p class="pb-empty">맞는 상품이 없습니다.</p>`;
-    const more = $("[data-pb-more]");
-    more.hidden = list.length <= st.show;
-    more.textContent = `더 보기 (${fmt(Math.min(st.show, list.length))} / ${fmt(list.length)}개 상품)`;
-    status(`${st.snapshotAt ? `셀피아 재고 ${st.snapshotAt} 기준` : "셀피아 재고"} · 상품 ${fmt(list.length)}개 / 전체 ${fmt(st.products.length)} · 사진 ${fmt(st.photos)}장 · 출고: ${st.salesNote}`);
+    const v = view();
+    const pg = pageOf(v, st.page, PAGE_SIZE);
+    st.page = pg.page;
+    const tagOf = (p) => PB_CATEGORIES.find((c) => c.key === p.category)?.label || "";
+    const html = pg.items.map(({ p, options, stats }) => {
+      const ps = pickState(options, st.picked);
+      const head = `<input type="checkbox" data-pb-pick-product="${esc(p.code)}"${ps === "all" ? " checked" : ""} data-some="${ps === "some" ? 1 : 0}" aria-label="${esc(p.code)} 상품 선택">`;
+      if (st.unit === "product") {
+        const open = st.allOpen || st.open.has(p.code);
+        return `<article class="pb-product pb-unit-product${ps !== "none" ? " is-picked" : ""}" data-pb-product="${esc(p.code)}">
+          <div class="pb-row pb-prow">
+            ${head}
+            ${photoCell(p.rep, p.rep ? "option" : "none")}
+            <span class="pb-txt"><b><span class="pb-code">${esc(p.code)}</span> ${esc(p.name)}</b><small><span class="pb-tag pb-tag-${p.category}">${esc(tagOf(p))}</span> 옵션 ${fmt(options.length)}${options.length !== p.options.length ? ` / ${fmt(p.options.length)}` : ""} <button type="button" class="pb-toggle" data-pb-toggle="${esc(p.code)}" aria-expanded="${open}">${open ? "접기 ▲" : "펼치기 ▼"}</button></small></span>
+            ${nums(stats)}
+          </div>
+          ${open ? `<div class="pb-options">${options.map((o) => optRow(p, o, false)).join("")}</div>` : ""}
+        </article>`;
+      }
+      return `<article class="pb-product${ps !== "none" ? " is-picked" : ""}" data-pb-product="${esc(p.code)}">
+        <header class="pb-phead">${head}<b class="pb-code">${esc(p.code)}</b><span class="pb-name">${esc(p.name)}</span><span class="pb-tag pb-tag-${p.category}">${esc(tagOf(p))}</span><span class="pb-sum">재고 <b>${fmt(stats.stock)}</b> · 7일 <b>${sales(stats.s7)}</b> · 30일 <b>${sales(stats.s30)}</b> · 90일 <b>${sales(stats.s90)}</b></span></header>
+        <div class="pb-options">${options.map((o) => optRow(p, o, true)).join("")}</div>
+      </article>`;
+    }).join("");
+    $("[data-pb-list]").innerHTML = html || `<p class="pb-empty">${st.collect ? "선택한 상품이 없습니다 — 체크박스로 고른 뒤 [👁 선택 모아보기]" : "맞는 상품이 없습니다."}</p>`;
+    root.querySelectorAll('[data-some="1"]').forEach((el) => { el.indeterminate = true; });
+    renderPager(pg);
+    // 선택 표시
+    const optCount = v.reduce((s, x) => s + x.options.length, 0);
+    const pickedIn = v.reduce((s, x) => s + x.options.filter((o) => st.picked.has(o.sku)).length, 0);
+    const all = $("[data-pb-pick-all]");
+    all.checked = optCount > 0 && pickedIn === optCount;
+    all.indeterminate = pickedIn > 0 && pickedIn < optCount;
+    $("[data-pb-all-label]").textContent = `${st.collect ? "모아보기" : "검색 결과"} 전체 선택 (${fmt(v.length)}상품 · ${fmt(optCount)}옵션)`;
+    const pickedProducts = new Set();
+    for (const p of st.products) if (p.options.some((o) => st.picked.has(o.sku))) pickedProducts.add(p.code);
+    $("[data-pb-picked]").textContent = `선택 ${fmt(st.picked.size)}옵션 · ${fmt(pickedProducts.size)}상품`;
+    $("[data-pb-excel]").disabled = !st.picked.size || st.busy;
+    $("[data-pb-unpick]").disabled = !st.picked.size;
+    $("[data-pb-collect]").disabled = !st.picked.size && !st.collect;
+    if (!st.busy) status(`${st.collect ? "👁 선택 모아보기 · " : ""}${st.snapshotAt ? `셀피아 재고 ${st.snapshotAt} 기준` : "셀피아 재고"} · 상품 ${fmt(v.length)}개 (${fmt(pg.page)}/${fmt(pg.pages)}쪽, 한 쪽 ${PAGE_SIZE}개) / 전체 ${fmt(st.products.length)} · 사진 ${fmt(st.photos)}장 · 출고: ${st.salesNote}`);
   }
-
-  const status = (t, tone = "") => { const el = $("[data-pb-status]"); el.textContent = t; el.className = `pb-status ${tone}`; };
 
   async function loadSales() {
     // 피킹 로그인은 탭마다(sessionStorage) — 피킹시스템에서 로그인한 그 탭에서 [상품 관리]로 넘어오면 출고가 보임
@@ -136,6 +207,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
       st.sales = null;
       st.salesNote = error.auth ? "피킹 로그인이 만료됐습니다 — 피킹시스템에서 다시 로그인" : `출고 수량을 못 읽음 (${error.message})`;
     }
+    attachSales(st.products, st.sales, today());
   }
 
   async function load() {
@@ -146,7 +218,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
       const hub = { apikey: HUB_KEY, Authorization: `Bearer ${HUB_KEY}` };
       status("셀피아 재고 불러오는 중…");
       const [rows, names] = await Promise.all([
-        pagedRest(fetchImpl, HUB_URL, "sellpia_stock_latest?select=sellpia_sku_code,sellpia_product_code,sellpia_product_name,sellpia_option_name,own_sku,stock,available_stock,snapshot_created_at&order=sellpia_sku_code.asc", hub, (n) => status(`셀피아 재고 불러오는 중… ${fmt(n)}줄`)),
+        pagedRest(fetchImpl, HUB_URL, "sellpia_stock_latest?select=sellpia_sku_code,sellpia_product_code,sellpia_product_name,sellpia_option_name,own_sku,stock,available_stock,snapshot_created_at,buy:raw_payload->>purchase_price,sell:raw_payload->>sell_price&order=sellpia_sku_code.asc", hub, (n) => status(`셀피아 재고 불러오는 중… ${fmt(n)}줄`)),
         listPhotos(fetchImpl),
       ]);
       const at = rows.find((r) => r.snapshot_created_at)?.snapshot_created_at;
@@ -165,20 +237,104 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     }
   }
 
+  // ---------- 선택 → 엑셀 (사진 포함) ----------
+  async function thumb(file) {
+    try {
+      const res = await fetchImpl(photoUrl(file));
+      if (!res.ok) return null;
+      const bmp = await window.createImageBitmap(await res.blob());
+      const k = Math.min(THUMB / bmp.width, THUMB / bmp.height, 1);
+      const w = Math.max(1, Math.round(bmp.width * k)), h = Math.max(1, Math.round(bmp.height * k));
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      const g = c.getContext("2d");
+      g.fillStyle = "#ffffff"; g.fillRect(0, 0, w, h);
+      g.drawImage(bmp, 0, 0, w, h);
+      const blob = await new Promise((r) => c.toBlob(r, "image/jpeg", 0.85));
+      return blob ? { data: new Uint8Array(await blob.arrayBuffer()), w, h } : null;
+    } catch { return null; }
+  }
+  async function exportExcel() {
+    const rows = excelRows(st.products, st.picked);
+    if (!rows.length || st.busy) return;
+    if (rows.length > 3000 && !window.confirm(`${fmt(rows.length)}줄 — 사진까지 넣으면 몇 분 걸릴 수 있습니다. 계속할까요?`)) return;
+    st.busy = true; render();
+    try {
+      const images = [];
+      const cache = new Map();
+      let done = 0;
+      const jobs = rows.map((r, i) => async () => {
+        if (r.photo) {
+          if (!cache.has(r.photo)) cache.set(r.photo, thumb(r.photo));
+          const t = await cache.get(r.photo);
+          if (t) images.push({ row: i, col: 0, data: t.data, ext: "jpeg", w: t.w, h: t.h });
+        }
+        done += 1;
+        if (done % 20 === 0) status(`엑셀 만드는 중… 사진 ${fmt(done)} / ${fmt(rows.length)}`);
+      });
+      for (let i = 0; i < jobs.length; i += 8) await Promise.all(jobs.slice(i, i + 8).map((j) => j()));
+      images.sort((a, b) => a.row - b.row);
+      const bytes = buildXlsx({ sheetName: "선택 상품", columns: PB_EXCEL_COLUMNS, rows: rows.map((r) => r.cells), images, rowHeightPx: THUMB + 8 });
+      const stamp = new Date(Date.now() + 9 * 3600000).toISOString().slice(2, 16).replace(/[-T:]/g, "").replace(/^(\d{6})(\d{4})$/, "$1_$2");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      a.download = `상품현황_선택_${stamp}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+      status(`엑셀 내려받기: ${fmt(rows.length)}옵션 · 사진 ${fmt(images.length)}장 — ${a.download} (브라우저 다운로드 폴더)`, "is-ok");
+    } catch (error) {
+      status(`엑셀을 만들지 못했습니다: ${error?.message || error}`, "is-bad");
+    } finally {
+      st.busy = false;
+      const keep = $("[data-pb-status]").textContent;
+      render();
+      status(keep, "is-ok");
+    }
+  }
+
+  // ---------- 이벤트 ----------
+  const reset = () => { st.page = 1; render(); };
   let timer = 0;
   root.addEventListener("input", (e) => {
-    if (e.target.matches("[data-pb-search]")) { window.clearTimeout(timer); timer = window.setTimeout(() => { st.q = e.target.value; st.show = SHOW_STEP; render(); }, 250); }
+    if (e.target.matches("[data-pb-search]")) { window.clearTimeout(timer); timer = window.setTimeout(() => { st.q = e.target.value; reset(); }, 250); return; }
+    const f = e.target.dataset.pbF;
+    if (f && e.target.type === "number") { window.clearTimeout(timer); timer = window.setTimeout(() => { st[f] = e.target.value.trim(); reset(); }, 300); }
   });
   root.addEventListener("change", (e) => {
-    if (e.target.matches("[data-pb-days]")) { st.days = Number(e.target.value) || 0; render(); }
-    else if (e.target.matches("[data-pb-sort]")) { st.sort = e.target.value; st.show = SHOW_STEP; render(); }
-    else if (e.target.matches("[data-pb-instock]")) { st.inStock = e.target.checked; st.show = SHOW_STEP; render(); }
+    const t = e.target;
+    if (t.matches("[data-pb-days]")) { st.days = Number(t.value) || 0; reset(); }
+    else if (t.matches("[data-pb-sort]")) { st.sort = t.value; reset(); }
+    else if (t.dataset.pbF === "photo") { st.photo = t.value; reset(); }
+    else if (t.matches("[data-pb-pick-sku]")) {
+      if (t.checked) st.picked.add(t.dataset.pbPickSku); else st.picked.delete(t.dataset.pbPickSku);
+      render();
+    } else if (t.matches("[data-pb-pick-product]")) {
+      const item = view().find((x) => x.p.code === t.dataset.pbPickProduct);
+      if (item) for (const o of item.options) { if (t.checked) st.picked.add(o.sku); else st.picked.delete(o.sku); }
+      render();
+    } else if (t.matches("[data-pb-pick-all]")) {
+      for (const x of view()) for (const o of x.options) { if (t.checked) st.picked.add(o.sku); else st.picked.delete(o.sku); }
+      if (!st.picked.size) st.collect = false;
+      render();
+    }
   });
   root.addEventListener("click", (e) => {
-    const c = e.target.closest("[data-pb-cat]");
-    if (c) { st.cat = c.dataset.pbCat; st.show = SHOW_STEP; render(); return; }
-    if (e.target.closest("[data-pb-more]")) { st.show += SHOW_STEP; render(); return; }
-    if (e.target.closest("[data-pb-reload]")) load();
+    const b = e.target.closest("button");
+    if (!b || b.disabled) return;
+    if (b.dataset.pbCat) { st.cat = b.dataset.pbCat; st.collect = false; reset(); }
+    else if (b.dataset.pbUnit) { st.unit = b.dataset.pbUnit; reset(); }
+    else if (b.dataset.pbPage) { st.page = Number(b.dataset.pbPage) || 1; render(); $("[data-pb-head]").scrollIntoView?.({ block: "start" }); }
+    else if (b.dataset.pbToggle) { const c = b.dataset.pbToggle; if (st.open.has(c)) st.open.delete(c); else st.open.add(c); if (st.allOpen) { st.allOpen = false; st.open = new Set(view().map((x) => x.p.code).filter((x) => x !== c)); } render(); }
+    else if (b.matches("[data-pb-openall]")) { st.allOpen = !st.allOpen; st.open.clear(); render(); }
+    else if (b.matches("[data-pb-collect]")) { st.collect = !st.collect; reset(); }
+    else if (b.matches("[data-pb-unpick]")) { st.picked.clear(); st.collect = false; render(); }
+    else if (b.matches("[data-pb-excel]")) exportExcel();
+    else if (b.matches("[data-pb-clear]")) {
+      Object.assign(st, { stockMin: "", stockMax: "", photo: "all", salesMin: "", salesMax: "", q: "" });
+      root.querySelectorAll("[data-pb-f]").forEach((el) => { el.value = el.tagName === "SELECT" ? "all" : ""; });
+      $("[data-pb-search]").value = "";
+      reset();
+    } else if (b.matches("[data-pb-reload]")) { st.loaded = false; load(); }
   });
   render();
   // 상품 현황 탭을 처음 열 때 불러옴 (다른 탭만 쓰면 안 읽음)
@@ -186,7 +342,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
   const maybeLoad = () => { if (!st.loaded && !st.loading && panel && !panel.hidden) load(); };
   maybeLoad();
   if (panel && window.MutationObserver) new window.MutationObserver(maybeLoad).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
-  return { state: st, load, render };
+  return { state: st, load, render, exportExcel };
 }
 
 if (typeof document !== "undefined" && document.querySelector("[data-product-board]")) {

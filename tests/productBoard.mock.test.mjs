@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { PB_CATEGORIES, PB_EXCEL_COLUMNS, attachSales, boardView, buildProducts, buildSales, categoryCounts, categoryOf, excelRows, matchProduct, optionStats, pageOf, photoFor, photoIndex, pickState, salesKey, salesSum, sortView } from "../src/domain/productBoard.mjs";
+import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, attachSales, boardView, buildProducts, buildSales, categoryCounts, categoryOf, excelRows, matchProduct, optionStats, pageOf, photoFor, photoIndex, pickState, salesKey, salesSum, sortView } from "../src/domain/productBoard.mjs";
 import { buildXlsx, colName, crc32, zipStore } from "../src/domain/xlsxWriter.mjs";
 import { zipEntries } from "../src/domain/orderSheet.mjs";
 
 // 대분류 (상품명 글자) — 14K 먼저, 써지컬, 실버(귀걸이 아님), 귀걸이, 나머지
-assert.deepEqual(PB_CATEGORIES.map((c) => c.label), ["써지컬 피어싱", "14K 피어싱", "실버 피어싱", "귀걸이", "나머지"]);
+assert.deepEqual(PB_CATEGORIES.map((c) => c.label), ["써지컬 피어싱", "14K 피어싱", "실버 피어싱", "귀걸이", "나머지", "단종"]);
 assert.equal(categoryOf("14K 써지컬 볼 피어싱"), "k14");
 assert.equal(categoryOf("써지컬 스틸 링 피어싱"), "surgical");
 assert.equal(categoryOf("서지컬 하트"), "surgical");
@@ -41,7 +41,7 @@ assert.equal(products[1].category, "surgical");
 assert.equal(products[1].options[0].photo.kind, "option");
 assert.equal(products[1].options[1].photo.kind, "missing");
 assert.equal(products[1].options[1].ownSku, "A10");
-assert.deepEqual(categoryCounts(products), { surgical: 1, k14: 1, silver: 0, earring: 0, etc: 0 });
+assert.deepEqual(categoryCounts(products), { surgical: 1, k14: 1, silver: 0, earring: 0, etc: 0, disc: 0 });
 
 // 검색: 낱말 모두
 assert.ok(matchProduct(products[1], "써지컬 10mm"));
@@ -109,6 +109,22 @@ assert.equal(pickState(ps[0].options, new Set(["1000-1", "1000-2", "1000-3"])), 
 const ex = excelRows(ps, new Set(["2000-1", "1000-3"]));
 assert.deepEqual(ex.map((r) => [r.photo, ...r.cells.slice(1, 4), r.cells[8], r.cells[9], r.cells[11]]), [["1000-1.jpg", "1000-3", "써지컬 링", "10mm", 900, 2700, 0], ["2000.jpg", "2000-1", "14K 볼", "골드", 5000, 15000, 1]], "사진 없는 옵션은 대표 사진");
 assert.equal(ex[0].cells.length, PB_EXCEL_COLUMNS.length);
+// 11-06 단종: 옵션만 단종 → 상품은 그대로(옵션만 회색) · 옵션 모두 단종 → 상품 단종 → [단종] 카테고리, 일반 검색에서 빠짐
+applyDisc(ps, new Set(["1000-1"]));
+assert.deepEqual([ps[0].disc, ps[0].options.map((o) => o.disc)], [false, [true, false, false]], "옵션만 단종");
+assert.deepEqual(boardView(ps, {}).map((x) => x.p.code), ["1000", "2000"], "옵션 단종은 그대로 보임 (회색)");
+applyDisc(ps, new Set(["2000-1"]));
+assert.equal(ps[1].disc, true, "옵션이 모두 단종 → 상품 단종");
+assert.deepEqual(categoryCounts(ps), { surgical: 1, k14: 0, silver: 0, earring: 0, etc: 0, disc: 1 }, "단종 카테고리로 옮겨 셈");
+assert.deepEqual(boardView(ps, {}).map((x) => x.p.code), ["1000"], "기본 = 단종 미포함");
+assert.deepEqual(boardView(ps, { cat: "k14" }).map((x) => x.p.code), [], "원래 카테고리에서도 빠짐");
+assert.deepEqual(boardView(ps, { disc: "include" }).map((x) => x.p.code), ["1000", "2000"], "단종 포함");
+assert.deepEqual(boardView(ps, { cat: "k14", disc: "include" }).map((x) => x.p.code), ["2000"]);
+assert.deepEqual(boardView(ps, { cat: "disc" }).map((x) => x.p.code), ["2000"], "[단종] 카테고리 = 단종 상품만");
+assert.deepEqual(boardView(ps, { only: new Set(["2000-1"]) }).map((x) => x.p.code), ["2000"], "모아보기는 단종도");
+assert.match(excelRows(ps, new Set(["2000-1"]))[0].cells[3], /\(단종\)$/);
+applyDisc(ps, new Set());
+
 // xlsx 쓰기 (사진 포함) — zip 이 맞게 읽힘
 assert.equal(crc32(new TextEncoder().encode("123456789")), 0xcbf43926, "crc32");
 assert.deepEqual([colName(0), colName(25), colName(26), colName(27)], ["A", "Z", "AA", "AB"]);

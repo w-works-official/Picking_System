@@ -19,6 +19,9 @@ export function fakeSheet(name = "시트1") {
     getRange(row, col, rows = 1, cols = 1) {
       return {
         getValues: () => data.slice(row - 1, row - 1 + rows).map((r) => Array.from({ length: cols }, (_, i) => r[col - 1 + i] ?? "")),
+        getDisplayValues: () => data.slice(row - 1, row - 1 + rows).map((r) => Array.from({ length: cols }, (_, i) => String(r[col - 1 + i] ?? ""))),
+        clearContent() { for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (data[row - 1 + r]) data[row - 1 + r][col - 1 + c] = ""; },
+        setNumberFormat() {},
         setValues(values) { sheetObj.writes++; values.forEach((vals, r) => { data[row - 1 + r] ||= []; vals.forEach((v, c) => { data[row - 1 + r][col - 1 + c] = strip(v); }); }); },
         getValue: () => data[row - 1]?.[col - 1] ?? "",
         setValue: (v) => { data[row - 1][col - 1] = strip(v); },

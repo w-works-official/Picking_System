@@ -11,6 +11,7 @@ export const PB_CATEGORIES = [
   { key: "silver", label: "실버 피어싱" },
   { key: "earring", label: "귀걸이" },
   { key: "etc", label: "나머지" },
+  { key: "disc", label: "단종" },       // 11-06: 옵션이 모두 단종된 상품 (일반 검색에서 빠짐)
 ];
 
 const PHOTO_SUFFIXES = [".__priority", ".__group", ".__range"];
@@ -153,7 +154,7 @@ export function optionStats(options = []) {
   return st;
 }
 
-// 검색: f = { cat, q, stockMin, stockMax, photo: all|none|has, days, salesMin, salesMax, unit: option|product, only: Set(sku)|null }
+// 검색: f = { cat, q, stockMin, stockMax, photo: all|none|has, days, salesMin, salesMax, unit: option|product, only: Set(sku)|null, disc: exclude|include }
 //  · 재고·사진·출고(옵션 단위) = 옵션마다 거름 / 출고(상품 단위) = 남은 옵션 합계로 거름
 //  · only(선택 모아보기) = 선택한 옵션만 (다른 조건은 무시)
 export function boardView(products = [], f = {}) {
@@ -164,7 +165,10 @@ export function boardView(products = [], f = {}) {
     if (f.only) {
       options = p.options.filter((o) => f.only.has(o.sku));
     } else {
-      if (f.cat && f.cat !== "all" && p.category !== f.cat) continue;
+      // 단종 상품: [단종] 카테고리에서만, 또는 '단종 포함'일 때 (기본 = 미포함)
+      if (f.cat === "disc") { if (!p.disc) continue; }
+      else if (p.disc && f.disc !== "include") continue;
+      if (f.cat && f.cat !== "all" && f.cat !== "disc" && p.category !== f.cat) continue;
       if (!matchProduct(p, f.q)) continue;
       options = p.options.filter((o) => inRange(o.stock, f.stockMin, f.stockMax)
         && (f.photo === "none" ? !hasPhoto(o) : f.photo === "has" ? hasPhoto(o) : true)
@@ -213,7 +217,7 @@ export function excelRows(products = [], picked = new Set()) {
   const rows = [];
   for (const p of products) for (const o of p.options) {
     if (!picked.has(o.sku)) continue;
-    rows.push({ photo: o.photo.file || p.rep || "", cells: ["", o.sku, p.name, o.option, o.ownSku, label[p.category] || "", o.stock, o.available, o.buy, o.sell, o.s7, o.s30, o.s90] });
+    rows.push({ photo: o.photo.file || p.rep || "", cells: ["", o.sku, p.name, o.option + (o.disc ? " (단종)" : ""), o.ownSku, label[p.category] || "", o.stock, o.available, o.buy, o.sell, o.s7, o.s30, o.s90] });
   }
   return rows;
 }
@@ -228,6 +232,15 @@ export function matchProduct(p, query = "") {
 
 export function categoryCounts(products = []) {
   const out = Object.fromEntries(PB_CATEGORIES.map((c) => [c.key, 0]));
-  for (const p of products) out[p.category] = (out[p.category] || 0) + 1;
+  for (const p of products) { const k = p.disc ? "disc" : p.category; out[k] = (out[k] || 0) + 1; }
   return out;
+}
+
+// 11-06 단종: 옵션 단종 = 단종 목록에 있는 셀피아 코드 · 상품 단종 = 옵션이 모두 단종 → 단종 카테고리로
+export function applyDisc(products = [], disc = new Set()) {
+  for (const p of products) {
+    for (const o of p.options) o.disc = disc.has(o.sku);
+    p.disc = p.options.length > 0 && p.options.every((o) => o.disc);
+  }
+  return products;
 }

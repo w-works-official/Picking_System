@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -38,6 +38,7 @@
  */
 var SHEET_NAME = 'CS문의';
 var JOB_SHEET = '요청';
+var DISC_SHEET = '단종';   // v12: 상품 현황 단종 옵션 (셀피아 코드 · 단종일시 · 처리자)
 var HEADER = ['키', '업체', '게시판', '문의ID', '문의시각', '상품명', '상태', '문의', '답변안', '선택', '버전', '수정자', '수정시각', '수집시각', '종료', '등록'];
 var COL = { key: 1, vendor: 2, board: 3, id: 4, date: 5, product: 6, status: 7, inquiry: 8, drafts: 9, choice: 10, version: 11, editor: 12, editedAt: 13, collectedAt: 14, closed: 15, reg: 16 };
 var JOB_HEADER = ['ID', '종류', '상태', '요청자', '요청시각', '시작시각', '끝시각', '내용', '결과', 'PC'];
@@ -121,7 +122,7 @@ function 처음설정() {
 
 function doGet(e) {
   // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 11 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 12 });
 }
 
 function doPost(e) {
@@ -198,7 +199,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -216,6 +217,8 @@ function route_(body) {
   if (action === 'name') return name_(body);
   if (action === 'msnSuggest') return msnSuggest_(body);
   if (action === 'point') return withLock_(function () { return point_(body); });
+  if (action === 'discList') return discList_();
+  if (action === 'discSet') return withLock_(function () { return discSet_(body); });
   if (action === 'loginShotGet') return loginShotGet_(body);
   if (action === 'loginAnswer') return loginAnswer_(body);
   if (action === 'loginShot') return loginShot_(body);
@@ -1351,4 +1354,65 @@ function loginAnswer_(body) {
   }
   CacheService.getScriptCache().put('la_' + id, JSON.stringify(answer), REMOTE_TTL);
   return { ok: true };
+}
+
+
+// ---------- 상품 현황 단종 (v12, 2026-11-06) ----------
+// '단종' 탭: A 셀피아 코드(옵션) · B 단종일시 · C 처리자. 상품 단종 = 그 상품의 옵션이 모두 단종 (화면이 계산)
+function discSheet_() {
+  var book = book_();
+  var sheet = book.getSheetByName(DISC_SHEET);
+  if (!sheet) {
+    sheet = book.insertSheet(DISC_SHEET);
+    sheet.getRange(1, 1, 1, 3).setValues([['셀피아코드', '단종일시', '처리자']]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+function discSku_(v) {
+  var s = String(v == null ? '' : v).trim();
+  return /^[0-9A-Za-z][0-9A-Za-z_.-]{0,39}$/.test(s) ? s : '';
+}
+function discList_() {
+  var sheet = discSheet_();
+  var n = sheet.getLastRow() - 1;
+  if (n <= 0) return { ok: true, skus: [] };
+  var rows = sheet.getRange(2, 1, n, 3).getDisplayValues();
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var sku = discSku_(rows[i][0]);
+    if (sku) out.push({ sku: sku, at: String(rows[i][1] || ''), editor: String(rows[i][2] || '') });
+  }
+  return { ok: true, skus: out };
+}
+// on = true → 단종 추가 (이미 있으면 그대로) · on = false → 단종 해제 (줄 지움)
+function discSet_(body) {
+  var list = Array.isArray(body.skus) ? body.skus : [];
+  var want = {};
+  var count = 0;
+  for (var i = 0; i < list.length && count < 5000; i++) { var k = discSku_(list[i]); if (k && !want[k]) { want[k] = true; count++; } }
+  if (!count) return { ok: false, error: '고른 옵션이 없습니다.' };
+  var on = body.on !== false;
+  var sheet = discSheet_();
+  var n = sheet.getLastRow() - 1;
+  var rows = n > 0 ? sheet.getRange(2, 1, n, 3).getValues() : [];
+  var keep = [], had = {}, changed = 0;
+  for (var r = 0; r < rows.length; r++) {
+    var sku = discSku_(rows[r][0]);
+    if (!sku || had[sku]) continue;
+    had[sku] = true;
+    if (!on && want[sku]) { changed++; continue; }
+    keep.push([sku, rows[r][1], rows[r][2]]);
+  }
+  if (on) {
+    var stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+    var editor = plain_(clean_(body.editor, 20));
+    Object.keys(want).forEach(function (k) { if (!had[k]) { keep.push([k, stamp, editor]); changed++; } });
+  }
+  if (n > 0) sheet.getRange(2, 1, n, 3).clearContent();
+  if (keep.length) {
+    sheet.getRange(2, 1, keep.length, 1).setNumberFormat('@');
+    sheet.getRange(2, 1, keep.length, 3).setValues(keep);
+  }
+  return { ok: true, changed: changed, total: keep.length };
 }

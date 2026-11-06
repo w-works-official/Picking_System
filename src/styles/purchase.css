@@ -911,3 +911,14 @@ body.purchase-workspace {
   .pb-price { visibility: hidden; }
   .pb-photo { width: 52px; height: 52px; }
 }
+
+/* 11-06 단종: 옵션 회색 · 단종 상품 회색 · 단종 카테고리 칩 */
+.pb-opt.is-disc { background: #f3f4f6; color: #9ca3af; }
+.pb-opt.is-disc .pb-photo { filter: grayscale(1); opacity: .5; }
+.pb-opt.is-disc .pb-n, .pb-opt.is-disc .pb-txt b { color: #9ca3af; }
+.pb-product.is-disc { background: #f3f4f6; }
+.pb-product.is-disc .pb-phead, .pb-product.is-disc .pb-prow { background: #e5e7eb; color: #6b7280; }
+.pb-disc-tag { font-style: normal; padding: 0 6px; border-radius: 4px; background: #6b7280; color: #fff; font-size: 11px; font-weight: 800; }
+.pb-btn-disc { border-color: #6b7280; color: #374151; }
+.pb-cat[data-pb-cat="disc"] { background: #f3f4f6; color: #6b7280; }
+.pb-cat[data-pb-cat="disc"].is-on { background: #6b7280; border-color: #6b7280; color: #fff; }

@@ -3,7 +3,8 @@
 //  · 출고 수량 = 피킹 주문 데이터(orders.receipt_date × order_items.qty) — 이 탭에 피킹 로그인이 있을 때만
 //  · 1열 · 한 쪽에 상품 100개 · 검색 기준(재고 · 사진 · 출고 기간 × 수량) · 옵션 단위 / 상품 단위 · 선택 · 선택 모아보기 · 사진 포함 엑셀
 //  · 읽기 전용: 어디에도 쓰지 않음
-import { PB_CATEGORIES, PB_EXCEL_COLUMNS, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261106-board2";
+import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261106-remote1";
+import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261106-disc1";
 import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
 
 const HUB_URL = "https://bpgvqmtsjgegnrdzmpep.supabase.co";
@@ -61,6 +62,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     products: [], sales: null, salesNote: "", snapshotAt: "", photos: 0, loading: false, loaded: false,
     cat: "all", q: "", days: 30, sort: "code", unit: "option", stockMin: "", stockMax: "", photo: "all", salesMin: "", salesMax: "",
     page: 1, picked: new Set(), collect: false, open: new Set(), allOpen: false, busy: false,
+    discMode: "exclude", disc: new Set(), discNote: "",   // 11-06 단종 (CS 시트 '단종' 탭)
   };
   root.innerHTML = `
     <div class="pb-bar">
@@ -76,6 +78,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
         <label>사진 <select data-pb-f="photo"><option value="all">전체</option><option value="none">사진 없는 것</option><option value="has">사진 있는 것</option></select></label>
         <label>출고 기간 <select data-pb-days>${PERIODS.map((p) => `<option value="${p.days}"${p.days === 30 ? " selected" : ""}>${p.label}</option>`).join("")}</select></label>
         <label>출고 수량 <input type="number" inputmode="numeric" data-pb-f="salesMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="salesMax" placeholder="최대"></label>
+        <label>단종 <select data-pb-disc><option value="exclude">미포함</option><option value="include">포함</option></select></label>
         <button type="button" class="pb-btn pb-btn-mini" data-pb-clear>조건 지우기</button>
       </div>
       <div class="pb-pickbar">
@@ -84,6 +87,8 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
         <button type="button" class="pb-btn" data-pb-collect>👁 선택 모아보기</button>
         <button type="button" class="pb-btn pb-btn-green" data-pb-excel>⬇ 선택 엑셀 (사진 포함)</button>
         <button type="button" class="pb-btn pb-btn-mini" data-pb-unpick>선택 비우기</button>
+        <button type="button" class="pb-btn pb-btn-disc" data-pb-disc-act="on" title="고른 옵션을 단종 처리 — 상품의 옵션이 모두 단종이면 상품이 [단종] 카테고리로">⛔ 단종 처리</button>
+        <button type="button" class="pb-btn pb-btn-mini" data-pb-disc-act="off" title="고른 옵션의 단종 표시를 풂">↩ 단종 해제</button>
         <span class="cs-flex"></span>
         <button type="button" class="pb-btn pb-btn-mini" data-pb-openall hidden>옵션 모두 펼치기</button>
       </div>
@@ -95,7 +100,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     <div class="pb-pager" data-pb-pager="bottom"></div>`;
   const $ = (s) => root.querySelector(s);
   const status = (t, tone = "") => { const el = $("[data-pb-status]"); el.textContent = t; el.className = `pb-status ${tone}`; };
-  const filter = () => ({ cat: st.cat, q: st.q, stockMin: st.stockMin, stockMax: st.stockMax, photo: st.photo, days: st.days, salesMin: st.salesMin, salesMax: st.salesMax, unit: st.unit, only: st.collect ? st.picked : null });
+  const filter = () => ({ cat: st.cat, q: st.q, stockMin: st.stockMin, stockMax: st.stockMax, photo: st.photo, days: st.days, salesMin: st.salesMin, salesMax: st.salesMax, unit: st.unit, only: st.collect ? st.picked : null, disc: st.discMode });
   const view = () => sortView(boardView(st.products, filter()), st.sort, st.days);
   const key = () => salesKey(st.days);
   const sales = (n) => (st.sales ? fmt(n) : "—");
@@ -116,10 +121,10 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     <span class="pb-n pb-s${periodCls(30)}">${sales(x.s30)}</span>
     <span class="pb-n pb-s${periodCls(90)}">${sales(x.s90)}</span>`;
   const optRow = (p, o, withPhoto) => `
-    <div class="pb-row pb-opt${o.stock <= 0 ? " is-zero" : ""}${st.picked.has(o.sku) ? " is-picked" : ""}${withPhoto ? "" : " no-photo"}" data-pb-sku="${esc(o.sku)}">
+    <div class="pb-row pb-opt${o.stock <= 0 ? " is-zero" : ""}${o.disc ? " is-disc" : ""}${st.picked.has(o.sku) ? " is-picked" : ""}${withPhoto ? "" : " no-photo"}" data-pb-sku="${esc(o.sku)}">
       <input type="checkbox" data-pb-pick-sku="${esc(o.sku)}"${st.picked.has(o.sku) ? " checked" : ""} aria-label="${esc(o.sku)} 선택">
       ${withPhoto ? photoCell(o.photo.file, o.photo.kind) : "<span></span>"}
-      <span class="pb-txt"><b>${esc(o.option || "(옵션 없음)")}</b><small>${esc(o.sku)}${o.ownSku ? ` · ${esc(o.ownSku)}` : ""}</small></span>
+      <span class="pb-txt"><b>${o.disc ? '<em class="pb-disc-tag">단종</em> ' : ""}${esc(o.option || "(옵션 없음)")}</b><small>${esc(o.sku)}${o.ownSku ? ` · ${esc(o.ownSku)}` : ""}</small></span>
       ${nums(o)}
     </div>`;
 
@@ -139,7 +144,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
 
   function render() {
     const counts = categoryCounts(st.products);
-    $("[data-pb-cats]").innerHTML = [{ key: "all", label: "전체" }, ...PB_CATEGORIES].map((c) => `<button type="button" class="pb-cat${st.cat === c.key && !st.collect ? " is-on" : ""}" data-pb-cat="${c.key}">${c.label} <small>${fmt(c.key === "all" ? st.products.length : counts[c.key])}</small></button>`).join("");
+    $("[data-pb-cats]").innerHTML = [{ key: "all", label: "전체" }, ...PB_CATEGORIES].map((c) => `<button type="button" class="pb-cat${st.cat === c.key && !st.collect ? " is-on" : ""}" data-pb-cat="${c.key}">${c.label} <small>${fmt(c.key === "all" ? st.products.length - (st.discMode === "include" ? 0 : counts.disc || 0) : counts[c.key])}</small></button>`).join("");
     root.querySelectorAll("[data-pb-unit]").forEach((b) => b.classList.toggle("is-on", b.dataset.pbUnit === st.unit));
     $("[data-pb-openall]").hidden = st.unit !== "product";
     $("[data-pb-openall]").textContent = st.allOpen ? "옵션 모두 접기" : "옵션 모두 펼치기";
@@ -150,13 +155,13 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     const v = view();
     const pg = pageOf(v, st.page, PAGE_SIZE);
     st.page = pg.page;
-    const tagOf = (p) => PB_CATEGORIES.find((c) => c.key === p.category)?.label || "";
+    const tagOf = (p) => (p.disc ? "단종 · " : "") + (PB_CATEGORIES.find((c) => c.key === p.category)?.label || "");
     const html = pg.items.map(({ p, options, stats }) => {
       const ps = pickState(options, st.picked);
       const head = `<input type="checkbox" data-pb-pick-product="${esc(p.code)}"${ps === "all" ? " checked" : ""} data-some="${ps === "some" ? 1 : 0}" aria-label="${esc(p.code)} 상품 선택">`;
       if (st.unit === "product") {
         const open = st.allOpen || st.open.has(p.code);
-        return `<article class="pb-product pb-unit-product${ps !== "none" ? " is-picked" : ""}" data-pb-product="${esc(p.code)}">
+        return `<article class="pb-product pb-unit-product${ps !== "none" ? " is-picked" : ""}${p.disc ? " is-disc" : ""}" data-pb-product="${esc(p.code)}">
           <div class="pb-row pb-prow">
             ${head}
             ${photoCell(p.rep, p.rep ? "option" : "none")}
@@ -166,7 +171,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
           ${open ? `<div class="pb-options">${options.map((o) => optRow(p, o, false)).join("")}</div>` : ""}
         </article>`;
       }
-      return `<article class="pb-product${ps !== "none" ? " is-picked" : ""}" data-pb-product="${esc(p.code)}">
+      return `<article class="pb-product${ps !== "none" ? " is-picked" : ""}${p.disc ? " is-disc" : ""}" data-pb-product="${esc(p.code)}">
         <header class="pb-phead">${head}<b class="pb-code">${esc(p.code)}</b><span class="pb-name">${esc(p.name)}</span><span class="pb-tag pb-tag-${p.category}">${esc(tagOf(p))}</span><span class="pb-sum">재고 <b>${fmt(stats.stock)}</b> · 7일 <b>${sales(stats.s7)}</b> · 30일 <b>${sales(stats.s30)}</b> · 90일 <b>${sales(stats.s90)}</b></span></header>
         <div class="pb-options">${options.map((o) => optRow(p, o, true)).join("")}</div>
       </article>`;
@@ -186,8 +191,59 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     $("[data-pb-picked]").textContent = `선택 ${fmt(st.picked.size)}옵션 · ${fmt(pickedProducts.size)}상품`;
     $("[data-pb-excel]").disabled = !st.picked.size || st.busy;
     $("[data-pb-unpick]").disabled = !st.picked.size;
+    const canDisc = !!csToken() && !st.busy;
+    root.querySelectorAll("[data-pb-disc-act]").forEach((b) => { b.disabled = !st.picked.size || !canDisc; b.title = canDisc ? b.title.replace(/ — CS 관리.*$/, "") : `${b.title.replace(/ — CS 관리.*$/, "")} — CS 관리에서 시트에 연결한 브라우저에서 됩니다`; });
     $("[data-pb-collect]").disabled = !st.picked.size && !st.collect;
-    if (!st.busy) status(`${st.collect ? "👁 선택 모아보기 · " : ""}${st.snapshotAt ? `셀피아 재고 ${st.snapshotAt} 기준` : "셀피아 재고"} · 상품 ${fmt(v.length)}개 (${fmt(pg.page)}/${fmt(pg.pages)}쪽, 한 쪽 ${PAGE_SIZE}개) / 전체 ${fmt(st.products.length)} · 사진 ${fmt(st.photos)}장 · 출고: ${st.salesNote}`);
+    if (!st.busy) status(`${st.collect ? "👁 선택 모아보기 · " : ""}${st.snapshotAt ? `셀피아 재고 ${st.snapshotAt} 기준` : "셀피아 재고"} · 상품 ${fmt(v.length)}개 (${fmt(pg.page)}/${fmt(pg.pages)}쪽, 한 쪽 ${PAGE_SIZE}개) / 전체 ${fmt(st.products.length)} · 사진 ${fmt(st.photos)}장 · 출고: ${st.salesNote}${st.discNote ? ` · 단종: ${st.discNote}` : ""}`);
+  }
+
+  // ---------- 11-06 단종 (CS 시트 '단종' 탭 · CS 관리 비밀번호 = 이 브라우저에 저장된 것) ----------
+  function csToken() {
+    for (const s of storages) {
+      try { const raw = JSON.parse(s?.getItem(CS_BOARD_STORAGE_KEY) || "null"); if (raw && isCsBoardTokenValid(raw.token)) return { token: String(raw.token).trim(), editor: String(raw.editor || "").slice(0, 20) }; } catch { /* 다음 */ }
+    }
+    return null;
+  }
+  async function csPost(body) {
+    const t = csToken();
+    if (!t) throw new Error("CS 관리 연결 필요");
+    const res = await fetchImpl(CS_BOARD_ENDPOINT, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ ...body, token: t.token, editor: t.editor }) });
+    if (!res.ok) throw new Error(`시트 응답 오류 (${res.status})`);
+    const js = await res.json();
+    if (!js.ok) throw new Error(js.error || "시트 오류");
+    return js;
+  }
+  async function loadDisc() {
+    if (!csToken()) { st.discNote = "CS 관리에서 시트에 연결한 브라우저에서 보입니다"; return; }
+    try {
+      const js = await csPost({ action: "discList" });
+      st.disc = new Set((js.skus || []).map((x) => String(x.sku)));
+      st.discNote = `${fmt(st.disc.size)}옵션`;
+    } catch (error) { st.discNote = `못 읽음 (${error.message})`; }
+    applyDisc(st.products, st.disc);
+  }
+  async function setDisc(on) {
+    const skus = [...st.picked];
+    if (!skus.length || st.busy) return;
+    const products = new Set();
+    for (const p of st.products) if (p.options.some((o) => st.picked.has(o.sku))) products.add(p.code);
+    const msg = on
+      ? `고른 ${fmt(skus.length)}옵션(${fmt(products.size)}상품)을 단종 처리합니다.\n· 옵션이 모두 단종된 상품은 [단종] 카테고리로 옮겨지고 일반 검색에서 빠집니다.\n계속할까요?`
+      : `고른 ${fmt(skus.length)}옵션의 단종 표시를 풉니다. 계속할까요?`;
+    if (!window.confirm(msg)) return;
+    st.busy = true; render(); status(on ? "단종 처리 중…" : "단종 해제 중…");
+    try {
+      const js = await csPost({ action: "discSet", skus, on });
+      for (const k of skus) { if (on) st.disc.add(k); else st.disc.delete(k); }
+      applyDisc(st.products, st.disc);
+      st.discNote = `${fmt(st.disc.size)}옵션`;
+      st.picked.clear(); st.collect = false;
+      st.busy = false; render();
+      status(`${on ? "⛔ 단종 처리" : "↩ 단종 해제"} ${fmt(js.changed || 0)}옵션 · 전체 단종 ${fmt(js.total ?? st.disc.size)}옵션 — 상품의 옵션이 모두 단종이면 [단종] 카테고리`, "is-ok");
+    } catch (error) {
+      st.busy = false; render();
+      status(`단종 ${on ? "처리" : "해제"} 실패: ${error.message}`, "is-bad");
+    }
   }
 
   async function loadSales() {
@@ -226,6 +282,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
       st.photos = names.length;
       st.products = buildProducts(rows, photoIndex(names));
       st.loaded = true;
+      await loadDisc();
       render();
       await loadSales();
       render();
@@ -305,6 +362,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     if (t.matches("[data-pb-days]")) { st.days = Number(t.value) || 0; reset(); }
     else if (t.matches("[data-pb-sort]")) { st.sort = t.value; reset(); }
     else if (t.dataset.pbF === "photo") { st.photo = t.value; reset(); }
+    else if (t.matches("[data-pb-disc]")) { st.discMode = t.value === "include" ? "include" : "exclude"; reset(); }
     else if (t.matches("[data-pb-pick-sku]")) {
       if (t.checked) st.picked.add(t.dataset.pbPickSku); else st.picked.delete(t.dataset.pbPickSku);
       render();
@@ -329,8 +387,10 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     else if (b.matches("[data-pb-collect]")) { st.collect = !st.collect; reset(); }
     else if (b.matches("[data-pb-unpick]")) { st.picked.clear(); st.collect = false; render(); }
     else if (b.matches("[data-pb-excel]")) exportExcel();
+    else if (b.dataset.pbDiscAct) setDisc(b.dataset.pbDiscAct === "on");
     else if (b.matches("[data-pb-clear]")) {
-      Object.assign(st, { stockMin: "", stockMax: "", photo: "all", salesMin: "", salesMax: "", q: "" });
+      Object.assign(st, { stockMin: "", stockMax: "", photo: "all", salesMin: "", salesMax: "", q: "", discMode: "exclude" });
+      $("[data-pb-disc]").value = "exclude";
       root.querySelectorAll("[data-pb-f]").forEach((el) => { el.value = el.tagName === "SELECT" ? "all" : ""; });
       $("[data-pb-search]").value = "";
       reset();

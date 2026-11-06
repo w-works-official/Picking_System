@@ -114,6 +114,9 @@
   · 거래처 탭 [📐 일괄 붙이기]: 슬롯 메모(업체명)마다 열린 대화창이 없으면 카톡 PC 검색칸에 업체명을 넣고 Enter → 대화방을 열어 그 슬롯에 붙임
   · 업체별 결과를 웹에 돌려줌: 못 찾음 · 이름이 같은 방 여러 개 · 이름이 조금 다른 방 → 웹이 그 슬롯에 "대화방 이름을 ○○로 바꿔 주세요" 안내
   · POST /msn/confirm: 슬롯 대화창에 떠 있는 [사진 보내기] 미리보기 창에서 Enter(전송) — 웹 [📨 일괄 보내기]
+
+1.21 (2026-11-06) 거래처 일괄 비우기
+  · POST /msn/reset: 지금 탭(슬롯 묶음)에 붙은 대화창마다 [이미지 전송] 창을 닫고 대화창도 닫음 (카톡방을 나가는 것은 아님) — 웹 [🗑 일괄 비우기]
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -121,7 +124,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.20 (2026-11-06)"
+LINK_VER = "1.21 (2026-11-06)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -2238,6 +2241,20 @@ class MsnHelper:
                 out[i] = {"state": "nokakao" if nokakao else "missing"}
         return out
 
+    def reset(self):
+        """1.21 일괄 비우기: 이 탭 슬롯에 붙은 대화창(+ 딸린 이미지 전송 창)을 닫고 잊음"""
+        with self.lock:
+            hs = list(self.managed)
+            self.managed.clear()
+        closed = 0
+        for h in hs:
+            try:
+                self.api.close(h)
+                closed += 1
+            except Exception:
+                pass
+        return {"ok": True, "closed": closed}
+
     def confirm(self, i):
         """슬롯 i 대화창에 떠 있는 [사진 보내기] 미리보기 창에서 Enter (= 전송)"""
         with self.lock:
@@ -2507,6 +2524,18 @@ class MsnWin:
         self.u.SendMessageW(e, 0x000C, 0, self.c.cast(empty, self.c.c_void_p))     # 검색칸 비우기 (목록 원래대로)
         return True
 
+    def close(self, hwnd):
+        """대화창 닫기 (딸린 이미지 전송 창 먼저) — 창만 닫음, 카톡방은 그대로"""
+        if not hasattr(self, "_fw"):
+            self._kakao_search_edit()
+        popup = self.u.GetWindow(hwnd, 6)                                            # GW_ENABLEDPOPUP
+        if popup and int(popup) != int(hwnd):
+            self.u.PostMessageW(popup, 0x0010, 0, 0)                                 # WM_CLOSE
+            time.sleep(0.25)
+        self.topmost(hwnd, False)
+        self.u.PostMessageW(hwnd, 0x0010, 0, 0)
+        return True
+
     def confirm(self, hwnd):
         """대화창에 딸린 미리보기 창(사진 보내기)을 앞으로 → Enter → 원래 창으로. 미리보기 창이 없으면 False(아무것도 안 누름)"""
         if not hasattr(self, "_fw"):
@@ -2604,6 +2633,8 @@ def msn_server(helper, port=MSN_PORT):
                     if notes:
                         r["notes"] = {str(i): v for i, v in notes.items()}
                     return self._json(r)
+                if p == "/msn/reset":
+                    return self._json(helper.reset())
                 if p == "/msn/confirm":
                     return self._json(helper.confirm(int(body.get("slot", -1))))
                 if p == "/msn/release":

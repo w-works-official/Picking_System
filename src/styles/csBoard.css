@@ -2184,3 +2184,7 @@ a.cs-btn {
 .msn-vo-state.is-ok { background: #dcfce7; color: #15803d; }
 .msn-vo-state.is-bad { background: #fee2e2; color: #b91c1c; }
 .vo-msg[hidden] { display: none; }
+
+/* 11-06: 거래처 일괄 버튼 3개 같은 크기 · 선택 버튼 */
+.cs-btn-batch { min-width: 150px; justify-content: center; text-align: center; }
+.vo-picked { margin-left: auto; font-size: 13px; font-weight: 800; color: #15803d; white-space: nowrap; }

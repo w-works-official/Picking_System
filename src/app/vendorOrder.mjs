@@ -147,7 +147,8 @@ export function mountVendorOrder({ document, window, storage, panel }) {
         img.alt = `${v.vendor} 주문 그림`;
         frame.appendChild(img);
       }
-      if (frame && v.state) {
+      const noted = !!panel.state?.notes?.[slot] && panel.state.notes[slot].state !== "ok";   // 노란 안내가 있으면 작은 표시는 생략 (겹침 방지)
+      if (frame && v.state && !(noted && v.tone === "is-bad")) {
         const chip = document.createElement("span");
         chip.className = `msn-vo-state ${v.tone || ""}`;
         chip.dataset.voState = String(slot);
@@ -167,12 +168,17 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     const nm = names();
     decorateSlots(nm);
     const nomatch = st.vendors.filter((v) => slotOf(v, nm) < 0).map((v) => v.vendor);
-    const ready = st.vendors.filter((v) => !v.off && slotOf(v, nm) >= 0).length;
-    const apply = $("[data-vo-act=apply]");
-    if (apply) { apply.disabled = st.busy || !ready; apply.textContent = st.busy ? "🖼 붙이는 중…" : `🖼 사진적용${ready ? ` (${ready}곳)` : ""}`; }
+    const matched = st.vendors.filter((v) => slotOf(v, nm) >= 0);
+    const picked = matched.filter((v) => !v.off).length;
+    for (const [act, on] of [["pickall", picked < matched.length], ["picknone", picked > 0]]) {
+      const b = $(`[data-vo-act=${act}]`);
+      if (b) b.disabled = st.busy || !matched.length || !on;
+    }
+    const pickInfo = $("[data-vo-picked]");
+    if (pickInfo) pickInfo.textContent = matched.length ? `선택 ${picked} / ${matched.length}곳` : "";
     const toSend = st.vendors.filter((v) => v.pasted && !v.sent && !v.off).length;
     const sendAll = panel.root.querySelector("[data-vo-act=sendall]");
-    if (sendAll) { sendAll.disabled = st.busy || !toSend; sendAll.textContent = st.busy ? "📨 보내는 중…" : `📨 일괄 보내기${toSend ? ` (${toSend}곳)` : ""}`; }
+    if (sendAll) { sendAll.disabled = st.busy || !toSend; sendAll.textContent = st.busy ? "📨 보내는 중…" : `📨 선택 보내기${toSend ? ` (${toSend}곳)` : ""}`; }
     $("[data-vo-summary]").textContent = st.vendors.length ? `${st.file} · 업체 ${st.vendors.length}곳 · 짝 맞음 ${st.vendors.length - nomatch.length}곳${nomatch.length ? ` · 짝 없음: ${nomatch.join(", ")} (슬롯 메모에 업체명을 적으면 짝)` : ""}` : "주문서(.xlsx)나 업체 사진(업체명_MMDD.jpg)을 여기로 끌어다 놓으세요";
   }
 
@@ -226,7 +232,8 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   async function apply() {
     if (st.busy) return;
     const nm = names();
-    const todo = st.vendors.map((v, k) => ({ v, k, slot: slotOf(v, nm) })).filter((x) => !x.v.off && x.slot >= 0);
+    // 11-06: [📐 일괄 붙이기]에 합침 — 선택(초록)된 업체 중 아직 붙여넣지·보내지 않은 곳만 (다시 눌러도 이미 한 곳은 그대로)
+    const todo = st.vendors.map((v, k) => ({ v, k, slot: slotOf(v, nm) })).filter((x) => !x.v.off && x.slot >= 0 && !x.v.pasted && !x.v.sent);
     if (!todo.length) return;
     st.busy = true; renderList();
     const mark = (k, text, tone) => { Object.assign(st.vendors[k], { state: text, tone }); decorateSlots(names()); };
@@ -236,7 +243,7 @@ export function mountVendorOrder({ document, window, storage, panel }) {
       let used = [];
       try { used = await panel.usedSlots(); } catch { /* 아래에서 실패 표시 */ }
       for (const { v, k, slot } of todo) {
-        if (!used.includes(slot)) { miss += 1; mark(k, "창 없음 — [📐 일괄 붙이기] 먼저", "is-bad"); continue; }
+        if (!used.includes(slot)) { miss += 1; mark(k, "창 없음", "is-bad"); continue; }
         try {
           for (const b of v.blobs) {
             await panel.pasteImage(slot, await toPng(document, b));
@@ -245,7 +252,7 @@ export function mountVendorOrder({ document, window, storage, panel }) {
           ok += 1; v.pasted = true; v.sent = false; v.pastedSlot = slot; mark(k, `✓ 붙여넣음${v.blobs.length > 1 ? ` (${v.blobs.length}장)` : ""}`, "is-ok");
         } catch (error) { bad += 1; mark(k, `실패: ${error?.message || error}`, "is-bad"); }
       }
-      say(`사진적용: 붙여넣음 ${ok}곳${miss ? ` · 창 없음 ${miss}곳` : ""}${bad ? ` · 실패 ${bad}곳` : ""} — 빨간 표시가 뜬 슬롯을 확인해 주세요.`, ok && !bad && !miss ? "is-ok" : "is-bad");
+      st.last = { ok, miss, bad };   // (결과는 슬롯마다 작은 표시 — 전체 안내 글 없음)
     } finally {
       st.busy = false; renderList();
     }
@@ -255,8 +262,8 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   async function sendAll() {
     if (st.busy) return;
     const todo = st.vendors.map((v, k) => ({ v, k })).filter(({ v }) => v.pasted && !v.sent && !v.off);
-    if (!todo.length) { say("보낼 것이 없습니다 — 먼저 [🖼 사진적용]으로 카톡 창에 그림을 붙여 넣으세요.", "is-bad"); return; }
-    if (!window.confirm(`${todo.length}곳 (${todo.map(({ v }) => v.vendor).join(", ")}) 카톡에 주문 그림을 [전송]합니다. 보낼까요?`)) return;
+    if (!todo.length) return;
+    if (!window.confirm(`선택한 ${todo.length}곳 (${todo.map(({ v }) => v.vendor).join(", ")}) 카톡에 주문 그림을 [전송]합니다. 보낼까요?`)) return;
     st.busy = true; renderList();
     const mark = (k, text, tone) => { Object.assign(st.vendors[k], { state: text, tone }); decorateSlots(names()); };
     let ok = 0, none = 0, bad = 0;
@@ -269,12 +276,13 @@ export function mountVendorOrder({ document, window, storage, panel }) {
         } catch (error) { bad += 1; mark(k, `보내기 실패: ${error?.message || error}`, "is-bad"); }
         if (v !== todo[todo.length - 1].v) await new Promise((r) => window.setTimeout(r, PASTE_GAP_MS));
       }
-      say(`일괄 보내기: 보냄 ${ok}곳${none ? ` · 그림 창 없음 ${none}곳` : ""}${bad ? ` · 실패 ${bad}곳` : ""} — 카톡 창에서 전송됐는지 확인해 주세요.`, ok && !none && !bad ? "is-ok" : "is-bad");
+      st.lastSend = { ok, none, bad };
     } finally {
       st.busy = false; renderList();
     }
   }
   panel.root.querySelector("[data-vo-act=sendall]")?.addEventListener("click", sendAll);
+  panel.afterArrange = () => apply();   // 11-06: [📐 일괄 붙이기] = 창 붙이기 + 그림 붙여넣기
 
   const drop = $("[data-vo-drop]");
   const input = $("[data-vo-file]");
@@ -287,6 +295,11 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     if (!b) return;
     if (b.dataset.voAct === "upload") input.click();
     else if (b.dataset.voAct === "apply") apply();
+    else if (b.dataset.voAct === "pickall" || b.dataset.voAct === "picknone") {   // 전체 선택 / 선택 해제
+      const off = b.dataset.voAct === "picknone";
+      st.vendors.forEach((v) => { v.off = off; });
+      renderList();
+    }
     else if (b.dataset.voAct === "memo-reset") { memoEl.value = DEFAULT_ORDER_MEMO; memoEl.dispatchEvent(new window.Event("input")); }
   });
   // 슬롯 번호를 누르면 그 업체를 빼기/넣기 (초록 테두리 = 보냄 대상)
@@ -298,9 +311,11 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     if (v) { v.off = !v.off; renderList(); }
   });
   // 🗑 일괄 비우기: 올린 주문서·그림 · 슬롯 메모(업체명)·★·안내 · 보낼 답변 칸 (카톡 창은 그대로)
-  function clearAll() {
+  async function clearAll() {
     if (st.busy) { say("붙이거나 보내는 중에는 비울 수 없습니다 — 끝난 뒤 다시 눌러 주세요.", "is-bad"); return; }
-    if (!window.confirm("거래처 탭을 비웁니다.\n· 올린 주문서·그림\n· 슬롯 메모(업체명)·★·안내\n· 슬롯의 보낼 답변 칸\n(카톡 창은 그대로 둡니다) 비울까요?")) return;
+    if (!window.confirm("거래처 탭을 처음 상태로 비웁니다.\n· 올린 주문서·그림 · 선택\n· 슬롯 메모(업체명)·★·안내 · 보낼 답변 칸\n· 슬롯에 붙은 카톡 대화창과 [이미지 전송] 창 닫기\n(화면 연결·창 도우미 연결은 그대로) 비울까요?")) return;
+    st.busy = true;
+    try { await panel.resetWindows?.(); } finally { st.busy = false; }
     st.vendors.forEach((v) => v.url && URL.revokeObjectURL?.(v.url));
     st.vendors = []; st.file = "";
     panel.setNames?.([]);

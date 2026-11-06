@@ -59,6 +59,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   const memo = vendor ? "업체명·카톡방 이름 (예: 세븐피어싱)" : "메모 (예: 카톡 · 고객)";
   const $ = (sel) => root.querySelector(sel);
   const prefs = readMsnPrefs(storage, prefKey, slotsMax);
+  if (vendor) prefs.names = [];   // 11-06: 거래처 슬롯 메모(업체명)는 기억하지 않음 — 매일 주문서로 새로
   // 거래처: 슬롯 수는 5 · 10 · 20 · 30 중에서
   const countOptions = vendor ? [5, 10, 20, 30] : Array.from({ length: slotsMax }, (_, k) => k + 1);
   const fitCount = (n) => (vendor ? countOptions.find((c) => c >= (Number(n) || 10)) || 30 : Number(n) || 3);
@@ -67,7 +68,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   const can = !!navigator?.mediaDevices?.getDisplayMedia;
 
   function save() {
-    try { storage?.setItem(prefKey, JSON.stringify({ count: prefs.count, height: prefs.height, width: prefs.width, names: prefs.names, stars: prefs.stars, fit: st.fit })); } catch { /* 이번 화면에서만 */ }
+    try { storage?.setItem(prefKey, JSON.stringify({ count: prefs.count, height: prefs.height, width: prefs.width, names: vendor ? [] : prefs.names, stars: vendor ? [] : prefs.stars, fit: st.fit })); } catch { /* 이번 화면에서만 */ }
   }
   function say(text, tone = "") {
     const el = $("[data-msn-msg]");
@@ -115,7 +116,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     el.textContent = on ? "● 화면 연결됨 — 감시 중" : "○ 화면 연결 안 됨";
     el.className = `msn-conn ${on ? "is-on" : ""}`;
     $("[data-msn-act=connect]").textContent = on ? "■ 연결 끊기" : "🖥 화면 연결";
-    $("[data-msn-act=fit]").disabled = !on;
+    const fitBtn = $("[data-msn-act=fit]"); if (fitBtn) fitBtn.disabled = !on;   // 거래처 탭엔 영역 맞춤 버튼 없음 (11-06)
     root.classList.toggle("msn-live", on);       // 화면 연결 중에만 슬롯 상태(창 없음·감시 중) 표시 — 그 자리엔 평소 ★ 주목 버튼
   }
   const videoSize = () => ({ width: st.video?.videoWidth || 0, height: st.video?.videoHeight || 0 });
@@ -180,6 +181,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       track?.addEventListener?.("ended", disconnect);
       st.timer = window.setInterval(tick, TICK_MS);
       setConn(true);
+      if (vendor) { await fit({ quiet: true }); return; }   // 11-06: 거래처는 [🎯 영역 맞춤] 버튼 없이 연결할 때 자동으로
       say(st.fit ? "연결됨 — 메신저 창을 슬롯 틀에 올려 주세요." : "연결됨 — 먼저 슬롯 위에 다른 창이 없는 상태에서 [🎯 영역 맞춤]을 눌러 주세요.", "is-ok");
     } catch (error) {
       say(error?.name === "NotAllowedError" ? "화면 공유를 취소했습니다." : `화면 연결 실패: ${error?.message || error}`, "is-bad");
@@ -196,7 +198,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   }
 
   // 🎯 영역 맞춤: 슬롯 1 의 분홍 표시만 남기고 전체 화면에서 찾아 → 화면 좌표 ↔ 공유 영상 맞춤
-  async function fit() {
+  async function fit({ quiet = false } = {}) {
     if (!st.video) return;
     root.classList.add("msn-fitting");
     await new Promise((r) => window.setTimeout(r, 400));
@@ -208,10 +210,10 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       const r0 = frameRect(0), bw = 2;               // 분홍 점은 점선 테두리(2px) 안쪽 모서리에 있음
       const css = screenCss({ left: r0.left + bw, top: r0.top + bw, width: r0.width - 2 * bw, height: r0.height - 2 * bw }, window, window.screen);
       const f = fitFromMarks(css, box);
-      if (!f) { say("슬롯 1 의 분홍 점을 화면에서 찾지 못했습니다 — 슬롯 1 위를 덮은 창을 치우고 다시 눌러 주세요.", "is-bad"); return; }
+      if (!f) { say(quiet ? (st.fit ? "" : "화면 연결됨 — 슬롯 1 위를 덮은 창이 있어 영역을 못 맞췄습니다 (치우고 [🖥 화면 연결]을 다시)") : "슬롯 1 의 분홍 점을 화면에서 찾지 못했습니다 — 슬롯 1 위를 덮은 창을 치우고 다시 눌러 주세요.", st.fit ? "" : "is-bad"); return; }
       st.fit = f; save();
       st.slots = st.slots.map(() => ({})); st.prev = [];
-      say("영역 맞춤 완료 — 이제 카톡 대화창을 슬롯 틀에 끌어다 놓아 보세요. (브라우저 창을 옮기거나 확대 비율을 바꾸면 다시 맞춤)", "is-ok");
+      say(quiet ? "" : "영역 맞춤 완료 — 이제 카톡 대화창을 슬롯 틀에 끌어다 놓아 보세요. (브라우저 창을 옮기거나 확대 비율을 바꾸면 다시 맞춤)", "is-ok");
     } finally {
       root.classList.remove("msn-fitting");
     }
@@ -386,11 +388,11 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       if (vendor) say("카톡에서 업체 대화방을 찾아 여는 중… (업체가 많으면 몇십 초)");
       const r = await helperCall("/arrange", { search: vendor }, vendor ? 90000 : 2500);   // 1.20: 거래처 = 카톡 검색으로 열기
       const named = Number(r.named) || 0;
-      if (vendor && r.notes) {
-        st.notes = r.notes; applyNotes();
-        const bad = Object.values(r.notes).filter((x) => x.state !== "ok").length;
-        say(`📐 붙음 ${r.placed || 0}곳${bad ? ` · 확인 필요 ${bad}곳` : ""}`, bad ? "is-bad" : "is-ok");   // 자세한 안내는 슬롯마다
-        pingHelper();
+      if (vendor) {               // 11-06: 전체 안내 글 없이 슬롯마다 노란 안내 → 이어서 그림 붙여넣기(사진적용 합침)
+        st.notes = r.notes || {}; applyNotes();
+        say("");
+        await pingHelper();
+        await api.afterArrange?.();
         return;
       }
       say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위)${named ? ` — 그중 ${named}개는 메모 이름으로` : ""}.` : vendor ? "메모 이름과 맞는 카톡 창이 없습니다 — 업체 대화창을 먼저 열고, 슬롯 메모에 카톡방 이름(일부)을 적어 주세요." : "열린 카톡·네이트온 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
@@ -529,12 +531,17 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (!st.helper.on) throw new Error("창 도우미 연결 안 됨");
     return helperCall("/confirm", { slot: i }, 8000);
   }
+  // 11-06 일괄 비우기: 이 탭 슬롯에 붙은 카톡 대화창 + [이미지 전송] 창 닫기 (웹연결 1.21)
+  async function resetWindows() {
+    if (!st.helper.on) return { ok: false };
+    try { return await helperCall("/reset", {}, 15000); } catch (error) { return { ok: false, error: error?.message || String(error) }; }
+  }
   async function usedSlots() {
     const r = await helperCall("/ping");
     return r.group === group && Array.isArray(r.used) ? r.used.map(Number) : [];
   }
 
-  const api = { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, slotsMax, group, root, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose, suggest, toggleStar, pasteImage, usedSlots, setNames, confirmSend, say };
+  const api = { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, slotsMax, group, root, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose, suggest, toggleStar, pasteImage, usedSlots, setNames, confirmSend, resetWindows, say };
   MSN_PANELS[group] = api;
   return api;
 }
@@ -543,6 +550,6 @@ if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]"
   const storage = (() => { try { return window.localStorage; } catch { return null; } })();
   document.querySelectorAll("[data-msn-panel]").forEach((root) => {
     const inst = mountMsnSlots({ document, window, storage, root });
-    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261106-urgent1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
+    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261106-batch1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
   });
 }

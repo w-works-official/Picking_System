@@ -1000,6 +1000,12 @@ assert mk2.open_named(search=True, sleep=lambda s: None) == {0: {"state": "nokak
 fk.confirm = lambda h: h == 1
 assert mk.confirm(0) == {"ok": True, "slot": 0, "popup": True}
 assert mk.confirm(7)["ok"] is False, "붙은 창 없는 슬롯"
+# 1.21 일괄 비우기: 붙은 창 닫고 잊음
+closed = []
+fk.close = lambda h: closed.append(h)
+n_before = len(mk.managed)
+r = mk.reset()
+assert r == {"ok": True, "closed": n_before} and sorted(closed) == sorted(closed) and n_before == len(closed) and mk.managed == {}
 
 # 로컬 HTTP: System V3 화면 Origin 만 POST 허용 · 미리 확인(OPTIONS) 에 사설망 허용 머리말
 import socket as _sock, urllib.request as _ur, urllib.error as _ue

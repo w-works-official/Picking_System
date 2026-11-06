@@ -56,7 +56,7 @@ try {
       const req = route.request();
       const p = new URL(req.url()).pathname;
       helperCalls.push({ path: p, method: req.method(), body: req.postData() ? JSON.parse(req.postData()) : null });
-      const body = p === "/msn/ping" ? (helperPing || { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 }) : p === "/msn/arrange" ? (helperArrange || { ok: true, placed: 2, windows: 2, slots: 3 }) : p === "/msn/confirm" ? { ok: true, popup: true } : p === "/msn/release" ? { ok: true, released: 2 } : p === "/msn/send" ? { ok: true, slot: 0 } : p === "/msn/windows" ? { ok: true, windows: [{ exe: "nateonmain.exe", title: "김대리", w: 420, h: 600, tool: true, min: false, ok: true }] } : { ok: true, slots: 3, managed: 0, ...(helperUsed ? { used: helperUsed } : {}) };
+      const body = p === "/msn/ping" ? (helperPing || { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 }) : p === "/msn/arrange" ? (helperArrange || { ok: true, placed: 2, windows: 2, slots: 3 }) : p === "/msn/confirm" ? { ok: true, popup: true } : p === "/msn/reset" ? { ok: true, closed: 1 } : p === "/msn/release" ? { ok: true, released: 2 } : p === "/msn/send" ? { ok: true, slot: 0 } : p === "/msn/windows" ? { ok: true, windows: [{ exe: "nateonmain.exe", title: "김대리", w: 420, h: 600, tool: true, min: false, ok: true }] } : { ok: true, slots: 3, managed: 0, ...(helperUsed ? { used: helperUsed } : {}) };
       return route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": origin }, body: JSON.stringify(body) });
     });
     const page = await context.newPage();
@@ -290,7 +290,7 @@ try {
     for (let i = 0; i < 40 && !helperCalls.some((c) => c.path === "/msn/slots" && c.body.group === "vendor" && c.body.names?.[1] === "헤세드"); i += 1) await page.waitForTimeout(200);
     const vSlots = helperCalls.filter((c) => c.path === "/msn/slots" && c.body.group === "vendor").pop();
     assert.ok(vSlots && vSlots.body.slots.length === 10 && vSlots.body.names[0] === "세븐피어싱", "거래처 탭 슬롯 위치 + 메모 이름을 도우미에 보냄");
-    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem("system_v3_cs_msn_vendor"))).names[1], "헤세드", "거래처 메모는 따로 저장");
+    assert.deepEqual(JSON.parse(await page.evaluate(() => localStorage.getItem("system_v3_cs_msn_vendor"))).names, [], "11-06: 거래처 메모(업체명)는 기억 안 함");
     // 가짜 PT-LIST (xlsx = zip: 시트 + 그림)
     const zip = (files) => {
       const parts = [], central = [];
@@ -321,14 +321,18 @@ try {
     });
     helperPing = { ok: true, ver: "1.15 (2026-11-05)", slots: 3, windows: 2, managed: 1, used: [0], group: "vendor" };
     await msnV.locator("[data-vo-file]").setInputFiles({ name: "P_1_PT-LIST_1105.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: xlsx });
-    // 11-06: 미리보기 목록·체크박스 없음 — 주문서 순서대로 슬롯 메모 + 슬롯 틀에 그림 + 초록 테두리(보냄 대상)
+    // 11-06: 미리보기 목록·체크박스 없음 — 주문서 순서대로 슬롯 메모 + 슬롯 틀에 그림 + 초록 테두리(선택, 기본 전체)
     await msnV.locator(".msn-frame-pic").nth(1).waitFor();
-    assert.equal(await msnV.locator("[data-vo-list], [data-vo-pick], [data-vo-memo]").count(), 0, "목록·체크박스·멘트 칸 없음");
+    assert.equal(await msnV.locator("[data-vo-list], [data-vo-pick], [data-vo-memo], [data-vo-act=apply], [data-msn-act=fit]").count(), 0, "목록·체크박스·멘트 칸·사진적용·영역 맞춤 없음");
     assert.deepEqual(await msnV.locator("[data-msn-name]").evaluateAll((els) => els.slice(0, 4).map((e) => e.value)), ["세븐피어싱", "수진사", "", ""]);
     assert.deepEqual(await msnV.locator(".msn-frame-pic").evaluateAll((els) => els.map((e) => e.closest("[data-msn-frame]").dataset.msnFrame)), ["0", "1"], "슬롯 틀에 그 업체 주문 그림");
     assert.deepEqual(await msnV.locator("[data-msn-slot]").evaluateAll((els) => els.slice(0, 3).map((e) => e.classList.contains("is-pick"))), [true, true, false], "짝 맞은 슬롯 = 초록 테두리");
+    assert.equal(await msnV.locator("[data-vo-picked]").textContent(), "선택 2 / 2곳");
     assert.equal(await msnV.locator("[data-vo-msg]").isVisible(), false, "잘 되면 안내 글 없음");
     assert.equal(await msnV.locator(".msn-no").first().textContent(), "1", "슬롯 번호만");
+    const batchW = await msnV.locator(".cs-btn-batch").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width)));
+    assert.equal(new Set(batchW).size, 1, `일괄 버튼 3개 같은 크기 ${batchW}`);
+    assert.equal(await page.evaluate(() => JSON.stringify(JSON.parse(localStorage.getItem("system_v3_cs_msn_vendor") || "{}").names || [])), "[]", "거래처 슬롯 메모는 기억 안 함");
     const thumb = await msnV.locator(".msn-frame-pic").first().evaluate((img) => new Promise((res) => (img.complete ? res([img.naturalWidth, img.naturalHeight]) : img.addEventListener("load", () => res([img.naturalWidth, img.naturalHeight])))));
     assert.ok(thumb[0] > 900 && thumb[1] > 300, `업체별 표 그림 ${thumb}`);
     await msnV.locator("[data-msn-name='1']").fill("다른 업체");                 // 메모를 고치면 이름으로 다시 짝 → 없으면 빠짐
@@ -336,46 +340,52 @@ try {
     assert.match(await msnV.locator("[data-vo-summary]").textContent(), /짝 없음: 수진사/);
     await msnV.locator("[data-msn-name='2']").fill("수진사");
     assert.equal(await msnV.locator('[data-msn-slot="2"]').evaluate((e) => e.classList.contains("is-pick")), true);
-    assert.match(await msnV.locator('[data-vo-act="apply"]').textContent(), /2곳/);
-    // 슬롯 번호를 누르면 빼기 → 다시 넣기
+    // 슬롯 번호를 누르면 빼기 → 다시 넣기 · 전체 선택 / 선택 해제
     await msnV.locator('[data-msn-slot="2"] .msn-no').click();
     assert.equal(await msnV.locator('[data-msn-slot="2"]').evaluate((e) => e.classList.contains("is-skip")), true, "번호 누르면 빠짐");
-    assert.match(await msnV.locator('[data-vo-act="apply"]').textContent(), /1곳/);
-    await msnV.locator('[data-msn-slot="2"] .msn-no').click();
-    assert.match(await msnV.locator('[data-vo-act="apply"]').textContent(), /2곳/);
-    const sendsBefore = helperCalls.filter((c) => c.path === "/msn/send").length;
-    await msnV.locator('[data-vo-act="apply"]').click();
-    await msnV.locator('[data-vo-state="0"]', { hasText: "붙여넣음" }).waitFor({ timeout: 10000 });
-    await msnV.locator('[data-vo-state="2"]', { hasText: "창 없음" }).waitFor({ timeout: 10000 });
-    const sends = helperCalls.filter((c) => c.path === "/msn/send").slice(sendsBefore);
-    assert.deepEqual(sends.map((c) => [c.body.slot, c.body.enter]), [[0, false]], "짝 맞고 창 붙은 슬롯에만 · Enter 는 안 누름");
-    assert.match(await msnV.locator("[data-vo-msg]").textContent(), /창 없음 1곳/, "문제가 있으면 안내");
-    const clipType = await page.evaluate(async () => (await navigator.clipboard.read())[0].types.join(","));
-    assert.match(clipType, /image\/png/, "클립보드에 그림");
-    // 11-06 📨 일괄 보내기: 붙여넣은 곳만 · 확인 창 → 미리보기 창에서 Enter
-    assert.match(await msnV.locator('[data-vo-act="sendall"]').textContent(), /일괄 보내기 \(1곳\)/);
-    page.once("dialog", (d) => { assert.match(d.message(), /1곳 \(세븐피어싱\)/); d.accept(); });
-    await msnV.locator('[data-vo-act="sendall"]').click();
-    await msnV.locator('[data-vo-state="0"]', { hasText: "📨 보냄" }).waitFor({ timeout: 10000 });
-    await msnV.locator('[data-vo-act="sendall"]', { hasText: /^📨 일괄 보내기$/ }).waitFor();   // 다 보낸 뒤
-    assert.deepEqual(helperCalls.filter((c) => c.path === "/msn/confirm").map((c) => c.body.slot), [0]);
-    assert.equal(await msnV.locator('[data-vo-act="sendall"]').isDisabled(), true, "보낸 뒤엔 보낼 것 없음");
-    // 1.20 일괄 붙이기 = 카톡 검색으로 열기 · 못 찾음/여러 개는 그 슬롯에 업체별 안내 (대화방 이름 바꾸기)
+    assert.equal(await msnV.locator("[data-vo-picked]").textContent(), "선택 1 / 2곳");
+    await msnV.locator('[data-vo-act="pickall"]').click();
+    assert.equal(await msnV.locator("[data-vo-picked]").textContent(), "선택 2 / 2곳");
+    await msnV.locator('[data-vo-act="picknone"]').click();
+    assert.equal(await msnV.locator(".msn-slot.is-pick").count(), 0);
+    await msnV.locator('[data-vo-act="pickall"]').click();
+    // 📐 일괄 붙이기 = 카톡에서 찾아 붙이기 + 선택된 곳에 그림 붙여넣기 (사진적용 합침) · 못 찾은 곳은 노란 안내만
     helperArrange = { ok: true, placed: 1, named: 1, windows: 1, slots: 10, notes: { 0: { state: "ok", title: "세븐피어싱" }, 1: { state: "missing" }, 2: { state: "dup", titles: ["수진사", "수진사 2"] } } };
+    const sendsBefore = helperCalls.filter((c) => c.path === "/msn/send").length;
     await msnV.locator('[data-msn-act="arrange"]').click();
-    await msnV.locator("[data-msn-msg]", { hasText: "확인 필요 2곳" }).waitFor();
+    await msnV.locator('[data-vo-state="0"]', { hasText: "붙여넣음" }).waitFor({ timeout: 10000 });
     assert.equal(helperCalls.filter((c) => c.path === "/msn/arrange").at(-1).body.search, true, "거래처 = 카톡 검색");
+    const sends = helperCalls.filter((c) => c.path === "/msn/send").slice(sendsBefore);
+    assert.deepEqual(sends.map((c) => [c.body.slot, c.body.enter]), [[0, false]], "선택·짝·창 붙은 슬롯에만 · Enter 는 안 누름");
+    assert.equal(await msnV.locator('[data-vo-state="2"]').count(), 0, "노란 안내가 있는 슬롯엔 작은 '창 없음' 표시 안 겹침");
+    assert.equal(await msnV.locator("[data-vo-msg]").isVisible(), false, "전체 안내 글 없음");
+    assert.equal((await msnV.locator("[data-msn-msg]").textContent()).trim(), "", "📐 전체 안내 글 없음");
     assert.equal(await msnV.locator('[data-msn-note="0"]').count(), 0, "찾은 곳은 안내 없음");
     assert.match(await msnV.locator('[data-msn-note="1"]').textContent(), /'다른 업체' 대화방을 못 찾았습니다[\s\S]*카톡방 이름을 '다른 업체'/);
     assert.match(await msnV.locator('[data-msn-note="2"]').textContent(), /'수진사'이\(가\) 들어간 대화방이 2개[\s\S]*수진사 · 수진사 2/);
+    const clipType = await page.evaluate(async () => (await navigator.clipboard.read())[0].types.join(","));
+    assert.match(clipType, /image\/png/, "클립보드에 그림");
+    // 📨 선택 보내기: 붙여넣은 곳만 · 확인 창 → 미리보기 창에서 Enter
+    assert.match(await msnV.locator('[data-vo-act="sendall"]').textContent(), /선택 보내기 \(1곳\)/);
+    page.once("dialog", (d) => { assert.match(d.message(), /선택한 1곳 \(세븐피어싱\)/); d.accept(); });
+    await msnV.locator('[data-vo-act="sendall"]').click();
+    await msnV.locator('[data-vo-state="0"]', { hasText: "📨 보냄" }).waitFor({ timeout: 10000 });
+    await msnV.locator('[data-vo-act="sendall"]', { hasText: /^📨 선택 보내기$/ }).waitFor();   // 다 보낸 뒤
+    assert.deepEqual(helperCalls.filter((c) => c.path === "/msn/confirm").map((c) => c.body.slot), [0]);
     await page.screenshot({ path: path.join(output, "cs-board-vendor.png") });
+    // 다시 [📐 일괄 붙이기] → 이미 보낸 곳에는 다시 안 붙임
+    const before2 = helperCalls.filter((c) => c.path === "/msn/send").length;
+    await msnV.locator('[data-msn-act="arrange"]').click();
+    await page.waitForTimeout(800);
+    assert.equal(helperCalls.filter((c) => c.path === "/msn/send").length, before2, "보낸 곳은 다시 안 붙임");
     await msnV.locator("[data-msn-name='1']").fill("다른업체2");
     assert.equal(await msnV.locator('[data-msn-note="1"]').count(), 0, "메모를 고치면 그 슬롯 안내 지움");
-    // 🗑 일괄 비우기: 확인 창 → 주문서·그림 · 슬롯 메모 · 안내 · 보낼 답변 칸
+    // 🗑 일괄 비우기: 확인 창 → 주문서·그림 · 슬롯 메모 · 안내 · 보낼 답변 칸 · 붙은 카톡 창 닫기
     await msnV.locator("[data-msn-text='0']").fill("보낼 말");
-    page.once("dialog", (d) => { assert.match(d.message(), /거래처 탭을 비웁니다/); d.accept(); });
+    page.once("dialog", (d) => { assert.match(d.message(), /처음 상태로 비웁니다[\s\S]*카톡 대화창/); d.accept(); });
     await msnV.locator('[data-vo-act="clearall"]').click();
     await msnV.locator(".msn-frame-pic").first().waitFor({ state: "detached" });
+    assert.ok(helperCalls.some((c) => c.path === "/msn/reset"), "붙은 카톡 창·이미지 전송 창 닫기");
     assert.deepEqual(await msnV.locator("[data-msn-name]").evaluateAll((els) => els.slice(0, 3).map((e) => e.value)), ["", "", ""]);
     assert.equal(await msnV.locator(".msn-note, .msn-vo-state").count(), 0);
     assert.equal(await msnV.locator("[data-msn-text='0']").inputValue(), "");

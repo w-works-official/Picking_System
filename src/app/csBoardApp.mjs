@@ -558,6 +558,13 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     el.title = [`눌러서 ${CONN_LABEL[part]} — 수집기(마스터) PC에서 로그인 시도`, el.title].filter(Boolean).join(" / ");
   }
 
+  // 11-06: 해결된 로그인 안내는 칸 대신 로그에 한 번만
+  const quietLogged = new Set();
+  function quietLog(key, text) {
+    if (quietLogged.has(`${key}|${text}`)) return;
+    quietLogged.add(`${key}|${text}`);
+    log(text);
+  }
   function renderVendorStatus() {
     const last = state.collector?.last;
     const reviewLast = state.collector?.reviewLast;
@@ -573,16 +580,17 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       const r = reviewLast?.vendors.find((x) => x.vendor === vendor);
       const login = csLoginStatus(vendor, { jobs: state.jobs, last, saved: (state.sample ? null : state.collector?.setup)?.savedLogins?.includes(vendor) });
       const fixed = v && v.state !== "ok" && login.changed && login.ok;   // 지난 수집은 실패였지만 그 뒤 로그인 성공 → 해결 표시 (바뀌었을 때만)
-      const line1 = fixed ? `✓ 로그인 해결 (${login.text.replace(/^✓ 로그인됨 \(|\)$/g, "")})` : v ? (v.state === "ok" ? `✓ ${v.count}건` : `⚠ ${v.state}`) : `문의 ${rows.length}건`;
+      // 11-06: 칸에는 로그인이 필요할 때만 로그인 안내 — 해결된 것은 로그에만
+      const line1 = fixed ? `문의 ${rows.length}건` : v ? (v.state === "ok" ? `✓ ${v.count}건` : `⚠ ${v.state}`) : `문의 ${rows.length}건`;
+      if (fixed) quietLog(`${vendor} 문의`, `${vendor}: 지난 문의 수집은 ${v.state} → 그 뒤 로그인 됨 (${login.text.replace(/^✓ 로그인됨 \(|\)$/g, "")}) — 다음 수집부터 반영`);
       const line2 = last?.at ? `문의 수집 ${last.at.slice(5)}` : "수집 기록 없음";
       const rFixed = reviewLoginFixed(vendor, r);   // 11-06: 지난 리뷰 수집은 로그인 필요였지만 그 뒤 로그인 성공 → 옛 경고 숨김
       // 11-06: 리뷰는 수집 시각이 따로 — 문의 시각과 섞이지 않게 셋째 줄
-      const line3 = r && r.state !== "미지원" && reviewLast?.at
-        ? `\n리뷰 ${r.state === "ok" ? `✓ ${r.count}건` : rFixed ? "✓ 로그인 해결" : `⚠ ${r.state}`} · ${reviewLast.at.slice(5)}`
-        : "";
+      const line3 = r && r.state !== "미지원" && r.state !== "ok" && !rFixed && reviewLast?.at ? `\n리뷰 ⚠ ${r.state} · ${reviewLast.at.slice(5)}` : "";   // 리뷰는 문제가 있을 때만
+      if (rFixed) quietLog(`${vendor} 리뷰`, `${vendor}: 지난 리뷰 수집은 ${r.state} (${reviewLast?.at?.slice(5) || ""}) → 그 뒤 로그인 됨 — 다음 리뷰 수집부터 반영`);
       cell.textContent = `${line1}\n${line2}${line3}`;
       cell.className = `cs-vendor-status${v && v.state !== "ok" && !fixed ? " is-bad" : ""}`;
-      cell.title = [fixed ? login.note : "", v?.note, rFixed ? "" : r?.note].filter(Boolean).join(" / ");
+      cell.title = [fixed ? "" : v?.note, rFixed ? "" : r?.note].filter(Boolean).join(" / ");
       // 11-06: 로그인 경고 문구를 누르면 그 메뉴에 맞는 연결 — 메인보드 = 전체연결 · 게시판 탭 = 게시판 연결 · (게시판 탭의 리뷰 줄만 경고면 리뷰 연결)
       const boardNeed = !!v && !fixed && LOGIN_RE.test(String(v.state || ""));
       const reviewNeed = !!r && !rFixed && LOGIN_RE.test(String(r.state || ""));
@@ -597,7 +605,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       if (!state.connected) { el.textContent = "아직 수집 전"; el.className = "cs-vendor-status"; continue; }
       const r = reviewLast?.vendors.find((x) => x.vendor === vendor);
       const rFixed = reviewLoginFixed(vendor, r);
-      el.textContent = `${r ? (r.state === "ok" ? `✓ ${r.count}건` : rFixed ? "✓ 로그인 해결 (다음 수집부터 반영)" : `⚠ ${r.state}`) : `리뷰 ${rows.length}건`}\n${reviewLast?.at ? `마지막 수집 ${reviewLast.at.slice(5)}` : "수집 기록 없음"}`;
+      el.textContent = `${r ? (r.state === "ok" ? `✓ ${r.count}건` : rFixed ? `리뷰 ${rows.length}건` : `⚠ ${r.state}`) : `리뷰 ${rows.length}건`}\n${reviewLast?.at ? `마지막 수집 ${reviewLast.at.slice(5)}` : "수집 기록 없음"}`;
       el.className = `cs-vendor-status${r && r.state !== "ok" && r.state !== "미지원" && !rFixed ? " is-bad" : ""}`;
       el.title = rFixed ? "" : r?.note || "";
       setLoginLink(el, vendor, r && !rFixed && LOGIN_RE.test(String(r.state || "")) ? "review" : null);   // 리뷰 탭 = 리뷰 연결

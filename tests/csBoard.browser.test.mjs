@@ -750,12 +750,13 @@ try {
     assert.equal(await page.locator('[data-vendor-group="review"] [data-pc="login"]').count(), 0, "리뷰 탭에는 로그인 버튼 없음");
     assert.equal(await connBtn("스마트스토어", "review").textContent(), "⭐연결완료");
     // 11-06: 지난 리뷰 수집은 로그인 필요였지만 그 뒤 로그인 성공 → 옛 경고 숨김
-    assert.match(await page.locator('[data-review-status="스마트스토어"]').textContent(), /✓ 로그인 해결/);
+    assert.doesNotMatch(await page.locator('[data-review-status="스마트스토어"]').textContent(), /로그인/, "11-06: 해결된 로그인 안내는 칸에 안 띄움");
     assert.equal(await page.locator('[data-review-status="스마트스토어"]').evaluate((el) => el.classList.contains("is-bad")), false);
     const ssMain = await page.locator('#cs-vendor-grid [data-vendor-status="스마트스토어"]').textContent();
     assert.doesNotMatch(ssMain, /⚠/, "옛 리뷰 경고 안 보임");
     assert.equal(await page.locator('[data-review-status="스마트스토어"]').getAttribute("data-pc"), null, "해결되면 누르는 칸 아님");
-    assert.match(ssMain, /문의 수집 .*\n리뷰 ✓ 로그인 해결 · 10-29 12:30$/);
+    assert.doesNotMatch(ssMain, /로그인|리뷰/, "해결된 리뷰 로그인은 칸에서 빠짐");
+    assert.match(await page.locator('[data-left-panel="main"] [data-log="all"]').first().textContent(), /스마트스토어: 지난 리뷰 수집은 로그인 필요 .*그 뒤 로그인 됨/, "대신 로그에");
     await waitText("#cs-progress", /로그인 완료/);
     assert.equal(await connBtn("에이블리", "board").textContent(), "📋연결완료", "로그인 성공 → 연결완료");
     assert.equal(await connBtn("에이블리", "board").locator(".cs-conn-state").evaluate((el) => getComputedStyle(el).color), "rgb(17, 17, 17)", "연결완료 = 검정");

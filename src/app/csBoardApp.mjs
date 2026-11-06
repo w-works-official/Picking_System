@@ -430,7 +430,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     saveFold();
     $$("[data-left-tab]").forEach((b) => { const on = b.dataset.leftTab === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
     $$("[data-left-panel]").forEach((p) => { p.hidden = p.dataset.leftPanel !== tab; });
-    $("#cs-left")?.style.setProperty("--tab-color", TAB_COLORS[tab] || TAB_COLORS.main);
+    $("#cs-main")?.style.setProperty("--tab-color", TAB_COLORS[tab] || TAB_COLORS.main);   // 11-06: 탭 줄이 맨 위로 — 색은 본문 전체에
     if (RIGHT_TITLES[tab]) showRight(tab);
     if (tab === "settings" && state.connected && !state.sample) loadUsage();
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });

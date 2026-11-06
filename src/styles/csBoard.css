@@ -2135,7 +2135,6 @@ a.cs-btn {
 .cs-fold-hint::after { content: "펼치기"; }
 .cs-login-fold[open] .cs-fold-hint::after { content: "접기"; }
 .cs-login-top { display: grid; gap: 8px; padding-bottom: 8px; border-bottom: 1px dashed #f5c2da; }
-.cs-login-fold:not([open]) > .cs-login-inner { display: none; }
 
 /* 11-06: 웹 연결 — 연결된 상태면 비밀번호 칸 없이 연결중 표시 */
 #cs-token-state.cs-token-on { color: #15803d; font-weight: 800; font-size: 14px; }

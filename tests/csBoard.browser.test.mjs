@@ -527,12 +527,9 @@ try {
     assert.equal(await page.locator("#cs-token-state").textContent(), "🟢 연결중");
     assert.equal(await page.locator("#cs-token-input").evaluate((el) => el.closest("label").hidden), true, "비밀번호 칸 숨김");
     assert.equal(await page.locator("#cs-token-clear").textContent(), "연결 끊기");
-    // 11-06: 판매자센터 로그인은 평소 접혀서 한 줄 → 누르면 펼침
-    assert.equal(await page.locator("#cs-login").evaluate((el) => el.open), false, "기본 접힘");
-    const foldH = (await page.locator("#cs-login").boundingBox()).height;
-    assert.ok(foldH < 60, `접히면 한 줄 (${foldH}px)`);
-    await page.locator("#cs-login-title").click();
-    assert.equal(await page.locator("#cs-login").evaluate((el) => el.open), true, "누르면 펼침");
+    // 11-06: 판매자센터 로그인은 늘 펼친 상태 (접기 버튼 없음)
+    assert.equal(await page.locator("#cs-login > summary, #cs-login .cs-fold-hint").count(), 0, "접기 버튼 없음");
+    assert.equal(await page.locator("#cs-login-ok").isVisible(), true);
     assert.equal(await page.locator("#cs-login-ok").isDisabled(), false, "login works from V3 now");
     assert.match(await page.locator("#cs-login").textContent(), /전체 선택 \+ 게시판 \+ 리뷰 수집/);
     // 업체 끄기 → 요청에 반영 (게시판 탭)

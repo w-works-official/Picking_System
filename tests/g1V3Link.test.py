@@ -965,6 +965,42 @@ assert mv.managed == {3: 0, 2: 1}, "거래처 탭 창도 그대로 돌아옴"
 mv.arrange()
 assert 4 not in mv.managed, "1.16: 거래처는 메모 이름이 맞는 창만 (메모 없는 슬롯에도 다른 창 안 붙임)"
 
+# 1.20 거래처 일괄 붙이기: 대화창이 없으면 카톡 검색으로 열기 → 업체별 결과(못 찾음·여러 개·이름 다름)
+fk = FakeMsnApi()
+fk.wins = {1: ("세븐피어싱", (0, 0, 400, 600)), 2: ("아트피어스", (0, 0, 400, 600)), 3: ("아트", (0, 0, 400, 600))}
+fk.order = [1, 2, 3]
+kakao_rooms = {"수진사": ("수진사 (남대문)", 10), "헤세드": ("헤세드", 11), "더피어싱": ("더피어싱", 12)}
+opened = []
+def open_chat(name):
+    opened.append(name)
+    if name in kakao_rooms:
+        t, h = kakao_rooms[name]; fk.wins[h] = (t, (0, 0, 400, 600)); fk.order.append(h)
+    return True
+fk.open_chat = open_chat
+fk.wins[13] = ("더피어싱", (0, 0, 400, 600)); fk.order.append(13)          # 같은 이름 방이 이미 하나 열려 있음
+mk = L.MsnHelper(fk)
+names = ["세븐피어싱", "수진사", "헤세드", "없는업체", "아트", "아트피어스", "더피어싱", ""]
+mk.set_slots([(i * 420, 0, 400, 560) for i in range(8)], "vendor", names)
+notes = mk.open_named(search=True, sleep=lambda s: None)
+assert opened == ["수진사", "헤세드", "없는업체"], f"열린 창이 없는 업체만 카톡에서 검색 {opened}"
+assert notes[0] == {"state": "ok", "title": "세븐피어싱"} and notes[2]["state"] == "ok"
+assert notes[1] == {"state": "similar", "title": "수진사 (남대문)"}, "이름이 조금 다른 방 → 확인 안내"
+assert notes[3] == {"state": "missing"}
+assert notes[4]["state"] == "ok" and notes[5]["state"] == "ok", "'아트'와 '아트피어스'는 각자 (더 긴 이름 먼저)"
+assert 7 not in notes, "메모 없는 슬롯은 건너뜀"
+fk.wins[14] = ("더피어싱", (0, 0, 400, 600)); fk.order.append(14)
+assert mk.open_named(search=False)[6] == {"state": "dup", "titles": ["더피어싱", "더피어싱"]}, "같은 이름 방 여러 개"
+r = mk.arrange()
+assert mk.managed.get(1) == 0 and mk.managed.get(10) == 1 and mk.managed.get(11) == 2
+del fk.open_chat
+fk2 = FakeMsnApi(); fk2.open_chat = lambda name: None
+mk2 = L.MsnHelper(fk2); mk2.set_slots([(0, 0, 400, 560), (420, 0, 400, 560)], "vendor", ["가나다", "라마바"])
+assert mk2.open_named(search=True, sleep=lambda s: None) == {0: {"state": "nokakao"}, 1: {"state": "nokakao"}}, "카톡 본 창 없음 → 업체마다 안내"
+# 일괄 보내기: 붙은 창의 미리보기 창에서 Enter
+fk.confirm = lambda h: h == 1
+assert mk.confirm(0) == {"ok": True, "slot": 0, "popup": True}
+assert mk.confirm(7)["ok"] is False, "붙은 창 없는 슬롯"
+
 # 로컬 HTTP: System V3 화면 Origin 만 POST 허용 · 미리 확인(OPTIONS) 에 사설망 허용 머리말
 import socket as _sock, urllib.request as _ur, urllib.error as _ue
 _s = _sock.socket(); _s.bind(("127.0.0.1", 0)); _port = _s.getsockname()[1]; _s.close()

@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261102-status1">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261106-remote1">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261106-kakao1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -241,7 +241,7 @@
                 <legend>거래처 카톡 주문 보내기</legend>
                 <ol class="cs-note cs-install-steps">
                   <li>슬롯 <b>메모</b>에 업체명 또는 카톡방 이름(일부)을 적어 두기 — 이 기기에 저장 (예: <b>세븐피어싱</b>, <b>헤세드</b>)</li>
-                  <li>업체 카톡 대화창들을 열고 <b>[📐 일괄 붙이기]</b> → 창 제목에 메모 이름이 들어 있는 창만 그 슬롯에 붙음 (안 맞는 창은 그대로)</li>
+                  <li><b>[📐 일괄 붙이기]</b> → 슬롯 메모(업체명)마다 카톡에서 대화방을 찾아 열고 그 슬롯에 붙임 (카톡 PC 친구 목록 창이 켜져 있어야 함) · 못 찾거나 같은 이름 방이 여러 개면 그 슬롯에 "대화방 이름을 ○○로 바꿔 주세요" 안내</li>
                   <li>P_1·P_2 <b>PT-LIST</b>(.xlsx)를 위쪽 칸에 끌어다 놓기 (또는 [📥 주문서업로드]) → 매입처별 <b>표 그림 1장</b>씩 (멘트는 그림 위쪽) · <b>업체명이 주문서 위에서부터 순서대로 슬롯 1·2·3… 메모에 자동으로</b> 들어가고 슬롯에 그림이 보임 (매일 새 리스트)<br>※ kakao_order_send 가 만든 <b>업체명_MMDD.jpg</b> 를 끌어다 놓아도 됩니다</li>
                   <li><b>[🖼 사진적용]</b> → 짝 맞은 카톡 창마다 그림을 붙여넣음 → 각 카톡 미리보기 창에서 <b>[전송]</b>은 직접</li>
                 </ol>
@@ -473,7 +473,8 @@
               <div class="cs-answer-top">
                 <button type="button" class="cs-btn cs-btn-primary" data-msn-act="connect">🖥 화면 연결</button>
                 <button type="button" class="cs-btn" data-msn-act="fit" disabled title="슬롯 위에 다른 창이 없을 때 누르기 — 화면과 슬롯 위치를 맞춤">🎯 영역 맞춤</button>
-                <button type="button" class="cs-btn cs-btn-green" data-msn-act="arrange" disabled title="열린 카톡 대화창 제목에 슬롯 메모 이름이 들어 있으면 그 슬롯에 붙임 (항상 위)">📐 일괄 붙이기</button>
+                <button type="button" class="cs-btn cs-btn-green" data-msn-act="arrange" disabled title="슬롯 메모(업체명)마다 카톡 대화방을 찾아 열고(열린 창이 없으면 카톡 검색) 그 슬롯에 붙임 (항상 위)">📐 일괄 붙이기</button>
+                <button type="button" class="cs-btn cs-btn-send" data-vo-act="sendall" disabled title="[🖼 사진적용]으로 붙여넣은 카톡 [사진 보내기] 창마다 [전송]을 누름">📨 일괄 보내기</button>
                 <span class="msn-conn" data-msn-conn>○ 화면 연결 안 됨</span>
                 <button type="button" class="msn-helper" data-msn-helper data-msn-act="helper">🪄 창 도우미 ○ 확인 중</button>
                 <span class="cs-flex"></span>
@@ -546,6 +547,6 @@
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
     <script type="module" src="../src/app/csBoardApp.mjs?v=20261106-remote1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
-    <script type="module" src="../src/app/msnSlots.mjs?v=20261106-order1"></script>
+    <script type="module" src="../src/app/msnSlots.mjs?v=20261106-kakao1"></script>
   </body>
 </html>

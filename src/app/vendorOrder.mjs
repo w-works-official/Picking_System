@@ -155,6 +155,9 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     const ready = st.vendors.filter((v) => !v.off && slotOf(v, nm) >= 0).length;
     const apply = $("[data-vo-act=apply]");
     if (apply) { apply.disabled = st.busy || !ready; apply.textContent = st.busy ? "🖼 붙이는 중…" : `🖼 사진적용${ready ? ` (${ready}곳)` : ""}`; }
+    const toSend = st.vendors.filter((v) => v.pasted && !v.sent && !v.off).length;
+    const sendAll = panel.root.querySelector("[data-vo-act=sendall]");
+    if (sendAll) { sendAll.disabled = st.busy || !toSend; sendAll.textContent = st.busy ? "📨 보내는 중…" : `📨 일괄 보내기${toSend ? ` (${toSend}곳)` : ""}`; }
     $("[data-vo-summary]").textContent = st.vendors.length ? `${st.file} · 업체 ${st.vendors.length}곳 · 짝 맞음 ${st.vendors.filter((v) => slotOf(v, nm) >= 0).length}곳` : "주문서(.xlsx)나 업체 사진(업체명_MMDD.jpg)을 여기로 끌어다 놓으세요";
   }
 
@@ -227,14 +230,43 @@ export function mountVendorOrder({ document, window, storage, panel }) {
             await panel.pasteImage(slot, await toPng(document, b));
             await new Promise((r) => window.setTimeout(r, PASTE_GAP_MS));
           }
-          ok += 1; mark(k, `✓ 붙여넣음 (${v.blobs.length}장) — 카톡에서 [전송]`, "is-ok");
+          ok += 1; v.pasted = true; v.sent = false; v.pastedSlot = slot; mark(k, `✓ 붙여넣음 (${v.blobs.length}장) — [📨 일괄 보내기] 또는 카톡에서 [전송]`, "is-ok");
         } catch (error) { bad += 1; mark(k, `실패: ${error?.message || error}`, "is-bad"); }
       }
-      say(`사진적용: 붙여넣음 ${ok}곳${miss ? ` · 창 없음 ${miss}곳` : ""}${bad ? ` · 실패 ${bad}곳` : ""} — 각 카톡 창 미리보기에서 [전송]을 눌러 주세요.`, ok && !bad ? "is-ok" : "is-bad");
+      say(`사진적용: 붙여넣음 ${ok}곳${miss ? ` · 창 없음 ${miss}곳` : ""}${bad ? ` · 실패 ${bad}곳` : ""} — 그림을 확인하고 [📨 일괄 보내기] (또는 카톡 창마다 [전송]).`, ok && !bad ? "is-ok" : "is-bad");
     } finally {
       st.busy = false; renderList();
     }
   }
+
+  // 11-06 📨 일괄 보내기: [🖼 사진적용]으로 붙여넣은 슬롯마다 카톡 [사진 보내기] 창에서 [전송] (Enter) — 누르기 전에 한 번 확인
+  async function sendAll() {
+    if (st.busy) return;
+    const todo = st.vendors.map((v, k) => ({ v, k })).filter(({ v }) => v.pasted && !v.sent && !v.off);
+    if (!todo.length) { say("보낼 것이 없습니다 — 먼저 [🖼 사진적용]으로 카톡 창에 그림을 붙여 넣으세요.", "is-bad"); return; }
+    if (!window.confirm(`${todo.length}곳 (${todo.map(({ v }) => v.vendor).join(", ")}) 카톡에 주문 그림을 [전송]합니다. 보낼까요?`)) return;
+    st.busy = true; renderList();
+    const mark = (k, text, tone) => {
+      Object.assign(st.vendors[k], { state: text, tone });
+      const el = box.querySelector(`[data-vo-state="${k}"]`);
+      if (el) { el.textContent = text; el.className = `vo-state ${tone}`; }
+    };
+    let ok = 0, none = 0, bad = 0;
+    try {
+      for (const { v, k } of todo) {
+        try {
+          const r = await panel.confirmSend(v.pastedSlot);
+          if (r.popup) { ok += 1; v.sent = true; mark(k, "📨 보냄", "is-ok"); }
+          else { none += 1; mark(k, "보낼 그림 창이 없음 — 이미 보냈거나 닫힘 (카톡 창 확인)", "is-bad"); }
+        } catch (error) { bad += 1; mark(k, `보내기 실패: ${error?.message || error}`, "is-bad"); }
+        await new Promise((r) => window.setTimeout(r, PASTE_GAP_MS));
+      }
+      say(`일괄 보내기: 보냄 ${ok}곳${none ? ` · 그림 창 없음 ${none}곳` : ""}${bad ? ` · 실패 ${bad}곳` : ""} — 카톡 창에서 전송됐는지 확인해 주세요.`, ok && !none && !bad ? "is-ok" : "is-bad");
+    } finally {
+      st.busy = false; renderList();
+    }
+  }
+  panel.root.querySelector("[data-vo-act=sendall]")?.addEventListener("click", sendAll);
 
   const drop = $("[data-vo-drop]");
   const input = $("[data-vo-file]");
@@ -264,5 +296,5 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   panel.root.addEventListener("input", (e) => { if (e.target.matches("[data-msn-name]")) renderList(); });   // 메모를 고치면 짝 다시
   panel.root.addEventListener("change", (e) => { if (e.target.matches("[data-msn-count]")) renderList(); });
   renderList();
-  return { loadFiles, apply, state: st, renderList };
+  return { loadFiles, apply, sendAll, state: st, renderList };
 }

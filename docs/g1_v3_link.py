@@ -109,6 +109,11 @@
   · 사람에게 넘긴 로그인 창 화면을 4초마다(바뀌었을 때만) 웹(V3 CS 관리)에 보여 줌 → 웹에서 퀴즈 정답을 넣으면 이 PC가 정답 칸에 넣고 [로그인]
   · 웹에서 화면을 누르면 그 자리를 이 PC 창에서 누름 (탭·버튼 등). 퀴즈를 푸는 건 사람 — 프로그램은 옮겨 넣기만
   · 화면 그림은 시트 임시 보관(10분)에만, 로그인이 끝나면 지움
+
+1.20 (2026-11-06) 거래처 일괄 붙이기 = 카톡에서 찾아 열기 · 일괄 보내기
+  · 거래처 탭 [📐 일괄 붙이기]: 슬롯 메모(업체명)마다 열린 대화창이 없으면 카톡 PC 검색칸에 업체명을 넣고 Enter → 대화방을 열어 그 슬롯에 붙임
+  · 업체별 결과를 웹에 돌려줌: 못 찾음 · 이름이 같은 방 여러 개 · 이름이 조금 다른 방 → 웹이 그 슬롯에 "대화방 이름을 ○○로 바꿔 주세요" 안내
+  · POST /msn/confirm: 슬롯 대화창에 떠 있는 [사진 보내기] 미리보기 창에서 Enter(전송) — 웹 [📨 일괄 보내기]
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -116,7 +121,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.19 (2026-11-06)"
+LINK_VER = "1.20 (2026-11-06)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -2201,6 +2206,47 @@ class MsnHelper:
                 placed += 1
             return {"ok": True, "placed": placed, "named": named, "windows": len(wins), "slots": n, "group": self.group}
 
+    def _slot_hits(self, i, names):
+        """슬롯 i 메모 이름에 맞는 열린 대화창 [(hwnd, 제목)] (더 긴 메모가 맞는 창은 그 슬롯 몫)"""
+        return [(h, t) for h, t, _ in self.api.windows() if msn_name_slot(t, names) == i]
+
+    def open_named(self, search=True, wait=1.2, sleep=time.sleep):
+        """1.20 거래처: 슬롯 메모(업체명)마다 대화창 찾기 → 없으면 카톡 검색으로 열기. 업체별 결과 {슬롯: {state, title|titles}}
+           state = ok(이름 같음) · similar(이름에 업체명이 들어간 다른 이름) · dup(여러 개) · missing(못 찾음) · nokakao(카톡 본 창 없음)"""
+        with self.lock:
+            n = len(self.slots)
+            names = (self.names + [""] * n)[:n]
+        out, nokakao = {}, False
+        for i, name in enumerate(names):
+            k = msn_norm_name(name)
+            if len(k) < 2:
+                continue
+            hits = self._slot_hits(i, names)
+            if not hits and search and not nokakao:
+                opened = self.api.open_chat(name) if hasattr(self.api, "open_chat") else None
+                if opened is None:
+                    nokakao = True
+                else:
+                    sleep(wait)
+                    hits = self._slot_hits(i, names)
+            if hits and len(hits) > 1:
+                out[i] = {"state": "dup", "titles": [t for _, t in hits][:4]}
+            elif hits:
+                t = hits[0][1]
+                out[i] = {"state": "ok" if msn_norm_name(t) == k else "similar", "title": t}
+            else:
+                out[i] = {"state": "nokakao" if nokakao else "missing"}
+        return out
+
+    def confirm(self, i):
+        """슬롯 i 대화창에 떠 있는 [사진 보내기] 미리보기 창에서 Enter (= 전송)"""
+        with self.lock:
+            h = next((h for h, j in self.managed.items() if j == i), None)
+        if h is None:
+            return {"ok": False, "error": f"슬롯 {i + 1} 에 붙은 대화창이 없음"}
+        popup = self.api.confirm(h)
+        return {"ok": True, "slot": i, "popup": bool(popup)}
+
     def send(self, i, enter=True):
         """슬롯 i 에 붙은 창에 붙여넣기 + Enter"""
         with self.lock:
@@ -2421,6 +2467,62 @@ class MsnWin:
             self._activate(prev)
         return True
 
+    def _kakao_search_edit(self):
+        """카톡 PC 본 창(친구·채팅 목록)의 검색칸 — 채팅 목록 쪽 먼저. 없으면 None"""
+        c, W = self.c, self.W
+        if not hasattr(self, "_fw"):
+            self.u.FindWindowW.argtypes, self.u.FindWindowW.restype = [W.LPCWSTR, W.LPCWSTR], W.HWND
+            self.u.FindWindowExW.argtypes, self.u.FindWindowExW.restype = [W.HWND, W.HWND, W.LPCWSTR, W.LPCWSTR], W.HWND
+            self.u.SendMessageW.argtypes, self.u.SendMessageW.restype = [W.HWND, W.UINT, W.WPARAM, c.c_void_p], c.c_ssize_t
+            self.u.PostMessageW.argtypes, self.u.PostMessageW.restype = [W.HWND, W.UINT, W.WPARAM, W.LPARAM], W.BOOL
+            self.u.GetWindow.argtypes, self.u.GetWindow.restype = [W.HWND, W.UINT], W.HWND
+            self._fw = True
+        main = self.u.FindWindowW(None, "카카오톡")
+        if not main:
+            return None
+        child = self.u.FindWindowExW(main, None, "EVA_ChildWindow", None)
+        if not child:
+            return None
+        first = self.u.FindWindowExW(child, None, "EVA_Window", None)
+        second = self.u.FindWindowExW(child, first, "EVA_Window", None) if first else None
+        for w in (second, first):
+            if w:
+                e = self.u.FindWindowExW(w, None, "Edit", None)
+                if e:
+                    return e
+        return None
+
+    def open_chat(self, name):
+        """카톡 검색칸에 이름을 넣고 Enter → 맨 위 대화방이 열림. 카톡 본 창이 없으면 None"""
+        e = self._kakao_search_edit()
+        if not e:
+            return None
+        buf = self.c.create_unicode_buffer(str(name))
+        self.u.SendMessageW(e, 0x000C, 0, self.c.cast(buf, self.c.c_void_p))       # WM_SETTEXT
+        time.sleep(0.7)
+        self.u.PostMessageW(e, 0x0100, 0x0D, 0)                                      # WM_KEYDOWN Enter
+        self.u.PostMessageW(e, 0x0101, 0x0D, 0)
+        time.sleep(0.5)
+        empty = self.c.create_unicode_buffer("")
+        self.u.SendMessageW(e, 0x000C, 0, self.c.cast(empty, self.c.c_void_p))     # 검색칸 비우기 (목록 원래대로)
+        return True
+
+    def confirm(self, hwnd):
+        """대화창에 딸린 미리보기 창(사진 보내기)을 앞으로 → Enter → 원래 창으로. 미리보기 창이 없으면 False(아무것도 안 누름)"""
+        if not hasattr(self, "_fw"):
+            self._kakao_search_edit()
+        popup = self.u.GetWindow(hwnd, 6)                                            # GW_ENABLEDPOPUP
+        if not popup or int(popup) == int(hwnd):
+            return False
+        prev = self.u.GetForegroundWindow()
+        self._activate(popup)
+        time.sleep(0.2)
+        self._key(0x0D); self._key(0x0D, True)
+        time.sleep(0.3)
+        if prev and prev != popup:
+            self._activate(prev)
+        return True
+
     def place(self, hwnd, slot):
         if self.u.IsZoomed(hwnd) or self.u.IsIconic(hwnd):
             self.u.ShowWindow(hwnd, 9)                  # SW_RESTORE
@@ -2497,7 +2599,13 @@ def msn_server(helper, port=MSN_PORT):
                     return self._json(helper.set_slots(msn_clean_slots(body.get("slots")), str(body.get("group") or "reply"),
                                                        msn_clean_names(body.get("names")) if "names" in body else None))
                 if p == "/msn/arrange":
-                    return self._json(helper.arrange())
+                    notes = helper.open_named(search=body.get("search") is True) if helper.group == "vendor" else {}   # 1.20
+                    r = helper.arrange()
+                    if notes:
+                        r["notes"] = {str(i): v for i, v in notes.items()}
+                    return self._json(r)
+                if p == "/msn/confirm":
+                    return self._json(helper.confirm(int(body.get("slot", -1))))
                 if p == "/msn/release":
                     return self._json(helper.release_all())
                 if p == "/msn/capture":

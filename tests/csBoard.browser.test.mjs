@@ -51,11 +51,12 @@ try {
     const helperCalls = [];
     let helperUsed = null;                 // 1.13: 대화창이 붙은 슬롯 번호 (null = 예전 버전처럼 알려 주지 않음)
     let helperPing = null;                 // 1.15: 거래처 탭 시험용 ping 응답
+    let helperArrange = null;              // 1.20: 거래처 일괄 붙이기 응답 (업체별 안내)
     await context.route("http://127.0.0.1:47811/**", (route) => {
       const req = route.request();
       const p = new URL(req.url()).pathname;
       helperCalls.push({ path: p, method: req.method(), body: req.postData() ? JSON.parse(req.postData()) : null });
-      const body = p === "/msn/ping" ? (helperPing || { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 }) : p === "/msn/arrange" ? { ok: true, placed: 2, windows: 2, slots: 3 } : p === "/msn/release" ? { ok: true, released: 2 } : p === "/msn/send" ? { ok: true, slot: 0 } : p === "/msn/windows" ? { ok: true, windows: [{ exe: "nateonmain.exe", title: "김대리", w: 420, h: 600, tool: true, min: false, ok: true }] } : { ok: true, slots: 3, managed: 0, ...(helperUsed ? { used: helperUsed } : {}) };
+      const body = p === "/msn/ping" ? (helperPing || { ok: true, ver: "1.10 (2026-11-05)", slots: 3, windows: 2, managed: 0 }) : p === "/msn/arrange" ? (helperArrange || { ok: true, placed: 2, windows: 2, slots: 3 }) : p === "/msn/confirm" ? { ok: true, popup: true } : p === "/msn/release" ? { ok: true, released: 2 } : p === "/msn/send" ? { ok: true, slot: 0 } : p === "/msn/windows" ? { ok: true, windows: [{ exe: "nateonmain.exe", title: "김대리", w: 420, h: 600, tool: true, min: false, ok: true }] } : { ok: true, slots: 3, managed: 0, ...(helperUsed ? { used: helperUsed } : {}) };
       return route.fulfill({ status: 200, contentType: "application/json", headers: { "Access-Control-Allow-Origin": origin }, body: JSON.stringify(body) });
     });
     const page = await context.newPage();
@@ -338,7 +339,26 @@ try {
     assert.match(await msnV.locator('[data-vo-state="1"]').textContent(), /창 없음/, "슬롯 3 에는 붙은 카톡 창이 없음");
     const clipType = await page.evaluate(async () => (await navigator.clipboard.read())[0].types.join(","));
     assert.match(clipType, /image\/png/, "클립보드에 그림");
+    // 11-06 📨 일괄 보내기: 붙여넣은 곳만 · 확인 창 → 미리보기 창에서 Enter
+    assert.match(await msnV.locator('[data-vo-act="sendall"]').textContent(), /일괄 보내기 \(1곳\)/);
+    page.once("dialog", (d) => { assert.match(d.message(), /1곳 \(세븐피어싱\)/); d.accept(); });
+    await msnV.locator('[data-vo-act="sendall"]').click();
+    await msnV.locator("[data-vo-msg]", { hasText: "일괄 보내기: 보냄 1곳" }).waitFor({ timeout: 10000 });
+    assert.deepEqual(helperCalls.filter((c) => c.path === "/msn/confirm").map((c) => c.body.slot), [0]);
+    assert.match(await msnV.locator('[data-vo-state="0"]').textContent(), /📨 보냄/);
+    assert.equal(await msnV.locator('[data-vo-act="sendall"]').isDisabled(), true, "보낸 뒤엔 보낼 것 없음");
+    // 1.20 일괄 붙이기 = 카톡 검색으로 열기 · 못 찾음/여러 개는 그 슬롯에 업체별 안내 (대화방 이름 바꾸기)
+    helperArrange = { ok: true, placed: 1, named: 1, windows: 1, slots: 10, notes: { 0: { state: "ok", title: "세븐피어싱" }, 1: { state: "missing" }, 2: { state: "dup", titles: ["수진사", "수진사 2"] } } };
+    await msnV.locator('[data-msn-act="arrange"]').click();
+    await msnV.locator("[data-msn-msg]", { hasText: "확인 필요 2곳" }).waitFor();
+    assert.equal(helperCalls.filter((c) => c.path === "/msn/arrange").at(-1).body.search, true, "거래처 = 카톡 검색");
+    assert.equal(await msnV.locator('[data-msn-note="0"]').count(), 0, "찾은 곳은 안내 없음");
+    assert.match(await msnV.locator('[data-msn-note="1"]').textContent(), /'다른 업체' 대화방을 못 찾았습니다[\s\S]*카톡방 이름을 '다른 업체'/);
+    assert.match(await msnV.locator('[data-msn-note="2"]').textContent(), /'수진사'이\(가\) 들어간 대화방이 2개[\s\S]*수진사 · 수진사 2/);
     await page.screenshot({ path: path.join(output, "cs-board-vendor.png") });
+    await msnV.locator("[data-msn-name='1']").fill("다른업체2");
+    assert.equal(await msnV.locator('[data-msn-note="1"]').count(), 0, "메모를 고치면 그 슬롯 안내 지움");
+    helperArrange = null;
     helperPing = null;
     await page.locator('[data-left-tab="msn"]').click();
 

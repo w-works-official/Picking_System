@@ -63,7 +63,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   const countOptions = vendor ? [5, 10, 20, 30] : Array.from({ length: slotsMax }, (_, k) => k + 1);
   const fitCount = (n) => (vendor ? countOptions.find((c) => c >= (Number(n) || 10)) || 30 : Number(n) || 3);
   prefs.count = fitCount(prefs.count);
-  const st = { stream: null, video: null, timer: 0, slots: [], prev: [], snaps: [], fit: prefs.fit, helper: { on: false, ver: "", sent: "", n: 0, busy: false } };
+  const st = { stream: null, video: null, timer: 0, slots: [], prev: [], snaps: [], fit: prefs.fit, helper: { on: false, ver: "", sent: "", n: 0, busy: false }, notes: {} };
   const can = !!navigator?.mediaDevices?.getDisplayMedia;
 
   function save() {
@@ -73,9 +73,32 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     const el = $("[data-msn-msg]");
     if (el) { el.textContent = text; el.className = `msn-msg ${tone}`; }
   }
+  // 1.20 거래처: 일괄 붙이기 결과를 업체(슬롯)별 안내로 — 대화방 이름을 업체명으로 바꾸도록
+  function noteText(name, n) {
+    const q = `'${name}'`;
+    if (n.state === "missing") return `카톡에서 ${q} 대화방을 못 찾았습니다\n→ 이 업체 카톡방 이름을 ${q}(으)로 바꿔 주세요\n(대화방 ≡ 메뉴 → 채팅방 설정 → 채팅방 이름)`;
+    if (n.state === "dup") return `${q}이(가) 들어간 대화방이 ${n.titles?.length || 2}개입니다 (${(n.titles || []).join(" · ")})\n→ 이 업체 방만 이름에 ${q}이 들어가게 바꿔 주세요`;
+    if (n.state === "similar") return `열린 방: '${n.title}'\n→ 이 업체가 맞으면 그대로, 아니면 카톡방 이름을 ${q}(으)로 바꿔 주세요`;
+    if (n.state === "nokakao") return "카카오톡 PC 프로그램(친구 목록 창)이 꺼져 있어 검색하지 못했습니다\n→ 카톡을 켜 두고 다시 [📐 일괄 붙이기]";
+    return "";
+  }
+  function applyNotes() {
+    root.querySelectorAll(".msn-note").forEach((el) => el.remove());
+    for (const [k, n] of Object.entries(st.notes || {})) {
+      const i = Number(k), text = noteText(prefs.names[i] || "", n || {});
+      const frame = text && root.querySelector(`[data-msn-frame="${i}"]`);
+      if (!frame) continue;
+      const el = document.createElement("div");
+      el.className = `msn-note is-${n.state}`;
+      el.dataset.msnNote = String(i);
+      el.textContent = `⚠ ${text}`;
+      frame.appendChild(el);
+    }
+  }
   function render() {
     const box = $("[data-msn-slots]");
     box.innerHTML = Array.from({ length: prefs.count }, (_, i) => msnSlotHtml(i, { name: prefs.names[i] || "", height: prefs.height, star: prefs.stars[i] === true, memo })).join("");
+    applyNotes();
     const csel = $("[data-msn-count]");
     if (csel && csel.options.length !== countOptions.length) csel.innerHTML = countOptions.map((n) => `<option value="${n}">${n}</option>`).join("");
     box.style.setProperty("--msn-w", `${prefs.width}px`);
@@ -212,9 +235,9 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     }
     return out;
   }
-  async function helperCall(path, body) {
+  async function helperCall(path, body, ms = 2500) {
     const opt = body === undefined ? { method: "GET" } : { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body) };
-    if (window.AbortSignal?.timeout) opt.signal = window.AbortSignal.timeout(2500);
+    if (window.AbortSignal?.timeout) opt.signal = window.AbortSignal.timeout(ms);
     const res = await window.fetch(`${MSN_HELPER_URL}${path}`, opt);
     const js = await res.json().catch(() => ({}));
     if (!res.ok || js.ok === false) throw new Error(js.error || `HTTP ${res.status}`);
@@ -360,8 +383,16 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [▶ 창 도우미 켜기]를 누르거나, 처음이면 ⚙ 설정 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
     try {
       await syncSlots(true);
-      const r = await helperCall("/arrange", {});
+      if (vendor) say("카톡에서 업체 대화방을 찾아 여는 중… (업체가 많으면 몇십 초)");
+      const r = await helperCall("/arrange", { search: vendor }, vendor ? 90000 : 2500);   // 1.20: 거래처 = 카톡 검색으로 열기
       const named = Number(r.named) || 0;
+      if (vendor && r.notes) {
+        st.notes = r.notes; applyNotes();
+        const bad = Object.values(r.notes).filter((x) => x.state !== "ok").length;
+        say(`일괄 붙이기: 붙음 ${r.placed || 0}곳${bad ? ` · 확인 필요 ${bad}곳 — 노란 안내가 뜬 슬롯을 봐 주세요 (대화방 이름을 업체명으로 바꾸면 다음부터 바로 붙음)` : ""}`, bad ? "is-bad" : "is-ok");
+        pingHelper();
+        return;
+      }
       say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위)${named ? ` — 그중 ${named}개는 메모 이름으로` : ""}.` : vendor ? "메모 이름과 맞는 카톡 창이 없습니다 — 업체 대화창을 먼저 열고, 슬롯 메모에 카톡방 이름(일부)을 적어 주세요." : "열린 카톡·네이트온 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
       pingHelper();
     } catch (error) { say(`일괄 붙이기 실패: ${error?.message || error}`, "is-bad"); }
@@ -463,7 +494,11 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     else if (e.target.matches("[data-msn-width]")) { prefs.width = Number(e.target.value) || MSN_LIMITS.widths[0]; save(); render(); syncSlots(true); }
   });
   root.addEventListener("input", (e) => {
-    if (e.target.matches("[data-msn-name]")) { prefs.names[Number(e.target.dataset.msnName)] = e.target.value; save(); }
+    if (e.target.matches("[data-msn-name]")) {
+      const i = Number(e.target.dataset.msnName);
+      prefs.names[i] = e.target.value; save();
+      if (st.notes?.[i]) { delete st.notes[i]; applyNotes(); }   // 메모를 고치면 그 슬롯 안내는 지움
+    }
   });
 
   render();
@@ -485,15 +520,21 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (names.length > prefs.count) prefs.count = fitCount(names.length);
     prefs.names = Array.from({ length: slotsMax }, (_, i) => names[i] || "");
     prefs.stars = Array.from({ length: slotsMax }, () => false);
+    st.notes = {};
     save(); render(); syncSlots(true);
     return names.length;
+  }
+  // 1.20 일괄 보내기: 슬롯 대화창의 [사진 보내기] 미리보기 창에서 Enter → { popup: 미리보기 창이 있었는지 }
+  async function confirmSend(i) {
+    if (!st.helper.on) throw new Error("창 도우미 연결 안 됨");
+    return helperCall("/confirm", { slot: i }, 8000);
   }
   async function usedSlots() {
     const r = await helperCall("/ping");
     return r.group === group && Array.isArray(r.used) ? r.used.map(Number) : [];
   }
 
-  const api = { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, slotsMax, group, root, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose, suggest, toggleStar, pasteImage, usedSlots, setNames, say };
+  const api = { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, slotsMax, group, root, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose, suggest, toggleStar, pasteImage, usedSlots, setNames, confirmSend, say };
   MSN_PANELS[group] = api;
   return api;
 }
@@ -502,6 +543,6 @@ if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]"
   const storage = (() => { try { return window.localStorage; } catch { return null; } })();
   document.querySelectorAll("[data-msn-panel]").forEach((root) => {
     const inst = mountMsnSlots({ document, window, storage, root });
-    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261106-order1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
+    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261106-kakao1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
   });
 }

@@ -2160,3 +2160,9 @@ a.cs-btn {
 .cs-login-more { border: 0; background: none; color: #2563eb; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; padding: 2px 4px; white-space: nowrap; }
 .cs-login-detail { display: grid; gap: 4px; margin-top: 4px; }
 .cs-login-detail[hidden] { display: none; }
+
+/* 11-06: 거래처 일괄 붙이기 업체별 안내 (슬롯 틀 위) · 일괄 보내기 버튼 */
+.msn-note { position: absolute; left: 8px; right: 8px; top: 8px; z-index: 2; padding: 10px 12px; border: 2px solid #eab308; border-radius: 8px; background: #fef9c3; color: #713f12; font-size: 13px; font-weight: 700; line-height: 1.5; white-space: pre-line; text-align: left; box-shadow: 0 2px 8px rgba(0, 0, 0, .12); }
+.msn-note.is-similar { border-color: #f59e0b; background: #fff7ed; }
+.cs-btn-send { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+.cs-btn-send:disabled { background: #ede9fe; border-color: #ddd6fe; color: #8b5cf6; }

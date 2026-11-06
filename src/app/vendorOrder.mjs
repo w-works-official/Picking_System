@@ -3,19 +3,20 @@
 //    kakao_order_send 가 만든 '업체명_MMDD.jpg'(·_2) 를 끌어다 놓아도 됨 (파일명 업체명 기준)
 //  · 업체명 ↔ 슬롯 메모로 짝 → [🖼 사진적용] = 짝 맞은 창마다 붙여넣기 (보내기는 사람이: 카톡 미리보기 창 [전송])
 //  · 그림은 이 브라우저 안에서만 만들고, 카톡 창으로만 갑니다 (어디에도 올리지 않음)
-import { groupByVendor, matchSlot, normName, readOrderSheet, vendorFromFileName } from "../domain/orderSheet.mjs?v=20261105-vendor1";
+import { groupByVendor, matchSlot, normName, readOrderSheet, vendorFromFileName } from "../domain/orderSheet.mjs?v=20261106-urgent1";
 
 const MEMO_KEY = "system_v3_cs_vendor_memo";
 export const DEFAULT_ORDER_MEMO = "• 전달된 실수량 꼭 필요 부탁드립니다\n• 단가 다를시 꼭 말씀 부탁드립니다\n감사합니다 ☺";
 const PASTE_GAP_MS = 1500;
 const FONT = "'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif";
+// 11-06: 엑셀과 같은 칸 — 사진 · 옵션명 · 발주량 · 임의필드 · 매입가 · 상품코드 (발주량 칸 노랑 = 급한 상품)
 const COLS = [
-  { key: "no", title: "순번", w: 56 },
   { key: "photo", title: "사진", w: 176 },
-  { key: "product", title: "상품명", w: 250 },
-  { key: "option", title: "옵션명", w: 230 },
-  { key: "qty", title: "발주량", w: 76 },
-  { key: "extra", title: "임의필드", w: 210 },
+  { key: "option", title: "옵션명", w: 260 },
+  { key: "qty", title: "발주량", w: 92 },
+  { key: "extra", title: "임의필드", w: 260 },
+  { key: "price", title: "매입가", w: 92 },
+  { key: "code", title: "상품코드", w: 112 },
 ];
 
 function esc(s) {
@@ -75,9 +76,11 @@ export async function renderVendorTable(document, { vendor, lines, memo = "", im
         } else { g.fillStyle = "#9ca3af"; g.font = `500 14px ${FONT}`; g.textAlign = "center"; g.fillText("(사진 없음)", x + col.w / 2, y + rowH / 2); }
       } else {
         const qty = col.key === "qty";
-        g.font = qty ? `900 26px ${FONT}` : `500 16px ${FONT}`;
-        g.fillStyle = qty ? "#b91c1c" : "#111827";
-        g.textAlign = col.key === "no" || qty ? "center" : "left";
+        if (qty && line.urgent) { g.fillStyle = "#ffff00"; g.fillRect(x + 1, y + 1, col.w - 2, rowH - 2); }   // 급한 상품 (엑셀 노랑 그대로)
+        const small = col.key === "price" || col.key === "code";
+        g.font = qty ? `900 26px ${FONT}` : col.key === "extra" ? `800 16px ${FONT}` : small ? `500 15px ${FONT}` : `500 16px ${FONT}`;
+        g.fillStyle = qty ? "#111827" : col.key === "extra" ? "#dc2626" : "#111827";
+        g.textAlign = qty || small ? "center" : "left";
         const tx = g.textAlign === "center" ? x + col.w / 2 : x + 8;
         const parts = wrap(g, line[col.key], col.w - 16, 5);
         parts.forEach((t, i) => g.fillText(t, tx, y + rowH / 2 + (i - (parts.length - 1) / 2) * 22));
@@ -110,55 +113,67 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   if (!box) return null;
   const $ = (sel) => box.querySelector(sel);
   const st = { vendors: [], file: "", busy: false };     // vendors: [{ vendor, lines?, files?, blobs: [Blob], off }]
-  const memoEl = $("[data-vo-memo]");
-  try { memoEl.value = storage?.getItem(MEMO_KEY) ?? DEFAULT_ORDER_MEMO; } catch { memoEl.value = DEFAULT_ORDER_MEMO; }
+  // 11-06: 그림 위쪽 멘트 편집 칸은 뺌 — 이 기기에 저장된 멘트(없으면 기본 멘트)를 그대로 씀
+  let savedMemo = DEFAULT_ORDER_MEMO;
+  try { savedMemo = storage?.getItem(MEMO_KEY) ?? DEFAULT_ORDER_MEMO; } catch { /* 기본 멘트 */ }
+  const memoEl = $("[data-vo-memo]") || { value: savedMemo, addEventListener() {}, dispatchEvent() {} };
+  memoEl.value = savedMemo;
 
-  const say = (t, tone = "") => { const el = $("[data-vo-msg]"); if (el) { el.textContent = t; el.className = `vo-msg ${tone}`; } };
+  // 11-06: 안내 글은 문제가 있을 때만 (잘 된 결과는 슬롯마다 작은 표시로)
+  const say = (t, tone = "") => { const el = $("[data-vo-msg]"); if (!el) return; const show = tone === "is-bad" && t; el.textContent = show ? t : ""; el.hidden = !show; el.className = `vo-msg ${tone}`; };
   const names = () => Array.from({ length: panel.prefs.count }, (_, i) => panel.prefs.names[i] || "");
   // 11-06: 주문서 순서로 넣은 슬롯이 그대로면 그 슬롯 (메모를 고쳤으면 이름으로 다시 짝)
   const slotOf = (v, nm) => (Number.isInteger(v.slot) && v.slot < nm.length && normName(nm[v.slot]) === normName(v.vendor) ? v.slot : matchSlot(v.vendor, nm));
-  // 11-06: 짝 맞은 슬롯 틀에 그 업체 주문 그림을 미리 보여 줌 (카톡 창이 붙으면 그 뒤로 가려짐)
-  function showSlotPics(nm, urlOf) {
-    panel.root.querySelectorAll(".msn-frame-pic").forEach((el) => el.remove());
+  // 11-06: 미리보기 목록 대신 슬롯에서 바로 — 짝 맞은 슬롯 = 초록 테두리(보냄 대상) · 슬롯 번호를 누르면 빼기/넣기
+  //  · 슬롯 틀에 그 업체 주문 그림 · 오른쪽 위 작은 표시 = 붙여넣음 / 보냄 / 창 없음 …
+  const urlOf = (v) => { if (!v.url && v.blobs?.[0]) v.url = URL.createObjectURL(v.blobs[0]); return v.url || ""; };
+  function decorateSlots(nm) {
+    panel.root.querySelectorAll(".msn-frame-pic, .msn-vo-state").forEach((el) => el.remove());
+    panel.root.querySelectorAll("[data-msn-slot]").forEach((el) => { el.classList.remove("is-pick", "is-skip"); delete el.dataset.voK; });
     st.vendors.forEach((v, k) => {
-      const slot = slotOf(v, nm), url = urlOf.get(k);
-      const frame = slot >= 0 && url ? panel.root.querySelector(`[data-msn-frame="${slot}"]`) : null;
-      if (!frame) return;
-      const img = document.createElement("img");
-      img.className = "msn-frame-pic";
-      img.src = url;
-      img.alt = `${v.vendor} 주문 그림`;
-      frame.appendChild(img);
+      const slot = slotOf(v, nm);
+      const el = slot >= 0 ? panel.root.querySelector(`[data-msn-slot="${slot}"]`) : null;
+      if (!el) return;
+      el.classList.add(v.off ? "is-skip" : "is-pick");
+      el.dataset.voK = String(k);
+      const no = el.querySelector(".msn-no");
+      if (no) no.title = v.off ? "빠짐 — 누르면 다시 넣기" : "보냄 대상 — 누르면 빼기";
+      const frame = el.querySelector("[data-msn-frame]");
+      const url = urlOf(v);
+      if (frame && url) {
+        const img = document.createElement("img");
+        img.className = "msn-frame-pic";
+        img.src = url;
+        img.alt = `${v.vendor} 주문 그림`;
+        frame.appendChild(img);
+      }
+      if (frame && v.state) {
+        const chip = document.createElement("span");
+        chip.className = `msn-vo-state ${v.tone || ""}`;
+        chip.dataset.voState = String(slot);
+        chip.textContent = v.off ? "빠짐" : v.state;
+        frame.appendChild(chip);
+      } else if (frame && v.off) {
+        const chip = document.createElement("span");
+        chip.className = "msn-vo-state";
+        chip.dataset.voState = String(slot);
+        chip.textContent = "빠짐";
+        frame.appendChild(chip);
+      }
     });
   }
 
   function renderList() {
-    const list = $("[data-vo-list]");
     const nm = names();
-    const urls = [];
-    const urlOf = new Map();
-    list.innerHTML = st.vendors.map((v, k) => {
-      const slot = slotOf(v, nm);
-      const url = v.blobs[0] ? URL.createObjectURL(v.blobs[0]) : "";
-      if (url) { urls.push(url); urlOf.set(k, url); }
-      const n = v.lines ? `${v.lines.length}건` : `사진 ${v.blobs.length}장`;
-      return `<li class="vo-item${slot < 0 ? " is-nomatch" : ""}${v.off ? " is-off" : ""}" data-vo-k="${k}">
-        <label><input type="checkbox" data-vo-pick="${k}"${v.off || slot < 0 ? "" : " checked"}${slot < 0 ? " disabled" : ""}> <b>${esc(v.vendor)}</b> <small>${n}</small></label>
-        <span class="vo-slot" data-vo-slot="${k}">${slot >= 0 ? `→ 슬롯 ${slot + 1}${nm[slot] ? ` (${esc(nm[slot])})` : ""}` : "[제외] 짝 맞는 슬롯 메모 없음"}</span>
-        <span class="vo-state ${v.tone || ""}" data-vo-state="${k}">${esc(v.state || "")}</span>
-        ${url ? `<a class="vo-thumb" href="${url}" target="_blank" rel="noopener" title="눌러서 크게 보기"><img src="${url}" alt="${esc(v.vendor)} 주문 그림"></a>` : ""}
-      </li>`;
-    }).join("");
-    (st.urls || []).forEach((u) => URL.revokeObjectURL?.(u));
-    st.urls = urls;
-    showSlotPics(nm, urlOf);
+    decorateSlots(nm);
+    const nomatch = st.vendors.filter((v) => slotOf(v, nm) < 0).map((v) => v.vendor);
     const ready = st.vendors.filter((v) => !v.off && slotOf(v, nm) >= 0).length;
     const apply = $("[data-vo-act=apply]");
     if (apply) { apply.disabled = st.busy || !ready; apply.textContent = st.busy ? "🖼 붙이는 중…" : `🖼 사진적용${ready ? ` (${ready}곳)` : ""}`; }
     const toSend = st.vendors.filter((v) => v.pasted && !v.sent && !v.off).length;
     const sendAll = panel.root.querySelector("[data-vo-act=sendall]");
     if (sendAll) { sendAll.disabled = st.busy || !toSend; sendAll.textContent = st.busy ? "📨 보내는 중…" : `📨 일괄 보내기${toSend ? ` (${toSend}곳)` : ""}`; }
-    $("[data-vo-summary]").textContent = st.vendors.length ? `${st.file} · 업체 ${st.vendors.length}곳 · 짝 맞음 ${st.vendors.filter((v) => slotOf(v, nm) >= 0).length}곳` : "주문서(.xlsx)나 업체 사진(업체명_MMDD.jpg)을 여기로 끌어다 놓으세요";
+    $("[data-vo-summary]").textContent = st.vendors.length ? `${st.file} · 업체 ${st.vendors.length}곳 · 짝 맞음 ${st.vendors.length - nomatch.length}곳${nomatch.length ? ` · 짝 없음: ${nomatch.join(", ")} (슬롯 메모에 업체명을 적으면 짝)` : ""}` : "주문서(.xlsx)나 업체 사진(업체명_MMDD.jpg)을 여기로 끌어다 놓으세요";
   }
 
   async function loadFiles(files) {
@@ -193,6 +208,7 @@ export function mountVendorOrder({ document, window, storage, panel }) {
         placed = panel.setNames(fromSheet.map((v) => v.vendor));
         fromSheet.forEach((v, i) => { if (i < placed) v.slot = i; });
       }
+      st.vendors.forEach((v) => v.url && URL.revokeObjectURL?.(v.url));
       st.vendors = vendors;
       st.file = [...xlsx, ...pics].map((f) => f.name).slice(0, 2).join(", ") + (xlsx.length + pics.length > 2 ? ` 외 ${xlsx.length + pics.length - 2}개` : "");
       const skipped = pics.length - [...byName.values()].reduce((s, v) => s + v.blobs.length, 0);
@@ -213,27 +229,23 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     const todo = st.vendors.map((v, k) => ({ v, k, slot: slotOf(v, nm) })).filter((x) => !x.v.off && x.slot >= 0);
     if (!todo.length) return;
     st.busy = true; renderList();
-    const mark = (k, text, tone) => {
-      Object.assign(st.vendors[k], { state: text, tone });
-      const el = box.querySelector(`[data-vo-state="${k}"]`);
-      if (el) { el.textContent = text; el.className = `vo-state ${tone}`; }
-    };
+    const mark = (k, text, tone) => { Object.assign(st.vendors[k], { state: text, tone }); decorateSlots(names()); };
     let ok = 0, miss = 0, bad = 0;
     try {
       await panel.syncSlots(true);
       let used = [];
       try { used = await panel.usedSlots(); } catch { /* 아래에서 실패 표시 */ }
       for (const { v, k, slot } of todo) {
-        if (!used.includes(slot)) { miss += 1; mark(k, `슬롯 ${slot + 1} 에 붙은 카톡 창 없음 — [📐 일괄 붙이기] 먼저`, "is-bad"); continue; }
+        if (!used.includes(slot)) { miss += 1; mark(k, "창 없음 — [📐 일괄 붙이기] 먼저", "is-bad"); continue; }
         try {
           for (const b of v.blobs) {
             await panel.pasteImage(slot, await toPng(document, b));
             await new Promise((r) => window.setTimeout(r, PASTE_GAP_MS));
           }
-          ok += 1; v.pasted = true; v.sent = false; v.pastedSlot = slot; mark(k, `✓ 붙여넣음 (${v.blobs.length}장) — [📨 일괄 보내기] 또는 카톡에서 [전송]`, "is-ok");
+          ok += 1; v.pasted = true; v.sent = false; v.pastedSlot = slot; mark(k, `✓ 붙여넣음${v.blobs.length > 1 ? ` (${v.blobs.length}장)` : ""}`, "is-ok");
         } catch (error) { bad += 1; mark(k, `실패: ${error?.message || error}`, "is-bad"); }
       }
-      say(`사진적용: 붙여넣음 ${ok}곳${miss ? ` · 창 없음 ${miss}곳` : ""}${bad ? ` · 실패 ${bad}곳` : ""} — 그림을 확인하고 [📨 일괄 보내기] (또는 카톡 창마다 [전송]).`, ok && !bad ? "is-ok" : "is-bad");
+      say(`사진적용: 붙여넣음 ${ok}곳${miss ? ` · 창 없음 ${miss}곳` : ""}${bad ? ` · 실패 ${bad}곳` : ""} — 빨간 표시가 뜬 슬롯을 확인해 주세요.`, ok && !bad && !miss ? "is-ok" : "is-bad");
     } finally {
       st.busy = false; renderList();
     }
@@ -246,20 +258,16 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     if (!todo.length) { say("보낼 것이 없습니다 — 먼저 [🖼 사진적용]으로 카톡 창에 그림을 붙여 넣으세요.", "is-bad"); return; }
     if (!window.confirm(`${todo.length}곳 (${todo.map(({ v }) => v.vendor).join(", ")}) 카톡에 주문 그림을 [전송]합니다. 보낼까요?`)) return;
     st.busy = true; renderList();
-    const mark = (k, text, tone) => {
-      Object.assign(st.vendors[k], { state: text, tone });
-      const el = box.querySelector(`[data-vo-state="${k}"]`);
-      if (el) { el.textContent = text; el.className = `vo-state ${tone}`; }
-    };
+    const mark = (k, text, tone) => { Object.assign(st.vendors[k], { state: text, tone }); decorateSlots(names()); };
     let ok = 0, none = 0, bad = 0;
     try {
       for (const { v, k } of todo) {
         try {
           const r = await panel.confirmSend(v.pastedSlot);
           if (r.popup) { ok += 1; v.sent = true; mark(k, "📨 보냄", "is-ok"); }
-          else { none += 1; mark(k, "보낼 그림 창이 없음 — 이미 보냈거나 닫힘 (카톡 창 확인)", "is-bad"); }
+          else { none += 1; mark(k, "보낼 그림 창 없음 — 카톡 창 확인", "is-bad"); }
         } catch (error) { bad += 1; mark(k, `보내기 실패: ${error?.message || error}`, "is-bad"); }
-        await new Promise((r) => window.setTimeout(r, PASTE_GAP_MS));
+        if (v !== todo[todo.length - 1].v) await new Promise((r) => window.setTimeout(r, PASTE_GAP_MS));
       }
       say(`일괄 보내기: 보냄 ${ok}곳${none ? ` · 그림 창 없음 ${none}곳` : ""}${bad ? ` · 실패 ${bad}곳` : ""} — 카톡 창에서 전송됐는지 확인해 주세요.`, ok && !none && !bad ? "is-ok" : "is-bad");
     } finally {
@@ -281,20 +289,36 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     else if (b.dataset.voAct === "apply") apply();
     else if (b.dataset.voAct === "memo-reset") { memoEl.value = DEFAULT_ORDER_MEMO; memoEl.dispatchEvent(new window.Event("input")); }
   });
-  box.addEventListener("change", (e) => {
-    const p = e.target.closest("[data-vo-pick]");
-    if (p) { st.vendors[Number(p.dataset.voPick)].off = !p.checked; renderList(); }
+  // 슬롯 번호를 누르면 그 업체를 빼기/넣기 (초록 테두리 = 보냄 대상)
+  panel.root.addEventListener("click", (e) => {
+    const no = e.target.closest(".msn-no");
+    const slot = no?.closest("[data-msn-slot]");
+    if (!slot || slot.dataset.voK === undefined || st.busy) return;
+    const v = st.vendors[Number(slot.dataset.voK)];
+    if (v) { v.off = !v.off; renderList(); }
   });
+  // 🗑 일괄 비우기: 올린 주문서·그림 · 슬롯 메모(업체명)·★·안내 · 보낼 답변 칸 (카톡 창은 그대로)
+  function clearAll() {
+    if (st.busy) { say("붙이거나 보내는 중에는 비울 수 없습니다 — 끝난 뒤 다시 눌러 주세요.", "is-bad"); return; }
+    if (!window.confirm("거래처 탭을 비웁니다.\n· 올린 주문서·그림\n· 슬롯 메모(업체명)·★·안내\n· 슬롯의 보낼 답변 칸\n(카톡 창은 그대로 둡니다) 비울까요?")) return;
+    st.vendors.forEach((v) => v.url && URL.revokeObjectURL?.(v.url));
+    st.vendors = []; st.file = "";
+    panel.setNames?.([]);
+    panel.root.querySelectorAll("[data-msn-text]").forEach((t) => { t.value = ""; });
+    say("");
+    renderList();
+  }
+  panel.root.querySelector("[data-vo-act=clearall]")?.addEventListener("click", clearAll);
   memoEl.addEventListener("input", () => {
     try { storage?.setItem(MEMO_KEY, memoEl.value); } catch { /* 이번 화면만 */ }
     window.clearTimeout(st.memoTimer);
     st.memoTimer = window.setTimeout(async () => {        // 멘트를 고치면 주문서 그림도 다시
-      for (const v of st.vendors) if (v.lines) v.blobs = [await renderVendorTable(document, { vendor: v.vendor, lines: v.lines, memo: memoEl.value, image: v.image })];
+      for (const v of st.vendors) if (v.lines) { v.blobs = [await renderVendorTable(document, { vendor: v.vendor, lines: v.lines, memo: memoEl.value, image: v.image })]; if (v.url) URL.revokeObjectURL?.(v.url); v.url = ""; }
       renderList();
     }, 600);
   });
   panel.root.addEventListener("input", (e) => { if (e.target.matches("[data-msn-name]")) renderList(); });   // 메모를 고치면 짝 다시
   panel.root.addEventListener("change", (e) => { if (e.target.matches("[data-msn-count]")) renderList(); });
   renderList();
-  return { loadFiles, apply, sendAll, state: st, renderList };
+  return { loadFiles, apply, sendAll, clearAll, state: st, renderList };
 }

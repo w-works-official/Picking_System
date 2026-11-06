@@ -84,6 +84,30 @@ function colIndex(ref) {
 const MIME = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", bmp: "image/bmp", webp: "image/webp" };
 const mimeOf = (name) => MIME[(/\.([a-z0-9]+)$/i.exec(name)?.[1] || "").toLowerCase()] || "";
 
+// ---------- 칸 색 (11-06: 발주량 칸 노랑 = 급한 상품) ----------
+// styles.xml → 노랑으로 칠한 셀 서식 번호(s) 모음. 노랑 = 빨강·초록 높고 파랑 낮음 (FFFF00 · FFFFC000 계열은 아님: 주황 제외)
+export function isYellow(argb) {
+  const m = /^(?:[0-9a-f]{2})?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(argb || "").trim());
+  if (!m) return false;
+  const [r, g, b] = m.slice(1).map((h) => parseInt(h, 16));
+  return r >= 0xe0 && g >= 0xd8 && b <= 0x90;
+}
+
+export function yellowStyles(stylesXml = "") {
+  const fillsXml = /<fills\b[^>]*>([\s\S]*?)<\/fills>/.exec(stylesXml)?.[1] || "";
+  const yellowFill = [...fillsXml.matchAll(/<fill\b[^>]*>([\s\S]*?)<\/fill>|<fill\b[^>]*\/>/g)].map((m) => {
+    const fg = /<fgColor\b[^>]*>/.exec(m[1] || "")?.[0] || "";
+    return /patternType="solid"/.test(m[1] || "") && isYellow(attr(fg, "rgb"));
+  });
+  const xfsXml = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(stylesXml)?.[1] || "";
+  const out = new Set();
+  [...xfsXml.matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)].forEach((m, i) => {
+    const fid = Number(attr(m[0].replace(/>[\s\S]*$/, ">"), "fillId"));
+    if (yellowFill[fid]) out.add(i);
+  });
+  return out;
+}
+
 // ---------- 업체명 ----------
 // '0-세븐피어싱 [ 1 ]' → '세븐피어싱'
 export function vendorName(raw) {
@@ -127,6 +151,8 @@ export async function readOrderSheet(bytes) {
   const ss = await readText(zip, "xl/sharedStrings.xml");
   for (const m of ss.matchAll(/<si>([\s\S]*?)<\/si>/g)) shared.push(unxml([...m[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((t) => t[1]).join("")));
   const sheet = await readText(zip, sheetPath);
+  const yellowXf = yellowStyles(await readText(zip, "xl/styles.xml"));   // 11-06: 노랑 칠한 칸 = 급한 상품
+  const fills = new Map();              // "줄,칸" → 노랑이면 true
   const grid = new Map();               // 줄(1부터) → { 칸(0부터): 값 }
   const cellImage = new Map();          // "줄,칸" → vm (칸 안 그림)
   for (const m of sheet.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
@@ -135,6 +161,8 @@ export async function readOrderSheet(bytes) {
     const row = Number(/\d+$/.exec(ref)?.[0]), col = colIndex(ref);
     const t = attr(m[1], "t"), vm = attr(m[1], "vm");
     if (vm) cellImage.set(`${row},${col}`, Number(vm));
+    const xf = attr(m[1], "s");
+    if (xf && yellowXf.has(Number(xf))) fills.set(`${row},${col}`, true);
     const body = m[2] || "";
     let v = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1];
     if (t === "inlineStr") v = [...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((x) => x[1]).join("");
@@ -183,7 +211,8 @@ export async function readOrderSheet(bytes) {
     const vendorRaw = get("vendor");
     if (!vendorRaw && !get("option") && !get("qty")) continue;
     lines.push({ row: r, no: get("no"), option: get("option"), qty: get("qty"), extra: get("extra"), price: get("price"), code: get("code"),
-      vendorRaw, vendor: vendorName(vendorRaw), product: get("product"), images: images.get(r) || [] });
+      vendorRaw, vendor: vendorName(vendorRaw), product: get("product"), images: images.get(r) || [],
+      urgent: cols.qty !== undefined && fills.has(`${r},${cols.qty}`) });
   }
   return {
     lines,

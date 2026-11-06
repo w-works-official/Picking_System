@@ -410,7 +410,24 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   // ---------- 탭·접기 ----------
   // 2026-11-04: 왼쪽 탭 = 메뉴 이동 (게시판·리뷰·메신저는 오른쪽 답변 화면도 같이), 오른쪽은 제목만
   const TAB_COLORS = { main: "#e11d74", board: "#2563eb", review: "#ff7a00", msn: "#00b84a", vendor: "#eab308", settings: "#64748b" };
-  function showLeft(tab) {
+  // 11-06: 왼쪽 창 접힘·보던 탭 = 마지막 상태 그대로 (이 기기에 기억 → 새로고침·다시 열어도 유지)
+  const FOLD_KEY = "system_v3_cs_left_fold";
+  const foldState = (() => { try { const v = JSON.parse(storage?.getItem(FOLD_KEY) || "{}"); return { tab: String(v.tab || ""), folded: v.folded === true }; } catch { return { tab: "", folded: false }; } })();
+  let leftTab = "main";
+  function setFold(folded) {
+    const main = $("#cs-main"), fold = $("#cs-fold");
+    if (!main || !fold) return;
+    main.classList.toggle("left-folded", folded);
+    fold.textContent = folded ? "▶" : "◀";
+    fold.setAttribute("aria-expanded", String(!folded));
+    fold.title = folded ? "왼쪽 창 펴기" : "왼쪽 창 접기";
+  }
+  function saveFold() { try { storage?.setItem(FOLD_KEY, JSON.stringify({ tab: leftTab, folded: foldState.folded })); } catch { /* 이번 화면만 */ } }
+  function showLeft(tab, { open = false } = {}) {
+    leftTab = tab;
+    if (open) foldState.folded = false;     // 로그인·설정으로 바로 가는 버튼은 펼쳐서 보여 줌
+    setFold(foldState.folded);
+    saveFold();
     $$("[data-left-tab]").forEach((b) => { const on = b.dataset.leftTab === tab; b.classList.toggle("active", on); b.setAttribute("aria-selected", String(on)); });
     $$("[data-left-panel]").forEach((p) => { p.hidden = p.dataset.leftPanel !== tab; });
     $("#cs-left")?.style.setProperty("--tab-color", TAB_COLORS[tab] || TAB_COLORS.main);
@@ -940,7 +957,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   let loginDirty = false;
   const loginOpen = new Map();   // 11-06: [자세히]/[접기]로 고른 업체 줄 (업체 → 펼침 여부)
   function openLogin(vendor = "") {
-    showLeft("main");
+    showLeft("main", { open: true });
     if (vendor) loginOpen.set(vendor, true);
     renderLogin({ vendor, force: true });
     const box = $("#cs-login");
@@ -1111,7 +1128,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const act = button.dataset.pc;
     if (act === "login") openLogin(button.dataset.loginVendor || "");
     else if (act === "conn") { if (button.dataset.conn !== "all" || button.classList.contains("is-clickable")) requestConn(button.dataset.connVendor, button.dataset.conn); }
-    else if (act === "api-tab") { showLeft("settings"); const m = $(".cs-master"); if (m) m.open = true; $("#cs-api-box")?.scrollIntoView?.({ block: "start", behavior: "smooth" }); }   // API 설정은 🖥 마스터 PC 설정 안 (접혀 있으면 펼침)
+    else if (act === "api-tab") { showLeft("settings", { open: true }); const m = $(".cs-master"); if (m) m.open = true; $("#cs-api-box")?.scrollIntoView?.({ block: "start", behavior: "smooth" }); }   // API 설정은 🖥 마스터 PC 설정 안 (접혀 있으면 펼침)
     else if (act === "apiKey") saveApiKey();
     else if (act === "apiTest" || act === "ip" || act === "files") requestPc(act);
     else if (button.dataset.excel === "export") exportExcel(button.dataset.excelKind);
@@ -1144,7 +1161,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (!button || button.disabled) return;
     const act = button.dataset.guideAct;
     if (act === "close") { $("#cs-guide").hidden = true; state.guideFocus = ""; }
-    else if (act === "focus-token") { showLeft("settings"); $("#cs-token-input")?.focus(); }
+    else if (act === "focus-token") { showLeft("settings", { open: true }); $("#cs-token-input")?.focus(); }
     else if (act === "open-login") openLogin();
     else if (act.startsWith("tab:")) showLeft(act.slice(4));
     else if (act.startsWith("job:")) requestJob(act.slice(4));
@@ -1724,11 +1741,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function bind() {
     $$("[data-left-tab]").forEach((b) => b.addEventListener("click", () => showLeft(b.dataset.leftTab)));
     $("#cs-fold")?.addEventListener("click", () => {
-      const folded = $("#cs-main").classList.toggle("left-folded");
-      const fold = $("#cs-fold");
-      fold.textContent = folded ? "▶" : "◀";
-      fold.setAttribute("aria-expanded", String(!folded));
-      fold.title = folded ? "왼쪽 창 펴기" : "왼쪽 창 접기";
+      foldState.folded = !$("#cs-main").classList.contains("left-folded");
+      setFold(foldState.folded);
+      saveFold();
     });
     $$("[data-log-toggle]").forEach((b) => b.addEventListener("click", () => {
       const logs = $$('[data-log="all"]');
@@ -1873,7 +1888,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $$("[data-pending]").forEach((el) => { if (!el.title) el.title = el.dataset.pending; });
     bind();
     showRight("board");
-    showLeft("main");
+    const LEFT_TABS = $$("[data-left-tab]").map((b) => b.dataset.leftTab);
+    showLeft(LEFT_TABS.includes(foldState.tab) ? foldState.tab : "main");   // 11-06: 마지막에 보던 탭 · 그 탭의 접힘 상태
     renderSlots();
     renderUsage();
     log("CS 자동화 화면을 열었습니다.");

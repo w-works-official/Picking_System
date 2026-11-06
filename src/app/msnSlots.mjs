@@ -23,7 +23,7 @@ export function msnSlotHtml(i, { name = "", height = MSN_LIMITS.heights[1], star
   return `
   <div class="msn-slot${star ? " is-star" : ""}" data-msn-slot="${i}">
     <div class="msn-slot-head">
-      <b>슬롯 ${i + 1}</b>
+      <b class="msn-no" data-msn-no="${i}">${i + 1}</b>
       <input class="msn-name" data-msn-name="${i}" value="${esc(name)}" placeholder="${esc(memo)}" maxlength="30">
       <span class="msn-badge" data-msn-badge="${i}" hidden>🔔 0</span>
       <span class="msn-state is-none" data-msn-state="${i}">창 없음</span>
@@ -389,7 +389,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       if (vendor && r.notes) {
         st.notes = r.notes; applyNotes();
         const bad = Object.values(r.notes).filter((x) => x.state !== "ok").length;
-        say(`일괄 붙이기: 붙음 ${r.placed || 0}곳${bad ? ` · 확인 필요 ${bad}곳 — 노란 안내가 뜬 슬롯을 봐 주세요 (대화방 이름을 업체명으로 바꾸면 다음부터 바로 붙음)` : ""}`, bad ? "is-bad" : "is-ok");
+        say(`📐 붙음 ${r.placed || 0}곳${bad ? ` · 확인 필요 ${bad}곳` : ""}`, bad ? "is-bad" : "is-ok");   // 자세한 안내는 슬롯마다
         pingHelper();
         return;
       }
@@ -543,6 +543,6 @@ if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]"
   const storage = (() => { try { return window.localStorage; } catch { return null; } })();
   document.querySelectorAll("[data-msn-panel]").forEach((root) => {
     const inst = mountMsnSlots({ document, window, storage, root });
-    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261106-kakao1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
+    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261106-urgent1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
   });
 }

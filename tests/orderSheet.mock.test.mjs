@@ -1,7 +1,7 @@
 // 📦 거래처 메신저 — 주문서(PT-LIST xlsx) 읽기·업체 묶기·슬롯 메모 짝 (2026-11-05)
 import assert from "node:assert/strict";
 import { deflateRawSync } from "node:zlib";
-import { groupByVendor, matchSlot, normName, readOrderSheet, vendorFromFileName, vendorName, zipEntries } from "../src/domain/orderSheet.mjs";
+import { groupByVendor, isYellow, matchSlot, normName, readOrderSheet, vendorFromFileName, vendorName, yellowStyles, zipEntries } from "../src/domain/orderSheet.mjs";
 
 assert.equal(vendorName("0-세븐피어싱 [ 1 ]"), "세븐피어싱");
 assert.equal(vendorName("0-스콜피온 (마그마) [ 12 ]"), "스콜피온 (마그마)");
@@ -33,17 +33,22 @@ const s = (i) => `<c r="${i[0]}" t="s"><v>${i[1]}</v></c>`;
 const strings = ["순번", "사진", "옵션명", "발주량", "임의필드", "매입처", "상품명", "0-세븐피어싱 [ 1 ]", "0-수진사 [ 34 ]", "크리스탈 &amp; AB"];
 const sheet = `<worksheet><sheetData>
 <row r="1">${[["A1", 0], ["B1", 1], ["C1", 2], ["D1", 3], ["E1", 4], ["H1", 5], ["I1", 6]].map(s).join("")}</row>
-<row r="2"><c r="A2"><v>1</v></c>${s(["C2", 9])}<c r="D2"><v>7</v></c>${s(["H2", 7])}<c r="I2" t="inlineStr"><is><t>큐빅 피어싱</t></is></c></row>
+<row r="2"><c r="A2"><v>1</v></c>${s(["C2", 9])}<c r="D2" s="2"><v>7</v></c>${s(["H2", 7])}<c r="I2" t="inlineStr"><is><t>큐빅 피어싱</t></is></c></row>
 <row r="3"><c r="A3"><v>2</v></c><c r="B3" vm="1"><v>#VALUE!</v></c><c r="D3"><v>2</v></c>${s(["H3", 8])}</row>
 <row r="4"><c r="A4"><v>3</v></c></row>
-<row r="5"><c r="A5"><v>4</v></c><c r="D5"><v>1</v></c>${s(["H5", 7])}</row>
+<row r="5"><c r="A5"><v>4</v></c><c r="D5" s="3"><v>1</v></c>${s(["H5", 7])}</row>
 </sheetData><drawing r:id="rId9"/></worksheet>`;
+// 11-06: 발주량 칸 노랑(급한 상품) — fills[2] = 노랑, fills[3] = 연두(아님) · cellXfs[2]→노랑, [3]→연두
+const stylesXml = `<styleSheet><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFF00"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEBF1DE"/></patternFill></fill></fills><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="2" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf fillId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1"><alignment horizontal="center"/></xf><xf fillId="3" applyFill="1"/></cellXfs></styleSheet>`;
+assert.deepEqual([...yellowStyles(stylesXml)], [2], "노랑 칠한 서식만 (cellStyleXfs 는 아님)");
+assert.ok(isYellow("FFFFFF00") && isYellow("FFFFF200") && !isYellow("FFEBF1DE") && !isYellow("FFFFC000") && !isYellow("") && !isYellow("theme"));
 const png = Buffer.from("89504e470d0a1a0a", "hex");
 const x = zip({
   "xl/workbook.xml": [`<workbook><sheets><sheet name="DB" sheetId="1" r:id="rId3"/></sheets></workbook>`, 8],
   "xl/_rels/workbook.xml.rels": [`<Relationships><Relationship Id="rId3" Type="x" Target="worksheets/sheet1.xml"/></Relationships>`, 0],
   "xl/sharedStrings.xml": [`<sst>${strings.map((t) => `<si><t>${t}</t></si>`).join("")}</sst>`, 8],
   "xl/worksheets/sheet1.xml": [sheet, 8],
+  "xl/styles.xml": [stylesXml, 8],
   "xl/worksheets/_rels/sheet1.xml.rels": [`<Relationships><Relationship Id="rId9" Target="../drawings/drawing1.xml"/></Relationships>`, 0],
   "xl/drawings/drawing1.xml": [`<xdr:wsDr><xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>1</xdr:col><xdr:colOff>5</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>9</xdr:rowOff></xdr:from><xdr:pic><a:blip r:embed="rId1"/></xdr:pic></xdr:twoCellAnchor><xdr:twoCellAnchor><xdr:from><xdr:col>1</xdr:col><xdr:row>4</xdr:row></xdr:from><xdr:pic><a:blip r:embed="rId2"/></xdr:pic></xdr:twoCellAnchor></xdr:wsDr>`, 8],
   "xl/drawings/_rels/drawing1.xml.rels": [`<Relationships><Relationship Id="rId1" Target="../media/image1.png"/><Relationship Id="rId2" Target="../media/image2.jpeg"/></Relationships>`, 0],
@@ -60,6 +65,7 @@ assert.deepEqual(r.lines.map((l) => [l.row, l.no, l.vendor, l.option, l.qty, l.p
   [3, "2", "수진사", "", "2", "", "image1.png"],
   [5, "4", "세븐피어싱", "", "1", "", "image2.jpeg"],
 ], "빈 줄(4) 빼고 · 그림은 걸친 줄에 · 칸 안 그림(richData)도");
+assert.deepEqual(r.lines.map((l) => l.urgent), [true, false, false], "발주량 칸 노랑 = 급한 상품 (연두는 아님)");
 const img = await r.image(r.lines[2].images[0]);
 assert.deepEqual([img.mime, Buffer.from(img.data).toString("hex")], ["image/jpeg", "ffd8ffe0"], "deflate 압축 풀기");
 assert.deepEqual(groupByVendor(r.lines).map((g) => [g.vendor, g.lines.length]), [["세븐피어싱", 2], ["수진사", 1]], "업체별 (주문서 순서)");

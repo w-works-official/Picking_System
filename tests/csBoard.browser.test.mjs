@@ -536,6 +536,14 @@ try {
       assert.equal(await cbMark('#cs-vendor-grid [data-vendor="메이크샵"] .cs-cb'), "none", "안 고른 업체 = 빈 네모");
       await page.locator('#cs-vendor-grid [data-vendor="메이크샵"]').click();
     }
+    // 11-06: 게시판 탭 [최근 ○일] = 설정 수집 기간 · 게시판/리뷰 맨 위 줄 같은 자리
+    assert.equal(await page.locator("#cs-board-days").inputValue(), await page.locator("#cs-set-days").inputValue(), "게시판 기간 = 설정 수집 기간");
+    const headPos = async (tab) => page.locator(`[data-left-panel="${tab}"] .cs-collect-head`).evaluate((el) => { const b = el.getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)]; });
+    await page.locator('[data-left-tab="board"]').click();
+    const hb = await headPos("board");
+    await page.locator('[data-left-tab="review"]').click();
+    assert.deepEqual(await headPos("review"), hb, "게시판·리뷰 맨 위 줄 같은 크기");
+    await page.locator('[data-left-tab="main"]').click();
     // 11-06: 판매자센터 로그인은 늘 펼친 상태 (접기 버튼 없음)
     assert.equal(await page.locator("#cs-login > summary, #cs-login .cs-fold-hint").count(), 0, "접기 버튼 없음");
     assert.equal(await page.locator("#cs-login-ok").isVisible(), true);

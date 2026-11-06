@@ -2208,3 +2208,10 @@ a.cs-btn {
 .cs-vendor-card:not(.is-off) .cs-cb::after { content: "✓"; }
 .cs-vendor-card.is-off .cs-vendor-check { text-decoration: none; }
 .cs-vendor-card.is-off .cs-cb { border-color: #9ca3af; box-shadow: none; }
+
+/* 11-06: 게시판·리뷰 탭 맨 위 줄 = 같은 자리·같은 크기 (탭을 오가도 메뉴가 안 움직이게) */
+.cs-collect-head { min-height: 44px; align-items: center; }
+.cs-collect-head > .cs-row { flex-wrap: nowrap; }
+.cs-collect-head > .cs-row .cs-btn { min-width: 156px; justify-content: center; white-space: nowrap; }
+.cs-collect-head > .cs-row .cs-btn + .cs-btn { min-width: 176px; }
+.cs-days-label { flex: 0 0 auto; width: 196px; white-space: nowrap; }

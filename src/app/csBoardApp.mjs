@@ -791,6 +791,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const outDir = $("#cs-set-outdir");
     if (outDir && view) { outDir.value = view.outDir; outDir.classList.remove("is-pending"); outDir.title = "결과 저장 폴더는 수집기 PC 위치라 보기만 합니다"; }
     fill("#cs-set-days", view?.days);
+    fill("#cs-board-days", view?.days);   // 11-06: 게시판 탭 [최근 ○일] = 설정의 수집 기간
     fill("#cs-set-review-days", view?.reviewDays);
     fill("#cs-set-slug", view?.zzSlug);
     fill("#cs-set-browser", view?.showBrowser);
@@ -1824,10 +1825,19 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     });
     $("#cs-excel-file")?.addEventListener("change", (e) => importExcel(e.target.files?.[0]));
     $("#cs-set-save")?.addEventListener("click", saveSettings);
+    // 11-06: 게시판 탭 [최근 ○일] ↔ 설정 [수집 기간(일)] 같은 값 — 게시판 탭에서 바꾸면 바로 수집기 PC에 저장
+    $("#cs-board-days")?.addEventListener("change", (e) => {
+      const days = Math.trunc(Number(e.target.value));
+      if (!(days >= 1 && days <= 90)) { toast("기간은 1~90일"); return; }
+      const set = $("#cs-set-days");
+      if (set) { set.value = String(days); }
+      requestPc("settings", { settings: { days } }, `문의 수집 기간 ${days}일 저장 요청을 보냈습니다`).then((r) => { if (r) { delete e.target.dataset.dirty; if (set) delete set.dataset.dirty; } });
+    });
+    $("#cs-set-days")?.addEventListener("input", (e) => { const b = $("#cs-board-days"); if (b) b.value = e.target.value; });
     $("#cs-update-check")?.addEventListener("click", () => checkUpdate());
     $("#cs-update-run")?.addEventListener("click", runUpdate);
     $("#cs-auto-toggle")?.addEventListener("click", () => saveAuto(!setupNow()?.autoOn));
-    ["#cs-auto-hour", "#cs-auto-minute", "#cs-auto-interval", "#cs-set-days", "#cs-set-review-days", "#cs-set-slug", "#cs-set-browser"].forEach((sel) => {
+    ["#cs-auto-hour", "#cs-auto-minute", "#cs-auto-interval", "#cs-set-days", "#cs-board-days", "#cs-set-review-days", "#cs-set-slug", "#cs-set-browser"].forEach((sel) => {
       $(sel)?.addEventListener("input", (e) => { e.target.dataset.dirty = "1"; });
       $(sel)?.addEventListener("change", (e) => {
         e.target.dataset.dirty = "1";

@@ -1136,7 +1136,7 @@ input {
   align-items: center;
   justify-content: center;
   border-radius: 9px;
-  background: #111827;
+  background: #2563eb;   /* 11-06: 피킹시스템 = 파랑 (상위 메뉴 피킹시스템 버튼과 같은 색) */
   color: #ffffff;
   font-size: 13px;
   font-weight: 1000;

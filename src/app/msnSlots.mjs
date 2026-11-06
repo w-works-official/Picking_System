@@ -479,12 +479,21 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     await navigator.clipboard.write([new window.ClipboardItem({ "image/png": blob })]);
     return helperCall("/send", { slot: i, enter });
   }
+  // 📦 거래처 (11-06): 주문서 업체명을 위에서부터 순서대로 슬롯 메모에 — 매일 새 리스트 (남는 슬롯 메모·★ 는 비움) · 넣은 수 돌려줌
+  function setNames(list = []) {
+    const names = list.map((x) => String(x || "").trim().slice(0, 30)).filter(Boolean).slice(0, slotsMax);
+    if (names.length > prefs.count) prefs.count = fitCount(names.length);
+    prefs.names = Array.from({ length: slotsMax }, (_, i) => names[i] || "");
+    prefs.stars = Array.from({ length: slotsMax }, () => false);
+    save(); render(); syncSlots(true);
+    return names.length;
+  }
   async function usedSlots() {
     const r = await helperCall("/ping");
     return r.group === group && Array.isArray(r.used) ? r.used.map(Number) : [];
   }
 
-  const api = { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, slotsMax, group, root, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose, suggest, toggleStar, pasteImage, usedSlots, say };
+  const api = { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, slotsMax, group, root, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose, suggest, toggleStar, pasteImage, usedSlots, setNames, say };
   MSN_PANELS[group] = api;
   return api;
 }
@@ -493,6 +502,6 @@ if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]"
   const storage = (() => { try { return window.localStorage; } catch { return null; } })();
   document.querySelectorAll("[data-msn-panel]").forEach((root) => {
     const inst = mountMsnSlots({ document, window, storage, root });
-    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261105-vendor1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
+    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261106-order1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
   });
 }

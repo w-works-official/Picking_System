@@ -2140,3 +2140,7 @@ a.cs-btn {
 /* 11-06: 웹 연결 — 연결된 상태면 비밀번호 칸 없이 연결중 표시 */
 #cs-token-state.cs-token-on { color: #15803d; font-weight: 800; font-size: 14px; }
 #cs-token-form label[hidden] { display: none; }
+
+/* 11-06: 거래처 슬롯 틀 = 그 업체 주문 그림 미리보기 (카톡 창이 붙으면 뒤로 가려짐) */
+.msn-frame { position: relative; }
+.msn-frame-pic { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); object-fit: contain; object-position: top center; background: #fff; border-radius: 6px; opacity: .95; pointer-events: none; }

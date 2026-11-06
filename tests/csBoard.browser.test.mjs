@@ -315,7 +315,14 @@ try {
     await msnV.locator("[data-vo-file]").setInputFiles({ name: "P_1_PT-LIST_1105.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: xlsx });
     await msnV.locator("[data-vo-list] .vo-item").nth(1).waitFor();
     assert.match(await msnV.locator('[data-vo-slot="0"]').textContent(), /슬롯 1 \(세븐피어싱\)/);
+    // 11-06: 주문서 업체명을 위에서부터 순서대로 슬롯 메모에 (매일 새 리스트 — 남는 슬롯 메모는 비움) + 슬롯 틀에 주문 그림
+    assert.deepEqual(await msnV.locator("[data-msn-name]").evaluateAll((els) => els.slice(0, 4).map((e) => e.value)), ["세븐피어싱", "수진사", "", ""]);
+    assert.match(await msnV.locator('[data-vo-slot="1"]').textContent(), /슬롯 2 \(수진사\)/, "주문서 순서 = 슬롯 순서");
+    assert.match(await msnV.locator("[data-vo-msg]").textContent(), /주문서 순서대로 슬롯 1~2 메모에 업체명/);
+    assert.deepEqual(await msnV.locator(".msn-frame-pic").evaluateAll((els) => els.map((e) => e.closest("[data-msn-frame]").dataset.msnFrame)), ["0", "1"], "슬롯 틀에 그 업체 주문 그림");
+    await msnV.locator("[data-msn-name='1']").fill("다른 업체");                 // 메모를 고치면 이름으로 다시 짝 → 없으면 제외
     assert.match(await msnV.locator('[data-vo-slot="1"]').textContent(), /\[제외\]/, "짝 없는 업체는 제외");
+    assert.equal(await msnV.locator(".msn-frame-pic").count(), 1);
     assert.match(await msnV.locator("[data-vo-list] .vo-item").first().textContent(), /2건/);
     const thumb = await msnV.locator(".vo-thumb img").first().evaluate((img) => new Promise((res) => (img.complete ? res([img.naturalWidth, img.naturalHeight]) : img.addEventListener("load", () => res([img.naturalWidth, img.naturalHeight])))));
     assert.ok(thumb[0] > 900 && thumb[1] > 300, `업체별 표 그림 ${thumb}`);
@@ -324,7 +331,7 @@ try {
     assert.match(await msnV.locator('[data-vo-act="apply"]').textContent(), /2곳/);
     const sendsBefore = helperCalls.filter((c) => c.path === "/msn/send").length;
     await msnV.locator('[data-vo-act="apply"]').click();
-    await msnV.locator("[data-vo-msg]", { hasText: "사진적용" }).waitFor({ timeout: 10000 });
+    await msnV.locator("[data-vo-msg]", { hasText: "사진적용: 붙여넣음" }).waitFor({ timeout: 10000 });
     const sends = helperCalls.filter((c) => c.path === "/msn/send").slice(sendsBefore);
     assert.deepEqual(sends.map((c) => [c.body.slot, c.body.enter]), [[0, false]], "짝 맞고 창 붙은 슬롯에만 · Enter 는 안 누름");
     assert.match(await msnV.locator('[data-vo-state="0"]').textContent(), /붙여넣음/);

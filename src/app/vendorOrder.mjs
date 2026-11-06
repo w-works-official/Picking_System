@@ -3,7 +3,7 @@
 //    kakao_order_send 가 만든 '업체명_MMDD.jpg'(·_2) 를 끌어다 놓아도 됨 (파일명 업체명 기준)
 //  · 업체명 ↔ 슬롯 메모로 짝 → [🖼 사진적용] = 짝 맞은 창마다 붙여넣기 (보내기는 사람이: 카톡 미리보기 창 [전송])
 //  · 그림은 이 브라우저 안에서만 만들고, 카톡 창으로만 갑니다 (어디에도 올리지 않음)
-import { groupByVendor, matchSlot, readOrderSheet, vendorFromFileName } from "../domain/orderSheet.mjs?v=20261105-vendor1";
+import { groupByVendor, matchSlot, normName, readOrderSheet, vendorFromFileName } from "../domain/orderSheet.mjs?v=20261105-vendor1";
 
 const MEMO_KEY = "system_v3_cs_vendor_memo";
 export const DEFAULT_ORDER_MEMO = "• 전달된 실수량 꼭 필요 부탁드립니다\n• 단가 다를시 꼭 말씀 부탁드립니다\n감사합니다 ☺";
@@ -115,15 +115,32 @@ export function mountVendorOrder({ document, window, storage, panel }) {
 
   const say = (t, tone = "") => { const el = $("[data-vo-msg]"); if (el) { el.textContent = t; el.className = `vo-msg ${tone}`; } };
   const names = () => Array.from({ length: panel.prefs.count }, (_, i) => panel.prefs.names[i] || "");
+  // 11-06: 주문서 순서로 넣은 슬롯이 그대로면 그 슬롯 (메모를 고쳤으면 이름으로 다시 짝)
+  const slotOf = (v, nm) => (Number.isInteger(v.slot) && v.slot < nm.length && normName(nm[v.slot]) === normName(v.vendor) ? v.slot : matchSlot(v.vendor, nm));
+  // 11-06: 짝 맞은 슬롯 틀에 그 업체 주문 그림을 미리 보여 줌 (카톡 창이 붙으면 그 뒤로 가려짐)
+  function showSlotPics(nm, urlOf) {
+    panel.root.querySelectorAll(".msn-frame-pic").forEach((el) => el.remove());
+    st.vendors.forEach((v, k) => {
+      const slot = slotOf(v, nm), url = urlOf.get(k);
+      const frame = slot >= 0 && url ? panel.root.querySelector(`[data-msn-frame="${slot}"]`) : null;
+      if (!frame) return;
+      const img = document.createElement("img");
+      img.className = "msn-frame-pic";
+      img.src = url;
+      img.alt = `${v.vendor} 주문 그림`;
+      frame.appendChild(img);
+    });
+  }
 
   function renderList() {
     const list = $("[data-vo-list]");
     const nm = names();
     const urls = [];
+    const urlOf = new Map();
     list.innerHTML = st.vendors.map((v, k) => {
-      const slot = matchSlot(v.vendor, nm);
+      const slot = slotOf(v, nm);
       const url = v.blobs[0] ? URL.createObjectURL(v.blobs[0]) : "";
-      if (url) urls.push(url);
+      if (url) { urls.push(url); urlOf.set(k, url); }
       const n = v.lines ? `${v.lines.length}건` : `사진 ${v.blobs.length}장`;
       return `<li class="vo-item${slot < 0 ? " is-nomatch" : ""}${v.off ? " is-off" : ""}" data-vo-k="${k}">
         <label><input type="checkbox" data-vo-pick="${k}"${v.off || slot < 0 ? "" : " checked"}${slot < 0 ? " disabled" : ""}> <b>${esc(v.vendor)}</b> <small>${n}</small></label>
@@ -134,10 +151,11 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     }).join("");
     (st.urls || []).forEach((u) => URL.revokeObjectURL?.(u));
     st.urls = urls;
-    const ready = st.vendors.filter((v, k) => !v.off && matchSlot(v.vendor, nm) >= 0).length;
+    showSlotPics(nm, urlOf);
+    const ready = st.vendors.filter((v) => !v.off && slotOf(v, nm) >= 0).length;
     const apply = $("[data-vo-act=apply]");
     if (apply) { apply.disabled = st.busy || !ready; apply.textContent = st.busy ? "🖼 붙이는 중…" : `🖼 사진적용${ready ? ` (${ready}곳)` : ""}`; }
-    $("[data-vo-summary]").textContent = st.vendors.length ? `${st.file} · 업체 ${st.vendors.length}곳 · 짝 맞음 ${st.vendors.filter((v) => matchSlot(v.vendor, nm) >= 0).length}곳` : "주문서(.xlsx)나 업체 사진(업체명_MMDD.jpg)을 여기로 끌어다 놓으세요";
+    $("[data-vo-summary]").textContent = st.vendors.length ? `${st.file} · 업체 ${st.vendors.length}곳 · 짝 맞음 ${st.vendors.filter((v) => slotOf(v, nm) >= 0).length}곳` : "주문서(.xlsx)나 업체 사진(업체명_MMDD.jpg)을 여기로 끌어다 놓으세요";
   }
 
   async function loadFiles(files) {
@@ -165,10 +183,20 @@ export function mountVendorOrder({ document, window, storage, panel }) {
       }
       vendors.push(...byName.values());
       if (!vendors.length) { say("읽을 주문서·사진이 없습니다 — PT-LIST(.xlsx) 또는 업체명_MMDD.jpg 를 넣어 주세요.", "is-bad"); return; }
+      // 11-06: 주문서(.xlsx)가 있으면 업체명을 주문서 위에서부터 순서대로 슬롯 1·2·3… 메모에 (매일 새 리스트 — 예전 메모는 바뀜)
+      const fromSheet = vendors.filter((v) => v.lines && v.vendor !== "(매입처 없음)");
+      let placed = 0;
+      if (fromSheet.length && panel.setNames) {
+        placed = panel.setNames(fromSheet.map((v) => v.vendor));
+        fromSheet.forEach((v, i) => { if (i < placed) v.slot = i; });
+      }
       st.vendors = vendors;
       st.file = [...xlsx, ...pics].map((f) => f.name).slice(0, 2).join(", ") + (xlsx.length + pics.length > 2 ? ` 외 ${xlsx.length + pics.length - 2}개` : "");
       const skipped = pics.length - [...byName.values()].reduce((s, v) => s + v.blobs.length, 0);
-      say(`업체 ${vendors.length}곳 준비됨 — 짝이 안 맞는 업체는 슬롯 메모에 업체명(또는 카톡방 이름)을 적으면 바로 짝이 됩니다.${skipped ? ` (이름 규칙이 다른 사진 ${skipped}장은 뺌)` : ""}`, "is-ok");
+      const over = fromSheet.length - placed;
+      say(placed
+        ? `업체 ${vendors.length}곳 준비됨 — 주문서 순서대로 슬롯 1~${placed} 메모에 업체명을 넣었습니다${over > 0 ? ` (슬롯이 모자라 ${over}곳은 빠짐)` : ""}. [📐 일괄 붙이기] → [🖼 사진적용]${skipped ? ` · 이름 규칙이 다른 사진 ${skipped}장은 뺌` : ""}`
+        : `업체 ${vendors.length}곳 준비됨 — 짝이 안 맞는 업체는 슬롯 메모에 업체명(또는 카톡방 이름)을 적으면 바로 짝이 됩니다.${skipped ? ` (이름 규칙이 다른 사진 ${skipped}장은 뺌)` : ""}`, "is-ok");
     } catch (error) {
       say(`주문서를 읽지 못했습니다: ${error?.message || error}`, "is-bad");
     } finally {
@@ -179,7 +207,7 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   async function apply() {
     if (st.busy) return;
     const nm = names();
-    const todo = st.vendors.map((v, k) => ({ v, k, slot: matchSlot(v.vendor, nm) })).filter((x) => !x.v.off && x.slot >= 0);
+    const todo = st.vendors.map((v, k) => ({ v, k, slot: slotOf(v, nm) })).filter((x) => !x.v.off && x.slot >= 0);
     if (!todo.length) return;
     st.busy = true; renderList();
     const mark = (k, text, tone) => {

@@ -49,6 +49,7 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
         getSheetByName: (n) => book.find((s) => s.getName() === n) || null,
         getSheets: () => book,
         insertSheet: (n) => { const s = fakeSheet(n); book.push(s); return s; },
+        deleteSheet: (sh) => { const i = book.indexOf(sh); if (i >= 0) book.splice(i, 1); },
       }),
     },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
@@ -68,6 +69,7 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
       getScriptProperties: () => ({
         getProperty: (k) => (Object.hasOwn(properties, k) ? properties[k] : null),
         setProperty: (k, v) => { properties[k] = String(v); },
+        deleteProperty: (k) => { delete properties[k]; },
       }),
     },
     Utilities: {
@@ -77,6 +79,7 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
         const p = { yyyy: k.slice(0, 4), yy: k.slice(2, 4), MM: k.slice(5, 7), dd: k.slice(8, 10), HH: k.slice(11, 13), mm: k.slice(14, 16), ss: k.slice(17, 19) };
         return fmt.replace(/yyyy|yy|MM|dd|HH|mm|ss/g, (t) => p[t]);
       },
+      base64Encode: (bytes) => Buffer.from(bytes).toString("base64"),
       getUuid: () => `${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`,
     },
     Logger: { log: (m) => logs.push(String(m)) },
@@ -91,6 +94,11 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
     },
   };
   function reply(url, options) {
+    if (!options?.payload) { // v13: 상품 사진 받기 (허브 공개 주소)
+      calls.push({ url, image: true });
+      const ok = !/missing/.test(url);
+      return { getResponseCode: () => (ok ? 200 : 404), getBlob: () => ({ getContentType: () => "image/jpeg", getBytes: () => [1, 2, 3] }) };
+    }
     const payload = JSON.parse(options.payload);
     calls.push({ url, headers: options.headers, payload });
     const answer = claude ? claude(payload) : { status: 200, text: JSON.stringify(["답변 하나", "답변 둘"]) };
@@ -102,6 +110,6 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
   vm.createContext(ctx);
   vm.runInContext(source, ctx);
   const post = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text);
-  const get = () => JSON.parse(ctx.doGet({}).text);
+  const get = (parameter = {}) => JSON.parse(ctx.doGet({ parameter }).text);
   return { ctx, post, get, sheets: book, sheet: () => book.find((s) => s.getName() === "CS문의"), jobs: () => book.find((s) => s.getName() === "요청"), properties, calls, logs, fetchAllCalls, timeZone: () => timeZone };
 }

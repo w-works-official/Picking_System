@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 12 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 13 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 12);
+  assert.equal(g5.get().version, 13);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -804,5 +804,53 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.deepEqual(g.post({ action: "discList", token: TOKEN }).skus.map((x) => x.sku), ["1000-1", "2000-1"]);
   assert.equal(g.post({ action: "discSet", token: TOKEN, skus: [], on: true }).ok, false);
   assert.ok(g.sheets.some((sh) => sh.getName() === "단종"), "'단종' 탭");
-  console.log("csBoard.mock.test (ms review point v10 · remote login v11 · disc v12): OK");
+  // v13 상품찾기 사진 색인: 시작 → 조각 올리기 → 마치기 → 토큰 없이 GET 으로 읽기
+  assert.equal(g.get({ action: "photoIndexMeta" }).meta, null, "처음엔 색인 없음");
+  assert.equal(g.post({ action: "photoIndexBegin", token: COLLECTOR, chunks: 2 }).denied, true, "수집기 비밀번호로는 못 씀");
+  let pb = g.post({ action: "photoIndexBegin", token: TOKEN, chunks: 3 });
+  assert.ok(pb.ok && pb.stage);
+  assert.equal(g.post({ action: "photoIndexPut", token: TOKEN, stage: "wrong", from: 0, chunks: ["a"] }).ok, false, "다른 올리기 조각은 버림");
+  assert.equal(g.post({ action: "photoIndexPut", token: TOKEN, stage: pb.stage, from: 0, chunks: ["=a\tb", "+c"] }).saved, 2);
+  assert.match(g.post({ action: "photoIndexCommit", token: TOKEN, stage: pb.stage, count: 9, dim: 256 }).error, /3번째 조각이 빠졌습니다/);
+  assert.equal(g.post({ action: "photoIndexPut", token: TOKEN, stage: pb.stage, from: 2, chunks: ["-d"] }).ok, true);
+  assert.equal(g.post({ action: "photoIndexPut", token: TOKEN, stage: pb.stage, from: 3, chunks: ["x"] }).ok, false, "범위 밖");
+  const pc = g.post({ action: "photoIndexCommit", token: TOKEN, stage: pb.stage, count: 9, dim: 256, model: "mnv2", editor: "희진" });
+  assert.deepEqual([pc.ok, pc.meta.chunks, pc.meta.count, pc.meta.dim], [true, 3, 9, 256]);
+  assert.ok(g.sheets.some((sh) => sh.getName() === "사진색인") && !g.sheets.some((sh) => sh.getName() === "사진색인_새로"));
+  assert.equal(g.get({ action: "photoIndexMeta" }).meta.version, pb.stage);
+  assert.deepEqual(g.get({ action: "photoIndexGet", from: "0", to: "3" }).chunks, ["=a\tb", "+c", "-d"], "~ 붙여 저장 · 읽을 때 뗌 (수식 안 됨)");
+  assert.deepEqual(g.get({ action: "photoIndexGet", from: "1", to: "2" }).chunks, ["+c"]);
+  const pb2 = g.post({ action: "photoIndexBegin", token: TOKEN, chunks: 1 });
+  g.post({ action: "photoIndexPut", token: TOKEN, stage: pb2.stage, from: 0, chunks: ["new"] });
+  g.post({ action: "photoIndexCommit", token: TOKEN, stage: pb2.stage, count: 1 });
+  assert.deepEqual(g.get({ action: "photoIndexGet", from: "0", to: "5" }).chunks, ["new"], "새 색인으로 통째로 바뀜");
+  assert.equal(g.sheets.filter((sh) => sh.getName() === "사진색인").length, 1);
+  console.log("csBoard.mock.test (ms review point v10 · remote login v11 · disc v12 · photo index v13): OK");
+}
+
+// v13 상품찾기 🤖 AI 추천: 찾는 사진 + 허브 사진 후보 → 후보 번호 → 코드로 돌려줌
+{
+  const IMG = "A".repeat(400);
+  const HUB = "https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/";
+  const none = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN } });
+  assert.match(none.post({ action: "photoAi", token: TOKEN, image: IMG }).error, /AI 키가 없습니다/);
+  let seen = null;
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, CLAUDE_KEY: "k" }, claude: (payload) => { seen = payload; return { status: 200, text: '결과: {"picks":[{"n":2,"score":91,"why":"같은 큐빅 배열"},{"n":9,"score":80}],"keywords":"써지컬 링 피어싱 큐빅"}' }; } });
+  assert.equal(g.post({ action: "photoAi", token: "wrong", image: IMG }).denied, true);
+  assert.match(g.post({ action: "photoAi", token: TOKEN, image: "abc" }).error, /찾는 사진이 올바르지 않습니다/);
+  const r = g.post({ action: "photoAi", token: TOKEN, image: IMG, candidates: [
+    { code: "8601-1", url: `${HUB}8601-1.jpg`, label: "링 골드" },
+    { code: "EVIL", url: "https://evil.example/x.jpg" },           // 허브 주소 아님 → 뺌
+    { code: "8601-2", url: `${HUB}missing-8601-2.jpg` },           // 사진 못 받음 → 뺌
+    { code: "8602-1", url: `${HUB}8602-1.jpg` },
+  ] });
+  assert.equal(r.ok, true);
+  assert.equal(r.compared, 2, "받은 후보 사진만 비교");
+  assert.deepEqual(r.picks, [{ code: "8602-1", score: 91, why: "같은 큐빅 배열" }], "후보 번호 → 코드 · 없는 번호 무시");
+  assert.equal(r.keywords, "써지컬 링 피어싱 큐빅");
+  const imgs = seen.messages[0].content.filter((c) => c.type === "image");
+  assert.equal(imgs.length, 3, "찾는 사진 1 + 후보 2");
+  assert.ok(!JSON.stringify(seen).includes("evil.example"));
+  assert.ok(JSON.parse(g.properties.AI_USAGE)[Object.keys(JSON.parse(g.properties.AI_USAGE))[0]].kinds["사진찾기"] === 1, "사용량 기록");
+  console.log("csBoard.mock.test (photoAi v13): OK");
 }

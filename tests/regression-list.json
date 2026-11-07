@@ -83,5 +83,6 @@
   "productNames.mock.test.mjs",
   "tabletIos.contract.test.mjs",
   "productBoard.mock.test.mjs",
-  "productFinder.mock.test.mjs"
+  "productFinder.mock.test.mjs",
+  "photoSearch.mock.test.mjs"
 ]

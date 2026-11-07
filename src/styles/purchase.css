@@ -1021,3 +1021,31 @@ body.purchase-workspace {
   .pf-inputs .pf-btn { flex: 1 1 0; justify-content: center; }
 }
 .product-finder [hidden] { display: none !important; }
+/* 🔍 사진으로 찾기 */
+.pf-swork { display: grid; gap: 10px; padding: 12px; border: 2px dashed #d1d5db; border-radius: 12px; }
+.pf-swork.is-drag { border-color: #2563eb; background: #eff6ff; }
+.pf-query { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px; border: 2px solid #111827; border-radius: 12px; background: #fff; }
+.pf-query img { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; background: #f3f4f6; }
+.pf-query-txt { display: grid; gap: 6px; justify-items: start; }
+.pf-btn-ai { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+.pf-btn-mini { height: 30px; padding: 0 10px; font-size: 12px; }
+.pf-ai-box { padding: 10px 12px; border-radius: 10px; background: #f5f3ff; border: 1px solid #ddd6fe; }
+.pf-ai-box ul { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.pf-shits { display: grid; gap: 6px; }
+.pf-shit { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 10px 6px 6px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
+.pf-shit.is-ai { border: 2px solid #7c3aed; background: #faf5ff; }
+.pf-shit > img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background: #f3f4f6; }
+.pf-shit-side { display: grid; gap: 4px; justify-items: end; }
+.pf-pct { font-size: 18px; color: #1d4ed8; }
+.pf-ai-tag { font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 5px; background: #7c3aed; color: #fff; white-space: nowrap; }
+.pf-ai-tag.is-kw { background: #a78bfa; }
+.pf-index { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; background: #f9fafb; border: 1px solid #e5e7eb; font-size: 13px; }
+.pf-index-row { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.pf-index-prog { height: 8px; border-radius: 4px; background: #e5e7eb; overflow: hidden; }
+.pf-index-prog > div { height: 100%; background: #2563eb; transition: width .3s; }
+.pf-index-note { color: #6b7280; }
+@media (max-width: 760px) {
+  .pf-query { grid-template-columns: 88px minmax(0, 1fr); }
+  .pf-query img { width: 88px; height: 88px; }
+  .pf-swork .pf-inputs .pf-btn { flex: 1 1 0; justify-content: center; }
+}

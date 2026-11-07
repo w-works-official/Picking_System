@@ -38,6 +38,10 @@
  */
 var SHEET_NAME = 'CS문의';
 var JOB_SHEET = '요청';
+var PHOTO_INDEX_SHEET = '사진색인';          // v13: 상품찾기 사진 검색 색인 (조각 번호 · 내용)
+var PHOTO_INDEX_STAGE = '사진색인_새로';      // 올리는 중인 색인 — 다 올라오면 사진색인 으로 바꿈
+var PHOTO_INDEX_CHUNK = 45000;               // 셀 하나 최대 글자 (구글 시트 한도 50,000)
+var PHOTO_HUB_PREFIX = 'https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/';
 var DISC_SHEET = '단종';   // v12: 상품 현황 단종 옵션 (셀피아 코드 · 단종일시 · 처리자)
 var HEADER = ['키', '업체', '게시판', '문의ID', '문의시각', '상품명', '상태', '문의', '답변안', '선택', '버전', '수정자', '수정시각', '수집시각', '종료', '등록'];
 var COL = { key: 1, vendor: 2, board: 3, id: 4, date: 5, product: 6, status: 7, inquiry: 8, drafts: 9, choice: 10, version: 11, editor: 12, editedAt: 13, collectedAt: 14, closed: 15, reg: 16 };
@@ -121,8 +125,12 @@ function 처음설정() {
 }
 
 function doGet(e) {
-  // 주소 확인용 — 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 12 });
+  // 주소 확인용 — 문의 데이터는 돌려주지 않습니다(토큰은 POST 본문으로만)
+  // v13: 사진 검색 색인(상품코드 + 사진 특징값 — 개인정보 없음)만 토큰 없이 읽기
+  var p = (e && e.parameter) || {};
+  if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
+  if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 13 });
 }
 
 function doPost(e) {
@@ -199,7 +207,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -219,6 +227,10 @@ function route_(body) {
   if (action === 'point') return withLock_(function () { return point_(body); });
   if (action === 'discList') return discList_();
   if (action === 'discSet') return withLock_(function () { return discSet_(body); });
+  if (action === 'photoIndexBegin') return withLock_(function () { return photoIndexBegin_(body); });
+  if (action === 'photoIndexPut') return withLock_(function () { return photoIndexPut_(body); });
+  if (action === 'photoIndexCommit') return withLock_(function () { return photoIndexCommit_(body); });
+  if (action === 'photoAi') return photoAi_(body);
   if (action === 'loginShotGet') return loginShotGet_(body);
   if (action === 'loginAnswer') return loginAnswer_(body);
   if (action === 'loginShot') return loginShot_(body);
@@ -1415,4 +1427,137 @@ function discSet_(body) {
     sheet.getRange(2, 1, keep.length, 3).setValues(keep);
   }
   return { ok: true, changed: changed, total: keep.length };
+}
+
+
+// ---------- v13 상품찾기: 사진 검색 색인 ----------
+// 색인 = 상품 관리 [상품찾기] 에서 PC 가 만든 "사진 이름 · 특징값" 글자 덩어리. 시트에는 45,000자씩 잘라 줄마다 저장.
+// 칸 앞에 ~ 를 붙여 = + - 로 시작해도 수식으로 바뀌지 않게 함.
+function photoIndexMeta_() {
+  var meta = parse_(prop_('PHOTO_INDEX_META'), null);
+  return meta ? { ok: true, meta: meta } : { ok: true, meta: null };
+}
+
+function photoIndexGet_(p) {
+  var meta = parse_(prop_('PHOTO_INDEX_META'), null);
+  if (!meta) return { ok: false, error: '아직 색인이 없습니다' };
+  var from = Math.max(0, Math.floor(Number(p.from) || 0));
+  var to = Math.min(meta.chunks, Math.max(from + 1, Math.floor(Number(p.to) || from + 1)), from + 12);
+  var sheet = book_().getSheetByName(PHOTO_INDEX_SHEET);
+  if (!sheet) return { ok: false, error: '색인 탭이 없습니다' };
+  var values = sheet.getRange(from + 2, 2, to - from, 1).getValues();
+  return { ok: true, version: meta.version, from: from, chunks: values.map(function (r) { return String(r[0] || '').replace(/^~/, ''); }) };
+}
+
+function photoIndexBegin_(body) {
+  var chunks = Math.floor(Number(body.chunks) || 0);
+  if (chunks < 1 || chunks > 2000) return { ok: false, error: '조각 수가 올바르지 않습니다' };
+  var book = book_();
+  var stage = book.getSheetByName(PHOTO_INDEX_STAGE);
+  if (stage) book.deleteSheet(stage);
+  stage = book.insertSheet(PHOTO_INDEX_STAGE);
+  stage.getRange(1, 1, 1, 2).setValues([['조각', '내용']]);
+  var id = Utilities.getUuid().slice(0, 8);
+  setProp_('PHOTO_INDEX_STAGE', JSON.stringify({ id: id, chunks: chunks, at: new Date().toISOString() }));
+  return { ok: true, stage: id };
+}
+
+function photoIndexPut_(body) {
+  var st = parse_(prop_('PHOTO_INDEX_STAGE'), null);
+  if (!st || st.id !== String(body.stage || '')) return { ok: false, error: '올리기가 새로 시작돼 이 조각은 버립니다 — 다시 시도해 주세요' };
+  var from = Math.floor(Number(body.from) || 0);
+  var list = Array.isArray(body.chunks) ? body.chunks : [];
+  if (from < 0 || !list.length || from + list.length > st.chunks || list.length > 20) return { ok: false, error: '조각 범위가 올바르지 않습니다' };
+  var rows = [];
+  for (var i = 0; i < list.length; i++) {
+    var text = String(list[i] == null ? '' : list[i]);
+    if (text.length > PHOTO_INDEX_CHUNK) return { ok: false, error: '조각이 너무 깁니다' };
+    rows.push([from + i, '~' + text]);
+  }
+  var stage = book_().getSheetByName(PHOTO_INDEX_STAGE);
+  if (!stage) return { ok: false, error: '올리는 탭이 없습니다 — 다시 시작해 주세요' };
+  stage.getRange(from + 2, 1, rows.length, 2).setValues(rows);
+  return { ok: true, saved: rows.length };
+}
+
+function photoIndexCommit_(body) {
+  var st = parse_(prop_('PHOTO_INDEX_STAGE'), null);
+  if (!st || st.id !== String(body.stage || '')) return { ok: false, error: '올리기 정보가 없습니다 — 다시 시작해 주세요' };
+  var book = book_();
+  var stage = book.getSheetByName(PHOTO_INDEX_STAGE);
+  if (!stage) return { ok: false, error: '올리는 탭이 없습니다' };
+  var got = stage.getRange(2, 1, st.chunks, 2).getValues();
+  for (var i = 0; i < st.chunks; i++) {
+    var r = got[i] || [];
+    if (r[0] === '' || r[0] == null || Number(r[0]) !== i || !String(r[1] || '')) return { ok: false, error: (i + 1) + '번째 조각이 빠졌습니다 — 다시 올려 주세요' };
+  }
+  var old = book.getSheetByName(PHOTO_INDEX_SHEET);
+  if (old) book.deleteSheet(old);
+  stage.setName(PHOTO_INDEX_SHEET);
+  var meta = {
+    version: st.id, chunks: st.chunks,
+    count: Math.max(0, Math.floor(Number(body.count) || 0)),
+    dim: Math.max(0, Math.floor(Number(body.dim) || 0)),
+    model: plain_(clean_(body.model, 60)),
+    updatedAt: new Date().toISOString(),
+    editor: plain_(clean_(body.editor, 20)),
+  };
+  setProp_('PHOTO_INDEX_META', JSON.stringify(meta));
+  PropertiesService.getScriptProperties().deleteProperty('PHOTO_INDEX_STAGE');
+  return { ok: true, meta: meta };
+}
+
+// ---------- v13 상품찾기: 🤖 AI 추천 ----------
+// 찾는 사진 1장 + 자체 검색 상위 후보(최대 10개, 허브 상품 사진 주소) → Claude 가 같은 상품을 고름 · 상품 특징 낱말도 돌려줌
+function photoAi_(body) {
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
+  var image = String(body.image || '').replace(/^data:image\/\w+;base64,/, '');
+  if (!/^[A-Za-z0-9+\/=]{100,}$/.test(image) || image.length > 1400000) return { ok: false, error: '찾는 사진이 올바르지 않습니다' };
+  var cands = (Array.isArray(body.candidates) ? body.candidates : []).slice(0, 10).map(function (c) {
+    var url = url_(c && c.url);
+    return { code: plain_(clean_(c && c.code, 60)), label: plain_(clean_(c && c.label, 120)), url: url.indexOf(PHOTO_HUB_PREFIX) === 0 ? url : '' };
+  }).filter(function (c) { return c.code && c.url; });
+  var reserved = withLock_(function () { return reserveAi_(1); });
+  if (!reserved.allow) return { ok: false, error: '오늘 AI 사용 한도(' + reserved.limit + '회)를 다 썼습니다.' };
+
+  var fetched = cands.length ? UrlFetchApp.fetchAll(cands.map(function (c) { return { url: c.url, muteHttpExceptions: true }; })) : [];
+  var content = [{ type: 'text', text: '[찾는 사진]' }, { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: image } }];
+  var shown = [];
+  fetched.forEach(function (res, i) {
+    if (res.getResponseCode() !== 200) return;
+    var blob = res.getBlob();
+    var type = String(blob.getContentType() || 'image/jpeg');
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(type)) type = 'image/jpeg';
+    shown.push(cands[i]);
+    content.push({ type: 'text', text: '[후보 ' + shown.length + '] ' + cands[i].code + (cands[i].label ? ' · ' + cands[i].label : '') });
+    content.push({ type: 'image', source: { type: 'base64', media_type: type, data: Utilities.base64Encode(blob.getBytes()) } });
+  });
+  content.push({ type: 'text', text: shown.length
+    ? '찾는 사진과 같은 상품(디자인·모양·색·재질이 같은 것)을 후보 중에서 골라 주세요. 같은 상품이 없으면 picks 를 비워 두세요.'
+    : '후보가 없습니다. picks 는 비워 두고 keywords 만 주세요.' });
+  var model = prop_('CLAUDE_MODEL') || DEFAULT_MODEL;
+  var payload = {
+    model: model,
+    max_tokens: 700,
+    system: '당신은 액세서리(피어싱·귀걸이·반지·목걸이 등) 쇼핑몰 상품 사진 대조 담당입니다. 사진 속 상품의 모양·색·재질·장식을 비교합니다. 출력은 JSON 하나만, 설명 없이: {"picks":[{"n":후보번호,"score":0~100,"why":"한 줄 이유"}],"keywords":"찾는 사진 상품을 설명하는 한국어 낱말 3~6개를 띄어쓰기로"} — picks 는 score 높은 순, 최대 3개, score 60 미만은 넣지 마세요.',
+    messages: [{ role: 'user', content: content }],
+  };
+  var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, payload: JSON.stringify(payload),
+  });
+  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+  var data = parse_(response.getContentText(), {});
+  var text = '';
+  (Array.isArray(data.content) ? data.content : []).forEach(function (c) { if (c && c.type === 'text') text += c.text; });
+  recordUsage_(data.usage, model, '사진찾기');
+  var m = /\{[\s\S]*\}/.exec(text);
+  var out = parse_(m ? m[0] : '', {});
+  var picks = (Array.isArray(out.picks) ? out.picks : []).map(function (p) {
+    var n = Math.floor(Number(p && p.n));
+    var c = shown[n - 1];
+    return c ? { code: c.code, score: Math.max(0, Math.min(100, Math.round(Number(p.score) || 0))), why: plain_(clean_(p.why, 200)) } : null;
+  }).filter(Boolean).slice(0, 3);
+  return { ok: true, picks: picks, keywords: plain_(clean_(out.keywords, 120)), compared: shown.length };
 }

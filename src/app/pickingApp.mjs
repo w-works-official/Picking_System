@@ -39,6 +39,7 @@ import { receiptBusinessDayKeys, receiptBusinessDaysSince } from "../domain/busi
 import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=20260731-inspection-hold-cs1";
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
+import { listSubs, swapMaster } from "../domain/subPhotos.mjs?v=20261107-finder1";
 import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, photoRequestFillNamesPayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261028-photo-request-name1";
 import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-all1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
@@ -893,7 +894,7 @@ async function uploadProductPhotos(fileList) {
 
 function productPhotoLibraryEntry(file = {}) {
   const name = String(file.name || "").trim();
-  if (!/\.jpg$/i.test(name)) return null;
+  if (!/\.jpg$/i.test(name) || /\.__sub\d\.jpg$/i.test(name)) return null; // 11-07 보조사진은 사진 목록에서 뺌 (사진창에서 봄)
   const storageCode = name.replace(/\.jpg$/i, "");
   if (!storageCode || /[\\/]/.test(storageCode)) return null;
 
@@ -1655,6 +1656,7 @@ function ensurePhotoViewer() {
     <div class="photo-viewer-body">
       <div id="photo-viewer-canvas" class="photo-viewer-canvas"><img id="photo-viewer-img" alt=""></div>
     </div>
+    <div id="photo-viewer-strip" class="photo-viewer-strip" hidden></div>
   </div>`;
   document.body.appendChild(overlay);
   overlay.querySelector("#photo-viewer-img")?.addEventListener("load", layoutPhotoViewerImage);
@@ -1667,10 +1669,10 @@ function bustImageUrl(src) {
   return `${src}${separator}v=${Date.now()}`;
 }
 
-function openPhotoViewer(src, title = "") {
+function openPhotoViewer(src, title = "", sku = "") {
   if (!src) return;
   const overlay = ensurePhotoViewer();
-  state.photoViewer = { open: true, src, title, zoom: savedPhotoViewerZoom() };
+  state.photoViewer = { open: true, src, title, zoom: savedPhotoViewerZoom(), sku: String(sku || "").trim(), masterSrc: src, subs: [], busy: false };
   overlay.hidden = false;
   overlay.querySelector("#photo-viewer-title").textContent = title || "상품 사진";
   const image = overlay.querySelector("#photo-viewer-img");
@@ -1680,6 +1682,89 @@ function openPhotoViewer(src, title = "") {
   setPhotoViewerZoom(state.photoViewer.zoom, { persist: false });
   image.src = src;
   if (image.complete) window.requestAnimationFrame(layoutPhotoViewerImage);
+  loadPhotoViewerStrip().catch(() => {});
+}
+
+// 11-07 사진창 아래 줄: ★ 마스터 사진 + 보조사진(최대 3장) — 사진창을 열 때만 한 번 읽음 (주문 검색 속도와 무관)
+//  · ☆ 누르면 그 보조사진이 마스터(시스템 전체 대표 사진), 원래 마스터는 그 칸으로 (맞바꾸기)
+async function loadPhotoViewerStrip() {
+  const strip = document.getElementById("photo-viewer-strip");
+  const viewer = state.photoViewer;
+  if (!strip) return;
+  if (!viewer.sku) { strip.hidden = true; strip.innerHTML = ""; return; }
+  strip.hidden = false;
+  strip.innerHTML = `<span class="photo-viewer-strip-note">보조사진 확인 중…</span>`;
+  const sku = viewer.sku;
+  let subs = [];
+  try { subs = await listSubs((...a) => window.fetch(...a), sku); } catch { subs = []; }
+  if (state.photoViewer.sku !== sku || !state.photoViewer.open) return;
+  state.photoViewer.subs = subs;
+  renderPhotoViewerStrip();
+}
+
+function renderPhotoViewerStrip() {
+  const strip = document.getElementById("photo-viewer-strip");
+  const viewer = state.photoViewer;
+  if (!strip || !viewer.sku) return;
+  const current = String(document.getElementById("photo-viewer-img")?.getAttribute("src") || "");
+  const same = (a, b) => String(a || "").split("?")[0] === String(b || "").split("?")[0];
+  const thumb = (url, label, starHtml, key) => `<div class="photo-viewer-thumb${same(current, url) ? " is-on" : ""}">
+      <button type="button" class="photo-viewer-thumb-img" data-photo-viewer-show="${escapeHtml(url)}" aria-label="${escapeHtml(label)} 크게 보기"><img src="${escapeHtml(url)}" alt="" onerror="this.style.visibility='hidden'"></button>
+      ${starHtml}<small>${escapeHtml(label)}</small></div>`;
+  const editable = allowWrites && !viewer.busy;
+  const items = [thumb(viewer.masterSrc, "마스터", `<span class="photo-viewer-star is-on" title="마스터 사진 (시스템 전체 대표)">★</span>`, "m")];
+  for (const sub of viewer.subs) {
+    const star = editable
+      ? `<button type="button" class="photo-viewer-star" data-photo-viewer-star="${sub.slot}" title="이 사진을 마스터로 (맞바꾸기)">☆</button>`
+      : `<span class="photo-viewer-star">☆</span>`;
+    items.push(thumb(sub.url, `보조 ${sub.slot}`, star, sub.slot));
+  }
+  const note = viewer.busy
+    ? "마스터 사진 바꾸는 중…"
+    : viewer.subs.length
+      ? "☆ 를 누르면 그 사진이 마스터(대표) 사진이 됩니다"
+      : "보조사진 없음 — 상품 관리 › 상품찾기 › 사진 등록에서 추가";
+  strip.innerHTML = `${items.join("")}<span class="photo-viewer-strip-note">${escapeHtml(note)}</span>`;
+}
+
+function showPhotoViewerSrc(url) {
+  const image = document.getElementById("photo-viewer-img");
+  if (!image || !url) return;
+  state.photoViewer.src = url;
+  image.style.width = "";
+  image.style.height = "";
+  image.src = url;
+  if (image.complete) window.requestAnimationFrame(layoutPhotoViewerImage);
+  renderPhotoViewerStrip();
+}
+
+async function starPhotoViewerSub(slot) {
+  const viewer = state.photoViewer;
+  if (!viewer.sku || viewer.busy || !allowWrites) return;
+  if (!window.confirm(`보조 ${slot}번 사진을 ${viewer.sku} 의 마스터 사진으로 바꿀까요?\n· 시스템 전체 대표 사진이 바뀝니다\n· 원래 마스터 사진은 보조 ${slot}번 칸으로 옮겨집니다 (맞바꾸기)`)) return;
+  viewer.busy = true;
+  renderPhotoViewerStrip();
+  try {
+    const result = await swapMaster((...a) => window.fetch(...a), { sku: viewer.sku, slot, masterUrl: viewer.masterSrc });
+    const priorityCode = productPhotoPriorityCode(viewer.sku);
+    markProductPhotoUpdated(priorityCode);
+    const newMaster = productImageUrlForCode(priorityCode);
+    // 지금 화면의 같은 상품 사진도 바로 새 마스터로
+    document.querySelectorAll("img[data-photo-request-code]").forEach((img) => {
+      if (img.dataset.photoRequestCode !== viewer.sku) return;
+      img.style.visibility = "";
+      img.dataset.photoSrc = newMaster;
+      img.src = newMaster;
+    });
+    viewer.masterSrc = newMaster;
+    viewer.busy = false;
+    showPhotoViewerSrc(newMaster);
+    toast(result.swapped ? `★ 마스터 사진을 바꿨습니다 — 원래 사진은 보조 ${slot}번` : "★ 마스터 사진을 지정했습니다");
+  } catch (error) {
+    viewer.busy = false;
+    toast(`마스터 사진 바꾸기 실패: ${error?.message || error}`);
+  }
+  await loadPhotoViewerStrip().catch(() => {});
 }
 
 function closePhotoViewer() {
@@ -1692,6 +1777,7 @@ function refreshPhotoViewer() {
   if (!state.photoViewer.src) return;
   const image = document.getElementById("photo-viewer-img");
   if (image) image.src = bustImageUrl(state.photoViewer.src);
+  loadPhotoViewerStrip().catch(() => {});
 }
 
 function isPicked(item) {
@@ -12113,9 +12199,13 @@ function bindEvents() {
     if (event.key === "Escape" && state.csWorkLogModal.open) closeCsWorkLogModal();
   });
   document.addEventListener("click", (event) => {
+    const viewerShow = event.target.closest("[data-photo-viewer-show]");
+    if (viewerShow) { showPhotoViewerSrc(viewerShow.dataset.photoViewerShow); return; }
+    const viewerStar = event.target.closest("[data-photo-viewer-star]");
+    if (viewerStar) { starPhotoViewerSub(Number(viewerStar.dataset.photoViewerStar)).catch(() => {}); return; }
     const image = event.target.closest("[data-photo-src]");
     if (image) {
-      openPhotoViewer(image.dataset.photoSrc, image.dataset.photoTitle || "");
+      openPhotoViewer(image.dataset.photoSrc, image.dataset.photoTitle || "", image.dataset.photoRequestCode || "");
       return;
     }
     const photoAction = event.target.closest("[data-photo-action]");

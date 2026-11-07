@@ -31,7 +31,7 @@ export function photoIndex(fileNames = []) {
   const optionProducts = new Set();  // 옵션 사진이 하나라도 있는 상품코드
   for (const raw of fileNames) {
     const name = String(raw || "").trim();
-    if (!/\.jpg$/i.test(name)) continue;
+    if (!/\.jpg$/i.test(name) || /\.__sub\d\.jpg$/i.test(name)) continue; // 11-07 보조사진은 대표 사진 후보에서 뺌
     let stem = name.replace(/\.jpg$/i, "");
     let rank = 2;
     for (const suf of PHOTO_SUFFIXES) {

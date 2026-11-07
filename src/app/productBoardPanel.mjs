@@ -4,7 +4,7 @@
 //  · 1열 · 한 쪽에 상품 100개 · 검색 기준(재고 · 사진 · 출고 기간 × 수량) · 옵션 단위 / 상품 단위 · 선택 · 선택 모아보기 · 사진 포함 엑셀
 //  · 읽기 전용: 어디에도 쓰지 않음
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261106-remote1";
-import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261107-disc2";
+import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261107-finder1";
 import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
 
 const HUB_URL = "https://bpgvqmtsjgegnrdzmpep.supabase.co";
@@ -279,7 +279,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
       ]);
       const at = rows.find((r) => r.snapshot_created_at)?.snapshot_created_at;
       st.snapshotAt = at ? new Date(new Date(at).getTime() + 9 * 3600000).toISOString().slice(0, 16).replace("T", " ") : "";
-      st.photos = names.length;
+      st.photos = names.filter((n) => !/\.__sub\d\.jpg$/i.test(n)).length;
       st.products = buildProducts(rows, photoIndex(names));
       st.loaded = true;
       await loadDisc();

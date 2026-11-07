@@ -166,11 +166,13 @@ export function boardView(products = [], f = {}) {
       options = p.options.filter((o) => f.only.has(o.sku));
     } else {
       // 단종 상품: [단종] 카테고리에서만, 또는 '단종 포함'일 때 (기본 = 미포함)
-      if (f.cat === "disc") { if (!p.disc) continue; }
+      // 11-07 '단종만': 단종 옵션이 하나라도 있는 상품 — 단종 옵션만 보임
+      if (f.disc === "only") { if (!p.options.some((o) => o.disc)) continue; }
+      else if (f.cat === "disc") { if (!p.disc) continue; }
       else if (p.disc && f.disc !== "include") continue;
       if (f.cat && f.cat !== "all" && f.cat !== "disc" && p.category !== f.cat) continue;
       if (!matchProduct(p, f.q)) continue;
-      options = p.options.filter((o) => inRange(o.stock, f.stockMin, f.stockMax)
+      options = p.options.filter((o) => (f.disc !== "only" || o.disc) && inRange(o.stock, f.stockMin, f.stockMax)
         && (f.photo === "none" ? !hasPhoto(o) : f.photo === "has" ? hasPhoto(o) : true)
         && (f.unit === "product" || inRange(o[key], f.salesMin, f.salesMax)));
     }

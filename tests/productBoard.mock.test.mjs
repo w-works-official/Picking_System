@@ -121,6 +121,9 @@ assert.deepEqual(boardView(ps, { cat: "k14" }).map((x) => x.p.code), [], "원래
 assert.deepEqual(boardView(ps, { disc: "include" }).map((x) => x.p.code), ["1000", "2000"], "단종 포함");
 assert.deepEqual(boardView(ps, { cat: "k14", disc: "include" }).map((x) => x.p.code), ["2000"]);
 assert.deepEqual(boardView(ps, { cat: "disc" }).map((x) => x.p.code), ["2000"], "[단종] 카테고리 = 단종 상품만");
+applyDisc(ps, new Set(["1000-1", "2000-1"]));
+assert.deepEqual(boardView(ps, { disc: "only" }).map((x) => [x.p.code, x.options.map((o) => o.sku)]), [["1000", ["1000-1"]], ["2000", ["2000-1"]]], "단종만 = 단종 옵션 있는 상품 · 단종 옵션만");
+assert.deepEqual(boardView(ps, { disc: "only", cat: "k14" }).map((x) => x.p.code), ["2000"], "단종만 + 카테고리");
 assert.deepEqual(boardView(ps, { only: new Set(["2000-1"]) }).map((x) => x.p.code), ["2000"], "모아보기는 단종도");
 assert.match(excelRows(ps, new Set(["2000-1"]))[0].cells[3], /\(단종\)$/);
 applyDisc(ps, new Set());

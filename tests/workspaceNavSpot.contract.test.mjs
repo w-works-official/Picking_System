@@ -23,9 +23,9 @@ const csNew = await read("cs/index.html");
 assert.match(csNew, /href="\.\/legacy\.html"/);
 assert.ok(JSON.parse(manifest).files.some((f) => f.path === "legacy.html"), "manifest records the kept entry");
 for (const html of [index, csHtml, csNew, purchase]) assert.match(html, /pretendard\/1\.3\.9\/static\/pretendard\.css/);
-assert.match(index, /workspaceNavigation\.css\?v=20261102-status1/);
-assert.match(purchase, /workspaceNavigation\.css\?v=20261102-status1/);
-assert.match(csNew, /workspaceNavigation\.css\?v=20261102-status1/);
+assert.match(index, /workspaceNavigation\.css\?v=20261107-mobile1/);
+assert.match(purchase, /workspaceNavigation\.css\?v=20261107-mobile1/);
+assert.match(csNew, /workspaceNavigation\.css\?v=20261107-mobile1/);
 // 2026-11-02: 연결 상태(러너·수집기 PC·CS 시트) = 두 화면 상단 오른쪽 끝 같은 자리, 150% 크기(16px)
 assert.match(navCss, /\.workspace-status > span \{[^}]*font-size: 16px;/);
 assert.match(csNew, /<span class="workspace-status" data-ws-status="cs"[^>]*>\s*<span class="ws-pill is-off" data-ws-runner[^>]*>러너 —<\/span>\s*<span id="cs-collector"[^>]*>수집기 PC —<\/span>\s*<span id="cs-connection"/);

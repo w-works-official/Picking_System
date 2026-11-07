@@ -168,3 +168,7 @@
     font-size: 13px;
   }
 }
+
+/* 11-07 아이폰: 한글 낱말이 중간에서 잘려 다음 줄로 밀리지 않게 (세 화면 공통 — 피킹·CS·상품 관리)
+   keep-all = 띄어쓰기에서만 줄바꿈 · 칸보다 긴 낱말만 break-word 로 자름 */
+html { word-break: keep-all; overflow-wrap: break-word; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }

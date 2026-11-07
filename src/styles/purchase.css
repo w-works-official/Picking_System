@@ -922,3 +922,41 @@ body.purchase-workspace {
 .pb-btn-disc { border-color: #6b7280; color: #374151; }
 .pb-cat[data-pb-cat="disc"] { background: #f3f4f6; color: #6b7280; }
 .pb-cat[data-pb-cat="disc"].is-on { background: #6b7280; border-color: #6b7280; color: #fff; }
+
+/* 11-07 아이폰: 왼쪽 메뉴(발주·입고·상품명 요청·상품 현황) 글씨 한 줄 · 가운데 · 폭에 맞춰 글씨 크기 */
+.purchase-tab, .purchase-hub-link { white-space: nowrap; }
+@media (max-width: 720px) {
+  .purchase-tabs { gap: 5px; }
+  .purchase-tab { height: 40px; padding: 0 2px; text-align: center; font-size: clamp(12px, 3.5vw, 15px); letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; }
+  .pb-cat { white-space: nowrap; }
+}
+/* 11-07 아이폰: 검색 조건 묶음이 화면보다 길어 목록을 가리지 않게 — 좁은 화면은 위에 붙이지 않음 */
+@media (max-width: 760px) {
+  .pb-bar { position: static; }
+  .pb-headrow { font-size: 11px; white-space: nowrap; }
+  .pb-headrow > * { overflow: hidden; text-overflow: clip; }
+}
+/* 11-07 아이폰: 한 줄에 칸 9개는 옵션명이 세로로 밀림 → 2줄 배치
+   윗줄 = 옵션명(상품명) 넓게 · 아랫줄 = 재고 · 7일 · 30일 · 90일 (매입가·출고가는 넓은 화면에서) */
+@media (max-width: 760px) {
+  .pb-row { grid-template-columns: 22px 52px repeat(4, minmax(0, 1fr)); gap: 2px 8px; }
+  .pb-row > :nth-child(1) { grid-column: 1; grid-row: 1 / span 2; }
+  .pb-row > :nth-child(2) { grid-column: 2; grid-row: 1 / span 2; }
+  .pb-row > :nth-child(3) { grid-column: 3 / -1; grid-row: 1; }
+  .pb-row > :nth-child(4) { grid-column: 3; grid-row: 2; }
+  .pb-row > :nth-child(5), .pb-row > :nth-child(6) { display: none; }
+  .pb-row > :nth-child(7) { grid-column: 4; grid-row: 2; }
+  .pb-row > :nth-child(8) { grid-column: 5; grid-row: 2; }
+  .pb-row > :nth-child(9) { grid-column: 6; grid-row: 2; }
+  .pb-row .pb-n { text-align: center; }
+  .pb-opt .pb-n::before, .pb-prow .pb-n::before { display: block; font-size: 10px; font-weight: 700; color: var(--purchase-muted); }
+  .pb-opt .pb-n:nth-child(4)::before, .pb-prow .pb-n:nth-child(4)::before { content: "재고"; }
+  .pb-opt .pb-n:nth-child(7)::before, .pb-prow .pb-n:nth-child(7)::before { content: "7일"; }
+  .pb-opt .pb-n:nth-child(8)::before, .pb-prow .pb-n:nth-child(8)::before { content: "30일"; }
+  .pb-opt .pb-n:nth-child(9)::before, .pb-prow .pb-n:nth-child(9)::before { content: "90일"; }
+  .pb-headrow { display: none; }
+  .pb-row .pb-photo { width: 52px; height: 52px; }
+  .pb-opt.no-photo > :nth-child(2) { display: none; }
+  .pb-opt.no-photo > :nth-child(3) { grid-column: 2 / -1; }
+  .pb-opt.no-photo > :nth-child(4) { grid-column: 3; }
+}

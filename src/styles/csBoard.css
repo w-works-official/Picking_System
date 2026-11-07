@@ -2215,3 +2215,11 @@ a.cs-btn {
 .cs-collect-head > .cs-row .cs-btn { min-width: 156px; justify-content: center; white-space: nowrap; }
 .cs-collect-head > .cs-row .cs-btn + .cs-btn { min-width: 176px; }
 .cs-days-label { flex: 0 0 auto; width: 196px; white-space: nowrap; }
+
+/* 11-07 아이폰: 메뉴 탭 6개가 화면 밖으로 밀리지 않게 — 좁은 화면은 3칸 × 2줄 · 글씨 한 줄 */
+@media (max-width: 600px) {
+  .cs-main > .cs-left-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; overflow: visible; padding: 6px 6px 0; }
+  .cs-main > .cs-left-tabs .cs-left-tab,
+  .cs-main > .cs-left-tabs .cs-left-tab.active { padding: 8px 2px; font-size: 13px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cs-main > .cs-left-tabs .cs-left-tab.active { font-weight: 900; }
+}

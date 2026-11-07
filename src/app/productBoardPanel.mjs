@@ -4,7 +4,7 @@
 //  · 1열 · 한 쪽에 상품 100개 · 검색 기준(재고 · 사진 · 출고 기간 × 수량) · 옵션 단위 / 상품 단위 · 선택 · 선택 모아보기 · 사진 포함 엑셀
 //  · 읽기 전용: 어디에도 쓰지 않음
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261106-remote1";
-import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261106-disc1";
+import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261107-disc2";
 import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
 
 const HUB_URL = "https://bpgvqmtsjgegnrdzmpep.supabase.co";
@@ -78,7 +78,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
         <label>사진 <select data-pb-f="photo"><option value="all">전체</option><option value="none">사진 없는 것</option><option value="has">사진 있는 것</option></select></label>
         <label>출고 기간 <select data-pb-days>${PERIODS.map((p) => `<option value="${p.days}"${p.days === 30 ? " selected" : ""}>${p.label}</option>`).join("")}</select></label>
         <label>출고 수량 <input type="number" inputmode="numeric" data-pb-f="salesMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="salesMax" placeholder="최대"></label>
-        <label>단종 <select data-pb-disc><option value="exclude">미포함</option><option value="include">포함</option></select></label>
+        <label>단종 <select data-pb-disc><option value="exclude">미포함</option><option value="include">포함</option><option value="only">단종만</option></select></label>
         <button type="button" class="pb-btn pb-btn-mini" data-pb-clear>조건 지우기</button>
       </div>
       <div class="pb-pickbar">
@@ -362,7 +362,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     if (t.matches("[data-pb-days]")) { st.days = Number(t.value) || 0; reset(); }
     else if (t.matches("[data-pb-sort]")) { st.sort = t.value; reset(); }
     else if (t.dataset.pbF === "photo") { st.photo = t.value; reset(); }
-    else if (t.matches("[data-pb-disc]")) { st.discMode = t.value === "include" ? "include" : "exclude"; reset(); }
+    else if (t.matches("[data-pb-disc]")) { st.discMode = ["include", "only"].includes(t.value) ? t.value : "exclude"; reset(); }
     else if (t.matches("[data-pb-pick-sku]")) {
       if (t.checked) st.picked.add(t.dataset.pbPickSku); else st.picked.delete(t.dataset.pbPickSku);
       render();

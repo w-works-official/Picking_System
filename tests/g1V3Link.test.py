@@ -1153,3 +1153,16 @@ assert L.msn_only(_ms_logs.append, stop=lambda: True) is False
 L.msn_helper_start = _keep_start
 
 print("g1V3Link.test: OK")
+
+# 1.24 (11-09): 메신저 전용 PC(수집기 파일 없음)에서 검은 창 없이(--bg) 켜도 바로 죽지 않아야 함
+_keepG = L._G
+L._G = lambda: (_ for _ in ()).throw(ModuleNotFoundError("No module named 'g1_cs_collector'"))
+assert L.log_file() == os.path.join(L.HERE, "v3link_log.txt"), "수집기 파일이 없으면 이 파일 폴더에 기록"
+L._G = _keepG
+with tempfile.TemporaryDirectory() as _d:
+    shutil.copy(os.path.join(os.path.dirname(os.path.abspath(L.__file__)), "g1_v3_link.py"), _d)
+    _r = subprocess.run([sys.executable, "-I", os.path.join(_d, "g1_v3_link.py"), "--msn", "--bg"], capture_output=True, text=True, timeout=60, cwd=_d)
+    assert "ModuleNotFoundError" not in (_r.stderr or ""), _r.stderr[-400:]
+    _log = open(os.path.join(_d, "v3link_log.txt"), encoding="utf-8").read()
+    assert "메신저 창 도우미" in _log, _log[-300:]   # (리눅스에선 '켜지 못했습니다' — 윈도우 전용) 기록까지 갔으면 시작 단계 통과
+print("g1V3Link msn-only bg start (1.24): OK")

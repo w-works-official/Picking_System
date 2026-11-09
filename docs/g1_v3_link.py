@@ -124,6 +124,10 @@
 1.23 (2026-11-06) [클립보드 이미지 전송] 창 찾기 보강
   · 카톡 이미지 전송 창이 대화창에 '딸린 창'으로 안 잡히는 경우가 있어, 붙여넣기 직후 새로 뜬 카톡 창을 그 대화창의 전송 창으로 기억
   · 그 창이 대화창을 따라 움직이고 · [📨 선택 보내기] Enter · [🗑 일괄 비우기] 닫기에 같이 쓰임
+
+1.24 (2026-11-09) 메신저 전용 PC 에서 창 도우미가 켜지자마자 꺼지던 문제
+  · 검은 창 없이(pythonw) 켜지면 기록 파일 자리를 수집기 파일(g1_cs_collector)에서 찾다가, 그 파일이 없는 PC(C:\SystemV3)에서 바로 멈췄음
+  · 수집기 파일이 없으면 이 파일 폴더에 v3link_log.txt 로 기록 · 기록 파일을 못 열어도 창 도우미는 켬
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -131,7 +135,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.23 (2026-11-06)"
+LINK_VER = "1.24 (2026-11-09)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1962,7 +1966,12 @@ def pid_path():
 
 
 def log_file():
-    return os.path.join(_G().BASE, "v3link_log.txt")
+    # 1.24: 메신저 전용 PC(C:\SystemV3)엔 수집기 파일이 없음 → 이 파일 폴더에 기록 (예전엔 여기서 죽어 창 도우미가 안 켜졌음)
+    try:
+        base = _G().BASE
+    except Exception:
+        base = HERE
+    return os.path.join(base, "v3link_log.txt")
 
 
 # ───────── 메신저 창 도우미 (1.10, 2026-11-05) ─────────
@@ -2972,7 +2981,10 @@ def msn_only(say=print, stop=None):
 if __name__ == "__main__":
     BG = "--bg" in sys.argv or sys.stdout is None      # pythonw 로 켜지면 창이 없음
     if BG:
-        to_log_file()
+        try:
+            to_log_file()
+        except Exception:
+            pass                                       # 기록 파일을 못 열어도 창 도우미는 켬
     if "--msn" in sys.argv:
         msn_only()
     elif "--setup" in sys.argv:

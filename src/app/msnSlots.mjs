@@ -289,7 +289,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
         else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
         st.helper.perm = perm;
       });
-      el.title = on ? `창 도우미 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "이 PC에 창 도우미가 켜져 있어야 합니다 (처음이면 ⚙ 설정 → 💻 이 PC 에서 메신저 쓰기). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
+      el.title = on ? `창 도우미 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "이 PC에 창 도우미가 켜져 있어야 합니다 (처음이면 💬 메신저 탭 → 💻 이 PC 에서 메신저 쓰기). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
     }
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
     const cta = $("[data-msn-cta]");
@@ -360,7 +360,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   async function suggest(i) {
     const btn = root.querySelector(`[data-msn-act="suggest"][data-i="${i}"]`);
     const { endpoint, token } = sheetAuth();
-    if (!endpoint || !token) { say("AI추천은 CS 시트에 연결된 뒤 쓸 수 있습니다 ([⚙ 설정] → 웹 연결 비밀번호).", "is-bad"); return; }
+    if (!endpoint || !token) { say("AI추천은 CS 시트에 연결된 뒤 쓸 수 있습니다 ([🏠 메인보드] 맨 위 웹 연결 비밀번호).", "is-bad"); return; }
     if (btn) { btn.disabled = true; btn.textContent = "💻 읽는 중…"; }
     try {
       const img = await slotImage(i);
@@ -489,7 +489,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   }
   async function arrange() {
     if (!st.helper.on) await pingHelper();
-    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [🖥 화면 연결]을 누르거나, 처음이면 ⚙ 설정 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
+    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [🖥 화면 연결]을 누르거나, 처음이면 💬 메신저 탭 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
     try {
       await syncSlots(true);
       if (vendor) say("카톡에서 업체 대화방을 찾아 여는 중… (업체가 많으면 몇십 초)");

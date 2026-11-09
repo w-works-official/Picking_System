@@ -2228,3 +2228,9 @@ a.cs-btn {
 .msn-steps { margin: 6px 0 2px; padding-left: 4px; list-style: none; display: grid; gap: 4px; font-size: 13px; color: #4c1d95; }
 .msn-steps li { line-height: 1.4; }
 [data-msn-cta-note] small { display: block; margin-top: 4px; font-size: 12px; color: #6d28d9; }
+
+/* 11-09: 웹 연결 = 메인보드 맨 위 (끊기면 바로 보이게) · 웹요청 현황부터 아래는 자동 수집과 두 칸 띄움 · 창 도우미 버튼 = 보라 */
+.cs-web-box { margin-top: 0; }
+.cs-main-lower { margin-top: 56px; padding-top: 14px; border-top: 1px dashed var(--cs-line); }
+.cs-btn-purple { background: #7c3aed; border-color: #7c3aed; color: #ffffff; font-weight: 700; }
+.cs-btn-purple:hover { background: #6d28d9; border-color: #6d28d9; }

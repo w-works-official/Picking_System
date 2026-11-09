@@ -55,7 +55,7 @@ import {
   csShotPoint,
 } from "../domain/csBoard.mjs?v=20261106-remote1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
-import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261103-loginmemo1";
+import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261109-layout1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
 import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261103-loginmemo1";
 
@@ -1171,7 +1171,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (!button || button.disabled) return;
     const act = button.dataset.guideAct;
     if (act === "close") { $("#cs-guide").hidden = true; state.guideFocus = ""; }
-    else if (act === "focus-token") { showLeft("settings", { open: true }); $("#cs-token-input")?.focus(); }
+    else if (act === "focus-token") { showLeft("main", { open: true }); $("#cs-token-input")?.focus(); }
     else if (act === "open-login") openLogin();
     else if (act.startsWith("tab:")) showLeft(act.slice(4));
     else if (act.startsWith("job:")) requestJob(act.slice(4));
@@ -1226,7 +1226,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function emptyText() {
     if (state.loading) return "시트에서 불러오는 중…";
     if (!state.endpoint) return "아직 CS 시트가 연결되지 않았습니다.<br>오른쪽 위 <b>🧪 가상셋팅</b>으로 화면 모양을 미리 볼 수 있습니다.";
-    return "<b>[설정]</b> 탭에서 비밀번호를 입력하면 문의가 보입니다. (휴대폰·태블릿은 화면 아래쪽)";
+    return "<b>[🏠 메인보드]</b> 맨 위 웹 연결에 비밀번호를 입력하면 문의가 보입니다. (휴대폰·태블릿은 화면 아래쪽)";
   }
 
   function renderBoard() {

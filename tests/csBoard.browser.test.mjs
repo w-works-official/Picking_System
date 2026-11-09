@@ -103,8 +103,10 @@ try {
     await page.screenshot({ path: path.join(output, "cs-board-sample.png"), fullPage: false });
 
     // 왼쪽 탭·접기, 리뷰·메신저 미리보기
-    await page.locator('[data-left-tab="settings"]').click();
+    await page.locator('[data-left-tab="main"]').click();             // 11-09: 웹 연결 = 메인보드 맨 위
+    assert.equal(await page.evaluate(() => document.querySelector('[data-left-panel="main"]').firstElementChild.contains(document.querySelector("#cs-token-form"))), true, "웹 연결이 메인보드 첫 칸");
     assert.equal(await page.locator("#cs-token-input").isDisabled(), true, "no endpoint → token form red");
+    await page.locator('[data-left-tab="settings"]').click();
     await page.locator("#cs-fold").click();
     assert.equal(await page.locator("#cs-left").isVisible(), false);
     // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 · 다른 탭으로 가면 그 탭의 마지막 상태
@@ -426,15 +428,17 @@ try {
     await page.locator('[data-left-tab="settings"]').click();
     assert.equal(await page.locator(".cs-master > summary").isVisible(), true, "접힌 버튼은 보임");
     assert.equal(await page.locator("#cs-onetouch").isVisible(), false, "기본은 접혀 있어 안 보임");
-    assert.equal(await page.locator(".cs-other-pc").isVisible(), true, "💻 이 PC 에서 메신저 쓰기(설치)는 보임");
+    assert.equal(await page.locator('[data-left-panel="settings"] .cs-other-pc, [data-left-panel="settings"] #cs-token-form').count(), 0, "11-09: 웹 연결 · 메신저 안내는 설정에 없음");
+    assert.equal(await page.locator('[data-left-panel="msn"] .cs-other-pc').count(), 1, "💻 이 PC 에서 메신저 쓰기 = 메신저 사이드바");
     assert.match(await page.locator(".cs-other-pc legend").textContent(), /이 PC 에서 메신저 쓰기/);
+    assert.match(await page.locator('.cs-other-pc a[href="v3msn://start"]').getAttribute("class"), /cs-btn-purple/, "창 도우미 켜기 = 보라");
     assert.equal(await page.evaluate(() => { const p = document.querySelector('[data-left-panel="settings"]'); return p.lastElementChild.classList.contains("cs-master"); }), true, "마스터 PC 설정 버튼은 맨 아래");
     await page.locator(".cs-master > summary").click();
     assert.equal(await page.locator("#cs-onetouch").isVisible(), true, "누르면 펼쳐짐");
     await page.locator(".cs-master > summary").click();
-    assert.match(await page.locator("#cs-board-list").textContent(), /\[설정\] 탭에서 비밀번호/);
+    assert.match(await page.locator("#cs-board-list").textContent(), /메인보드\] 맨 위 웹 연결에 비밀번호/);
     assert.equal(await page.locator("#cs-connection").textContent(), "비밀번호 필요");
-    await page.locator('[data-left-tab="settings"]').click();
+    await page.locator('[data-left-tab="main"]').click();
     assert.equal(await page.locator("#cs-token-input").isDisabled(), false, "password box usable");
     assert.match(await page.locator("#cs-endpoint-note").textContent(), /등록됨/);
     assert.deepEqual(outside.filter((u) => u.includes("script.google.com")), [], "no sheet call without a password");
@@ -985,7 +989,7 @@ try {
     await page.screenshot({ path: path.join(output, "cs-board-update.png") });
 
     // 틀린 비밀번호 → 저장된 비밀번호 지움
-    await page.locator('[data-left-tab="settings"]').click();
+    await page.locator('[data-left-tab="main"]').click();
     assert.equal(await page.locator("#cs-token-input").isVisible(), false, "연결중엔 비밀번호 칸 없음");
     await page.locator("#cs-token-clear").click();                              // [연결 끊기] → 비밀번호 칸 다시 보임
     assert.equal(await page.locator("#cs-token-input").isVisible(), true);

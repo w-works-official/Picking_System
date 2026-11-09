@@ -13,7 +13,8 @@ assert.match(bat, /GetFolderPath\('Startup'\)/, "컴퓨터 켤 때 자동 시작
 assert.match(bat, /127\.0\.0\.1:47811\/msn\/ping/, "이미 켜져 있으면 또 켜지 않음");
 assert.ok(!/echo [^\r\n]*[^>]>[^n]/.test(bat.replace(/>nul/g, "")), "echo 글에 > 가 없어야 함 (파일로 새어 나감)");
 const html = readFileSync("cs/index.html", "utf8");
-assert.equal((html.match(/href="v3msn:\/\/start"/g) || []).length, 3, "메신저 답변 · 거래처 두 탭 + ⚙ 설정 '다른 PC'");
+assert.equal((html.match(/href="v3msn:\/\/start"/g) || []).length, 3, "메신저 답변 · 거래처 두 탭 + 💬 메신저 사이드바 '이 PC 에서 메신저 쓰기'");
 assert.equal((html.match(/href="\.\.\/tools\/msn_helper\.bat"/g) || []).length, 3);
-assert.ok(html.indexOf("cs-other-pc") < html.indexOf('class="cs-master"') && html.indexOf('class="cs-master"') < html.indexOf('id="cs-install"') && html.indexOf('id="cs-onetouch"') > html.indexOf('class="cs-master"'), "⚙ 설정: 다른 PC 안내 → 🖥 마스터 PC 설정(원터치·설치 파일·수집기 설정) 따로");
+assert.ok(html.indexOf('data-left-panel="msn"') < html.indexOf("cs-other-pc") && html.indexOf("cs-other-pc") < html.indexOf('data-left-panel="vendor"'), "11-09: 이 PC 에서 메신저 쓰기 = 💬 메신저 사이드바");
+assert.ok(html.indexOf('data-left-panel="settings"') < html.indexOf('class="cs-master"') && html.indexOf('class="cs-master"') < html.indexOf('id="cs-install"') && html.indexOf('id="cs-onetouch"') > html.indexOf('class="cs-master"'), "⚙ 설정: 🖥 마스터 PC 설정(원터치·설치 파일·수집기 설정)");
 console.log("msnHelperBat.contract.test: OK");

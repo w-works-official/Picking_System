@@ -45,7 +45,7 @@ assert.ok(index.indexOf('classList.add("picking-auth-restoring")') < index.index
 assert.match(loginCss, /\.picking-auth-restoring #picking-login-gate \{ visibility: hidden; \}/);
 assert.match(boot, /function lock\(\) \{\s*document\.documentElement\.classList\.remove\("picking-auth-restoring"\);/);
 assert.match(boot, /app\.inert = false;\s*document\.documentElement\.classList\.remove\("picking-auth-restoring"\);/);
-assert.match(index, /pickingBootstrap\.mjs\?v=20261109-photoreq1/);
+assert.match(index, /pickingBootstrap\.mjs\?v=20261109-photochg1/);
 
 // 11-09: PC 화면 기본 90% (휴대폰은 100%) · vh·vw 보정 · 메신저 슬롯 100%
 {

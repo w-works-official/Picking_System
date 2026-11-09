@@ -1277,6 +1277,8 @@ async function exportMissingPhotoList() {
 // ---- 사진 요청 (2026-10-27, 2026-10-28 구글 시트로 변경) ---------------------------
 // 요청은 대표님 구글드라이브 A_총괄 폴더의 시트 "System V3 사진요청"에 저장됩니다(시트 웹앱 PHOTO_REQUEST_ENDPOINT).
 // 줄은 지우지 않고 상태(요청/취소/완료)만 바꿉니다.
+const isPhotoChangeRequest = (record) => /^변경/.test(String(record?.source || ""));
+
 function photoRequestIsOpen(code) {
   return state.photoRequests.codes.has(normalizePhotoRequestCode(code));
 }
@@ -1290,6 +1292,7 @@ function paintPhotoRequestButton(button) {
 
 function paintAllPhotoRequestButtons() {
   document.querySelectorAll(".photo-request-btn[data-photo-request-code]").forEach(paintPhotoRequestButton);
+  paintPhotoChangeButton();
   renderPhotoRequestCount();
 }
 
@@ -1373,12 +1376,14 @@ async function loadPhotoRequests() {
   }
 }
 
-async function productPhotoExists(code) {
+// since 가 있으면(사진 변경 요청) 그 시각 뒤에 올라온 사진만 인정
+async function productPhotoExists(code, since = 0) {
   const urls = [productImageUrl(code), ...productImageFallbackUrls(code)].filter(Boolean);
   for (const url of [...new Set(urls)]) {
     try {
       const response = await fetch(url, { method: "HEAD", cache: "no-store" });
-      if (response.ok) return true;
+      if (response.ok && !since) return true;
+      if (response.ok) return Date.parse(response.headers.get("last-modified") || "") > since;
     } catch {
       // Network hiccup: treat as "not confirmed" so the request stays.
     }
@@ -1404,7 +1409,7 @@ async function settleFulfilledPhotoRequests() {
   const fulfilled = [];
   for (let index = 0; index < requests.records.length; index += 6) {
     const chunk = requests.records.slice(index, index + 6);
-    const found = await Promise.all(chunk.map((record) => productPhotoExists(record.code)));
+    const found = await Promise.all(chunk.map((record) => productPhotoExists(record.code, isPhotoChangeRequest(record) ? Date.parse(record.requestedAt) || Date.now() : 0)));
     chunk.forEach((record, i) => { if (found[i]) fulfilled.push(record.code); });
   }
   if (!fulfilled.length) return 0;
@@ -1420,19 +1425,41 @@ async function settleFulfilledPhotoRequests() {
   return fulfilled.length;
 }
 
-async function requestProductPhoto(code, title = "") {
+// 11-09: 사진이 잘못 들어간 상품 → 사진창 [📷 사진 변경 요청] (같은 요청 시트, 요청 화면 칸 = "변경:…")
+function paintPhotoChangeButton() {
+  const button = document.querySelector('[data-photo-action="change-request"]');
+  if (!button) return;
+  const sku = normalizePhotoRequestCode(state.photoViewer?.sku);
+  button.hidden = !sku;
+  const open = sku && photoRequestIsOpen(sku);
+  button.textContent = open ? "📷 변경 요청됨" : "📷 사진 변경 요청";
+  button.classList.toggle("is-requested", Boolean(open));
+  button.title = open ? "대시보드 › 상품 사진 관리 › [사진요청보기]에서 확인 · 새 사진이 올라오면 자동으로 빠집니다" : "사진이 잘못 들어간 상품 — 사진 변경을 요청 목록(구글 시트)에 올립니다";
+}
+
+function requestPhotoChangeFromViewer(button) {
+  const sku = normalizePhotoRequestCode(state.photoViewer?.sku);
+  if (!sku) return;
+  if (photoRequestIsOpen(sku)) { toast("이미 요청된 상품입니다."); return; }
+  button.disabled = true;
+  requestProductPhoto(sku, state.photoViewer?.title || "", { change: true })
+    .catch((error) => toast(`사진 변경 요청 실패: ${error?.message || error}`))
+    .finally(() => { button.disabled = false; paintPhotoChangeButton(); });
+}
+
+async function requestProductPhoto(code, title = "", { change = false } = {}) {
   if (!allowWrites) {
     toast("읽기전용입니다. URL에 write=1을 붙여야 사진 요청을 저장할 수 있습니다.");
     return;
   }
-  const record = buildPhotoRequestRecord({ code, title, productName: productNameForPhotoCode(normalizePhotoRequestCode(code)), source: state.activeTab });
+  const record = buildPhotoRequestRecord({ code, title, productName: productNameForPhotoCode(normalizePhotoRequestCode(code)), source: change ? `변경:${state.activeTab || ""}` : state.activeTab });
   const { records } = await callPhotoRequestSheet(photoRequestAddPayload(record));
   applyPhotoRequestRecords(records);
   state.photoRequests.loaded = true;
   state.photoRequests.error = "";
   paintAllPhotoRequestButtons();
   if (state.photoRequests.open) renderPhotoRequestPanel();
-  toast(`사진 요청 등록: ${record.code}`);
+  toast(`${change ? "사진 변경 요청" : "사진 요청"} 등록: ${record.code}`);
 }
 
 // 시트에 상품명이 비어 있는 요청은 앱이 아는 상품명으로 채웁니다(쓰기 모드, 실패해도 무시).
@@ -1523,7 +1550,7 @@ function renderPhotoRequestPanel() {
       const name = info?.name || productNameForPhotoCode(record.code) || record.productName || "";
       const sub = info ? info.option : record.title;
       return `<tr>
-        <td class="photo-request-code">${escapeHtml(record.code)}</td>
+        <td class="photo-request-code">${escapeHtml(record.code)}${isPhotoChangeRequest(record) ? '<br><span class="photo-change-badge">변경 요청</span>' : ""}</td>
         <td>${name ? productNameHtml(name) : ""}${name && sub ? "<br>" : ""}${sub ? `<small>${escapeHtml(sub)}</small>` : name ? "" : "-"}</td>
         <td><button class="btn mini" data-photo-request-cancel="${escapeHtml(record.code)}" type="button">요청 취소</button></td>
       </tr>`;
@@ -1533,7 +1560,7 @@ function renderPhotoRequestPanel() {
     ? "요청 목록과 사진 등록 여부를 확인하는 중입니다."
     : requests.error
       ? `사진 요청 목록을 불러오지 못했습니다: ${requests.error}`
-      : requests.note || `사진 요청 ${requests.records.length}건 · 사진이 등록되면 자동으로 빠집니다.`;
+      : requests.note || `사진 요청 ${requests.records.length}건${requests.records.some(isPhotoChangeRequest) ? ` (변경 요청 ${requests.records.filter(isPhotoChangeRequest).length})` : ""} · 사진이 등록되면(변경 요청은 새 사진이 올라오면) 자동으로 빠집니다.`;
   panel.innerHTML = `<div class="dashboard-photo-request-head">
       <strong>사진 요청</strong>
       <span class="dashboard-photo-request-status" aria-live="polite">${escapeHtml(status)}</span>
@@ -1702,6 +1729,7 @@ function ensurePhotoViewer() {
         </label>
         <button class="btn" data-photo-action="zoom-apply" type="button">적용</button>
         <button class="btn" data-photo-action="refresh" type="button">새로고침</button>
+        <button class="btn photo-change-btn" data-photo-action="change-request" type="button" hidden>📷 사진 변경 요청</button>
         <button class="btn" data-photo-action="close" type="button">닫기</button>
       </div>
     </div>
@@ -1734,6 +1762,7 @@ function openPhotoViewer(src, title = "", sku = "") {
   setPhotoViewerZoom(state.photoViewer.zoom, { persist: false });
   image.src = src;
   if (image.complete) window.requestAnimationFrame(layoutPhotoViewerImage);
+  paintPhotoChangeButton();
   loadPhotoViewerStrip().catch(() => {});
 }
 
@@ -12300,6 +12329,7 @@ function bindEvents() {
     if (!photoAction) return;
     if (photoAction.dataset.photoAction === "close") closePhotoViewer();
     if (photoAction.dataset.photoAction === "refresh") refreshPhotoViewer();
+    if (photoAction.dataset.photoAction === "change-request") requestPhotoChangeFromViewer(photoAction);
     if (photoAction.dataset.photoAction === "zoom-apply") setPhotoViewerZoom(document.getElementById("photo-viewer-zoom")?.value);
   });
   document.addEventListener("keydown", (event) => {

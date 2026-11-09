@@ -68,6 +68,11 @@ assert.match(block, /closePhotoRequests\(\[code\], "취소"\)/);
 assert.match(block, /productName: productNameForPhotoCode\(normalizePhotoRequestCode\(code\)\)/, "product name sent with each request");
 assert.match(app, /await loadPhotoRequests\(\);\s*await resolvePhotoRequestCodes\(\)\.catch\(\(\) => \{\}\);\s*await fillMissingPhotoRequestNames\(\);/, "missing names are filled when the list is opened (11-09: 셀피아 상품명 먼저)");
 assert.match(app, /<thead><tr><th>셀피아코드<\/th><th>상품<\/th><th><\/th><\/tr><\/thead>/, "11-09: 요청 시각 칸 없음");
+// 11-09: 사진창 [📷 사진 변경 요청] — 요청 화면 칸 "변경:…", 그 시각 뒤에 올라온 사진이 있어야 자동으로 빠짐
+assert.match(app, /data-photo-action="change-request"[^>]*hidden>📷 사진 변경 요청</);
+assert.match(app, /source: change \? `변경:\$\{state\.activeTab \|\| ""\}` : state\.activeTab/);
+assert.match(app, /productPhotoExists\(record\.code, isPhotoChangeRequest\(record\) \? Date\.parse\(record\.requestedAt\) \|\| Date\.now\(\) : 0\)/);
+assert.match(app, /if \(response\.ok\) return Date\.parse\(response\.headers\.get\("last-modified"\) \|\| ""\) > since;/);
 assert.match(app, /payload = photoRequestClosePayload\(\(codes \|\| \[\]\)\.map\(photoRequestSheetCode\), reason\)/, "닫기는 시트 칸 값 그대로");
 assert.match(app, /data-photo-request-cancel="\$\{escapeHtml\(record\.code\)\}"/);
 assert.match(app, /if \(image\.closest\("\.custom-order-slip-card, \.custom-order-row-primary"\)\) return;/, "no request button inside the 주문제작 capture area");

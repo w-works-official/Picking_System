@@ -7039,3 +7039,9 @@ button.photo-viewer-star:hover { background: rgba(15, 23, 42, .85); color: #facc
 .inspection-item-table .workflow-seq-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
 .bar-change-memo { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 4px 8px; border: 1.5px solid #fca5a5; border-radius: 8px; background: #fff1f2; color: #dc2626; font-style: normal; font-size: 13px; font-weight: 1000; line-height: 1.15; white-space: nowrap; box-shadow: 0 1px 2px rgba(220, 38, 38, .12); }
 .bar-change-memo b { color: #dc2626 !important; font-size: 12px; font-weight: 1000; }
+
+/* 11-09: 사진창 [📷 사진 변경 요청] · 요청 목록 '변경 요청' 표시 */
+.photo-change-btn { border-color: #f59e0b; color: #92400e; background: #fffbeb; }
+.photo-change-btn.is-requested { border-color: #d1d5db; color: #6b7280; background: #f3f4f6; }
+.photo-change-btn[hidden] { display: none; }
+.photo-change-badge { display: inline-block; margin-top: 2px; padding: 0 6px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 800; }

@@ -5,6 +5,15 @@
 //    2) 그 상품에 옵션 사진이 하나도 없으면 대표코드 사진(1000.jpg)으로 (옵션 하나짜리 상품 등)
 //    3) 옵션 사진이 있는 상품인데 이 옵션만 사진이 없으면 → 빈칸(노랑)
 //  · 대분류: 14K 피어싱 / 써지컬 피어싱 / 실버 피어싱 / 귀걸이 / 나머지 (상품명 글자로 — 앞에서부터 먼저 맞는 것)
+// 11-09 XX · XXX 표시 (자사코드에 적힌 것 — 앞뒤가 영문자가 아닌 X 2~3개). 임의필드·전달사항은 허브에 없음
+export function xxMark(...values) {
+  for (const v of values) {
+    const m = /(?<![A-Za-z])(X{2,3})(?![A-Za-z])/.exec(String(v ?? ""));
+    if (m) return m[1];
+  }
+  return "";
+}
+
 export const PB_CATEGORIES = [
   { key: "surgical", label: "써지컬 피어싱" },
   { key: "k14", label: "14K 피어싱" },
@@ -105,7 +114,7 @@ export function buildProducts(skuRows = [], index = photoIndex([])) {
       products.set(code, { code, name, category: categoryOf(name), options: [] });
     }
     products.get(code).options.push({
-      sku, option: String(r.sellpia_option_name || "").trim(), ownSku: String(r.own_sku || "").trim(),
+      sku, option: String(r.sellpia_option_name || "").trim(), ownSku: String(r.own_sku || "").trim(), xx: xxMark(r.own_sku),
       stock: num(r.stock), available: num(r.available_stock), photo: photoFor(sku, code, index),
       buy: num(r.buy ?? r.raw_payload?.purchase_price), sell: num(r.sell ?? r.raw_payload?.sell_price),   // 11-06: 매입가 · 출고가(판매가)
       s7: 0, s30: 0, s90: 0, sAll: 0,

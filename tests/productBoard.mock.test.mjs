@@ -154,4 +154,14 @@ assert.match(page, /productBoardPanel\.mjs\?v=/);
 const css = await readFile(new URL("../src/styles/purchase.css", import.meta.url), "utf8");
 assert.match(css, /\.pb-photo\.is-missing \{[^}]*background: #fef08a;/, "노랑 빈칸");
 
+// 11-09 자사코드 XX · XXX 표시
+{
+  const { xxMark } = await import("../src/domain/productBoard.mjs");
+  assert.equal(xxMark("XX[NA-04-07_5]"), "XX");
+  assert.equal(xxMark("[XXX] W12"), "XXX");
+  assert.equal(xxMark("###[PI-07-03]"), "");
+  assert.equal(xxMark("[XL] 사이즈"), "", "XL 같은 낱말은 아님");
+  assert.equal(xxMark("XXXX"), "");
+  assert.equal(xxMark("", "BOX XX"), "XX", "여러 칸 중 하나라도");
+}
 console.log("productBoard.mock.test: OK");

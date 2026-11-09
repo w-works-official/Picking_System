@@ -1049,3 +1049,5 @@ body.purchase-workspace {
   .pf-query img { width: 88px; height: 88px; }
   .pf-swork .pf-inputs .pf-btn { flex: 1 1 0; justify-content: center; }
 }
+/* 11-09 자사코드 XX · XXX 표시 → 옵션명 옆 빨간 글씨 */
+.pb-xx { font-style: normal; color: #dc2626; font-weight: 1000; margin-left: 4px; }

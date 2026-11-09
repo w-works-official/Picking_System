@@ -32,9 +32,17 @@ assert.equal(barChangeMemoHtml(opt("실버,바변경:일반바6mm(기본)")), ""
 assert.match(barChangeMemoHtml({ optionName: "실버 5mm볼", productName: `[당일] ${BAR_CHECK} 1개` }), /바변경<b>확인<\/b>/);
 assert.match(barChangeMemoHtml({ optionName: "골드,바변경:6mm(기본)", productName: "써지컬피어싱미니볼피어싱 바벨 얇은0.8mm" }), /바변경<b>확인<\/b>/, "(기본) 이어도 이 상품은 배너");
 assert.equal(barChangeMemoHtml({ optionName: "실버", productName: "써지컬피어싱 미니 볼 피어싱 바벨 1.2mm" }), "", "다른 상품은 아님");
+// 11-09 셀피아 주문메모의 바 변경 요청
+const plain = { optionName: "실버 5mm볼", productName: "써지컬 바벨" };
+for (const memo of ["12mm일반바로 변경 요청", "12mm 롱바로 교체 부탁드려요", "바를 10mm로 변경해주세요", "바변경 부탁", "바 길이 변경 8mm"]) {
+  assert.match(barChangeMemoHtml(plain, memo), /바변경<b>확인<\/b>/, memo);
+}
+for (const memo of ["", "주소 바로 변경해주세요", "빠른 배송 부탁", "바변경 안해도 됩니다", "12mm 바 그대로"]) {
+  assert.equal(barChangeMemoHtml(plain, memo), "", `아님: ${memo}`);
+}
 
 // 검품 표 두 곳(검품 탭 · CS 주문창) 모두 번호 칸에 붙음
-assert.equal((app.match(/<span class="workflow-seq-cell">\$\{itemSequenceNo\(item, index\)\}\$\{barChangeMemoHtml\(item\)\}<\/span>/g) || []).length, 2);
+assert.equal((app.match(/<span class="workflow-seq-cell">\$\{itemSequenceNo\(item, index\)\}\$\{barChangeMemoHtml\(item, sellpiaOrderMemo\)\}<\/span>/g) || []).length, 2, "검품 · CS 주문창 둘 다 주문메모까지 봄");
 // 번호 칸 넓힘 + 머리글 한 줄
 assert.match(css, /\.inspection-item-table\.is-code-stacked \.workflow-item-row \{ grid-template-columns: 84px /);
 assert.match(css, /\.inspection-item-table \.workflow-item-header > span:first-child \{ white-space: nowrap; \}/);

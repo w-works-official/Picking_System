@@ -1988,9 +1988,20 @@ function productNeedsBarCheck(item) {
   return BAR_CHECK_PRODUCT_NAMES.some((n) => name.includes(n.replace(/\s+/g, "")));
 }
 
+// 11-09 주문메모에 적힌 바 변경 요청 — "12mm일반바로 변경 요청" · "바를 10mm로 교체" · "바변경 부탁" (변경 안 함/없이는 아님)
+function memoAsksBarChange(text) {
+  const t = String(text || "");
+  if (!/바/.test(t)) return false;
+  const asks = /바\s*(?:길이\s*)?(?:변경|교체)/.test(t)
+    || /\d+(?:\.\d+)?\s*mm\s*[^\s,.;/]{0,6}\s*바\s*(?:로|으로)?\s*(?:변경|교체|바꿔|바꾸)/i.test(t)
+    || /바\s*(?:를|을)?\s*\d+(?:\.\d+)?\s*mm\s*(?:로|으로)?\s*(?:변경|교체|바꿔|바꾸)/i.test(t);
+  return asks && !/(?:변경|교체)\s*(?:안|없이|하지\s*마|x\b)/i.test(t);
+}
+
 // 11-09 검품 주문창: 상품순서번호 바로 밑 미니메모 [바변경 확인] (변경바 선반에서 바로 바꿔 끼우도록)
-function barChangeMemoHtml(item) {
-  if (!barChangeInfo(item) && !productNeedsBarCheck(item)) return "";
+//  · 옵션의 바변경(기본 아님) · 늘 확인하는 상품 · 셀피아 주문메모의 바 변경 요청
+function barChangeMemoHtml(item, orderMemo = "") {
+  if (!barChangeInfo(item) && !productNeedsBarCheck(item) && !memoAsksBarChange(orderMemo)) return "";
   return `<em class="bar-change-memo" title="바길이 변경 상품 — 변경바 선반에서 확인 · 바꿔 끼운 뒤 통과">바변경<b>확인</b></em>`;
 }
 
@@ -4629,7 +4640,7 @@ function renderInspectionPanels(options = {}) {
             ? `<button class="workflow-inline-btn danger" data-action="inspection-partial-hold-release" data-order-group="${escapeHtml(itemSourceOrderGroupNo)}" data-item-no="${escapeHtml(item.sellpiaItemNo)}" type="button" ${partialHoldActionDisabled}>부분보류 해제</button>`
             : "";
           return `<div class="workflow-item-row ${rowClass}" data-inspection-item-key="${escapeHtml(itemKey)}">
-            <span class="workflow-seq-cell">${itemSequenceNo(item, index)}${barChangeMemoHtml(item)}</span>
+            <span class="workflow-seq-cell">${itemSequenceNo(item, index)}${barChangeMemoHtml(item, sellpiaOrderMemo)}</span>
             ${selectedLabelTarget ? `<span class="workflow-label-cell">${escapeHtml(labelNo)}</span>` : ""}
             <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
             <em class="${optionClass(item, "workflow-option-cell")}">${shipmentMemberBadge(item)}${escapeHtml(option)}</em>
@@ -5110,7 +5121,7 @@ function renderLegacyCsInvoicePanels() {
           const shortage = workflowAwareShortageQty(itemState, item);
           const sellpiaOrderMemo = itemSellpiaOrderMemo(invoice, item);
           return `<div class="workflow-item-row">
-            <span class="workflow-seq-cell">${itemSequenceNo(item, index)}${barChangeMemoHtml(item)}</span>
+            <span class="workflow-seq-cell">${itemSequenceNo(item, index)}${barChangeMemoHtml(item, sellpiaOrderMemo)}</span>
             <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
             <em class="${optionClass(item, "workflow-option-cell")}">${escapeHtml(option)}</em>
             <b>${Number(item.quantity) || 1}</b>

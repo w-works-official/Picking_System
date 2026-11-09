@@ -1100,6 +1100,12 @@ function closeProductPhotoLibraryContextMenu() {
   state.productPhotoLibrary.contextMenuName = "";
 }
 
+// 11-09: 화면 90%(CSS zoom) — 마우스 자리(화면 px) → style.left/top(CSS px) 로 바꿀 때 나눔
+function uiZoom() {
+  const z = Number.parseFloat(window.getComputedStyle?.(document.documentElement)?.zoom);
+  return Number.isFinite(z) && z > 0 ? z : 1;
+}
+
 function openProductPhotoLibraryContextMenu(entry, clientX, clientY) {
   if (!entry || state.productPhotoLibrary.mutatingName) return;
   const menu = ensureProductPhotoLibraryContextMenu();
@@ -1115,8 +1121,9 @@ function openProductPhotoLibraryContextMenu(entry, clientX, clientY) {
   menu.style.visibility = "hidden";
   menu.style.left = "0px";
   menu.style.top = "0px";
-  const left = Math.max(8, Math.min(clientX, window.innerWidth - menu.offsetWidth - 8));
-  const top = Math.max(8, Math.min(clientY, window.innerHeight - menu.offsetHeight - 8));
+  const z = uiZoom();
+  const left = Math.max(8, Math.min(clientX / z, window.innerWidth / z - menu.offsetWidth - 8));
+  const top = Math.max(8, Math.min(clientY / z, window.innerHeight / z - menu.offsetHeight - 8));
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
   menu.style.visibility = "";
@@ -11587,8 +11594,9 @@ function bindEvents() {
       const row = state.customOrders.visibleRows.find((entry) => entry.operation.operation_id === card.dataset.operationId);
       drag.hint.textContent = `→ ${customOrderEditableSlip(row).supplierCellRaw || "매입처 미확인"} ${header ? "맨 위로 배정" : "업체로 배정"}`;
     } else drag.hint.textContent = "이동할 업체 헤더 또는 상품 위에 놓으세요 · Esc 취소";
-    drag.hint.style.left = `${Math.min(drag.x + 14, Math.max(8, window.innerWidth - 340))}px`;
-    drag.hint.style.top = `${Math.min(drag.y + 16, window.innerHeight - 55)}px`;
+    const z = uiZoom();
+    drag.hint.style.left = `${Math.min(drag.x / z + 14, Math.max(8, window.innerWidth / z - 340))}px`;
+    drag.hint.style.top = `${Math.min(drag.y / z + 16, window.innerHeight / z - 55)}px`;
   };
   const scrollSlipDrag = () => {
     const drag = slipGesture;

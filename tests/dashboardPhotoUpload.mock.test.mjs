@@ -27,7 +27,7 @@ assert.match(css, /\.dashboard-photo-library-grid/);
 assert.match(css, /\.dashboard-photo-library-item/);
 assert.match(css, /\.dashboard-photo-library-item\.is-selected/);
 assert.match(css, /\.dashboard-photo-library-select input/);
-assert.match(css, /\.dashboard-photo-library-scroll[\s\S]*?height: clamp\(260px, 36vh, 390px\)[\s\S]*?overflow: auto/);
+assert.match(css, /\.dashboard-photo-library-scroll[\s\S]*?height: clamp\(260px, calc\(36vh \/ var\(--uiz, 1\)\), 390px\)[\s\S]*?overflow: auto/);
 assert.match(css, /\.photo-library-context-menu[\s\S]*?position: fixed/);
 assert.match(css, /\.photo-viewer-body[\s\S]*?overflow: auto/);
 assert.match(css, /\.photo-viewer-zoom-control input/);

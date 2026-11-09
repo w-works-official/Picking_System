@@ -1,5 +1,6 @@
 // CS 자동화 화면 브라우저 시험 (게이트 밖 — CS 화면을 건드리면 따로 실행)
 // 1) 시트 연결 전: 가상셋팅·빨간 미작동 버튼·상단 버튼 위치  2) 가짜 시트 연결: 고르기·자동 저장·AI 추천·충돌
+import { noUiZoom } from "./helpers/uiZoom.mjs";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { mkdir, readFile } from "node:fs/promises";
@@ -44,6 +45,7 @@ try {
   // ---------- 1) 시트 연결 전 ----------
   {
     const context = await browser.newContext({ viewport: { width: 1500, height: 1000 }, serviceWorkers: "block" });
+    await noUiZoom(context);
     await context.route("**/*", (route) => (new URL(route.request().url()).origin === origin ? route.continue() : route.abort("blockedbyclient")));
     const domainSource = await readFile(path.join(root, "src/domain/csBoard.mjs"), "utf8");
     await context.route("**/src/domain/csBoard.mjs*", (route) => route.fulfill({ status: 200, contentType: "text/javascript", body: withEndpoint(domainSource, "") }));
@@ -69,7 +71,7 @@ try {
     assert.equal(await page.locator("#cs-sample-banner").isVisible(), true);
 
     // 상단 버튼: 다른 화면과 같은 자리·같은 크기, CS 관리가 현재 메뉴
-    const boxes = await page.locator(".workspace-navigation .workspace-link").evaluateAll((els) => els.map((el) => { const r = el.getBoundingClientRect(); return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)]; }));
+    const boxes = await page.locator(".workspace-navigation .workspace-link").evaluateAll((els) => els.map((el) => { const z = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1; const r = el.getBoundingClientRect(); return [Math.round(r.x / z), Math.round(r.y / z), Math.round(r.width / z), Math.round(r.height / z)]; }));   // 11-09: PC 화면 90%(zoom) → CSS px 로 비교
     assert.deepEqual(boxes.map((b) => [b[2], b[3]]), [[80, 32], [80, 32], [80, 32]]);
     assert.ok(Math.abs(boxes[0][0] - 288) <= 1 && Math.abs(boxes[0][1] - 19) <= 1, `nav spot ${boxes[0]}`);
     assert.equal(await page.locator("#workspace-cs-link").evaluate((el) => getComputedStyle(el).backgroundColor), "rgb(190, 24, 93)");
@@ -418,6 +420,7 @@ try {
   // ---------- 1-2) 실제 시트 주소 + 비밀번호 없음 → 비밀번호 안내, 시트에 요청 안 보냄 ----------
   {
     const context = await browser.newContext({ viewport: { width: 1500, height: 1000 }, serviceWorkers: "block" });
+    await noUiZoom(context);
     const outside = [];
     await context.route("**/*", (route) => { const u = new URL(route.request().url()); if (u.origin === origin) return route.continue(); outside.push(u.href); return route.abort("blockedbyclient"); });
     const page = await context.newPage();
@@ -457,6 +460,7 @@ try {
     });
     const requests = [];
     const context = await browser.newContext({ viewport: { width: 1500, height: 1000 }, serviceWorkers: "block", permissions: ["clipboard-read", "clipboard-write"] });
+    await noUiZoom(context);
     await context.addInitScript(([key, token]) => localStorage.setItem(key, JSON.stringify({ token, editor: "시험" })), ["system_v3_cs_board", TOKEN]);
     // 나중에 등록한 route 가 먼저 처리됨 → 막는 규칙을 먼저 등록
     await context.route("**/*", (route) => {

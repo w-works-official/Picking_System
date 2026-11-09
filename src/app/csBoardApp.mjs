@@ -735,7 +735,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     });
     $("#cs-remote-img")?.addEventListener("click", (e) => {
       const img = e.currentTarget;
-      const pt = csShotPoint(e.offsetX, e.offsetY, img.clientWidth, img.clientHeight, img.naturalWidth, img.naturalHeight);
+      const box = img.getBoundingClientRect();   // 11-09: 화면 90%(zoom) — 마우스 자리(화면 px) → 그림 안 CSS px
+      const z = img.offsetWidth ? box.width / img.offsetWidth : 1;
+      const pt = csShotPoint((e.clientX - box.left) / z - img.clientLeft, (e.clientY - box.top) / z - img.clientTop, img.clientWidth, img.clientHeight, img.naturalWidth, img.naturalHeight);
       if (pt) remoteSend({ click: pt });
     });
     $("#cs-remote-close")?.addEventListener("click", () => { if (remote.job) remote.closed.add(remote.job); box.hidden = true; });

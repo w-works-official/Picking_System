@@ -1,3 +1,9 @@
+/* 11-09: V3 기본 크기 90% (PC 화면 · 휴대폰은 그대로) — vh·vw 는 calc(… / var(--uiz)) 로 보정, 메신저 슬롯은 100% 유지(카톡 창 크기) */
+:root { --uiz: 1; }
+@media (min-width: 900px) {
+  :root { --uiz: 0.9; zoom: 0.9; }
+}
+
 /* The upper workspaces are independent documents. Keep the existing five-row
    picking app shell and all toolbar controls in place. */
 .workspace-navigation {
@@ -46,8 +52,8 @@
   /* The existing work grid intentionally pans at min-width:644px. Its grid
      track must not push the new workspace links outside the phone viewport. */
   .topbar {
-    width: min(100%, calc(100vw - 14px));
-    max-width: calc(100vw - 14px);
+    width: min(100%, calc(calc(100vw / var(--uiz, 1)) - 14px));
+    max-width: calc(calc(100vw / var(--uiz, 1)) - 14px);
   }
 
   .topbar > .workspace-navigation {

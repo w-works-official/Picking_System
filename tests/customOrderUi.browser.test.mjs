@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { noUiZoom } from "./helpers/uiZoom.mjs";
 import http from "node:http";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -74,6 +75,7 @@ context = await browser.newContext({
   timezoneId: "Asia/Seoul",
   serviceWorkers: "block",
 });
+await noUiZoom(context);
 const page = await context.newPage();
 await page.clock.install({ time: new Date("2026-10-01T12:00:00+09:00") });
 const pageErrors = [];

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 
 const read = (p) => readFile(new URL(`../${p}`, import.meta.url), "utf8");
 const [navCss, csHtml, index, purchase, boot, loginCss, manifest] = await Promise.all([
@@ -23,9 +24,9 @@ const csNew = await read("cs/index.html");
 assert.match(csNew, /href="\.\/legacy\.html"/);
 assert.ok(JSON.parse(manifest).files.some((f) => f.path === "legacy.html"), "manifest records the kept entry");
 for (const html of [index, csHtml, csNew, purchase]) assert.match(html, /pretendard\/1\.3\.9\/static\/pretendard\.css/);
-assert.match(index, /workspaceNavigation\.css\?v=20261107-mobile1/);
-assert.match(purchase, /workspaceNavigation\.css\?v=20261107-mobile1/);
-assert.match(csNew, /workspaceNavigation\.css\?v=20261107-mobile1/);
+assert.match(index, /workspaceNavigation\.css\?v=20261109-zoom90/);
+assert.match(purchase, /workspaceNavigation\.css\?v=20261109-zoom90/);
+assert.match(csNew, /workspaceNavigation\.css\?v=20261109-zoom90/);
 // 2026-11-02: 연결 상태(러너·수집기 PC·CS 시트) = 두 화면 상단 오른쪽 끝 같은 자리, 150% 크기(16px)
 assert.match(navCss, /\.workspace-status > span \{[^}]*font-size: 16px;/);
 assert.match(csNew, /<span class="workspace-status" data-ws-status="cs"[^>]*>\s*<span class="ws-pill is-off" data-ws-runner[^>]*>러너 —<\/span>\s*<span id="cs-collector"[^>]*>수집기 PC —<\/span>\s*<span id="cs-connection"/);
@@ -44,6 +45,16 @@ assert.ok(index.indexOf('classList.add("picking-auth-restoring")') < index.index
 assert.match(loginCss, /\.picking-auth-restoring #picking-login-gate \{ visibility: hidden; \}/);
 assert.match(boot, /function lock\(\) \{\s*document\.documentElement\.classList\.remove\("picking-auth-restoring"\);/);
 assert.match(boot, /app\.inert = false;\s*document\.documentElement\.classList\.remove\("picking-auth-restoring"\);/);
-assert.match(index, /pickingBootstrap\.mjs\?v=20261109-barmemo5/);
+assert.match(index, /pickingBootstrap\.mjs\?v=20261109-zoom90/);
 
+// 11-09: PC 화면 기본 90% (휴대폰은 100%) · vh·vw 보정 · 메신저 슬롯 100%
+{
+  const nav = readFileSync("src/styles/workspaceNavigation.css", "utf8");
+  assert.match(nav, /@media \(min-width: 900px\) \{\s*:root \{ --uiz: 0\.9; zoom: 0\.9; \}/);
+  for (const f of ["picking.css", "purchase.css", "csBoard.css", "pickingLogin.css", "workspaceNavigation.css"]) {
+    const css = readFileSync(`src/styles/${f}`, "utf8").split("\n").filter((l) => !l.trim().startsWith("@supports")).join("\n");
+    assert.ok(!/(?<!calc\()\b\d+(\.\d+)?[ds]?v[hw]\b(?! \/ var\(--uiz)/.test(css), `${f}: vh·vw 는 calc(… / var(--uiz, 1))`);
+  }
+  assert.match(readFileSync("src/styles/csBoard.css", "utf8"), /\.msn-slots \{ zoom: calc\(1 \/ var\(--uiz, 1\)\); \}/);
+}
 console.log("workspaceNavSpot.contract.test: OK");

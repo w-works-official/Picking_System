@@ -1981,11 +1981,17 @@ function optionHasBarChange(item) {
   return Boolean(barChangeInfo(item));
 }
 
-// 11-09 검품 주문창: 상품순서번호 바로 밑 미니메모 (변경바 선반에서 바로 바꿔 끼우도록)
+// 11-09 옵션과 상관없이 늘 바변경 확인이 필요한 상품 (상품명에 이 글자가 들어 있으면 — 띄어쓰기 무시)
+const BAR_CHECK_PRODUCT_NAMES = ["써지컬피어싱 미니 볼 피어싱 바벨 얇은 0.8mm"];
+function productNeedsBarCheck(item) {
+  const name = String(item?.productName || "").replace(/\s+/g, "");
+  return BAR_CHECK_PRODUCT_NAMES.some((n) => name.includes(n.replace(/\s+/g, "")));
+}
+
+// 11-09 검품 주문창: 상품순서번호 바로 밑 미니메모 [바변경 확인] (변경바 선반에서 바로 바꿔 끼우도록)
 function barChangeMemoHtml(item) {
-  const info = barChangeInfo(item);
-  if (!info) return "";
-  return `<em class="bar-change-memo" title="바길이 변경 상품 — 변경바 선반에서 바꿔 끼운 뒤 통과">바변경${info.length ? `<b>${escapeHtml(info.length)}</b>` : ""}</em>`;
+  if (!barChangeInfo(item) && !productNeedsBarCheck(item)) return "";
+  return `<em class="bar-change-memo" title="바길이 변경 상품 — 변경바 선반에서 확인 · 바꿔 끼운 뒤 통과">바변경<b>확인</b></em>`;
 }
 
 function optionClass(item, base = "option") {

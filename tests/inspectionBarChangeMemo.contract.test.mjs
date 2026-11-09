@@ -7,6 +7,7 @@ const css = await readFile(new URL("../src/styles/picking.css", import.meta.url)
 
 const start = app.indexOf("function barChangeInfo");
 const end = app.indexOf("function optionClass", start);
+const BAR_CHECK = "써지컬피어싱 미니 볼 피어싱 바벨 얇은 0.8mm";
 const escapeHtml = (v) => String(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const { barChangeInfo, optionHasBarChange, barChangeMemoHtml } = new Function("escapeHtml", `${app.slice(start, end)}; return { barChangeInfo, optionHasBarChange, barChangeMemoHtml };`)(escapeHtml);
 
@@ -25,7 +26,12 @@ assert.deepEqual(barChangeInfo(opt("실버,바변경:롱바8mm")), { length: "8m
 assert.deepEqual(barChangeInfo(opt("실버,바변경:일반바6mm(기본),골드")), null);
 assert.equal(optionHasBarChange({ optionName: "", raw: { p_option: "바변경 6mm" } }), true, "원본 옵션도 봄");
 assert.equal(barChangeMemoHtml(opt("골드")), "");
-assert.match(barChangeMemoHtml(opt("바 길이 변경(주문제작/취소불가): 10mm바")), /class="bar-change-memo"[^>]*>바변경<b>10mm<\/b><\/em>/);
+assert.match(barChangeMemoHtml(opt("바 길이 변경(주문제작/취소불가): 10mm바")), /class="bar-change-memo"[^>]*>바변경<b>확인<\/b><\/em>/, "길이 대신 '바변경 확인'");
+assert.equal(barChangeMemoHtml(opt("실버,바변경:일반바6mm(기본)")), "", "(기본) 이면 배너 없음");
+// 상품명에 이 글자가 있으면 옵션과 상관없이 배너 (띄어쓰기 무시)
+assert.match(barChangeMemoHtml({ optionName: "실버 5mm볼", productName: `[당일] ${BAR_CHECK} 1개` }), /바변경<b>확인<\/b>/);
+assert.match(barChangeMemoHtml({ optionName: "골드,바변경:6mm(기본)", productName: "써지컬피어싱미니볼피어싱 바벨 얇은0.8mm" }), /바변경<b>확인<\/b>/, "(기본) 이어도 이 상품은 배너");
+assert.equal(barChangeMemoHtml({ optionName: "실버", productName: "써지컬피어싱 미니 볼 피어싱 바벨 1.2mm" }), "", "다른 상품은 아님");
 
 // 검품 표 두 곳(검품 탭 · CS 주문창) 모두 번호 칸에 붙음
 assert.equal((app.match(/<span class="workflow-seq-cell">\$\{itemSequenceNo\(item, index\)\}\$\{barChangeMemoHtml\(item\)\}<\/span>/g) || []).length, 2);

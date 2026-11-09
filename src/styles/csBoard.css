@@ -2223,3 +2223,8 @@ a.cs-btn {
   .cs-main > .cs-left-tabs .cs-left-tab.active { padding: 8px 2px; font-size: 13px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cs-main > .cs-left-tabs .cs-left-tab.active { font-weight: 900; }
 }
+
+/* 11-09 창 도우미 승인 체크리스트 (크롬 위쪽 승인 창 순서대로) */
+.msn-steps { margin: 6px 0 2px; padding-left: 4px; list-style: none; display: grid; gap: 4px; font-size: 13px; color: #4c1d95; }
+.msn-steps li { line-height: 1.4; }
+[data-msn-cta-note] small { display: block; margin-top: 4px; font-size: 12px; color: #6d28d9; }

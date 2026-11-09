@@ -1166,3 +1166,26 @@ with tempfile.TemporaryDirectory() as _d:
     _log = open(os.path.join(_d, "v3link_log.txt"), encoding="utf-8").read()
     assert "메신저 창 도우미" in _log, _log[-300:]   # (리눅스에선 '켜지 못했습니다' — 윈도우 전용) 기록까지 갔으면 시작 단계 통과
 print("g1V3Link msn-only bg start (1.24): OK")
+
+# 1.25 (11-09): 메신저 전용 PC 창 도우미 스스로 업데이트 (/msn/update)
+assert L.ver_tuple("1.25 (2026-11-09)") == (1, 25) and L.ver_tuple("1.9") < L.ver_tuple("1.25")
+L.MSN_ONLY = False
+assert "마스터" in L.msn_self_update(print, fetch=lambda u: b"")["error"], "수집기 PC 는 기존 업데이트만"
+L.MSN_ONLY = True
+with tempfile.TemporaryDirectory() as _d:
+    _me = os.path.join(_d, "g1_v3_link.py")
+    open(_me, "w", encoding="utf-8").write("# old\n")
+    _restarts = []
+    _same = L.msn_self_update(print, fetch=lambda u: f'LINK_VER = "{L.LINK_VER}"\n'.encode(), restart=lambda: _restarts.append(1), me=_me)
+    assert _same.get("same") and not _restarts and open(_me, encoding="utf-8").read() == "# old\n", "같은 버전이면 그대로"
+    _bad = None
+    try:
+        L.msn_self_update(print, fetch=lambda u: b'LINK_VER = "9.99 (x)"\nif (:\n', restart=lambda: _restarts.append(1), me=_me)
+    except SyntaxError:
+        _bad = True
+    assert _bad and open(_me, encoding="utf-8").read() == "# old\n", "문법 오류 파일은 바꾸지 않음"
+    _r = L.msn_self_update(print, fetch=lambda u: b'LINK_VER = "9.99 (2099-01-01)"\nX = 1\n', restart=lambda: _restarts.append(1), me=_me)
+    assert _r["restarting"] and _r["to"].startswith("9.99") and _restarts == [1]
+    assert "9.99" in open(_me, encoding="utf-8").read() and os.path.exists(_me + "." + L.LINK_VER.split(" ")[0] + ".bak"), "새 파일 + 전 버전 .bak"
+L.MSN_ONLY = False
+print("g1V3Link msn self-update (1.25): OK")

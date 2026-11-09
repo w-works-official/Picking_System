@@ -29,10 +29,16 @@ if not errorlevel 1 (
   exit /b 0
 )
 
-rem ---- python ----
+rem ---- python (none on this PC? -> private copy in %D%\py, no installer window, no admin) ----
 set "PY="
-python -c "import sys" >nul 2>nul && set "PY=python"
+if exist "%D%\py\python.exe" set "PY="%D%\py\python.exe""
+if not defined PY python -c "import sys" >nul 2>nul && set "PY=python"
 if not defined PY py -3 -c "import sys" >nul 2>nul && set "PY=py -3"
+if not defined PY (
+  if /i not "%MODE%"=="run" echo Getting Python for the helper ^(about 10 MB, first time only^)...
+  powershell -NoProfile -ExecutionPolicy Bypass -Command "try { [Net.ServicePointManager]::SecurityProtocol='Tls12'; $z=Join-Path $env:TEMP 'v3py.zip'; Invoke-WebRequest -UseBasicParsing 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-embed-amd64.zip' -OutFile $z; Expand-Archive -Force $z '%D%\py'; Remove-Item $z; exit 0 } catch { exit 1 }" >nul 2>nul
+  if exist "%D%\py\python.exe" set "PY="%D%\py\python.exe""
+)
 if not defined PY goto nopython
 %PY% -c "import sys,os;print(os.path.join(os.path.dirname(sys.executable),'pythonw.exe'))" > "%D%\pyw.txt" 2>nul
 set "PYW="

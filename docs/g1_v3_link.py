@@ -128,6 +128,10 @@
 1.24 (2026-11-09) 메신저 전용 PC 에서 창 도우미가 켜지자마자 꺼지던 문제
   · 검은 창 없이(pythonw) 켜지면 기록 파일 자리를 수집기 파일(g1_cs_collector)에서 찾다가, 그 파일이 없는 PC(C:\SystemV3)에서 바로 멈췄음
   · 수집기 파일이 없으면 이 파일 폴더에 v3link_log.txt 로 기록 · 기록 파일을 못 열어도 창 도우미는 켬
+
+1.25 (2026-11-09) 메신저 전용 PC 창 도우미 스스로 업데이트
+  · POST /msn/update: GitHub main 의 이 파일을 받아 문법·버전 확인 → 더 새 버전이면 바꿔 쓰고(전 버전은 .bak) 스스로 다시 켬
+  · V3 화면이 창 도우미 버전이 낮으면 알아서 부름 — 사람이 끄고 켤 일 없음 · 수집기(마스터) PC 는 기존 [업데이트]로만
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -135,7 +139,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.24 (2026-11-09)"
+LINK_VER = "1.25 (2026-11-09)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -2722,6 +2726,8 @@ def msn_server(helper, port=MSN_PORT):
                     if notes:
                         r["notes"] = {str(i): v for i, v in notes.items()}
                     return self._json(r)
+                if p == "/msn/update":                                   # 1.25 메신저 전용 PC 스스로 업데이트
+                    return self._json(msn_self_update(getattr(helper, "say", print)))
                 if p == "/msn/reset":
                     return self._json(helper.reset())
                 if p == "/msn/confirm":
@@ -2962,8 +2968,59 @@ JOB_LABEL = {"collect": "게시판 수집", "test": "테스트 수집", "reviews
              "update": "웹연결 업데이트"}
 
 
+# ───────── 1.25 메신저 전용 PC 스스로 업데이트 ─────────
+MSN_ONLY = False                 # msn_only() 로 켜졌을 때만 True (수집기 PC 는 기존 업데이트 방식)
+MSN_UPDATE_URL = "https://raw.githubusercontent.com/w-works-official/Picking_System/main/docs/g1_v3_link.py"
+
+
+def ver_tuple(v):
+    return tuple(int(x) for x in re.findall(r"\d+", str(v or "").split(" ")[0])[:3])
+
+
+def _url_bytes(url):
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=30) as r:
+        return r.read()
+
+
+def msn_restart(delay=0.8):
+    """같은 파이썬 · 같은 인자로 새로 켜고 이 프로그램은 끝냄 (창 없이)"""
+    def go():
+        time.sleep(delay)
+        import subprocess
+        flags = 0x08000000 if os.name == "nt" else 0          # CREATE_NO_WINDOW
+        subprocess.Popen([sys.executable] + sys.argv, cwd=HERE, close_fds=True, creationflags=flags)
+        os._exit(0)
+    threading.Thread(target=go, daemon=True).start()
+
+
+def msn_self_update(say=print, fetch=None, restart=None, me=None):
+    if not MSN_ONLY:
+        return {"ok": False, "error": "수집기(마스터) PC 는 ⚙ 설정 → [업데이트]로 바꿉니다", "ver": LINK_VER}
+    data = (fetch or _url_bytes)(MSN_UPDATE_URL)
+    src = data.decode("utf-8")
+    compile(src, "g1_v3_link.py", "exec")                       # 문법 오류면 여기서 멈춤 (바꾸지 않음)
+    m = re.search(r'LINK_VER = "([^"]+)"', src)
+    if not m:
+        return {"ok": False, "error": "받은 파일이 웹연결 파일이 아닙니다 — 바꾸지 않았습니다", "ver": LINK_VER}
+    new = m.group(1)
+    if ver_tuple(new) <= ver_tuple(LINK_VER):
+        return {"ok": True, "same": True, "ver": LINK_VER}
+    me = me or os.path.abspath(__file__)
+    shutil.copy2(me, f"{me}.{LINK_VER.split(' ')[0]}.bak")
+    tmp = me + ".new"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, me)
+    say(f"⬆ 창 도우미 {LINK_VER} → {new} — 다시 켭니다")
+    (restart or msn_restart)()
+    return {"ok": True, "from": LINK_VER, "to": new, "restarting": True}
+
+
 def msn_only(say=print, stop=None):
     """1.17: 메신저 창 도우미만 (시트 요청은 안 가져감) — 수집기 PC가 아닌 PC용"""
+    global MSN_ONLY
+    MSN_ONLY = True
     started = msn_helper_start(say)
     if not started:
         say("메신저 창 도우미를 켜지 못했습니다 — Windows 에서만 됩니다 (이미 켜져 있으면 그 창을 쓰세요).")

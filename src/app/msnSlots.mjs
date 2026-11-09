@@ -10,6 +10,16 @@ const VENDOR_PREF_KEY = "system_v3_cs_msn_vendor";     // 📦 거래처 메신�
 export const MSN_PANELS = {};
 // 2026-11-05: 수집기 PC 웹연결 1.10 의 "메신저 창 도우미" (이 PC 안 127.0.0.1) — 카톡 창을 슬롯에 붙이기·항상 위·일괄 정렬
 export const MSN_HELPER_URL = "http://127.0.0.1:47811/msn";
+// 11-09: 이 버전보다 낮은 창 도우미는 화면이 알아서 새 버전으로 바꿈 (1.25 부터 스스로 업데이트 /msn/update)
+export const MSN_HELPER_MIN = "1.25";
+export const MSN_HELPER_INSTALLER = "../tools/msn_helper.bat";
+const verNums = (v) => (String(v || "").split(" ")[0].match(/\d+/g) || []).slice(0, 3).map(Number);
+export function helperOutdated(ver, min = MSN_HELPER_MIN) {
+  const a = verNums(ver), b = verNums(min);
+  if (!a.length) return false;
+  for (let i = 0; i < 3; i++) { const x = a[i] || 0, y = b[i] || 0; if (x !== y) return x < y; }
+  return false;
+}
 const HELPER_SYNC_MS = 1500;
 const HELPER_PING_EVERY = 6;          // 동기화 6번(약 9초)마다 연결 확인
 const TICK_MS = 1000;
@@ -262,17 +272,19 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     return "";
   }
   function setHelper(on, js = {}) {
+    const was = st.helper.on;
     st.helper.on = on;
     if (!on) st.helper.sent = "";
     if (on && Array.isArray(js.used)) autoStarOff(js.used);
+    if (on) st.helper.ver = js.ver || st.helper.ver || "";
+    if (on && helperOutdated(js.ver) && !st.helper.upTried) { st.helper.upTried = true; autoUpdate(js.ver); }
+    if (on && !was && st.helper.waiting) { st.helper.waiting = false; say(`창 도우미 연결됨 ✓ ${String(js.ver || "").split(" ")[0]} — 이제 [📐 일괄 붙이기]·대화창 붙이기를 쓸 수 있습니다`, "is-ok"); syncSlots(true); }
     const el = $("[data-msn-helper]");
     if (el) {
       el.textContent = on ? "🪄 창 도우미 ● 연결됨" : "🪄 창 도우미 ○ 꺼짐 — [🖥 화면 연결]";
       el.className = `msn-helper ${on ? "is-on" : "is-off"}`;
       if (!on) lnaState().then((perm) => {
         if (st.helper.on || !el) return;
-        const note = $("[data-msn-cta-note]");
-        if (perm === "denied" && note) note.innerHTML = "예전에 [차단]을 눌러 막혀 있습니다 — <b>앱</b>: 오른쪽 위 <b>⋮</b> → <b>앱 정보</b> → <b>'로컬 네트워크 액세스'</b> 허용 / <b>크롬 탭</b>: 주소창 맨 왼쪽 아이콘 → <b>'로컬 네트워크 액세스'</b> 켜기 → 그다음 새로고침(F5).";
         if (perm === "denied") el.textContent = "🪄 창 도우미 ⛔ 막힘 — 앱 ⋮ → 앱 정보 → 로컬 네트워크 액세스 허용";
         else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
         st.helper.perm = perm;
@@ -282,6 +294,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
     const cta = $("[data-msn-cta]");
     if (cta) cta.hidden = on;
+    if (!on || st.helper.waiting) renderSteps();
   }
   const panelShown = () => document.visibilityState !== "hidden" && !!root.getClientRects?.().length && root.offsetWidth > 0;
   async function pingHelper() {
@@ -368,14 +381,82 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
 
   // 🪄 표시를 누르면: 사람이 누른 순간에 접속 → 크롬이 '로컬 네트워크 액세스'를 물음 → [허용]
   // 11-06: [🖥 화면 연결] 하나로 — 창 도우미가 꺼져 있으면 켜고(v3msn://) 연결 + 화면 공유 (+ 거래처는 영역 자동 맞춤)
+  // 11-09: 켜지지 않으면(이 PC 에 없음) 설치 파일을 알아서 받고 → 사람은 받은 파일 [실행]만 → 켜지면 저절로 이어서 연결
   async function connectAll() {
     if (st.stream) { disconnect(); return; }
     let launched = false;
     if (!st.helper.on) {
       await pingHelper();
-      if (!st.helper.on) { root.querySelector("[data-msn-launch]")?.click(); launched = true; }
+      if (!st.helper.on) { launchHelper(); launched = true; }
     }
     await connect({ launched });
+  }
+  // 11-09 승인은 크롬 위쪽 한 자리에 차례로 — 화면엔 체크리스트 한 개 (버튼 바로 밑 보라 상자)
+  async function renderSteps() {
+    const note = $("[data-msn-cta-note]");
+    if (!note) return;
+    const perm = await lnaState();
+    const on = st.helper.on;
+    const mark = (ok, bad) => (ok ? "✅" : bad ? "⛔" : "⬜");
+    const rows = [
+      `${mark(on || perm === "granted", perm === "denied")} 크롬 위쪽 <b>'로컬 네트워크의 기기에 액세스'</b> → <b>[허용]</b>${perm === "denied" ? " — 막혀 있음: 주소창 맨 왼쪽 아이콘 → '로컬 네트워크 액세스' 허용 → F5" : ""}`,
+      `${mark(on)} 같은 자리 <b>'msn_helper 열기'</b> → <b>'항상 허용'</b> 체크 + <b>[열기]</b>`,
+    ];
+    if (st.helper.installOffered) rows.push(`${mark(on)} (처음 한 번) 받은 <b>msn_helper.bat</b> 실행 → 'PC 보호' 창이면 <b>추가 정보 → 실행</b>`);
+    note.innerHTML = `<ol class="msn-steps">${rows.map((r) => `<li>${r}</li>`).join("")}</ol>${on ? "" : `<small>${st.helper.waiting ? "⏳ 창 도우미 기다리는 중 — 켜지면 저절로 이어서 연결합니다" : "[🖥 화면 연결]을 누르면 위 순서대로 진행됩니다 (처음 한 번만)"}</small>`}`;
+  }
+
+  function launchHelper() {
+    const a = root.querySelector("[data-msn-launch]");
+    if (a) a.dispatchEvent(new window.MouseEvent("click", { bubbles: false }));   // v3msn:// (설치돼 있으면 켜짐)
+    if (st.helper.waiting) return;
+    st.helper.waiting = true;
+    say("창 도우미를 켜는 중… 크롬 위쪽에 뜨는 승인 창을 아래 순서대로 눌러 주세요");
+    renderSteps();
+    const started = Date.now();
+    const poll = async () => {
+      if (st.helper.on || !st.helper.waiting) return;
+      await pingHelper();
+      if (st.helper.on) return;
+      const waited = Date.now() - started;
+      if (waited > 20000 && !st.helper.installOffered) {
+        st.helper.installOffered = true;
+        const perm = await lnaState();
+        if (perm === "denied") {
+          say("이 화면의 PC 접속이 막혀 있습니다 — 주소창 맨 왼쪽 아이콘(앱은 ⋮ → 앱 정보) → '로컬 네트워크 액세스' 허용 → 새로고침(F5)", "is-bad");
+        } else {
+          const dl = document.createElement("a");
+          dl.href = MSN_HELPER_INSTALLER; dl.download = "msn_helper.bat"; dl.hidden = true;
+          document.body.appendChild(dl); dl.click(); dl.remove();
+          say("이 PC 에 창 도우미가 없어 설치 파일(msn_helper.bat)을 받았습니다 — 크롬 오른쪽 위 받은 파일을 눌러 실행. 설치되면 여기서 저절로 이어서 연결합니다.", "is-bad");
+        }
+      }
+      renderSteps();
+      if (waited < 5 * 60000) window.setTimeout(poll, waited < 20000 ? 2500 : 4000);
+      else { st.helper.waiting = false; say("창 도우미가 아직 켜지지 않았습니다 — 설치 파일을 실행했는지 확인하고 [🖥 화면 연결]을 다시 눌러 주세요.", "is-bad"); }
+    };
+    window.setTimeout(poll, 2500);
+  }
+  // 11-09: 창 도우미 버전이 낮으면 화면이 대신 업데이트 (1.25+ 는 /msn/update 로 스스로 바꾸고 다시 켜짐)
+  async function autoUpdate(ver) {
+    try {
+      say(`창 도우미 ${String(ver || "").split(" ")[0]} → 새 버전으로 바꾸는 중… (자동 · 몇 초)`);
+      const r = await helperCall("/update", {}, 40000);
+      if (r.same) { say(""); return; }
+      if (r.restarting) {
+        st.helper.waiting = true;
+        setHelper(false);
+        const t0 = Date.now();
+        const again = async () => { await pingHelper(); if (!st.helper.on && Date.now() - t0 < 30000) window.setTimeout(again, 1500); };
+        window.setTimeout(again, 2000);
+      }
+    } catch (error) {
+      const m = String(error?.message || error);
+      if (/마스터/.test(m)) { say(""); return; }                       // 수집기 PC 는 ⚙ 설정의 [업데이트]로
+      say(/not found|404/.test(m)
+        ? `창 도우미가 예전 버전(${String(ver || "").split(" ")[0]})이라 스스로 못 바꿉니다 — 이 PC 를 다시 켜거나, 바탕화면 'V3 Messenger Helper' 를 한 번 눌러 주세요 (켤 때 새 버전을 받음).`
+        : `창 도우미 업데이트 실패: ${m}`, "is-bad");
+    }
   }
   async function connectHelper() {
     if (st.helper.on) { diagnose(); return; }

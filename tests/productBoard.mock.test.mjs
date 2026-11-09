@@ -163,5 +163,28 @@ assert.match(css, /\.pb-photo\.is-missing \{[^}]*background: #fef08a;/, "노랑 
   assert.equal(xxMark("[XL] 사이즈"), "", "XL 같은 낱말은 아님");
   assert.equal(xxMark("XXXX"), "");
   assert.equal(xxMark("", "BOX XX"), "XX", "여러 칸 중 하나라도");
+  assert.equal(xxMark("[xx미송 발생시 구매]"), "XX", "소문자도 → 대문자");
+  assert.equal(xxMark("[xxx]천원존 1"), "XXX");
+  const { xxFromRows, applyXx } = await import("../src/domain/productBoard.mjs");
+  // 참고 파일 모양: 상품코드·전달사항·임의필드 두 묶음
+  const rows = [
+    ["상품코드", "전달사항", "임의필드", "", "", "상품코드", "전달사항", "임의필드"],
+    ["1000-1", "0", "4mm볼 x 6mm바 //", "", "", "1355-2", "[xx]미송 표기시 구매", "비즈 케이스"],
+    ["1000-2", "XXX", "", "", "", "1172-1", "0", "[XXX]귀족"],
+    ["1000-3", "0", "BOXX", "", "", "", "", ""],
+  ];
+  assert.deepEqual(xxFromRows(rows).map((x) => [x.sku, x.mark, x.field]), [["1355-2", "XX", "전달사항"], ["1000-2", "XXX", "전달사항"], ["1172-1", "XXX", "임의필드"]]);
+  // AC·PC 리스트 모양: A 칸에도 상품코드가 있지만 그 묶음엔 전달사항이 없음 → D 묶음만
+  const list = [
+    ["상품코드", "매입처", "매입처코드", "상품코드", "상품명", "전달사항", "임의필드", "자사코드"],
+    ["2000-1", "1-가", "1", "2000-1", "볼", "", "", "XX[PA-1]"],
+    ["2000-2", "1-가", "1", "2000-2", "볼", "[xxx]트리플", "", ""],
+  ];
+  assert.deepEqual(xxFromRows(list).map((x) => [x.sku, x.mark, x.field]), [["2000-1", "XX", "자사코드"], ["2000-2", "XXX", "전달사항"]]);
+  assert.deepEqual(xxFromRows([["코드", "메모"], ["1-1", "XX"]]), [], "상품코드 머리줄이 없으면 없음");
+  const ps = [{ options: [{ sku: "1-1", ownSku: "XX[A]" }, { sku: "1-2", ownSku: "W1" }, { sku: "1-3", ownSku: "" }] }];
+  applyXx(ps, [{ sku: "1-2", mark: "XXX", field: "전달사항", text: "[xxx]천원존" }, { sku: "1-1", mark: "XXX", field: "임의필드", text: "x" }]);
+  assert.deepEqual(ps[0].options.map((o) => o.xx), ["XX", "XXX", ""], "자사코드 표시가 먼저");
+  assert.equal(ps[0].options[1].xxNote, "전달사항 [xxx]천원존");
 }
 console.log("productBoard.mock.test: OK");

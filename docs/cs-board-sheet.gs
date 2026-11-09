@@ -42,7 +42,8 @@ var PHOTO_INDEX_SHEET = '사진색인';          // v13: 상품찾기 사진 검
 var PHOTO_INDEX_STAGE = '사진색인_새로';      // 올리는 중인 색인 — 다 올라오면 사진색인 으로 바꿈
 var PHOTO_INDEX_CHUNK = 45000;               // 셀 하나 최대 글자 (구글 시트 한도 50,000)
 var PHOTO_HUB_PREFIX = 'https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/';
-var DISC_SHEET = '단종';   // v12: 상품 현황 단종 옵션 (셀피아 코드 · 단종일시 · 처리자)
+var DISC_SHEET = '단종';
+var XX_SHEET = 'XX표시';                     // v14: 전달사항·임의필드의 XX · XXX 표시 (상품 현황 옵션명 옆 빨간 글씨)   // v12: 상품 현황 단종 옵션 (셀피아 코드 · 단종일시 · 처리자)
 var HEADER = ['키', '업체', '게시판', '문의ID', '문의시각', '상품명', '상태', '문의', '답변안', '선택', '버전', '수정자', '수정시각', '수집시각', '종료', '등록'];
 var COL = { key: 1, vendor: 2, board: 3, id: 4, date: 5, product: 6, status: 7, inquiry: 8, drafts: 9, choice: 10, version: 11, editor: 12, editedAt: 13, collectedAt: 14, closed: 15, reg: 16 };
 var JOB_HEADER = ['ID', '종류', '상태', '요청자', '요청시각', '시작시각', '끝시각', '내용', '결과', 'PC'];
@@ -130,7 +131,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
   if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 13 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 14 });
 }
 
 function doPost(e) {
@@ -207,7 +208,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -231,6 +232,8 @@ function route_(body) {
   if (action === 'photoIndexPut') return withLock_(function () { return photoIndexPut_(body); });
   if (action === 'photoIndexCommit') return withLock_(function () { return photoIndexCommit_(body); });
   if (action === 'photoAi') return photoAi_(body);
+  if (action === 'xxList') return xxList_();
+  if (action === 'xxSet') return withLock_(function () { return xxSet_(body); });
   if (action === 'loginShotGet') return loginShotGet_(body);
   if (action === 'loginAnswer') return loginAnswer_(body);
   if (action === 'loginShot') return loginShot_(body);
@@ -1560,4 +1563,55 @@ function photoAi_(body) {
     return c ? { code: c.code, score: Math.max(0, Math.min(100, Math.round(Number(p.score) || 0))), why: plain_(clean_(p.why, 200)) } : null;
   }).filter(Boolean).slice(0, 3);
   return { ok: true, picks: picks, keywords: plain_(clean_(out.keywords, 120)), compared: shown.length };
+}
+
+
+// ---------- v14 XX 표시 (전달사항 · 임의필드) ----------
+// 상품 현황에서 [XX 표시 올리기]로 엑셀(상품코드 · 전달사항 · 임의필드)을 올리면 표시가 있는 옵션만 통째로 바꿔 저장
+function xxSheet_() {
+  var book = book_();
+  var sheet = book.getSheetByName(XX_SHEET);
+  if (!sheet) {
+    sheet = book.insertSheet(XX_SHEET);
+    sheet.getRange(1, 1, 1, 5).setValues([['셀피아코드', '표시', '칸', '내용', '올린 시각']]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function xxList_() {
+  var sheet = xxSheet_();
+  var n = sheet.getLastRow() - 1;
+  if (n <= 0) return { ok: true, items: [], at: '' };
+  var rows = sheet.getRange(2, 1, n, 5).getDisplayValues();
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var sku = discSku_(rows[i][0]);
+    if (sku) out.push({ sku: sku, mark: String(rows[i][1] || ''), field: String(rows[i][2] || ''), text: String(rows[i][3] || '') });
+  }
+  return { ok: true, items: out, at: n > 0 ? String(rows[0][4] || '') : '' };
+}
+
+function xxSet_(body) {
+  var list = Array.isArray(body.items) ? body.items : [];
+  if (list.length > 40000) return { ok: false, error: '한 번에 40,000줄까지입니다' };
+  var stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm');
+  var seen = {}, rows = [];
+  for (var i = 0; i < list.length; i++) {
+    var it = list[i] || {};
+    var sku = discSku_(it.sku);
+    var mark = String(it.mark || '').toUpperCase();
+    if (!sku || seen[sku] || !/^X{2,3}$/.test(mark)) continue;
+    seen[sku] = true;
+    rows.push([sku, mark, plain_(clean_(it.field, 20)), plain_(clean_(it.text, 120)), stamp]);
+  }
+  var sheet = xxSheet_();
+  var n = sheet.getLastRow() - 1;
+  if (n > 0) sheet.getRange(2, 1, n, 5).clearContent();
+  if (rows.length) {
+    sheet.getRange(2, 1, rows.length, 1).setNumberFormat('@');
+    sheet.getRange(2, 4, rows.length, 1).setNumberFormat('@');
+    sheet.getRange(2, 1, rows.length, 5).setValues(rows);
+  }
+  return { ok: true, total: rows.length, at: stamp };
 }

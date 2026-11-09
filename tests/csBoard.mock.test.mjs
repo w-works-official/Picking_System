@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 13 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 14 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 13);
+  assert.equal(g5.get().version, 14);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -853,4 +853,23 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.ok(!JSON.stringify(seen).includes("evil.example"));
   assert.ok(JSON.parse(g.properties.AI_USAGE)[Object.keys(JSON.parse(g.properties.AI_USAGE))[0]].kinds["사진찾기"] === 1, "사용량 기록");
   console.log("csBoard.mock.test (photoAi v13): OK");
+}
+
+// v14 XX 표시: 통째로 바꿔 저장 · 대문자 · 같은 코드 한 번
+{
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN } });
+  assert.deepEqual(g.post({ action: "xxList", token: TOKEN }).items, []);
+  assert.equal(g.post({ action: "xxSet", token: "wrong", items: [] }).denied, true);
+  const r = g.post({ action: "xxSet", token: TOKEN, items: [
+    { sku: "1355-2", mark: "xx", field: "전달사항", text: "[xx]미송 표기시 구매" },
+    { sku: "1355-2", mark: "XXX", field: "임의필드", text: "중복" },
+    { sku: "4578-1", mark: "XXX", field: "전달사항", text: "=XXX" },
+    { sku: "bad code!", mark: "XX" }, { sku: "1-1", mark: "XXXX" },
+  ] });
+  assert.equal(r.total, 2);
+  const l = g.post({ action: "xxList", token: TOKEN }).items;
+  assert.deepEqual(l.map((x) => [x.sku, x.mark, x.field]), [["1355-2", "XX", "전달사항"], ["4578-1", "XXX", "전달사항"]]);
+  assert.equal(g.post({ action: "xxSet", token: TOKEN, items: [{ sku: "9-1", mark: "XX", field: "임의필드", text: "x" }] }).total, 1);
+  assert.deepEqual(g.post({ action: "xxList", token: TOKEN }).items.map((x) => x.sku), ["9-1"], "통째로 바뀜");
+  console.log("csBoard.mock.test (xx v14): OK");
 }

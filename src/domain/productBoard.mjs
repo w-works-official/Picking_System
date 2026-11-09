@@ -5,13 +5,52 @@
 //    2) 그 상품에 옵션 사진이 하나도 없으면 대표코드 사진(1000.jpg)으로 (옵션 하나짜리 상품 등)
 //    3) 옵션 사진이 있는 상품인데 이 옵션만 사진이 없으면 → 빈칸(노랑)
 //  · 대분류: 14K 피어싱 / 써지컬 피어싱 / 실버 피어싱 / 귀걸이 / 나머지 (상품명 글자로 — 앞에서부터 먼저 맞는 것)
-// 11-09 XX · XXX 표시 (자사코드에 적힌 것 — 앞뒤가 영문자가 아닌 X 2~3개). 임의필드·전달사항은 허브에 없음
+// 11-09 XX · XXX 표시 — 앞뒤가 영문자가 아닌 X 2~3개 (대소문자 무시 → 대문자로). 예: XX[NA-04] · [xx미송 발생시 구매] · [xxx]천원존
+//  · 자사코드 = 허브 상품 데이터 · 전달사항 · 임의필드 = [XX 표시 올리기] 엑셀 → CS 시트 'XX표시' 탭
 export function xxMark(...values) {
   for (const v of values) {
-    const m = /(?<![A-Za-z])(X{2,3})(?![A-Za-z])/.exec(String(v ?? ""));
-    if (m) return m[1];
+    const m = /(?<![A-Za-z])([Xx]{2,3})(?![A-Za-z])/.exec(String(v ?? ""));
+    if (m) return m[1].toUpperCase();
   }
   return "";
+}
+
+// 엑셀 표(행 배열) → [{ sku, mark, field, text }] — 머리줄의 '상품코드' 칸마다 오른쪽의 전달사항 · 임의필드 · 자사코드 칸을 봄
+export function xxFromRows(rows = [], fields = ["전달사항", "임의필드", "자사코드"]) {
+  const out = new Map();
+  const headAt = rows.slice(0, 6).findIndex((r) => (r || []).some((c) => String(c ?? "").trim() === "상품코드"));
+  if (headAt < 0) return [];
+  const head = rows[headAt].map((c) => String(c ?? "").replace(/\s+/g, ""));
+  const codeCols = head.map((h, i) => (h === "상품코드" ? i : -1)).filter((i) => i >= 0);
+  const blocks = codeCols.map((c, k) => {
+    const end = codeCols[k + 1] ?? head.length;
+    const cols = fields.map((f) => ({ f, i: head.findIndex((h, j) => j > c && j < end && h === f) })).filter((x) => x.i >= 0);
+    return { c, cols };
+  }).filter((b) => b.cols.length);
+  for (const r of rows.slice(headAt + 1)) {
+    for (const b of blocks) {
+      const sku = String(r?.[b.c] ?? "").trim();
+      if (!/^\d+-\d+$/.test(sku) || out.has(sku)) continue;
+      for (const { f, i } of b.cols) {
+        const text = String(r?.[i] ?? "").trim();
+        const mark = xxMark(text);
+        if (mark) { out.set(sku, { sku, mark, field: f, text: text.slice(0, 120) }); break; }
+      }
+    }
+  }
+  return [...out.values()];
+}
+
+// 시트의 XX 표시 → 옵션마다 o.xx (자사코드 표시가 먼저) · o.xxNote (어느 칸 · 무슨 글)
+export function applyXx(products = [], items = []) {
+  const map = new Map(items.map((x) => [x.sku, x]));
+  for (const p of products) for (const o of p.options) {
+    const own = xxMark(o.ownSku);
+    const it = map.get(o.sku);
+    o.xx = own || it?.mark || "";
+    o.xxNote = [own ? `자사코드 ${o.ownSku}` : "", it ? `${it.field} ${it.text}` : ""].filter(Boolean).join(" · ");
+  }
+  return products;
 }
 
 export const PB_CATEGORIES = [

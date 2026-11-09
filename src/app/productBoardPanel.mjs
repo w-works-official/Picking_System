@@ -4,7 +4,7 @@
 //  · 1열 · 한 쪽에 상품 100개 · 검색 기준(재고 · 사진 · 출고 기간 × 수량) · 옵션 단위 / 상품 단위 · 선택 · 선택 모아보기 · 사진 포함 엑셀
 //  · 읽기 전용: 어디에도 쓰지 않음
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261106-remote1";
-import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261109-xx1";
+import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, applyXx, xxFromRows, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261109-xx2";
 import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
 
 const HUB_URL = "https://bpgvqmtsjgegnrdzmpep.supabase.co";
@@ -63,6 +63,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     cat: "all", q: "", days: 30, sort: "code", unit: "option", stockMin: "", stockMax: "", photo: "all", salesMin: "", salesMax: "",
     page: 1, picked: new Set(), collect: false, open: new Set(), allOpen: false, busy: false,
     discMode: "exclude", disc: new Set(), discNote: "",   // 11-06 단종 (CS 시트 '단종' 탭)
+    xx: [], xxNote: "",                                   // 11-09 XX 표시 (CS 시트 'XX표시' 탭 + 자사코드)
   };
   root.innerHTML = `
     <div class="pb-bar">
@@ -80,6 +81,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
         <label>출고 수량 <input type="number" inputmode="numeric" data-pb-f="salesMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="salesMax" placeholder="최대"></label>
         <label>단종 <select data-pb-disc><option value="exclude">미포함</option><option value="include">포함</option><option value="only">단종만</option></select></label>
         <button type="button" class="pb-btn pb-btn-mini" data-pb-clear>조건 지우기</button>
+        <label class="pb-btn pb-btn-mini pb-xx-up" title="상품코드 · 전달사항 · 임의필드 칸이 있는 엑셀 (AC·PC 리스트도 됨) — 그 안의 XX · XXX 표시로 통째로 바꿈">📥 XX 표시 올리기<input type="file" accept=".xlsx,.xlsm,.xls" data-pb-xxfile hidden></label>
       </div>
       <div class="pb-pickbar">
         <label class="pb-check"><input type="checkbox" data-pb-pick-all> <span data-pb-all-label>검색 결과 전체 선택</span></label>
@@ -124,7 +126,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     <div class="pb-row pb-opt${o.stock <= 0 ? " is-zero" : ""}${o.disc ? " is-disc" : ""}${st.picked.has(o.sku) ? " is-picked" : ""}${withPhoto ? "" : " no-photo"}" data-pb-sku="${esc(o.sku)}">
       <input type="checkbox" data-pb-pick-sku="${esc(o.sku)}"${st.picked.has(o.sku) ? " checked" : ""} aria-label="${esc(o.sku)} 선택">
       ${withPhoto ? photoCell(o.photo.file, o.photo.kind) : "<span></span>"}
-      <span class="pb-txt"><b>${o.disc ? '<em class="pb-disc-tag">단종</em> ' : ""}${esc(o.option || "(옵션 없음)")}${o.xx ? ` <em class="pb-xx" title="자사코드에 ${o.xx} 표시">${o.xx}</em>` : ""}</b><small>${esc(o.sku)}${o.ownSku ? ` · ${esc(o.ownSku)}` : ""}</small></span>
+      <span class="pb-txt"><b>${o.disc ? '<em class="pb-disc-tag">단종</em> ' : ""}${esc(o.option || "(옵션 없음)")}${o.xx ? ` <em class="pb-xx" title="${esc(o.xxNote || o.xx)}">${o.xx}</em>` : ""}</b><small>${esc(o.sku)}${o.ownSku ? ` · ${esc(o.ownSku)}` : ""}</small></span>
       ${nums(o)}
     </div>`;
 
@@ -194,7 +196,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     const canDisc = !!csToken() && !st.busy;
     root.querySelectorAll("[data-pb-disc-act]").forEach((b) => { b.disabled = !st.picked.size || !canDisc; b.title = canDisc ? b.title.replace(/ — CS 관리.*$/, "") : `${b.title.replace(/ — CS 관리.*$/, "")} — CS 관리에서 시트에 연결한 브라우저에서 됩니다`; });
     $("[data-pb-collect]").disabled = !st.picked.size && !st.collect;
-    if (!st.busy) status(`${st.collect ? "👁 선택 모아보기 · " : ""}${st.snapshotAt ? `셀피아 재고 ${st.snapshotAt} 기준` : "셀피아 재고"} · 상품 ${fmt(v.length)}개 (${fmt(pg.page)}/${fmt(pg.pages)}쪽, 한 쪽 ${PAGE_SIZE}개) / 전체 ${fmt(st.products.length)} · 사진 ${fmt(st.photos)}장 · 출고: ${st.salesNote}${st.discNote ? ` · 단종: ${st.discNote}` : ""}`);
+    if (!st.busy) status(`${st.collect ? "👁 선택 모아보기 · " : ""}${st.snapshotAt ? `셀피아 재고 ${st.snapshotAt} 기준` : "셀피아 재고"} · 상품 ${fmt(v.length)}개 (${fmt(pg.page)}/${fmt(pg.pages)}쪽, 한 쪽 ${PAGE_SIZE}개) / 전체 ${fmt(st.products.length)} · 사진 ${fmt(st.photos)}장 · 출고: ${st.salesNote}${st.discNote ? ` · 단종: ${st.discNote}` : ""}${st.xxNote ? ` · XX: ${st.xxNote}` : ""}`);
   }
 
   // ---------- 11-06 단종 (CS 시트 '단종' 탭 · CS 관리 비밀번호 = 이 브라우저에 저장된 것) ----------
@@ -222,6 +224,53 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     } catch (error) { st.discNote = `못 읽음 (${error.message})`; }
     applyDisc(st.products, st.disc);
   }
+  // ---------- 11-09 XX 표시 (전달사항 · 임의필드 — 자사코드는 허브 데이터에서 바로) ----------
+  async function loadXx() {
+    if (csToken()) {
+      try {
+        const js = await csPost({ action: "xxList" });
+        st.xx = js.items || [];
+        st.xxNote = `${fmt(st.xx.length)}옵션${js.at ? ` (${js.at.slice(5)} 올림)` : ""}`;
+      } catch (error) { st.xxNote = `못 읽음 (${error.message})`; }
+    }
+    applyXx(st.products, st.xx);
+  }
+  function loadSheetJs() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise((ok, bad) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      sc.onload = () => ok(window.XLSX); sc.onerror = () => bad(new Error("엑셀 읽기 도구를 받지 못했습니다"));
+      document.head.appendChild(sc);
+    });
+  }
+  async function uploadXx(file) {
+    if (!file) return;
+    if (!csToken()) { status("XX 표시 올리기는 CS 관리에서 시트에 연결한 브라우저에서 됩니다", "is-bad"); return; }
+    status(`${file.name} 읽는 중…`);
+    try {
+      const XLSX = await loadSheetJs();
+      const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      const found = new Map();
+      for (const name of wb.SheetNames) {
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: "" });
+        for (const it of xxFromRows(rows)) if (!found.has(it.sku)) found.set(it.sku, it);
+      }
+      const items = [...found.values()];
+      const by = items.reduce((a, x) => ((a[x.field] = (a[x.field] || 0) + 1), a), {});
+      if (!items.length) { status(`${file.name}: XX · XXX 표시를 찾지 못했습니다 (머리줄에 상품코드 · 전달사항 · 임의필드 칸이 있어야 함)`, "is-bad"); return; }
+      if (!window.confirm(`${file.name}\nXX · XXX 표시 ${fmt(items.length)}옵션 (${Object.entries(by).map(([k, v]) => `${k} ${fmt(v)}`).join(" · ")})\n\n지금 저장된 XX 표시를 이것으로 통째로 바꿉니다. 계속할까요?`)) { status(""); render(); return; }
+      status("XX 표시 저장 중…");
+      const js = await csPost({ action: "xxSet", items });
+      st.xx = items; st.xxNote = `${fmt(js.total)}옵션 (${String(js.at || "").slice(5)} 올림)`;
+      applyXx(st.products, st.xx);
+      render();
+      status(`✓ XX 표시 ${fmt(js.total)}옵션 저장 — 옵션명 옆 빨간 글씨`, "is-ok");
+    } catch (error) {
+      status(`XX 표시 올리기 실패: ${error.message}`, "is-bad");
+    }
+  }
+
   async function setDisc(on) {
     const skus = [...st.picked];
     if (!skus.length || st.busy) return;
@@ -282,7 +331,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
       st.photos = names.filter((n) => !/\.__sub\d\.jpg$/i.test(n)).length;
       st.products = buildProducts(rows, photoIndex(names));
       st.loaded = true;
-      await loadDisc();
+      await Promise.all([loadDisc(), loadXx()]);
       render();
       await loadSales();
       render();
@@ -362,6 +411,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     if (t.matches("[data-pb-days]")) { st.days = Number(t.value) || 0; reset(); }
     else if (t.matches("[data-pb-sort]")) { st.sort = t.value; reset(); }
     else if (t.dataset.pbF === "photo") { st.photo = t.value; reset(); }
+    else if (t.matches("[data-pb-xxfile]")) { uploadXx(t.files?.[0]).finally(() => { t.value = ""; }); }
     else if (t.matches("[data-pb-disc]")) { st.discMode = ["include", "only"].includes(t.value) ? t.value : "exclude"; reset(); }
     else if (t.matches("[data-pb-pick-sku]")) {
       if (t.checked) st.picked.add(t.dataset.pbPickSku); else st.picked.delete(t.dataset.pbPickSku);

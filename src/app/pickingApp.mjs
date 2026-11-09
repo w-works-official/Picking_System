@@ -1966,11 +1966,13 @@ function sortInvoices(invoices) {
 }
 
 // 바길이 변경 옵션: "바변경" · "바 변경" · "바 길이 변경(주문제작/취소불가): 10mm바" — "변경 없음/안함" 은 아님
+// 11-09: "바변경:일반바6mm(기본)" 처럼 옵션 이름이 '바변경'이고 고른 값이 기본 바면 변경 아님 (값에 '기본')
 function barChangeInfo(item) {
   const raw = `${item?.optionName || ""} ${item?.raw?.p_option || ""} ${item?.raw?.option_name || ""}`;
   const m = /바\s*(?:길이\s*)?변경([^,;|\r\n]{0,48})/i.exec(raw);
   if (!m) return null;
   if (/^\s*(?:\([^)]*\))?\s*[:：]?\s*(?:없음|안\s*함|미사용|선택\s*안|x\b|no\b)/i.test(m[1])) return null;
+  if (/기본/.test(m[1])) return null;
   const len = /(\d+(?:\.\d+)?)\s*mm/i.exec(m[1]);
   return { length: len ? `${len[1]}mm` : "" };
 }

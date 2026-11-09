@@ -56,9 +56,24 @@ export function buildPhotoRequestRecord({ code, title = "", productName = "", re
   };
 }
 
+// 11-09: 구글 시트가 "1588-11" 같은 셀피아코드를 날짜(1588년 11월)로 바꿔 버림 → 앞에 ' 를 붙여 글자로 저장
+//  (시트 스크립트는 읽을 때 ' 를 떼고 비교하므로 닫기·채우기는 그대로 맞음)
+export const sheetTextCode = (code) => `'${normalizePhotoRequestCode(code).replace(/^'+/, "")}`;
+
+// 이미 날짜로 바뀐 칸 ("Tue Nov 01 1588 16:20:50 GMT+0827 (한국 표준시)") → 원래 코드 후보 ["1588-11", "1588-11-1", "1588-11-01"]
+const MONTHS = { Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12 };
+export function sheetDateCodeCandidates(value) {
+  const m = /^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{2}) (\d{1,6}) \d{2}:\d{2}:\d{2} GMT[+-]\d{4}/.exec(String(value || "").trim());
+  if (!m) return [];
+  const y = Number(m[3]), mo = MONTHS[m[1]], d = Number(m[2]);
+  const pad = (n) => String(n).padStart(2, "0");
+  const list = d === 1 ? [`${y}-${mo}`, `${y}-${mo}-1`, `${y}-${pad(mo)}`] : [`${y}-${mo}-${d}`, `${y}-${pad(mo)}-${pad(d)}`];
+  return [...new Set(list)];
+}
+
 // Body sent to the sheet web app. Sent as text/plain so the browser does not need a preflight.
 export function photoRequestAddPayload(record) {
-  return { action: "add", code: record.code, title: record.title, productName: record.productName || "", source: record.source, requestedAt: record.requestedAt };
+  return { action: "add", code: sheetTextCode(record.code), title: record.title, productName: record.productName || "", source: record.source, requestedAt: record.requestedAt };
 }
 
 // 상품명이 비어 있는 요청 줄만 채웁니다(2026-10-28, 이미 있는 이름·시각은 그대로).
@@ -88,11 +103,14 @@ export function parsePhotoRequestResponse(json) {
   const records = [];
   const seen = new Set();
   for (const entry of requests) {
-    const code = normalizePhotoRequestCode(entry?.code);
-    if (!code || seen.has(code)) continue;
-    seen.add(code);
+    const sheetCode = normalizePhotoRequestCode(entry?.code);
+    if (!sheetCode || seen.has(sheetCode)) continue;
+    seen.add(sheetCode);
+    const candidates = sheetDateCodeCandidates(sheetCode);
     records.push({
-      code,
+      code: candidates[0] || sheetCode,
+      sheetCode,
+      candidates,
       title: clean(entry.title, TITLE_LIMIT),
       productName: clean(entry.productName, TITLE_LIMIT),
       requestedAt: String(entry.requestedAt || ""),

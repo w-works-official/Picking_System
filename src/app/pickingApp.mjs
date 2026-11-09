@@ -40,7 +40,7 @@ import { inspectionHoldCsAction } from "../domain/csHoldTransition.mjs?v=2026073
 import { preferredPickingRow } from "../domain/pickingPersistence.mjs?v=20260807-picking-dedupe1";
 import { buildMissingPhotoReport, photoStemsFromFileNames } from "../domain/missingPhotos.mjs?v=20261026-missing-photo1";
 import { listSubs, swapMaster } from "../domain/subPhotos.mjs?v=20261107-finder1";
-import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, photoRequestFillNamesPayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261028-photo-request-name1";
+import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, photoRequestFillNamesPayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261109-photoreq1";
 import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-all1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
@@ -316,7 +316,7 @@ const state = {
   },
   inventoryCountExportRunning: false,
   missingPhotoExportRunning: false,
-  photoRequests: { loaded: false, loading: false, open: false, codes: new Set(), records: [], error: "", note: "" },
+  photoRequests: { loaded: false, loading: false, open: false, codes: new Set(), records: [], error: "", note: "", resolved: new Map(), catalog: new Map() },
 };
 
 const els = {
@@ -1342,6 +1342,11 @@ async function callPhotoRequestSheet(payload = null) {
 
 function applyPhotoRequestRecords(records) {
   const requests = state.photoRequests;
+  // 11-09: 시트가 날짜로 바꾼 코드 → 셀피아 목록에서 찾은 원래 코드 (resolvePhotoRequestCodes 가 채움)
+  for (const record of records) {
+    const fixed = requests.resolved.get(record.sheetCode);
+    if (fixed) record.code = fixed;
+  }
   requests.records = sortPhotoRequests(records);
   requests.codes = new Set(requests.records.map((record) => record.code));
 }
@@ -1381,8 +1386,13 @@ async function productPhotoExists(code) {
   return false;
 }
 
+// 시트에 보낼 땐 시트 칸 그대로의 값 (날짜로 바뀐 칸은 그 글자)
+function photoRequestSheetCode(code) {
+  return state.photoRequests.records.find((record) => record.code === code)?.sheetCode || code;
+}
+
 async function closePhotoRequests(codes, reason) {
-  const payload = photoRequestClosePayload(codes, reason);
+  const payload = photoRequestClosePayload((codes || []).map(photoRequestSheetCode), reason);
   if (!payload.codes.length) return;
   const { records } = await callPhotoRequestSheet(payload);
   applyPhotoRequestRecords(records);
@@ -1430,7 +1440,7 @@ async function fillMissingPhotoRequestNames() {
   if (!allowWrites) return;
   const missing = state.photoRequests.records
     .filter((record) => !record.productName)
-    .map((record) => ({ code: record.code, productName: productNameForPhotoCode(record.code) }))
+    .map((record) => ({ code: record.sheetCode || record.code, productName: productNameForPhotoCode(record.code) }))
     .filter((entry) => entry.productName);
   const payload = photoRequestFillNamesPayload(missing);
   if (!payload.items.length) return;
@@ -1454,6 +1464,8 @@ async function cancelPhotoRequest(code) {
 }
 
 function productNameForPhotoCode(code) {
+  const fromCatalog = state.photoRequests.catalog.get(code)?.name;
+  if (fromCatalog) return fromCatalog;
   const lists = [state.viewModel?.invoices, state.workflowQueues?.viewModel?.invoices, state.workflowQueues?.inspectionInvoices];
   for (const invoices of lists) {
     for (const invoice of invoices || []) {
@@ -1462,6 +1474,33 @@ function productNameForPhotoCode(code) {
     }
   }
   return "";
+}
+
+// 11-09: 사진 요청 코드 → 셀피아 상품명·옵션명 (허브 sellpia_stock_latest, 읽기만) · 날짜로 바뀐 코드는 후보 중 실제 있는 코드로
+async function resolvePhotoRequestCodes() {
+  const requests = state.photoRequests;
+  const want = new Set();
+  for (const record of requests.records) {
+    if (record.candidates?.length && !requests.resolved.has(record.sheetCode)) record.candidates.forEach((c) => want.add(c));
+    else if (!requests.catalog.has(record.code)) want.add(record.code);
+  }
+  const list = [...want].filter(Boolean);
+  for (let i = 0; i < list.length; i += 100) {
+    const { data, error } = await imageDb
+      .from("sellpia_stock_latest")
+      .select("sellpia_sku_code,sellpia_product_name,sellpia_option_name")
+      .in("sellpia_sku_code", list.slice(i, i + 100));
+    if (error) throw error;
+    for (const row of data || []) {
+      const code = String(row.sellpia_sku_code || "").trim();
+      if (code) requests.catalog.set(code, { name: String(row.sellpia_product_name || "").trim(), option: String(row.sellpia_option_name || "").trim() });
+    }
+  }
+  for (const record of requests.records) {
+    if (!record.candidates?.length || requests.resolved.has(record.sheetCode)) continue;
+    requests.resolved.set(record.sheetCode, record.candidates.find((c) => requests.catalog.has(c)) || record.candidates[0]);
+  }
+  applyPhotoRequestRecords(requests.records);
 }
 
 function formatPhotoRequestTime(value) {
@@ -1477,13 +1516,18 @@ function renderPhotoRequestPanel() {
   const requests = state.photoRequests;
   panel.hidden = !requests.open;
   if (!requests.open) return;
+  // 11-09: 셀피아코드만 · 상품명 + 옵션명 (셀피아 목록에서) · 요청 시각 칸 없앰
   const rows = requests.records
-    .map((record) => `<tr>
+    .map((record) => {
+      const info = requests.catalog.get(record.code);
+      const name = info?.name || productNameForPhotoCode(record.code) || record.productName || "";
+      const sub = info ? info.option : record.title;
+      return `<tr>
         <td class="photo-request-code">${escapeHtml(record.code)}</td>
-        <td>${productNameHtml(productNameForPhotoCode(record.code) || record.productName || "")}${productNameForPhotoCode(record.code) || record.productName ? "<br>" : ""}<small>${escapeHtml(record.title || "-")}</small></td>
-        <td class="photo-request-time">${escapeHtml(formatPhotoRequestTime(record.requestedAt))}</td>
+        <td>${name ? productNameHtml(name) : ""}${name && sub ? "<br>" : ""}${sub ? `<small>${escapeHtml(sub)}</small>` : name ? "" : "-"}</td>
         <td><button class="btn mini" data-photo-request-cancel="${escapeHtml(record.code)}" type="button">요청 취소</button></td>
-      </tr>`)
+      </tr>`;
+    })
     .join("");
   const status = requests.loading
     ? "요청 목록과 사진 등록 여부를 확인하는 중입니다."
@@ -1497,7 +1541,7 @@ function renderPhotoRequestPanel() {
     </div>
     ${requests.records.length
       ? `<div class="dashboard-photo-request-table-wrap"><table class="dashboard-photo-request-table">
-          <thead><tr><th>셀피아코드</th><th>상품</th><th>요청 시각</th><th></th></tr></thead>
+          <thead><tr><th>셀피아코드</th><th>상품</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>`
       : requests.loading ? "" : '<div class="dashboard-photo-request-empty">요청된 사진이 없습니다. 사진이 안 뜨는 상품의 [사진 요청] 버튼으로 추가하세요.</div>'}`;
@@ -1510,6 +1554,7 @@ async function refreshPhotoRequestPanel() {
   renderPhotoRequestPanel();
   try {
     await loadPhotoRequests();
+    await resolvePhotoRequestCodes().catch(() => {});
     await fillMissingPhotoRequestNames();
     requests.loading = true;
     renderPhotoRequestPanel();

@@ -10,6 +10,7 @@ import {
   photoRequestClosePayload,
   photoRequestFillNamesPayload,
   productCodeFromPhotoUrl,
+  sheetDateCodeCandidates,
   sortPhotoRequests,
 } from "../src/domain/photoRequests.mjs";
 
@@ -31,12 +32,22 @@ assert.deepEqual(photoRequestFillNamesPayload([{ code: "1", productName: "a" }, 
 assert.equal(photoRequestFillNamesPayload(Array.from({ length: 80 }, (_, i) => ({ code: String(i), productName: "n" }))).items.length, 50);
 assert.throws(() => buildPhotoRequestRecord({ code: "" }));
 assert.equal(normalizePhotoRequestCode(" a\nb "), "a b");
-assert.deepEqual(photoRequestAddPayload(record), { action: "add", ...record });
+assert.deepEqual(photoRequestAddPayload(record), { action: "add", ...record, code: "'1000-1" }, "11-09: 시트가 날짜로 바꾸지 않게 ' 를 붙여 보냄");
+// 11-09: 이미 날짜로 바뀐 칸 → 원래 코드 후보
+assert.deepEqual(sheetDateCodeCandidates("Tue Nov 01 1588 16:20:50 GMT+0827 (한국 표준시)"), ["1588-11", "1588-11-1"]);
+assert.deepEqual(sheetDateCodeCandidates("Sun Jan 01 9651 17:00:00 GMT+0900 (Korean Standard Time)").slice(0, 1), ["9651-1"]);
+assert.deepEqual(sheetDateCodeCandidates("Wed Mar 05 2030 00:00:00 GMT+0900"), ["2030-3-5", "2030-03-05"]);
+assert.deepEqual(sheetDateCodeCandidates("11447-2"), []);
+{
+  const [a, b] = parsePhotoRequestResponse({ ok: true, requests: [{ code: "Tue Feb 01 1678 16:20:50 GMT+0827 (한국 표준시)" }, { code: "11447-2" }] }).records;
+  assert.equal(a.code, "1678-2"); assert.equal(a.sheetCode, "Tue Feb 01 1678 16:20:50 GMT+0827 (한국 표준시)");
+  assert.equal(b.code, "11447-2"); assert.deepEqual(b.candidates, []);
+}
 assert.deepEqual(photoRequestClosePayload(["1", " 1 ", "", "2"], "완료"), { action: "close", codes: ["1", "2"], reason: "완료" });
 assert.equal(photoRequestClosePayload(["1"], "아무거나").reason, "취소");
 
 assert.deepEqual(parsePhotoRequestResponse({ ok: true, requests: [{ code: "1", title: "t", requestedAt: "x", source: "s" }, { code: "1" }, { code: "" }] }).records,
-  [{ code: "1", title: "t", productName: "", requestedAt: "x", source: "s" }], "duplicates and empty codes dropped");
+  [{ code: "1", sheetCode: "1", candidates: [], title: "t", productName: "", requestedAt: "x", source: "s" }], "duplicates and empty codes dropped");
 assert.throws(() => parsePhotoRequestResponse({ ok: false, error: "거절" }), /거절/);
 assert.throws(() => parsePhotoRequestResponse(null));
 
@@ -55,7 +66,9 @@ assert.match(block, /"Content-Type": "text\/plain;charset=utf-8"/, "simple reque
 assert.match(block, /closePhotoRequests\(fulfilled, "완료"\)/);
 assert.match(block, /closePhotoRequests\(\[code\], "취소"\)/);
 assert.match(block, /productName: productNameForPhotoCode\(normalizePhotoRequestCode\(code\)\)/, "product name sent with each request");
-assert.match(app, /await loadPhotoRequests\(\);\s*await fillMissingPhotoRequestNames\(\);/, "missing names are filled when the list is opened");
+assert.match(app, /await loadPhotoRequests\(\);\s*await resolvePhotoRequestCodes\(\)\.catch\(\(\) => \{\}\);\s*await fillMissingPhotoRequestNames\(\);/, "missing names are filled when the list is opened (11-09: 셀피아 상품명 먼저)");
+assert.match(app, /<thead><tr><th>셀피아코드<\/th><th>상품<\/th><th><\/th><\/tr><\/thead>/, "11-09: 요청 시각 칸 없음");
+assert.match(app, /payload = photoRequestClosePayload\(\(codes \|\| \[\]\)\.map\(photoRequestSheetCode\), reason\)/, "닫기는 시트 칸 값 그대로");
 assert.match(app, /data-photo-request-cancel="\$\{escapeHtml\(record\.code\)\}"/);
 assert.match(app, /if \(image\.closest\("\.custom-order-slip-card, \.custom-order-row-primary"\)\) return;/, "no request button inside the 주문제작 capture area");
 

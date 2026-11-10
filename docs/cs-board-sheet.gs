@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -131,7 +131,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
   if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 14 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 15 });
 }
 
 function doPost(e) {
@@ -208,7 +208,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -232,6 +232,7 @@ function route_(body) {
   if (action === 'photoIndexPut') return withLock_(function () { return photoIndexPut_(body); });
   if (action === 'photoIndexCommit') return withLock_(function () { return photoIndexCommit_(body); });
   if (action === 'photoAi') return photoAi_(body);
+  if (action === 'optionPhotoAi') return optionPhotoAi_(body);
   if (action === 'xxList') return xxList_();
   if (action === 'xxSet') return withLock_(function () { return xxSet_(body); });
   if (action === 'loginShotGet') return loginShotGet_(body);
@@ -1563,6 +1564,83 @@ function photoAi_(body) {
     return c ? { code: c.code, score: Math.max(0, Math.min(100, Math.round(Number(p.score) || 0))), why: plain_(clean_(p.why, 200)) } : null;
   }).filter(Boolean).slice(0, 3);
   return { ok: true, picks: picks, keywords: plain_(clean_(out.keywords, 120)), compared: shown.length };
+}
+
+
+// ---------- v15 옵션 사진 짝짓기 (상품 옵션 ↔ 자사몰 사진, 2026-11-10) ----------
+// 자사몰 상품 사진(대표 · 상세)을 시트가 직접 받아 AI 에게 옵션 목록과 같이 보여 주고,
+// 옵션마다 맞는 사진 번호 + (여러 옵션이 함께 있는 사진이면) 그 옵션 자리(box, 0~1000 비율)를 받음.
+// 사진 주소는 자사몰(pink-rocket.com) · 상세 사진 서버(pink_rocket.cooljem.com)만. 저장은 하지 않음 (화면이 잘라서 올림)
+var OPTION_PHOTO_HOSTS = /^https:\/\/(www\.)?pink-rocket\.com\/|^https:\/\/pink_rocket\.cooljem\.com\//;
+var OPTION_PHOTO_MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
+function optionPhotoAi_(body) {
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
+  var opts = (Array.isArray(body.options) ? body.options : []).slice(0, 60).map(function (o) {
+    return { sku: plain_(clean_(o && o.sku, 40)), label: plain_(clean_(o && o.label, 120)) };
+  }).filter(function (o) { return o.sku; });
+  if (!opts.length) return { ok: false, error: '옵션이 없습니다' };
+  var urls = (Array.isArray(body.images) ? body.images : []).slice(0, 12).map(url_).filter(function (u) { return OPTION_PHOTO_HOSTS.test(u); });
+  if (!urls.length) return { ok: false, error: '자사몰 사진 주소가 없습니다' };
+  var reserved = withLock_(function () { return reserveAi_(1); });
+  if (!reserved.allow) return { ok: false, error: '오늘 AI 사용 한도(' + reserved.limit + '회)를 다 썼습니다.' };
+
+  var fetched = UrlFetchApp.fetchAll(urls.map(function (u) { return { url: u, muteHttpExceptions: true, followRedirects: true }; }));
+  var name = plain_(clean_(body.product, 160));
+  var content = [{ type: 'text', text: '상품명: ' + name + '\n옵션 목록 (번호. 셀피아코드 · 옵션명):\n' + opts.map(function (o, i) { return (i + 1) + '. ' + o.sku + ' · ' + o.label; }).join('\n') }];
+  var shown = [];
+  fetched.forEach(function (res, i) {
+    if (res.getResponseCode() !== 200) return;
+    var blob = res.getBlob();
+    var bytes = blob.getBytes();
+    if (!bytes.length || bytes.length > 4500000) return;
+    var type = String(blob.getContentType() || 'image/jpeg');
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(type)) type = 'image/jpeg';
+    shown.push(urls[i]);
+    content.push({ type: 'text', text: '[사진 ' + shown.length + ']' });
+    content.push({ type: 'image', source: { type: 'base64', media_type: type, data: Utilities.base64Encode(bytes) } });
+  });
+  if (!shown.length) return { ok: false, error: '자사몰 사진을 받지 못했습니다' };
+  content.push({ type: 'text', text: '옵션마다 그 옵션 상품이 가장 잘 보이는 사진 하나를 고르세요. ' +
+    '그 옵션만 따로 나온 제품 사진이 있으면 그 사진(box 는 제품이 있는 부분, 사진 전체면 null). ' +
+    '여러 옵션이 한 사진에 같이 있으면 그 옵션 제품 자리만 box 로. 사진 속 번호·글자가 있으면 근거로 쓰세요. ' +
+    '옵션명의 [ ] 위치표시 · (+가격) · -모델착용 은 무시. 귀에 찬 모델 사진보다 제품만 나온 사진을 고르고, 공지 · 이벤트 · 안내 · 리뷰 그림은 고르지 마세요. ' +
+    '세트 상품(set · 개 · ea)은 세트 전체가 보이게. 확실하지 않으면 score 를 낮게(60 미만), 맞는 사진이 없으면 photo 0.' });
+  var model = OPTION_PHOTO_MODELS.indexOf(String(body.model || '')) >= 0 ? String(body.model) : (prop_('CLAUDE_MODEL') || DEFAULT_MODEL);
+  var payload = {
+    model: model,
+    max_tokens: Math.min(4000, 400 + 90 * opts.length),
+    system: '당신은 액세서리(피어싱·귀걸이·반지·목걸이 등) 쇼핑몰 사진 정리 담당입니다. 옵션(색·모양·크기·종류)마다 맞는 상품 사진을 고릅니다. ' +
+      '출력은 JSON 하나만, 설명 없이: {"options":[{"n":옵션번호,"photo":사진번호(없으면 0),"box":[x0,y0,x1,y1] 또는 null,"score":0~100,"why":"한 줄 이유"}]} — box 는 사진 가로·세로를 각각 0~1000 으로 본 비율 좌표.',
+    messages: [{ role: 'user', content: content }],
+  };
+  var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, payload: JSON.stringify(payload),
+  });
+  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+  var data = parse_(response.getContentText(), {});
+  var text = '';
+  (Array.isArray(data.content) ? data.content : []).forEach(function (c) { if (c && c.type === 'text') text += c.text; });
+  recordUsage_(data.usage, model, '옵션사진');
+  var m = /\{[\s\S]*\}/.exec(text);
+  var out = parse_(m ? m[0] : '', {});
+  var results = [];
+  (Array.isArray(out.options) ? out.options : []).forEach(function (o) {
+    var n = Math.floor(Number(o && o.n));
+    var opt = opts[n - 1];
+    if (!opt) return;
+    var k = Math.floor(Number(o.photo));
+    var url = k >= 1 && k <= shown.length ? shown[k - 1] : '';
+    var box = null;
+    if (Array.isArray(o.box) && o.box.length === 4) {
+      var b = o.box.map(function (v) { return Math.max(0, Math.min(1000, Math.round(Number(v) || 0))); });
+      if (b[2] - b[0] >= 20 && b[3] - b[1] >= 20) box = b;
+    }
+    results.push({ sku: opt.sku, url: url, box: url ? box : null, score: Math.max(0, Math.min(100, Math.round(Number(o.score) || 0))), why: plain_(clean_(o.why, 200)) });
+  });
+  var u = data.usage || {};
+  return { ok: true, results: results, images: shown, model: model, tokens: { input: u.input_tokens || 0, output: u.output_tokens || 0 } };
 }
 
 

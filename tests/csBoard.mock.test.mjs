@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 14 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 15 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 14);
+  assert.equal(g5.get().version, 15);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -853,6 +853,37 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.ok(!JSON.stringify(seen).includes("evil.example"));
   assert.ok(JSON.parse(g.properties.AI_USAGE)[Object.keys(JSON.parse(g.properties.AI_USAGE))[0]].kinds["사진찾기"] === 1, "사용량 기록");
   console.log("csBoard.mock.test (photoAi v13): OK");
+}
+
+// v15 옵션 사진 짝짓기: 자사몰 사진만 받아 AI 에 옵션 목록과 함께 → 옵션마다 사진 · 자리(box)
+{
+  const MALL = "https://pink-rocket.com/shopimages/curiouswiz/";
+  const CJ = "https://pink_rocket.cooljem.com/pinkrocket/item/";
+  const none = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN } });
+  assert.match(none.post({ action: "optionPhotoAi", token: TOKEN, options: [{ sku: "1-1" }], images: [`${MALL}a.jpg`] }).error, /AI 키가 없습니다/);
+  let seen = null;
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, CLAUDE_KEY: "k" }, claude: (payload) => { seen = payload; return { status: 200, text: '{"options":[{"n":1,"photo":2,"box":[100,200,400,600],"score":92,"why":"골드 링"},{"n":2,"photo":1,"box":null,"score":55},{"n":3,"photo":9,"score":90},{"n":7,"photo":1}]}' }; } });
+  assert.equal(g.post({ action: "optionPhotoAi", token: "wrong", options: [{ sku: "1-1" }], images: [`${MALL}a.jpg`] }).denied, true);
+  assert.match(g.post({ action: "optionPhotoAi", token: TOKEN, options: [], images: [`${MALL}a.jpg`] }).error, /옵션이 없습니다/);
+  assert.match(g.post({ action: "optionPhotoAi", token: TOKEN, options: [{ sku: "1-1" }], images: ["https://evil.example/a.jpg"] }).error, /자사몰 사진 주소가 없습니다/);
+  const r = g.post({ action: "optionPhotoAi", token: TOKEN, product: "링 피어싱", model: "claude-sonnet-5-5",
+    options: [{ sku: "8601-1", label: "골드[PB-1-01]" }, { sku: "8601-2", label: "실버" }, { sku: "8601-3", label: "블랙" }],
+    images: [`${MALL}0310.jpg`, "https://evil.example/x.jpg", `${CJ}missing.jpg`, `${CJ}a_01.jpg`] });
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.images, [`${MALL}0310.jpg`, `${CJ}a_01.jpg`], "자사몰 · 상세 서버 사진만, 받은 것만");
+  assert.deepEqual(r.results, [
+    { sku: "8601-1", url: `${CJ}a_01.jpg`, box: [100, 200, 400, 600], score: 92, why: "골드 링" },
+    { sku: "8601-2", url: `${MALL}0310.jpg`, box: null, score: 55, why: "" },
+    { sku: "8601-3", url: "", box: null, score: 90, why: "" },
+  ], "옵션 번호 → 셀피아코드 · 없는 사진 번호는 빈칸 · 없는 옵션 번호 무시");
+  assert.equal(seen.model, "claude-sonnet-5-5", "허용된 모델만 바꿀 수 있음");
+  assert.equal(seen.messages[0].content.filter((c) => c.type === "image").length, 2);
+  assert.match(seen.messages[0].content[0].text, /1\. 8601-1 · 골드\[PB-1-01\]/);
+  assert.ok(!JSON.stringify(seen).includes("evil.example"));
+  assert.equal(g.post({ action: "optionPhotoAi", token: TOKEN, model: "gpt", options: [{ sku: "1-1" }], images: [`${MALL}a.jpg`] }).ok, true);
+  assert.equal(seen.model, "claude-haiku-5-5", "모르는 모델 → 기본");
+  assert.equal(JSON.parse(g.properties.AI_USAGE)[Object.keys(JSON.parse(g.properties.AI_USAGE))[0]].kinds["옵션사진"], 2, "사용량 기록");
+  console.log("csBoard.mock.test (optionPhotoAi v15): OK");
 }
 
 // v14 XX 표시: 통째로 바꿔 저장 · 대문자 · 같은 코드 한 번

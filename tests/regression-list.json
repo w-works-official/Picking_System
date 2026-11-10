@@ -85,5 +85,6 @@
   "productBoard.mock.test.mjs",
   "productFinder.mock.test.mjs",
   "photoSearch.mock.test.mjs",
-  "inspectionBarChangeMemo.contract.test.mjs"
+  "inspectionBarChangeMemo.contract.test.mjs",
+  "vendorOrderCols.contract.test.mjs"
 ]

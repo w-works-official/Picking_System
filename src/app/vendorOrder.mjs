@@ -9,8 +9,10 @@ const MEMO_KEY = "system_v3_cs_vendor_memo";
 export const DEFAULT_ORDER_MEMO = "• 전달된 실수량 꼭 필요 부탁드립니다\n• 단가 다를시 꼭 말씀 부탁드립니다\n감사합니다 ☺";
 const PASTE_GAP_MS = 1500;
 const FONT = "'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif";
-// 11-06: 엑셀과 같은 칸 — 사진 · 옵션명 · 발주량 · 임의필드 · 매입가 · 상품코드 (발주량 칸 노랑 = 급한 상품)
-const COLS = [
+// 11-06: 엑셀과 같은 칸 — 순번 · 사진 · 옵션명 · 발주량 · 임의필드 · 매입가 · 상품코드 (A~G열, 발주량 칸 노랑 = 급한 상품)
+//  11-10: A열 순번 꼭 포함 (업체와 줄 번호로 확인)
+export const COLS = [
+  { key: "no", title: "순번", w: 64 },
   { key: "photo", title: "사진", w: 176 },
   { key: "option", title: "옵션명", w: 260 },
   { key: "qty", title: "발주량", w: 92 },
@@ -77,8 +79,8 @@ export async function renderVendorTable(document, { vendor, lines, memo = "", im
       } else {
         const qty = col.key === "qty";
         if (qty && line.urgent) { g.fillStyle = "#ffff00"; g.fillRect(x + 1, y + 1, col.w - 2, rowH - 2); }   // 급한 상품 (엑셀 노랑 그대로)
-        const small = col.key === "price" || col.key === "code";
-        g.font = qty ? `900 26px ${FONT}` : col.key === "extra" ? `800 16px ${FONT}` : small ? `500 15px ${FONT}` : `500 16px ${FONT}`;
+        const small = col.key === "price" || col.key === "code" || col.key === "no";
+        g.font = qty ? `900 26px ${FONT}` : col.key === "no" ? `800 18px ${FONT}` : col.key === "extra" ? `800 16px ${FONT}` : small ? `500 15px ${FONT}` : `500 16px ${FONT}`;
         g.fillStyle = qty ? "#111827" : col.key === "extra" ? "#dc2626" : "#111827";
         g.textAlign = qty || small ? "center" : "left";
         const tx = g.textAlign === "center" ? x + col.w / 2 : x + 8;

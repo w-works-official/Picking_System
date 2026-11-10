@@ -660,6 +660,6 @@ if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]"
   const storage = (() => { try { return window.localStorage; } catch { return null; } })();
   document.querySelectorAll("[data-msn-panel]").forEach((root) => {
     const inst = mountMsnSlots({ document, window, storage, root });
-    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261106-batch1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
+    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261110-seq1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
   });
 }

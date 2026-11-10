@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 18 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 19 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 18);
+  assert.equal(g5.get().version, 19);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -1032,6 +1032,33 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.deepEqual(log.data[1].slice(1, 6), ["시험", 4, "I", "14K 스컬프 링", "14K 스컬프 원터치 링"], "고친 기록 (전 값 · 새 값)");
   assert.equal(log.data.length, 1 + 2 + 2 + 2, "머리글 + 고친 칸 2 + 새 줄 칸 2 + 2");
   console.log("csBoard.mock.test (new products v17): OK");
+}
+
+// v19 반품기록 메모: 카드 추가 · 고치기(먼저 고친 것 보호) · 삭제 표시
+{
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN } });
+  assert.equal(g.post({ action: "retList", token: "wrong" }).denied, true);
+  assert.deepEqual(g.post({ action: "retList", token: TOKEN }).items, []);
+  const a = g.post({ action: "retSave", token: TOKEN, who: "홍길동 / 20261110-1", item: "14K 링", reason: "사이즈\n안 맞음", status: "접수", memo: "=1+1", editor: "시험" });
+  assert.equal(a.ok, true);
+  assert.match(a.item.id, /^R\d{12}\d{2}$/);
+  assert.deepEqual([a.item.who, a.item.reason, a.item.memo, a.item.status, a.item.by], ["홍길동 / 20261110-1", "사이즈\n안 맞음", "=1+1", "접수", "시험"], "줄바꿈 · 수식 글자 그대로 (글자로 저장)");
+  const tab = g.sheets.find((sh) => sh.getName() === "반품기록");
+  assert.equal(JSON.stringify(tab.data[0].slice(0, 3)), JSON.stringify(["ID", "작성 시각", "수정 시각"]));
+  const b = g.post({ action: "retSave", token: TOKEN, id: a.item.id, base: a.item.version, status: "회수 중", memo: "택배 접수함", editor: "다른 사람" });
+  assert.deepEqual([b.ok, b.item.status, b.item.memo, b.item.editor, b.item.who], [true, "회수 중", "택배 접수함", "다른 사람", "홍길동 / 20261110-1"], "보낸 칸만 바뀜");
+  const stale = g.post({ action: "retSave", token: TOKEN, id: a.item.id, base: a.item.version, memo: "덮어쓰기" });
+  assert.deepEqual([stale.ok, stale.conflict, stale.item.memo], [false, true, "택배 접수함"], "먼저 고친 것 보호");
+  assert.equal(g.post({ action: "retSave", token: TOKEN, id: a.item.id, base: b.item.version, status: "없는 단계" }).item.status, "회수 중", "정해진 단계만");
+  g.post({ action: "retSave", token: TOKEN, who: "두 번째" });
+  const l = g.post({ action: "retList", token: TOKEN });
+  assert.equal(l.items.length, 2);
+  assert.equal(JSON.stringify(l.statuses), JSON.stringify(["접수", "회수 중", "도착·검수", "환불 완료", "교환 발송", "끝"]));
+  const cur = l.items.find((x) => x.id === a.item.id);
+  assert.equal(g.post({ action: "retSave", token: TOKEN, id: a.item.id, base: cur.version, remove: true }).removed, true);
+  assert.deepEqual(g.post({ action: "retList", token: TOKEN }).items.map((x) => x.who), ["두 번째"], "삭제 표시는 목록에서 빠짐");
+  assert.equal(tab.data.length, 3, "줄은 남김");
+  console.log("csBoard.mock.test (returns v19): OK");
 }
 
 // v14 XX 표시: 통째로 바꿔 저장 · 대문자 · 같은 코드 한 번

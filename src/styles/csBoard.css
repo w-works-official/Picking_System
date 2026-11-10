@@ -2283,3 +2283,40 @@ a.cs-btn {
 .sp-upbtn { cursor: pointer; }
 .sp-upbtn.is-busy { opacity: .5; pointer-events: none; }
 .sp.is-drag { outline: 3px dashed #0891b2; outline-offset: -6px; background: #ecfeff; }
+
+/* ↩ 반품기록 (11-10) */
+.cs-left-tab.tab-ret { background: #ffe4e6; color: #be123c; }
+.cs-left-tab.tab-ret.active { background: #e11d48; color: #ffffff; }
+.cs-right-title[data-tone="ret"] { color: #e11d48; }
+.cs-right-panel[data-right-panel="ret"] { grid-template-rows: minmax(0, 1fr); }
+.rt { min-height: 0; overflow-y: auto; display: grid; align-content: start; gap: 10px; padding: 0 12px 16px; min-width: 0; }
+.rt-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; background: #fff; border-bottom: 1px solid #fecdd3; }
+.rt-q { flex: 1 1 220px; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; font-size: 14px; }
+.rt-seg { display: inline-flex; flex-wrap: wrap; border: 1px solid #fecdd3; border-radius: 8px; overflow: hidden; }
+.rt-seg button { border: 0; background: #fff; padding: 6px 10px; font: inherit; font-size: 12.5px; font-weight: 800; color: #9f1239; cursor: pointer; }
+.rt-seg button.is-on { background: #e11d48; color: #fff; }
+.rt-msg { margin: 0; font-size: 12.5px; font-weight: 700; color: #be123c; }
+.rt-msg:empty { display: none; }
+.rt-msg.is-ok { color: #047857; }
+.rt-count { margin: 0; font-size: 12px; font-weight: 700; color: #64748b; }
+.rt-empty { margin: 16px 4px; font-size: 13px; font-weight: 700; color: #64748b; }
+.rt-empty.is-bad { color: #b91c1c; }
+.rt-card { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid #fecdd3; border-left: 4px solid #e11d48; border-radius: 10px; background: #fff; }
+.rt-card.is-done { border-left-color: #94a3b8; background: #f8fafc; }
+.rt-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rt-status { padding: 2px 8px; border-radius: 999px; background: #ffe4e6; color: #be123c; font-size: 12px; }
+.rt-card.is-done .rt-status { background: #e2e8f0; color: #475569; }
+.rt-head small { color: #64748b; font-size: 11.5px; }
+.rt-state { color: #0f766e !important; font-weight: 700; }
+.rt-del { border: 0; background: none; cursor: pointer; font-size: 15px; opacity: .6; }
+.rt-del:hover { opacity: 1; }
+.rt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 6px 10px; }
+.rt-f { display: grid; gap: 2px; min-width: 0; }
+.rt-f.is-multi { grid-column: span 2; }
+.rt-f > span { font-size: 11.5px; font-weight: 800; color: #9f1239; }
+.rt-f input, .rt-f textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff7f8; font: inherit; font-size: 13.5px; resize: vertical; }
+.rt-f input:focus, .rt-f textarea:focus { outline: 2px solid #fb7185; background: #fff; }
+.rt-steps { display: flex; flex-wrap: wrap; gap: 4px; }
+.rt-steps button { padding: 4px 10px; border: 1px solid #fecdd3; border-radius: 999px; background: #fff; font: inherit; font-size: 12px; font-weight: 700; color: #9f1239; cursor: pointer; }
+.rt-steps button.is-on { background: #e11d48; border-color: #e11d48; color: #fff; }
+@media (max-width: 600px) { .rt-f.is-multi { grid-column: auto; } .rt-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -933,6 +933,21 @@ console.log("csBoard.mock.test (ss board api): OK");
   console.log("csBoard.mock.test (ship photos v16): OK");
 }
 
+// v16 배송사진: 반디캠 이름(2026-11-06 17-04-45-823) · 같은 초는 사진(송장) 먼저 · 이름 바뀐 뒤에도 순서 그대로 (11-10 실제 폴더 형식)
+{
+  const up = new Date("2026-11-10T05:35:00Z");   // 올린 시각은 뒤죽박죽 → 이름 속 시각으로
+  const b = (n, ext) => ({ id: n + ext, name: `bandicam 2026-11-06 ${n}.${ext}`, mime: ext === "jpg" ? "image/jpeg" : "video/mp4", created: up });
+  const drive = { folderId: "1LKwNxSdQt1o2A2TVnqv9qOn9yFQ1ZHij", files: [b("17-06-41-310", "mp4"), b("17-06-41-357", "jpg"), b("16-58-42-882", "mp4"), b("16-59-59-029", "mp4"), b("16-59-58-746", "jpg"), b("17-08-03-141", "mp4"), b("17-08-02-984", "jpg")] };
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, CLAUDE_KEY: "k" }, drive, claude: () => ({ status: 200, text: '{"photos":[{"n":1,"invoice":true,"name":"가나다","score":90},{"n":2,"invoice":true,"name":"라마","score":90},{"n":3,"invoice":false,"name":"","score":90}]}' }) });
+  const order = ["16-58-42-882mp4", "16-59-58-746jpg", "16-59-59-029mp4", "17-06-41-357jpg", "17-06-41-310mp4", "17-08-02-984jpg", "17-08-03-141mp4"];
+  assert.deepEqual(g.post({ action: "shipList", token: TOKEN }).files.map((f) => f.id), order, "이름 속 시각 · 같은 초는 사진 먼저");
+  assert.equal(g.post({ action: "shipList", token: TOKEN }).files[1].t, "20261106165958");
+  const s = g.post({ action: "shipScan", token: TOKEN });
+  assert.deepEqual(s.results.map((r) => r.name), ["bandicam 2026-11-06 16-59-58-746_가나다.jpg", "bandicam 2026-11-06 17-06-41-357_라마.jpg", "bandicam 2026-11-06 17-08-02-984.jpg"]);
+  assert.deepEqual(g.post({ action: "shipList", token: TOKEN }).files.map((f) => f.id), order, "이름 바뀐 뒤에도 순서 그대로");
+  console.log("csBoard.mock.test (ship photos bandicam v16): OK");
+}
+
 // v14 XX 표시: 통째로 바꿔 저장 · 대문자 · 같은 코드 한 번
 {
   const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN } });

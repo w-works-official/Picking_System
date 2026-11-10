@@ -1688,11 +1688,13 @@ function shipKnown_() {
 }
 
 // 파일 이름 · 만든 시각 → 정렬 시각 (휴대폰 이름 20261110_143012 · IMG_20261110_143012 · PXL_20261110_143012345 우선)
-function shipTimeKey_(name, created) {
-  var m = /(20\d{2})(\d{2})(\d{2})[_\-\s]?(\d{2})(\d{2})(\d{2})/.exec(String(name || ''));
-  if (m) return m[1] + m[2] + m[3] + m[4] + m[5] + m[6];
-  return Utilities.formatDate(created, 'Asia/Seoul', 'yyyyMMddHHmmss');
+// 이름 속 시각: 20261110_143012 · 2026-11-06 17-04-45-823 (반디캠) · IMG_20261110_143012 → yyyyMMddHHmmss (+ 밀리초)
+function shipTimeParts_(name, created) {
+  var m = /(20\d{2})[-._]?(\d{2})[-._]?(\d{2})[_\-\s.T]?(\d{2})[-._:]?(\d{2})[-._:]?(\d{2})(?:[-._](\d{1,3}))?/.exec(String(name || ''));
+  if (m) return { t: m[1] + m[2] + m[3] + m[4] + m[5] + m[6], ms: Number(m[7] || 0) };
+  return { t: Utilities.formatDate(created, 'Asia/Seoul', 'yyyyMMddHHmmss'), ms: 0 };
 }
+function shipTimeKey_(name, created) { return shipTimeParts_(name, created).t; }
 
 function shipFiles_() {
   var root = DriveApp.getFolderById(prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT);
@@ -1705,13 +1707,15 @@ function shipFiles_() {
       var kind = /^image\//.test(mime) ? 'photo' : /^video\//.test(mime) ? 'video' : '';
       if (!kind) continue;
       var created = f.getDateCreated();
-      out.push({ id: f.getId(), name: f.getName(), kind: kind, mime: mime, size: f.getSize(), folder: sub, t: shipTimeKey_(f.getName(), created) });
+      var tp = shipTimeParts_(f.getName(), created);
+      out.push({ id: f.getId(), name: f.getName(), kind: kind, mime: mime, size: f.getSize(), folder: sub, t: tp.t, ms: tp.ms });
     }
   };
   add(root, '');
   var subs = root.getFolders();
   while (subs.hasNext()) { var sf = subs.next(); add(sf, sf.getName()); }
-  out.sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
+  // 같은 초에 찍힌 사진·동영상은 사진(송장) 먼저 — 반디캠은 캡처와 녹화가 같은 초에 시작됨
+  out.sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : a.kind !== b.kind ? (a.kind === 'photo' ? -1 : 1) : a.ms !== b.ms ? a.ms - b.ms : (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
   return out;
 }
 

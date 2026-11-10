@@ -4,7 +4,7 @@
 //  · 🤖 Claude: 그 줄 정보를 복사하고 Claude 대화를 엶 (주소는 ⚙ 에서 바꿈 — 이 기기에만 저장)
 //  · 비밀번호는 CS 관리 화면과 같은 것 (이 브라우저에 한 번 넣으면 같이 씀)
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261105-point1";
-import { ADD_FIELDS, CLAUDE_URL_DEFAULT, COL, MAIN_FIELDS, MULTILINE, STEPS, claudeLink, claudePrompt, colName, filterRows, isHtml, labelOf, preview, stepsOf } from "../domain/newProducts.mjs?v=20261110-new1";
+import { ADD_FIELDS, CLAUDE_URL_DEFAULT, COL, MAIN_FIELDS, MULTILINE, STEPS, claudeLink, claudePrompt, colName, filterRows, isHtml, labelOf, preview, stepsOf } from "../domain/newProducts.mjs?v=20261110-new2";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const URL_KEY = "system_v3_new_claude_url";

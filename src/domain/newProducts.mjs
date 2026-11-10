@@ -21,11 +21,14 @@ export const ADD_FIELDS = [COL.folder, COL.check, COL.option, COL.name, COL.buyO
 
 export const colName = (c) => { let s = ""; let n = c + 1; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 
-// 머리글 → 짧은 이름 (시트 머리글의 첫 낱말 묶음, 너무 길면 자름)
-const SHORT = { [COL.folder]: "제품폴더", [COL.option]: "옵션", [COL.name]: "제품명", [COL.cost]: "매입가", [COL.ratio]: "배율", [COL.vendor]: "매입처", [COL.memo]: "메모", [COL.check]: "체크 항목", [COL.feature]: "제품 특징", [COL.model]: "모델 착용", [COL.buyOption]: "매입옵션명", [COL.minOrder]: "최소발주", [COL.price]: "소비자가", [COL.barcode]: "바코드(등록일)", [COL.orderUnit]: "발주단위" };
+// 칸 이름: 시트 2~3줄은 예시 상품이라 머리글로 못 씀 → 알려진 칸은 정해 둔 이름, 그 밖(AE~)만 시트 1줄 머리글
+const NAMES = ["", "브랜드", "이미지", "제품폴더", "체크 항목", "옵션", "제품 특징", "모델 착용", "제품명", "매입옵션명",
+  "발주단위", "최소발주", "매입가", "소비자가", "배율", "매입처", "기타", "임의필드", "바코드(등록일)",
+  "HTML 메이크샵", "HTML 스스", "HTML 에이블리", "직진배송", "셀피아코드", "자사코드", "메모",
+  "셀피아 추가정보", "스스 추가상품", "에이블리 직접입력옵션", "메이크샵 등록"];
 export function labelOf(labels = [], c) {
-  if (SHORT[c]) return SHORT[c];
-  const t = String(labels[c] || "").replace(/\s+/g, " ").trim();
+  if (NAMES[c]) return NAMES[c];
+  const t = String(labels[c] || "").split(/\n/)[0].replace(/\s+/g, " ").trim();
   if (!t) return `${colName(c)}열`;
   return t.length > 18 ? `${t.slice(0, 18)}…` : t;
 }

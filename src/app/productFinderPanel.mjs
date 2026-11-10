@@ -5,9 +5,9 @@
 //     · 저장 = 허브 product-images/sellpia/코드.__sub1~3.jpg (보조사진) — 마스터 사진은 그대로, ☆ 로 맞바꾸기
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261106-remote1";
 import { buildCatalog, initialSlots, searchCatalog } from "../domain/productFinder.mjs?v=20261107-finder1";
-import { DIM, MODEL_ID, chunkText, decodeIndex, encodeIndex, keywordSearch, percentOf, refreshPlan, searchIndex } from "../domain/photoSearch.mjs?v=20261107-finder2";
+import { DIM, FINDER_TOPS, MODEL_ID, chunkText, decodeIndex, encodeIndex, keywordSearch, percentOf, refreshPlan, searchIndex, searchProducts } from "../domain/photoSearch.mjs?v=20261110-finder3";
 import { BUCKET, FOLDER, HUB_KEY, HUB_URL, SUB_SLOTS, listSubs, masterCandidates, nextEmpty, publicUrl, putPhoto, registerPlan, removePhoto, subName, swapMaster, toJpeg } from "../domain/subPhotos.mjs?v=20261107-finder1";
-import { embed, encodeVec, loadEmbedder, toTensorData } from "./photoEmbedder.mjs?v=20261107-finder2";
+import { embed, encodeVec, loadEmbedder, toTensorData } from "./photoEmbedder.mjs?v=20261110-finder3";
 
 const PAGE = 1000;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -46,10 +46,13 @@ export function mountProductFinder({ document, window, fetchImpl = (...a) => win
   if (!root) return null;
   const st = {
     mode: "search", catalog: [],
-    idx: null, idxMeta: null, idxNote: "", idxLoading: null, query: null, hits: [], searching: false, searchNote: "",
+    idx: null, idxMeta: null, idxNote: "", idxLoading: null, query: null, hits: [], products: [], lastQs: null, topN: 5, searching: false, searchNote: "",
     ai: null, build: null, loading: false, loaded: false, q: "", results: [],
     item: null, saved: [], slots: initialSlots([], SUB_SLOTS), busy: false, cam: null, facing: "environment",
   };
+  const TOP_KEY = "system_v3_finder_top";
+  for (const store of [...storages].reverse()) { try { const v = Number(store?.getItem?.(TOP_KEY)); if (FINDER_TOPS.includes(v)) { st.topN = v; break; } } catch { /* 저장소 없음 */ } }
+  const saveTop = () => { for (const store of storages) { try { store?.setItem?.(TOP_KEY, String(st.topN)); } catch { /* 저장 안 됨 */ } } };
   root.innerHTML = `
     <div class="pf-modes" role="tablist">
       <button type="button" data-pf-mode="search" class="is-on">🔍 사진으로 찾기</button>
@@ -216,6 +219,7 @@ export function mountProductFinder({ document, window, fetchImpl = (...a) => win
         <div class="pf-query-txt">
           <b>찾는 사진</b>
           <span class="pf-msg ${st.searchNote.startsWith("⚠") ? "is-bad" : ""}">${esc(st.searchNote)}</span>
+          <span class="pf-tops" role="group" aria-label="보여줄 상품 수">비슷한 상품 ${FINDER_TOPS.map((n) => `<button type="button" data-pf-top="${n}" class="${n === st.topN ? "is-on" : ""}">${n}개</button>`).join("")}</span>
           <button type="button" class="pf-btn pf-btn-ai" data-pf-ai-go ${canAi ? "" : "disabled"} title="${csToken() ? "자체 찾기 상위 후보를 AI 가 다시 골라 줍니다" : "CS 관리에서 시트에 연결한 브라우저에서 됩니다"}">${st.ai?.busy ? "🤖 AI 보는 중…" : "🤖 AI 추천"}</button>
         </div>`;
     }
@@ -230,18 +234,33 @@ export function mountProductFinder({ document, window, fetchImpl = (...a) => win
       }
     }
     const aiCodes = new Map((ai?.picks || []).map((p, i) => [p.code, i + 1]));
-    const rows = [...st.hits].sort((a, b) => (aiCodes.get(a.code) || 99) - (aiCodes.get(b.code) || 99));
-    const card = (code, photoUrl, pct, extra = "") => {
+    const rankOf = (p) => Math.min(99, ...p.codes.map((c) => aiCodes.get(c) || 99));
+    const rows = [...st.products].sort((a, b) => rankOf(a) - rankOf(b));
+    const productCard = (p, i) => {
+      const code = p.best.code;
       const it = itemOf(code);
-      const rank = aiCodes.get(code);
-      return `<div class="pf-shit${rank ? " is-ai" : ""}">
-        <img src="${esc(photoUrl)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
-        <span class="pf-hit-txt"><b>${esc(code)}${it?.own && it.sku === code ? ` <small>${esc(it.own)}</small>` : ""}</b><em>${esc(it ? `${it.name}${it.sku === code && it.option ? ` · ${it.option}` : ""}` : "(상품 목록에 없음)")}</em>${it && it.sku === code ? `<em>재고 ${fmt(it.stock)}</em>` : ""}</span>
-        <span class="pf-shit-side">${rank ? `<em class="pf-ai-tag">🤖 ${rank}순위</em>` : ""}${pct !== null ? `<b class="pf-pct">${pct}%</b>` : ""}${extra}${it && it.sku === code ? `<button type="button" class="pf-btn pf-btn-mini" data-pf-toreg="${esc(code)}">사진 등록</button>` : ""}</span>
+      const rank = rankOf(p) < 99 ? rankOf(p) : 0;
+      const thumbs = p.photos.slice(1).map((x) => `<a href="${esc(publicUrl(x.name))}" target="_blank" rel="noopener" title="${esc(x.code)} · ${percentOf(x.score)}%"><img src="${esc(publicUrl(x.name))}" alt="" loading="lazy" onerror="this.parentNode.remove()"></a>`).join("");
+      return `<div class="pf-shit pf-prod${rank ? " is-ai" : ""}">
+        <span class="pf-prod-no">${i + 1}</span>
+        <img src="${esc(publicUrl(p.best.name))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        <span class="pf-hit-txt"><b>${esc(p.product)}${it?.own ? ` <small>${esc(it.own)}</small>` : ""}</b><em>${esc(it ? it.name : "(상품 목록에 없음)")}</em>
+          <em class="pf-prod-sub">가장 닮은 사진 ${esc(code)}${it && it.sku === code && it.option ? ` · ${esc(it.option)}` : ""} · 이 상품 사진 ${p.count}장 비교</em>
+          ${thumbs ? `<span class="pf-prod-thumbs">${thumbs}</span>` : ""}</span>
+        <span class="pf-shit-side">${rank ? `<em class="pf-ai-tag">🤖 ${rank}순위</em>` : ""}<b class="pf-pct">${percentOf(p.score)}%</b>${it && it.sku === code ? `<button type="button" class="pf-btn pf-btn-mini" data-pf-toreg="${esc(code)}">사진 등록</button>` : ""}</span>
       </div>`;
     };
-    const kwRows = (ai?.kwHits || []).filter((it) => !st.hits.some((h) => h.code === it.sku)).map((it) => card(it.sku, publicUrl(masterCandidates(it.sku)[4] || ""), null, `<em class="pf-ai-tag is-kw">AI 낱말</em>`));
-    list.innerHTML = rows.map((h) => card(h.code, publicUrl(h.name), percentOf(h.score))).join("") + kwRows.join("");
+    const card = (code, photoUrl, extra = "") => {
+      const it = itemOf(code);
+      return `<div class="pf-shit">
+        <img src="${esc(photoUrl)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        <span class="pf-hit-txt"><b>${esc(code)}${it?.own && it.sku === code ? ` <small>${esc(it.own)}</small>` : ""}</b><em>${esc(it ? `${it.name}${it.sku === code && it.option ? ` · ${it.option}` : ""}` : "(상품 목록에 없음)")}</em>${it && it.sku === code ? `<em>재고 ${fmt(it.stock)}</em>` : ""}</span>
+        <span class="pf-shit-side">${extra}${it && it.sku === code ? `<button type="button" class="pf-btn pf-btn-mini" data-pf-toreg="${esc(code)}">사진 등록</button>` : ""}</span>
+      </div>`;
+    };
+    const shownCodes = new Set(st.products.flatMap((p) => p.codes));
+    const kwRows = (ai?.kwHits || []).filter((it) => !shownCodes.has(it.sku)).map((it) => card(it.sku, publicUrl(masterCandidates(it.sku)[4] || ""), `<em class="pf-ai-tag is-kw">AI 낱말</em>`));
+    list.innerHTML = rows.map(productCard).join("") + kwRows.join("");
   }
 
   async function loadIndex({ force = false } = {}) {
@@ -293,7 +312,7 @@ export function mountProductFinder({ document, window, fetchImpl = (...a) => win
     if (st.query?.url) window.URL?.revokeObjectURL?.(st.query.url);
     const blob = blobOrBitmap instanceof Blob ? blobOrBitmap : await toJpeg(blobOrBitmap, { document, max: 1024 });
     st.query = { blob, url: window.URL.createObjectURL(blob) };
-    st.hits = []; st.ai = null; st.searching = true;
+    st.hits = []; st.products = []; st.lastQs = null; st.ai = null; st.searching = true;
     st.searchNote = "준비 중… (처음 한 번은 계산 도구 · 색인을 받느라 조금 걸립니다)";
     renderSearch();
     try {
@@ -303,8 +322,10 @@ export function mountProductFinder({ document, window, fetchImpl = (...a) => win
       const bmp = await createImageBitmap(blob);
       const qs = await embed(engine, [toTensorData(bmp, { document }), toTensorData(bmp, { document, crop: 0.7 })]);
       const t0 = Date.now();
-      st.hits = searchIndex(idx, qs, { limit: 30 });
-      st.searchNote = `사진 ${fmt(idx.names.length)}장과 비교 · ${Date.now() - t0}ms — 맞는 상품이 없으면 [🤖 AI 추천]`;
+      st.hits = searchIndex(idx, qs, { limit: 30 });   // 🤖 AI 추천 후보 (옵션 코드 단위)
+      st.lastQs = qs;
+      st.products = searchProducts(idx, qs, { limit: st.topN });
+      st.searchNote = `사진 ${fmt(idx.names.length)}장(마스터 + 보조)과 비교 · 닮은 상품 ${st.products.length}개 · ${Date.now() - t0}ms — 맞는 상품이 없으면 [🤖 AI 추천]`;
     } catch (error) {
       st.searchNote = `⚠ ${error.message}`;
     } finally {
@@ -615,6 +636,11 @@ export function mountProductFinder({ document, window, fetchImpl = (...a) => win
     else if (b.matches("[data-pf-scamoff]")) camOff();
     else if (b.matches("[data-pf-sflip]")) { st.facing = st.facing === "environment" ? "user" : "environment"; camOn("search"); }
     else if (b.matches("[data-pf-sshot]")) searchShot();
+    else if (b.dataset.pfTop) {
+      st.topN = Number(b.dataset.pfTop) || 5; saveTop();
+      if (st.idx && st.lastQs) st.products = searchProducts(st.idx, st.lastQs, { limit: st.topN });
+      renderSearch();
+    }
     else if (b.matches("[data-pf-ai-go]")) aiRecommend();
     else if (b.matches("[data-pf-build]")) buildIndex();
     else if (b.matches("[data-pf-bstop]")) { if (st.build) st.build.stop = true; }

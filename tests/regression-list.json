@@ -88,5 +88,6 @@
   "inspectionBarChangeMemo.contract.test.mjs",
   "vendorOrderCols.contract.test.mjs",
   "photoUpload.mock.test.mjs",
-  "shipPhotos.mock.test.mjs"
+  "shipPhotos.mock.test.mjs",
+  "finderProducts.mock.test.mjs"
 ]

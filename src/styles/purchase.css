@@ -1135,3 +1135,20 @@ body.purchase-workspace {
   .pb-filters label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 }
 .product-board > *, .pb-top > *, .pb-conds > * { min-width: 0; }
+
+/* 11-10 상품찾기: 닮은 상품 3/5/10개 (마스터 + 보조 사진 묶어서) */
+.pf-tops { display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: 12px; color: #4b5563; }
+.pf-tops button { height: 28px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 999px; background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.pf-tops button.is-on { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+.pf-shit.pf-prod { grid-template-columns: 22px 88px minmax(0, 1fr) auto; }
+.pf-shit.pf-prod > img { width: 88px; height: 88px; }
+.pf-prod-no { width: 22px; height: 22px; border-radius: 50%; background: #1d4ed8; color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+.pf-prod-sub { font-size: 11px; color: #6b7280; }
+.pf-prod-thumbs { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.pf-prod-thumbs img { width: 40px; height: 40px; object-fit: cover; border-radius: 6px; background: #f3f4f6; border: 1px solid #e5e7eb; }
+@media (max-width: 600px) {
+  .pf-shit.pf-prod { grid-template-columns: 64px minmax(0, 1fr); }
+  .pf-shit.pf-prod > .pf-prod-no { display: none; }
+  .pf-shit.pf-prod > img { width: 64px; height: 64px; }
+  .pf-shit.pf-prod > .pf-shit-side { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+}

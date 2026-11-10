@@ -168,6 +168,47 @@ export function searchIndex(index, queries = [], { limit = 30, center = true } =
   return [...best.values()].sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+// ---------- 11-10 상품 단위 찾기: 마스터 + 보조 사진을 한 상품으로 묶어 닮은 순 ----------
+//  · 상품 = 셀피아 코드의 옵션 번호를 뗀 것 (8601-2 → 8601, 8601 → 8601)
+//  · 상품 점수 = 가장 닮은 사진 80% + 두 번째로 닮은 사진 20% (사진이 1장이면 그 사진 점수)
+//    → 마스터·보조 여러 장이 고루 닮은 상품이, 한 장만 우연히 닮은 상품보다 위로
+export const productOf = (code) => String(code || "").replace(/-\d+$/, "");
+export const FINDER_TOPS = [3, 5, 10];
+
+export function searchProducts(index, queries = [], { limit = 5, photos = 4, center = true } = {}) {
+  const n = index.names?.length || 0;
+  const useC = center && index.mean && n > 1;
+  const qInfo = queries.map((q) => {
+    if (!useC) return { q, qm: 0, qn: 1 };
+    let qm = 0;
+    for (let k = 0; k < DIM; k++) qm += q[k] * index.mean[k];
+    return { q, qm, qn: Math.sqrt(Math.max(1e-9, 1 - 2 * qm + index.mm)) };
+  });
+  const groups = new Map(); // product → [{ name, code, score }]
+  for (let i = 0; i < n; i++) {
+    const base = i * DIM;
+    let top = -1;
+    for (const { q, qm, qn } of qInfo) {
+      let s = 0;
+      for (let k = 0; k < DIM; k++) s += q[k] * index.vecs[base + k];
+      s /= index.norms[i];
+      if (useC) s = (s - qm - index.xm[i] + index.mm) / (qn * index.cnorm[i]);
+      if (s > top) top = s;
+    }
+    const code = codeOfPhoto(index.names[i]);
+    const product = productOf(code);
+    if (!groups.has(product)) groups.set(product, []);
+    groups.get(product).push({ name: index.names[i], code, score: top });
+  }
+  const out = [];
+  for (const [product, list] of groups) {
+    list.sort((a, b) => b.score - a.score);
+    const s1 = list[0].score, s2 = list.length > 1 ? list[1].score : s1;
+    out.push({ product, score: 0.8 * s1 + 0.2 * s2, best: list[0], photos: list.slice(0, photos), count: list.length, codes: [...new Set(list.map((x) => x.code))] });
+  }
+  return out.sort((a, b) => b.score - a.score || a.product.localeCompare(b.product, "en", { numeric: true })).slice(0, limit);
+}
+
 // 비교 점수(가운데 맞춘 -1~1) → 화면 % (0.1 이하 0%, 0.8 이상 100%)
 export const percentOf = (score) => Math.max(0, Math.min(100, Math.round(((score - 0.1) / 0.7) * 100)));
 

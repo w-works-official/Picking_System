@@ -1,7 +1,7 @@
 // 🔍 사진 특징값 계산 (2026-11-07) — 기기 안에서 MobileNetV2 실행 (AI 서비스 · 키 · 비용 없음)
 //  · 계산 도구 onnxruntime-web(jsdelivr, 버전 고정)과 모델(4.4MB, 이 사이트 assets)은 [사진으로 찾기]를 처음 쓸 때만 받음
 //  · 다른 화면(피킹·검품·주문 검색)에서는 아무것도 받지 않음
-import { DIM_IN, project, quantize, bytesToB64 } from "../domain/photoSearch.mjs?v=20261107-finder2";
+import { DIM_IN, project, quantize, bytesToB64 } from "../domain/photoSearch.mjs?v=20261110-finder3";
 
 export const ORT_VERSION = "1.20.1";
 export const ORT_BASE = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${ORT_VERSION}/dist/`;

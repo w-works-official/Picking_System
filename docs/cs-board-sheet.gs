@@ -1570,8 +1570,8 @@ function photoAi_(body) {
 // ---------- v15 옵션 사진 짝짓기 (상품 옵션 ↔ 자사몰 사진, 2026-11-10) ----------
 // 자사몰 상품 사진(대표 · 상세)을 시트가 직접 받아 AI 에게 옵션 목록과 같이 보여 주고,
 // 옵션마다 맞는 사진 번호 + (여러 옵션이 함께 있는 사진이면) 그 옵션 자리(box, 0~1000 비율)를 받음.
-// 사진 주소는 자사몰(pink-rocket.com) · 상세 사진 서버(pink_rocket.cooljem.com)만. 저장은 하지 않음 (화면이 잘라서 올림)
-var OPTION_PHOTO_HOSTS = /^https:\/\/(www\.)?pink-rocket\.com\/|^https:\/\/pink_rocket\.cooljem\.com\//;
+// 사진 주소는 자사몰(pink-rocket.com) · 상세 사진 서버(pink_rocket.cooljem.com) · 허브 검토 폴더(sellpia/_pilot/ — 긴 상세 사진을 화면이 잘라 올린 조각)만. 저장은 하지 않음
+var OPTION_PHOTO_HOSTS = /^https:\/\/(www\.)?pink-rocket\.com\/|^https:\/\/pink_rocket\.cooljem\.com\/|^https:\/\/bpgvqmtsjgegnrdzmpep\.supabase\.co\/storage\/v1\/object\/public\/product-images\/sellpia\/_pilot\//;
 var OPTION_PHOTO_MODELS = ['claude-haiku-5-5', 'claude-sonnet-5-5'];
 function optionPhotoAi_(body) {
   var apiKey = prop_('CLAUDE_KEY');
@@ -1580,7 +1580,7 @@ function optionPhotoAi_(body) {
     return { sku: plain_(clean_(o && o.sku, 40)), label: plain_(clean_(o && o.label, 120)) };
   }).filter(function (o) { return o.sku; });
   if (!opts.length) return { ok: false, error: '옵션이 없습니다' };
-  var urls = (Array.isArray(body.images) ? body.images : []).slice(0, 12).map(url_).filter(function (u) { return OPTION_PHOTO_HOSTS.test(u); });
+  var urls = (Array.isArray(body.images) ? body.images : []).slice(0, 24).map(url_).filter(function (u) { return OPTION_PHOTO_HOSTS.test(u); });
   if (!urls.length) return { ok: false, error: '자사몰 사진 주소가 없습니다' };
   var reserved = withLock_(function () { return reserveAi_(1); });
   if (!reserved.allow) return { ok: false, error: '오늘 AI 사용 한도(' + reserved.limit + '회)를 다 썼습니다.' };
@@ -1594,8 +1594,8 @@ function optionPhotoAi_(body) {
     var blob = res.getBlob();
     var bytes = blob.getBytes();
     if (!bytes.length || bytes.length > 4500000) return;
-    var type = String(blob.getContentType() || 'image/jpeg');
-    if (!/^image\/(jpeg|png|webp|gif)$/.test(type)) type = 'image/jpeg';
+    var type = String(blob.getContentType() || '').toLowerCase().split(';')[0];
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(type)) return;   // 사진이 아닌 응답은 뺌
     shown.push(urls[i]);
     content.push({ type: 'text', text: '[사진 ' + shown.length + ']' });
     content.push({ type: 'image', source: { type: 'base64', media_type: type, data: Utilities.base64Encode(bytes) } });
@@ -1618,7 +1618,7 @@ function optionPhotoAi_(body) {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, payload: JSON.stringify(payload),
   });
-  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ') ' + plain_(clean_((parse_(response.getContentText(), {}).error || {}).message, 200)) };
   var data = parse_(response.getContentText(), {});
   var text = '';
   (Array.isArray(data.content) ? data.content : []).forEach(function (c) { if (c && c.type === 'text') text += c.text; });

@@ -871,6 +871,8 @@ console.log("csBoard.mock.test (ss board api): OK");
     images: [`${MALL}0310.jpg`, "https://evil.example/x.jpg", `${CJ}missing.jpg`, `${CJ}a_01.jpg`] });
   assert.equal(r.ok, true);
   assert.deepEqual(r.images, [`${MALL}0310.jpg`, `${CJ}a_01.jpg`], "자사몰 · 상세 서버 사진만, 받은 것만");
+  const pilot = "https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/_pilot/src/1/0-0.jpg";
+  assert.deepEqual(g.post({ action: "optionPhotoAi", token: TOKEN, options: [{ sku: "1-1" }], images: [pilot, "https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/1-1.jpg"] }).images, [pilot], "허브는 검토 폴더(_pilot) 조각만");
   assert.deepEqual(r.results, [
     { sku: "8601-1", url: `${CJ}a_01.jpg`, box: [100, 200, 400, 600], score: 92, why: "골드 링" },
     { sku: "8601-2", url: `${MALL}0310.jpg`, box: null, score: 55, why: "" },

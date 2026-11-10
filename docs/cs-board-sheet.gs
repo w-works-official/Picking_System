@@ -1,7 +1,7 @@
 /**
  * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -131,7 +131,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
   if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 15 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 16 });
 }
 
 function doPost(e) {
@@ -208,7 +208,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -233,6 +233,8 @@ function route_(body) {
   if (action === 'photoIndexCommit') return withLock_(function () { return photoIndexCommit_(body); });
   if (action === 'photoAi') return photoAi_(body);
   if (action === 'optionPhotoAi') return optionPhotoAi_(body);
+  if (action === 'shipList') return shipList_();
+  if (action === 'shipScan') return shipScan_(body);
   if (action === 'xxList') return xxList_();
   if (action === 'xxSet') return withLock_(function () { return xxSet_(body); });
   if (action === 'loginShotGet') return loginShotGet_(body);
@@ -1643,6 +1645,175 @@ function optionPhotoAi_(body) {
   var res = { ok: true, results: results, images: shown, model: model, tokens: { input: u.input_tokens || 0, output: u.output_tokens || 0 }, stop: String(data.stop_reason || '') };
   if (!results.length) res.raw = text.slice(0, 1500);   // 읽지 못한 답 확인용
   return res;
+}
+
+
+// ---------- v16 배송사진 (2026-11-10) ----------
+// 드라이브 '배송사진' 폴더(배송 중 찍은 사진 + 동영상)를 시간 순서로 보여 주고,
+// 송장이 찍힌 사진은 AI 가 수신자 이름을 읽어 파일명 끝에 붙임 (예: 20261110_143012.jpg → 20261110_143012_홍길동.jpg).
+// 확인한 결과는 '배송사진' 탭에 (파일ID · 원래이름 · 바뀐이름 · 송장 · 수신자 · 확신 · 확인시각). 파일은 지우지 않고 이름만 바꿈.
+// 이 기능은 드라이브 권한이 필요합니다 — 편집기에서 '배송사진_권한' 을 한 번 실행해 허용한 뒤 새 버전 배포.
+var SHIP_FOLDER_DEFAULT = '1LKwNxSdQt1o2A2TVnqv9qOn9yFQ1ZHij';
+var SHIP_SHEET = '배송사진';
+var SHIP_BATCH = 6;          // AI 한 번에 볼 사진 수
+var SHIP_MAX_FILES = 3000;
+
+function 배송사진_권한() {
+  var folder = DriveApp.getFolderById(prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT);
+  Logger.log('배송사진 폴더: ' + folder.getName() + ' — 권한 확인 완료');
+  Logger.log('토큰: ' + (ScriptApp.getOAuthToken() ? '있음' : '없음'));
+}
+
+function shipSheet_() {
+  var book = book_();
+  var sheet = book.getSheetByName(SHIP_SHEET);
+  if (!sheet) {
+    sheet = book.insertSheet(SHIP_SHEET);
+    sheet.getRange(1, 1, 1, 7).setValues([['파일ID', '원래이름', '바뀐이름', '송장', '수신자', '확신', '확인시각']]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function shipKnown_() {
+  var sheet = shipSheet_();
+  var n = sheet.getLastRow() - 1;
+  var map = {};
+  if (n <= 0) return map;
+  sheet.getRange(2, 1, n, 7).getValues().forEach(function (r, i) {
+    var id = String(r[0] || '');
+    if (id) map[id] = { row: i + 2, orig: String(r[1] || ''), name: String(r[2] || ''), invoice: r[3] === true || String(r[3]) === 'TRUE' || String(r[3]) === '예', recipient: String(r[4] || ''), score: Number(r[5]) || 0 };
+  });
+  return map;
+}
+
+// 파일 이름 · 만든 시각 → 정렬 시각 (휴대폰 이름 20261110_143012 · IMG_20261110_143012 · PXL_20261110_143012345 우선)
+function shipTimeKey_(name, created) {
+  var m = /(20\d{2})(\d{2})(\d{2})[_\-\s]?(\d{2})(\d{2})(\d{2})/.exec(String(name || ''));
+  if (m) return m[1] + m[2] + m[3] + m[4] + m[5] + m[6];
+  return Utilities.formatDate(created, 'Asia/Seoul', 'yyyyMMddHHmmss');
+}
+
+function shipFiles_() {
+  var root = DriveApp.getFolderById(prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT);
+  var out = [];
+  var add = function (folder, sub) {
+    var it = folder.getFiles();
+    while (it.hasNext() && out.length < SHIP_MAX_FILES) {
+      var f = it.next();
+      var mime = String(f.getMimeType() || '');
+      var kind = /^image\//.test(mime) ? 'photo' : /^video\//.test(mime) ? 'video' : '';
+      if (!kind) continue;
+      var created = f.getDateCreated();
+      out.push({ id: f.getId(), name: f.getName(), kind: kind, mime: mime, size: f.getSize(), folder: sub, t: shipTimeKey_(f.getName(), created) });
+    }
+  };
+  add(root, '');
+  var subs = root.getFolders();
+  while (subs.hasNext()) { var sf = subs.next(); add(sf, sf.getName()); }
+  out.sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
+  return out;
+}
+
+function shipList_() {
+  var files = shipFiles_();
+  var known = shipKnown_();
+  var unchecked = 0;
+  files.forEach(function (f) {
+    var k = known[f.id];
+    f.checked = !!k;
+    if (k) { f.invoice = k.invoice; f.recipient = k.recipient; f.score = k.score; f.orig = k.orig; }
+    else if (f.kind === 'photo') unchecked++;
+  });
+  return { ok: true, files: files, unchecked: unchecked, folder: prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT };
+}
+
+// 송장 이름을 파일명 끝에 (확장자 앞) — 이미 붙어 있으면 그대로
+function shipRename_(name, recipient) {
+  // 가려진 글자 * 는 윈도우 파일 이름에 못 쓰므로 ○ 로 (예: 홍*동 → 홍○동)
+  var who = String(recipient || '').replace(/\*/g, '○').replace(/[\\\/:?"<>|]/g, '').trim();
+  if (!who) return name;
+  var m = /^(.*?)(\.[A-Za-z0-9]{2,5})?$/.exec(String(name || ''));
+  var base = m[1], ext = m[2] || '';
+  if (base.slice(-(who.length + 1)) === '_' + who) return name;
+  return base + '_' + who + ext;
+}
+
+// 확인 안 한 사진을 시간 순서로 SHIP_BATCH 장씩: AI 가 송장인지 · 받는 분 이름 → 이름 붙이기
+function shipScan_(body) {
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
+  var started = Date.now();
+  var files = shipFiles_();
+  var known = shipKnown_();
+  var todo = files.filter(function (f) { return f.kind === 'photo' && !known[f.id]; });
+  var batch = todo.slice(0, Math.max(1, Math.min(SHIP_BATCH, Number(body && body.limit) || SHIP_BATCH)));
+  if (!batch.length) return { ok: true, done: 0, remaining: 0, results: [] };
+  var reserved = withLock_(function () { return reserveAi_(1); });
+  if (!reserved.allow) return { ok: false, error: '오늘 AI 사용 한도(' + reserved.limit + '회)를 다 썼습니다.' };
+
+  var token = ScriptApp.getOAuthToken();
+  var fetched = UrlFetchApp.fetchAll(batch.map(function (f) {
+    return { url: 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(f.id) + '&sz=w1600', headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true, followRedirects: true };
+  }));
+  var content = [];
+  var shown = [];
+  fetched.forEach(function (res, i) {
+    var blob = res.getResponseCode() === 200 ? res.getBlob() : null;
+    var type = blob ? String(blob.getContentType() || '').toLowerCase().split(';')[0] : '';
+    if (!blob || !/^image\/(jpeg|png|webp|gif)$/.test(type) || blob.getBytes().length > 4500000) return;
+    shown.push(batch[i]);
+    content.push({ type: 'text', text: '[사진 ' + shown.length + ']' });
+    content.push({ type: 'image', source: { type: 'base64', media_type: type, data: Utilities.base64Encode(blob.getBytes()) } });
+  });
+  var results = [];
+  if (shown.length) {
+    content.push({ type: 'text', text: '사진마다 택배 송장(운송장 · 배송 라벨)이 찍혀 있는지 보고, 송장이면 받는 분(수신자) 이름을 그대로 적어 주세요. ' +
+      '가려진 글자는 * 로 (예: 홍*동). 보내는 분 이름은 적지 마세요. 송장이 아니거나 이름이 안 읽히면 name 은 빈 글자.' });
+    var payload = {
+      model: prop_('SHIP_MODEL') || DEFAULT_MODEL,
+      max_tokens: 1200,
+      system: '택배 사진 정리 담당입니다. 출력은 JSON 하나만, 설명 없이: {"photos":[{"n":사진번호,"invoice":true/false,"name":"받는 분 이름","score":0~100}]}',
+      messages: [{ role: 'user', content: content }],
+    };
+    var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+      method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, payload: JSON.stringify(payload),
+    });
+    if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+    var data = parse_(response.getContentText(), {});
+    var text = '';
+    (Array.isArray(data.content) ? data.content : []).forEach(function (c) { if (c && c.type === 'text') text += c.text; });
+    recordUsage_(data.usage, payload.model, '배송사진');
+    var m = /\{[\s\S]*\}/.exec(text);
+    var out = parse_(m ? m[0] : '', {});
+    var byN = {};
+    (Array.isArray(out.photos) ? out.photos : []).forEach(function (p) { var n = Math.floor(Number(p && p.n)); if (n >= 1) byN[n] = p; });
+    shown.forEach(function (f, i) {
+      var p = byN[i + 1] || {};
+      var name = plain_(clean_(p.name, 20)).replace(/\s+/g, '');
+      var invoice = p.invoice === true;
+      results.push({ id: f.id, orig: f.name, invoice: invoice, recipient: invoice ? name : '', score: Math.max(0, Math.min(100, Math.round(Number(p.score) || 0))) });
+    });
+  }
+  // 받지 못한 사진(썸네일 없음 등)도 확인한 것으로 기록 — 다음에 다시 막히지 않게
+  batch.forEach(function (f) { if (!results.some(function (r) { return r.id === f.id; })) results.push({ id: f.id, orig: f.name, invoice: false, recipient: '', score: 0, skipped: true }); });
+  // 이름 바꾸기 (송장 + 이름이 읽힌 사진만)
+  results.forEach(function (r) {
+    r.name = r.orig;
+    if (!r.invoice || !r.recipient) return;
+    var next = shipRename_(r.orig, r.recipient);
+    if (next === r.orig) return;
+    try { DriveApp.getFileById(r.id).setName(next); r.name = next; } catch (e) { r.renameError = String(e && e.message || e).slice(0, 120); }
+  });
+  var now = new Date();
+  withLock_(function () {
+    var sheet = shipSheet_();
+    sheet.getRange(sheet.getLastRow() + 1, 1, results.length, 7).setValues(results.map(function (r) {
+      return [r.id, r.orig, r.name, r.invoice ? '예' : '', r.recipient, r.score, now];
+    }));
+  });
+  return { ok: true, done: results.length, remaining: Math.max(0, todo.length - batch.length), results: results, ms: Date.now() - started };
 }
 
 

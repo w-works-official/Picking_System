@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261109-zoom90">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261109-zoom90">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261110-ship1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -52,6 +52,7 @@
           <button type="button" class="cs-left-tab tab-review" data-left-tab="review" role="tab" aria-selected="false">⭐ 리뷰</button>
           <button type="button" class="cs-left-tab tab-msn" data-left-tab="msn" role="tab" aria-selected="false">💬 메신저</button>
           <button type="button" class="cs-left-tab tab-vendor" data-left-tab="vendor" role="tab" aria-selected="false">📦 거래처</button>
+          <button type="button" class="cs-left-tab tab-ship" data-left-tab="ship" role="tab" aria-selected="false">🚚 배송사진</button>
           <button type="button" class="cs-left-tab tab-settings" data-left-tab="settings" role="tab" aria-selected="false">⚙ 설정</button>
         </nav>
         <!-- 왼쪽: 수집기 (G1 수집기 왼쪽 창과 같은 탭) -->
@@ -287,6 +288,9 @@
               </fieldset>
             </div>
 
+            <!-- 🚚 배송사진 (2026-11-10 — src/app/shipPhotosPanel.mjs · 시트 v16) -->
+            <div class="cs-left-panel" data-left-panel="ship" hidden><div data-ship-side></div></div>
+
             <div class="cs-left-panel" data-left-panel="settings" hidden>
               <fieldset class="cs-box">
                 <legend>Claude API 키</legend>
@@ -517,6 +521,11 @@
               <div class="msn-slots" data-msn-slots></div>
             </div>
           </div>
+
+          <!-- 🚚 배송사진 (2026-11-10): 전체 리스트 · 파일 찾기 · 선택 다운로드 -->
+          <div class="cs-right-panel" data-right-panel="ship" hidden>
+            <div class="sp" data-ship></div>
+          </div>
         </section>
       </main>
     </div>
@@ -547,7 +556,7 @@
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261109-zoom90"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261110-ship1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
     <script type="module" src="../src/app/msnSlots.mjs?v=20261110-seq1"></script>
   </body>

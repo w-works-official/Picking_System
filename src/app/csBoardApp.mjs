@@ -409,7 +409,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   // ---------- 탭·접기 ----------
   // 2026-11-04: 왼쪽 탭 = 메뉴 이동 (게시판·리뷰·메신저는 오른쪽 답변 화면도 같이), 오른쪽은 제목만
-  const TAB_COLORS = { main: "#e11d74", board: "#2563eb", review: "#ff7a00", msn: "#00b84a", vendor: "#eab308", settings: "#64748b" };
+  const TAB_COLORS = { main: "#e11d74", board: "#2563eb", review: "#ff7a00", msn: "#00b84a", vendor: "#eab308", ship: "#0891b2", settings: "#64748b" };
   // 11-06: 왼쪽 창 접힘·보던 탭 = 마지막 상태 그대로 (이 기기에 기억 → 새로고침·다시 열어도 유지)
   const FOLD_KEY = "system_v3_cs_left_fold";
   const foldState = (() => { try { const v = JSON.parse(storage?.getItem(FOLD_KEY) || "{}"); return { tab: String(v.tab || ""), folded: v.folded === true }; } catch { return { tab: "", folded: false }; } })();
@@ -434,10 +434,11 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-main")?.style.setProperty("--tab-color", TAB_COLORS[tab] || TAB_COLORS.main);   // 11-06: 탭 줄이 맨 위로 — 색은 본문 전체에
     if (RIGHT_TITLES[tab]) showRight(tab);
     if (tab === "settings" && state.connected && !state.sample) loadUsage();
+    if (tab === "ship") openShip();
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
   }
 
-  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저" };
+  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저", ship: "🚚 배송사진" };
   function showRight(tab) {
     $$("[data-right-panel]").forEach((p) => { p.hidden = p.dataset.rightPanel !== tab; });
     const title = $("[data-right-title]");
@@ -1314,6 +1315,23 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     next.status = csStatusOf(next);
     replaceRow(next);
     scheduleSave(key);
+  }
+
+  // ---------- 🚚 배송사진 (11-10): 탭을 처음 열 때 불러옴 ----------
+  let ship = null;
+  async function postRaw(body) {
+    const response = await doFetch(state.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ ...body, token: state.token }) });
+    if (!response.ok) throw new Error(`시트 응답 오류 (${response.status})`);
+    const json = await response.json();
+    if (!json?.ok) { const error = new Error(String(json?.error || "CS 시트가 요청을 거절했습니다.")); if (json?.denied) error.denied = true; throw error; }
+    return json;
+  }
+  function openShip() {
+    if (ship) { if (!ship.state.loaded && !ship.state.loading) ship.load(); return; }
+    ship = { state: { loaded: false, loading: true }, load() {} };
+    import("./shipPhotosPanel.mjs?v=20261110-ship1")
+      .then((m) => { ship = m.mountShipPhotos({ document, window, root: $("[data-ship]"), side: $("[data-ship-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); ship.load(); })
+      .catch((error) => { ship = null; toast(`배송사진 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }
 
   // ---------- 시트 호출 ----------

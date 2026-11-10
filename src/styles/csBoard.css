@@ -2237,3 +2237,40 @@ a.cs-btn {
 
 /* 11-09: 메신저 슬롯은 화면 90% 와 상관없이 100% (붙는 카톡 창 크기 그대로) */
 .msn-slots { zoom: calc(1 / var(--uiz, 1)); }
+
+/* 🚚 배송사진 (11-10) */
+.cs-left-tab.tab-ship { background: #cffafe; color: #0e7490; }
+.cs-left-tab.tab-ship.active { background: #0891b2; color: #ffffff; }
+.cs-right-title[data-tone="ship"] { color: #0891b2; }
+.sp { display: grid; gap: 8px; padding: 8px 12px 16px; min-width: 0; }
+.sp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sp-seg { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+.sp-seg button { border: 0; background: #fff; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 800; color: #64748b; cursor: pointer; }
+.sp-seg button.is-on { background: #0891b2; color: #fff; }
+.sp-find { display: inline-flex; align-items: center; gap: 6px; }
+.sp-search { width: 220px; height: 32px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; font-size: 14px; }
+.sp-msg:empty { display: none; }
+.sp-msg { margin: 0; font-size: 12.5px; font-weight: 700; color: #0e7490; }
+.sp-list { display: grid; gap: 10px; }
+.sp-empty { margin: 16px 4px; font-size: 13px; font-weight: 700; color: #64748b; }
+.sp-empty.is-bad { color: #b91c1c; }
+.sp-group { border: 1px solid #a5f3fc; border-radius: 10px; background: #fff; overflow: hidden; }
+.sp-group.is-before { border-color: #e2e8f0; background: #f8fafc; }
+.sp-group > header { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #ecfeff; border-bottom: 1px solid #cffafe; }
+.sp-group.is-before > header { background: #f1f5f9; border-color: #e2e8f0; }
+.sp-group > header b { font-size: 14px; }
+.sp-group > header small { color: #64748b; font-weight: 700; }
+.sp-files { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+.sp-file { position: relative; display: grid; gap: 2px; width: 150px; padding: 4px; border: 2px solid transparent; border-radius: 8px; cursor: pointer; }
+.sp-file.is-picked { border-color: #16a34a; background: #f0fdf4; }
+.sp-file.is-invoice { background: #fffbeb; }
+.sp-file > input { position: absolute; top: 8px; left: 8px; z-index: 2; width: 18px; height: 18px; accent-color: #16a34a; }
+.sp-thumb { position: relative; display: block; height: 110px; border-radius: 6px; overflow: hidden; background: #e2e8f0; }
+.sp-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.sp-play { position: absolute; inset: 0; display: grid; place-items: center; font-size: 30px; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
+.sp-badge { position: absolute; right: 4px; bottom: 4px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #fff; font-size: 11px; font-weight: 900; }
+.sp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 11.5px; }
+.sp-meta { color: #64748b; font-size: 11px; }
+.sp-progress:empty, .sp-counts:empty { display: none; }
+.sp-progress { color: #0e7490; font-weight: 800; }
+@media (max-width: 600px) { .sp-file { width: calc(50% - 4px); } .sp-search { width: 150px; } }

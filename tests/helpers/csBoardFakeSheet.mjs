@@ -32,7 +32,7 @@ export function fakeSheet(name = "시트1") {
 }
 
 // claude(payload) → 가짜 AI 응답 문자열(답변 배열 JSON). status 를 바꾸면 오류 응답.
-export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
+export async function loadCsBoardScript({ props = {}, claude, sheets, drive } = {}) {
   const source = await readFile(new URL("../../docs/cs-board-sheet.gs", import.meta.url), "utf8");
   const book = sheets || [fakeSheet()];
   const properties = { ...props };
@@ -83,6 +83,26 @@ export async function loadCsBoardScript({ props = {}, claude, sheets } = {}) {
       getUuid: () => `${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`,
     },
     Logger: { log: (m) => logs.push(String(m)) },
+    // v16 배송사진: drive = { folderId, files: [{ id, name, mime, created: Date, size, folder? }] } — setName 은 files 에 바로 반영
+    ScriptApp: { getOAuthToken: () => "oauth-token" },
+    DriveApp: {
+      getFolderById(id) {
+        if (!drive || id !== drive.folderId) throw new Error("폴더 없음 " + id);
+        const iter = (list) => { let i = 0; return { hasNext: () => i < list.length, next: () => list[i++] }; };
+        const fileObj = (f) => ({ getId: () => f.id, getName: () => f.name, getMimeType: () => f.mime, getSize: () => f.size || 1, getDateCreated: () => f.created || new Date("2026-11-10T00:00:00Z") });
+        const subNames = [...new Set(drive.files.filter((f) => f.folder).map((f) => f.folder))];
+        return {
+          getName: () => "배송사진",
+          getFiles: () => iter(drive.files.filter((f) => !f.folder).map(fileObj)),
+          getFolders: () => iter(subNames.map((n) => ({ getName: () => n, getFiles: () => iter(drive.files.filter((f) => f.folder === n).map(fileObj)) }))),
+        };
+      },
+      getFileById(id) {
+        const f = drive?.files.find((x) => x.id === id);
+        if (!f) throw new Error("파일 없음");
+        return { setName: (n) => { f.name = n; } };
+      },
+    },
     UrlFetchApp: {
       fetch(url, options) {
         return reply(url, options);

@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 15 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 16 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 15);
+  assert.equal(g5.get().version, 16);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -886,6 +886,51 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.deepEqual(g.post({ action: "optionPhotoAi", token: TOKEN, options: [{ sku: "1-1" }], images: [pilot, "https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/1-1.jpg"] }).images, [pilot], "허브는 검토 사진(__pilot_) 조각만");
   assert.equal(JSON.parse(g.properties.AI_USAGE)[Object.keys(JSON.parse(g.properties.AI_USAGE))[0]].kinds["옵션사진"], 3, "사용량 기록");
   console.log("csBoard.mock.test (optionPhotoAi v15): OK");
+}
+
+// v16 배송사진: 폴더 파일을 시간 순서로 · 송장 사진은 AI 가 읽은 수신자 이름을 파일명에 · 결과는 '배송사진' 탭
+{
+  const FOLDER = "1LKwNxSdQt1o2A2TVnqv9qOn9yFQ1ZHij";
+  const drive = { folderId: FOLDER, files: [
+    { id: "v2", name: "20261110_101500.mp4", mime: "video/mp4" },
+    { id: "p1", name: "20261110_101000.jpg", mime: "image/jpeg" },
+    { id: "v1", name: "20261110_101200.mp4", mime: "video/mp4" },
+    { id: "p2", name: "20261110_102000.jpg", mime: "image/jpeg" },
+    { id: "p3", name: "IMG_20261110_103000.jpg", mime: "image/jpeg", folder: "11-10 오후" },
+    { id: "x1", name: "메모.txt", mime: "text/plain" },
+    { id: "p4", name: "photo.jpg", mime: "image/jpeg", created: new Date("2026-11-10T01:40:00Z") },   // 한국 10:40
+  ] };
+  let seen = null;
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, CLAUDE_KEY: "k" }, drive, claude: (payload) => { seen = payload; return { status: 200, text: '{"photos":[{"n":1,"invoice":true,"name":"홍*동","score":95},{"n":2,"invoice":false,"name":"","score":90},{"n":3,"invoice":true,"name":"김 철수","score":80}]}' }; } });
+  assert.equal(g.post({ action: "shipList", token: "wrong" }).denied, true);
+  const l1 = g.post({ action: "shipList", token: TOKEN });
+  assert.equal(l1.ok, true);
+  assert.deepEqual(l1.files.map((f) => f.id), ["p1", "v1", "v2", "p2", "p3", "p4"], "사진·동영상만 · 이름 속 시각 → 없으면 만든 시각 · 하위 폴더도");
+  assert.equal(l1.unchecked, 4);
+  const s1 = g.post({ action: "shipScan", token: TOKEN, limit: 3 });
+  assert.equal(s1.ok, true);
+  assert.deepEqual([s1.done, s1.remaining], [3, 1]);
+  assert.equal(seen.messages[0].content.filter((c) => c.type === "image").length, 3, "사진 3장을 한 번에");
+  assert.deepEqual(s1.results.map((r) => [r.id, r.invoice, r.recipient, r.name]), [
+    ["p1", true, "홍*동", "20261110_101000_홍○동.jpg"],
+    ["p2", false, "", "20261110_102000.jpg"],
+    ["p3", true, "김철수", "IMG_20261110_103000_김철수.jpg"],
+  ], "송장 + 이름 → 파일명 끝에 · 띄어쓰기 뺌");
+  assert.equal(drive.files.find((f) => f.id === "p1").name, "20261110_101000_홍○동.jpg", "드라이브 파일 이름 바뀜 (가려진 글자 * → ○)");
+  const tab = g.sheets.find((sh) => sh.getName() === "배송사진");
+  assert.deepEqual(tab.data.slice(1).map((r) => [r[0], r[1], r[3], r[4]]), [["p1", "20261110_101000.jpg", "예", "홍*동"], ["p2", "20261110_102000.jpg", "", ""], ["p3", "IMG_20261110_103000.jpg", "예", "김철수"]]);
+  const l2 = g.post({ action: "shipList", token: TOKEN });
+  assert.deepEqual(l2.files.filter((f) => f.invoice).map((f) => [f.id, f.recipient]), [["p1", "홍*동"], ["p3", "김철수"]]);
+  assert.equal(l2.unchecked, 1);
+  assert.equal(l2.files[0].t, "20261110101000", "이름 바뀌어도 시각 그대로");
+  // 다시 돌려도 같은 사진을 또 보지 않음 · 남은 1장
+  const s2 = g.post({ action: "shipScan", token: TOKEN });
+  assert.deepEqual([s2.done, s2.remaining, s2.results[0].id], [1, 0, "p4"]);
+  assert.deepEqual(g.post({ action: "shipScan", token: TOKEN }), { ok: true, done: 0, remaining: 0, results: [] });
+  assert.equal(JSON.parse(g.properties.AI_USAGE)[Object.keys(JSON.parse(g.properties.AI_USAGE))[0]].kinds["배송사진"], 2);
+  const none = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN }, drive });
+  assert.match(none.post({ action: "shipScan", token: TOKEN }).error, /AI 키가 없습니다/);
+  console.log("csBoard.mock.test (ship photos v16): OK");
 }
 
 // v14 XX 표시: 통째로 바꿔 저장 · 대문자 · 같은 코드 한 번

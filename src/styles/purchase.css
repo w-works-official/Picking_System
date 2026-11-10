@@ -1051,3 +1051,9 @@ body.purchase-workspace {
 }
 /* 11-09 자사코드 XX · XXX 표시 → 옵션명 옆 빨간 글씨 */
 .pb-xx { font-style: normal; color: #dc2626; font-weight: 1000; margin-left: 4px; }
+
+/* 11-10 상품 현황 보조사진 (검색 조건 '보조사진 함께 보기 · 있는 것만') */
+.pb-subs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.pb-subs a { display: block; width: 44px; height: 44px; border-radius: 5px; overflow: hidden; border: 1px solid #c4b5fd; background: #f9fafb; }
+.pb-subs img { width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 760px) { .pb-subs a { width: 38px; height: 38px; } }

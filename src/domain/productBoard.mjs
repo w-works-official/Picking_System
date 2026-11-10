@@ -77,8 +77,11 @@ export function categoryOf(productName = "") {
 export function photoIndex(fileNames = []) {
   const byStem = new Map();          // 코드(접미사 뺀 것) → 실제 파일 이름 (우선 표시 .__priority 먼저)
   const optionProducts = new Set();  // 옵션 사진이 하나라도 있는 상품코드
+  const subs = new Map();            // 11-10 셀피아코드 → 보조사진 파일 [1·2·3칸 순]
   for (const raw of fileNames) {
     const name = String(raw || "").trim();
+    const sub = /^(.+)\.__sub([1-3])\.jpg$/i.exec(name);
+    if (sub) { const list = subs.get(sub[1]) || []; list.push({ slot: Number(sub[2]), file: name }); subs.set(sub[1], list); continue; }
     if (!/\.jpg$/i.test(name) || /\.__sub\d\.jpg$/i.test(name)) continue; // 11-07 보조사진은 대표 사진 후보에서 뺌
     let stem = name.replace(/\.jpg$/i, "");
     let rank = 2;
@@ -90,7 +93,8 @@ export function photoIndex(fileNames = []) {
     const m = /^(.+)-\d+$/.exec(stem);
     if (m) optionProducts.add(m[1]);
   }
-  return { byStem, optionProducts };
+  for (const [k, list] of subs) subs.set(k, list.sort((a, b) => a.slot - b.slot).map((x) => x.file));
+  return { byStem, optionProducts, subs };
 }
 
 // 옵션 하나의 사진: { file, kind } — kind = "option" | "product" | "missing"(노랑 빈칸) | "none"(사진 없음)
@@ -154,7 +158,7 @@ export function buildProducts(skuRows = [], index = photoIndex([])) {
     }
     products.get(code).options.push({
       sku, option: String(r.sellpia_option_name || "").trim(), ownSku: String(r.own_sku || "").trim(), xx: xxMark(r.own_sku),
-      stock: num(r.stock), available: num(r.available_stock), photo: photoFor(sku, code, index),
+      stock: num(r.stock), available: num(r.available_stock), photo: photoFor(sku, code, index), subs: index.subs?.get(sku) || [],
       buy: num(r.buy ?? r.raw_payload?.purchase_price), sell: num(r.sell ?? r.raw_payload?.sell_price),   // 11-06: 매입가 · 출고가(판매가)
       s7: 0, s30: 0, s90: 0, sAll: 0,
     });
@@ -222,6 +226,7 @@ export function boardView(products = [], f = {}) {
       if (!matchProduct(p, f.q)) continue;
       options = p.options.filter((o) => (f.disc !== "only" || o.disc) && inRange(o.stock, f.stockMin, f.stockMax)
         && (f.photo === "none" ? !hasPhoto(o) : f.photo === "has" ? hasPhoto(o) : true)
+        && (f.subs !== "only" || (o.subs?.length || 0) > 0)
         && (f.unit === "product" || inRange(o[key], f.salesMin, f.salesMax)));
     }
     if (!options.length) continue;

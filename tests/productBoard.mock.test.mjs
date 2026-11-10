@@ -187,4 +187,14 @@ assert.match(css, /\.pb-photo\.is-missing \{[^}]*background: #fef08a;/, "노랑 
   assert.deepEqual(ps[0].options.map((o) => o.xx), ["XX", "XXX", ""], "자사코드 표시가 먼저");
   assert.equal(ps[0].options[1].xxNote, "전달사항 [xxx]천원존");
 }
+// 11-10 보조사진: 대표 후보에서 빠지고, 옵션별로 1·2·3칸 순 · '있는 것만' 걸러 보기
+{
+  const ix = photoIndex(["7000-1.jpg", "7000-1.__sub3.jpg", "7000-1.__sub1.jpg", "7000-2.__sub2.jpg", "7000-21.jpg", "7000-1.__sub4.jpg"]);
+  assert.deepEqual(ix.subs.get("7000-1"), ["7000-1.__sub1.jpg", "7000-1.__sub3.jpg"], "칸 순서 · 4칸째는 무시");
+  assert.equal(photoFor("7000-2", "7000", ix).kind, "missing", "보조사진만 있는 옵션은 대표 사진 없음");
+  const ps = buildProducts([{ sellpia_sku_code: "7000-1", sellpia_product_code: "7000", sellpia_product_name: "보조", stock: 1 }, { sellpia_sku_code: "7000-2", sellpia_product_code: "7000", sellpia_product_name: "보조", stock: 1 }, { sellpia_sku_code: "7000-3", sellpia_product_code: "7000", sellpia_product_name: "보조", stock: 1 }], ix);
+  assert.deepEqual(ps[0].options.map((o) => o.subs.length), [2, 1, 0]);
+  assert.deepEqual(boardView(ps, { subs: "only" })[0].options.map((o) => o.sku), ["7000-1", "7000-2"]);
+  assert.equal(boardView(ps, { subs: "show" })[0].options.length, 3, "함께 보기는 거르지 않음");
+}
 console.log("productBoard.mock.test: OK");

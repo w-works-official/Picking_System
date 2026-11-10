@@ -106,6 +106,8 @@ export async function loadCsBoardScript({ props = {}, claude, sheets, drive, oth
           getName: () => "배송사진",
           getFiles: () => iter(drive.files.filter((f) => !f.folder).map(fileObj)),
           getFolders: () => iter(subNames.map((n) => ({ getName: () => n, getFiles: () => iter(drive.files.filter((f) => f.folder === n).map(fileObj)) }))),
+          getFoldersByName: (n) => iter(subNames.includes(n) || (drive.folders || []).includes(n) ? [{ getId: () => `folder:${n}`, getName: () => n, getFiles: () => iter(drive.files.filter((f) => f.folder === n).map(fileObj)) }] : []),
+          createFolder: (n) => { (drive.folders ||= []).push(n); return { getId: () => `folder:${n}`, getName: () => n, getFiles: () => iter([]) }; },
         };
       },
       getFileById(id) {
@@ -132,6 +134,9 @@ export async function loadCsBoardScript({ props = {}, claude, sheets, drive, oth
     }
     const payload = JSON.parse(options.payload);
     calls.push({ url, headers: options.headers, payload });
+    if (/googleapis\.com\/upload\/drive/.test(url)) { // v18 배송기록 업로드: 이어 올리기 주소
+      return { getResponseCode: () => 200, getAllHeaders: () => ({ Location: "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&upload_id=TEST" }), getContentText: () => "" };
+    }
     const answer = claude ? claude(payload) : { status: 200, text: JSON.stringify(["답변 하나", "답변 둘"]) };
     return {
       getResponseCode: () => answer.status ?? 200,

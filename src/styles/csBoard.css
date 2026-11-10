@@ -2279,3 +2279,7 @@ a.cs-btn {
 .cs-right-panel[data-right-panel="ship"] > .sp { min-height: 0; overflow-y: auto; align-content: start; padding-top: 0; }
 .sp > .sp-bar { position: sticky; top: 0; z-index: 2; padding: 8px 0; background: #fff; border-bottom: 1px solid #e2e8f0; }
 .sp-progress { color: #1d4ed8; }
+/* 11-10 배송기록 올리기 */
+.sp-upbtn { cursor: pointer; }
+.sp-upbtn.is-busy { opacity: .5; pointer-events: none; }
+.sp.is-drag { outline: 3px dashed #0891b2; outline-offset: -6px; background: #ecfeff; }

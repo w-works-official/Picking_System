@@ -66,3 +66,14 @@ export function claudeLink(base, prompt) {
   if (/^https:\/\/claude\.ai\/new\/?$/.test(url)) return `${url}?q=${encodeURIComponent(prompt).slice(0, 6000)}`;
   return /^https:\/\//.test(url) ? url : CLAUDE_URL_DEFAULT;
 }
+
+// 카드 사진: 시트 C열 셀 안 사진(구글 임시 주소) → 없으면 허브 상품 사진(셀피아코드 X열: 공용 → 1번 옵션)
+export function photoCandidates(row) {
+  const out = [];
+  if (/^https:\/\//.test(String(row?.img || ""))) out.push({ src: row.img, from: "시트" });
+  const code = String(row?.cells?.[COL.sellpia] || "").trim();
+  if (/^[0-9A-Za-z][0-9A-Za-z_-]{0,40}$/.test(code)) {
+    for (const stem of [`${code}.__priority`, code, `${code}-1.__priority`, `${code}-1`, `${code}-1.__group`, `${code}-1.__range`]) out.push({ hub: `${stem}.jpg`, from: "허브" });
+  }
+  return out;
+}

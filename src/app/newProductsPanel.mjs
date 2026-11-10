@@ -4,7 +4,8 @@
 //  · 🤖 Claude: 그 줄 정보를 복사하고 Claude 대화를 엶 (주소는 ⚙ 에서 바꿈 — 이 기기에만 저장)
 //  · 비밀번호는 CS 관리 화면과 같은 것 (이 브라우저에 한 번 넣으면 같이 씀)
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261105-point1";
-import { ADD_FIELDS, CLAUDE_URL_DEFAULT, COL, MAIN_FIELDS, MULTILINE, STEPS, claudeLink, claudePrompt, colName, filterRows, isHtml, labelOf, preview, stepsOf } from "../domain/newProducts.mjs?v=20261110-new2";
+import { ADD_FIELDS, CLAUDE_URL_DEFAULT, COL, MAIN_FIELDS, MULTILINE, STEPS, claudeLink, claudePrompt, colName, filterRows, isHtml, labelOf, photoCandidates, preview, stepsOf } from "../domain/newProducts.mjs?v=20261110-new3";
+import { publicUrl } from "../domain/subPhotos.mjs?v=20261107-finder1";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const URL_KEY = "system_v3_new_claude_url";
@@ -133,6 +134,13 @@ export function mountNewProducts({ document, window, root, storages = [], fetchI
     return `<div class="np-f${MULTILINE.has(c) ? " is-multi" : ""}"><span class="np-k">${esc(label)} <small>${colName(c)}</small></span>
       ${formula ? `<span class="np-v is-formula" title="수식 칸 — 시트에서 직접">${shown}</span>` : `<button type="button" class="np-v" data-np-edit="${row.r}:${c}" title="눌러서 고치기">${shown}</button>`}</div>`;
   };
+  // 사진: 시트 C열 → 허브(셀피아코드). 안 나오면 다음 후보로, 다 없으면 "사진 없음"
+  const photoHtml = (row) => {
+    const list = photoCandidates(row).map((p) => ({ src: p.src || publicUrl(p.hub), from: p.from }));
+    if (!list.length) return '<span class="np-pic is-none">사진 없음</span>';
+    const [first, ...rest] = list;
+    return `<a class="np-pic" href="${esc(first.src)}" target="_blank" rel="noopener" title="${esc(first.from)} 사진 — 크게 보기"><img src="${esc(first.src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-np-next="${esc(JSON.stringify(rest))}"><small>${esc(first.from)}</small></a>`;
+  };
   const cardHtml = (row) => {
     const c = row.cells;
     const steps = stepsOf(c);
@@ -149,7 +157,7 @@ export function mountNewProducts({ document, window, root, storages = [], fetchI
         <button type="button" class="np-btn np-btn-ai" data-np-claude="${row.r}" title="이 줄 정보를 복사하고 Claude 대화를 엶">🤖 Claude</button>
       </header>
       ${st.edit && st.edit.r === row.r && st.edit.c === COL.folder ? `<div class="np-grid">${fieldHtml(row, COL.folder)}</div>` : ""}
-      <div class="np-grid">${MAIN_FIELDS.map((i) => fieldHtml(row, i)).join("")}</div>
+      <div class="np-body">${photoHtml(row)}<div class="np-grid">${MAIN_FIELDS.map((i) => fieldHtml(row, i)).join("")}</div></div>
       <button type="button" class="np-more" data-np-open="${row.r}">${open ? "▴ 나머지 칸 접기" : `▾ 나머지 칸 ${rest.length + STEPS.length}개`}</button>
       ${open ? `<div class="np-grid is-rest">${[...rest, ...STEPS.map((s) => s.c)].map((i) => fieldHtml(row, i)).join("")}</div>` : ""}
     </article>`;
@@ -202,6 +210,18 @@ export function mountNewProducts({ document, window, root, storages = [], fetchI
       msg(st.claudeUrl ? "🤖 Claude 주소를 저장했습니다" : "🤖 새 대화로 엽니다", "is-ok");
     }
   });
+  root.addEventListener("error", (e) => {
+    const img = e.target;
+    if (img?.tagName !== "IMG" || !img.dataset.npNext) return;
+    let rest = [];
+    try { rest = JSON.parse(img.dataset.npNext); } catch { rest = []; }
+    const link = img.closest(".np-pic");
+    if (!rest.length) { if (link) link.outerHTML = '<span class="np-pic is-none">사진 없음</span>'; return; }
+    const [next, ...more] = rest;
+    img.dataset.npNext = JSON.stringify(more);
+    img.src = next.src;
+    if (link) { link.href = next.src; link.title = `${next.from} 사진 — 크게 보기`; const tag = link.querySelector("small"); if (tag) tag.textContent = next.from; }
+  }, true);
   root.addEventListener("keydown", (e) => {
     if (e.target.matches?.("[data-np-editval]")) {
       if (e.key === "Escape") { st.edit = null; render(); }

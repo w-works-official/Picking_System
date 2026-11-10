@@ -3,20 +3,24 @@
 //  · 📋 전체 리스트: 시간 순서 그대로 · 송장 사진 = 묶음 시작 → 그 뒤 동영상·사진은 다음 송장 사진 전까지 같은 묶음
 //  · 🔎 파일 찾기: 수신자 이름(일부 · 가려진 글자 * ○ 무시)으로 그 묶음만
 //  · 둘 다 체크로 고르고 [⬇ 선택 다운로드] (드라이브에서 바로 받음 — 이 화면은 파일을 저장·전송하지 않음)
-import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship5";
+import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship6";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const FOLDER_URL = (id) => `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
 
-export function mountShipPhotos({ document, window, root, side, post, isLive = () => true } = {}) {
+const UPLOAD_EXT = /\.(jpe?g|png|webp|heic|heif|gif|mp4|mov|avi|mkv|m4v|wmv|3gp)$/i;
+const CHUNK = 8 * 1024 * 1024; // 드라이브 이어 올리기: 256KB 의 배수
+
+export function mountShipPhotos({ document, window, root, side, post, isLive = () => true, fetchImpl = (...a) => window.fetch(...a) } = {}) {
   if (!root || !side) return null;
-  const st = { files: [], groups: [], unchecked: 0, renamePending: 0, folder: "", loaded: false, loading: false, running: false, mode: "all", q: "", picked: new Set(), error: "", note: "" };
+  const st = { files: [], groups: [], unchecked: 0, renamePending: 0, folder: "", loaded: false, loading: false, running: false, uploading: false, mode: "all", q: "", picked: new Set(), error: "", note: "" };
 
   side.innerHTML = `
     <fieldset class="cs-box sp-side">
       <legend>🚚 배송기록</legend>
       <p class="cs-note">드라이브 <a data-sp-folder target="_blank" rel="noopener">'5_배송기록' 폴더</a>의 배송 중 사진·동영상을 시간 순서로 봅니다.</p>
       <ol class="cs-note cs-install-steps">
+        <li><b>[⬆ 사진·동영상 올리기]</b>: 고르거나 목록에 끌어다 놓으면 NAS 로 보낼 칸(5_배송기록\_NAS로)에 올라갑니다 → 평일 09:20 · 18:50 에 NAS [배송기록]으로 → 09:30 · 19:00 에 이 목록에 들어옵니다 (같은 파일은 건너뜀).</li>
         <li><b>[▶ 파일 정리 실행]</b> (오른쪽 위): 아직 확인 안 한 사진을 AI 가 보고 <b>송장 사진</b>이면 받는 분 이름을 <b>파일명 끝</b>에 붙입니다 (예: <code>20261110_143012_홍길동.jpg</code> · 가려진 글자는 ○). 파일은 지우지 않고 순서도 그대로입니다.</li>
         <li><b>묶음</b>: 송장 사진 뒤의 동영상·사진은 다음 송장 사진 전까지 그 수신자 묶음입니다.</li>
         <li><b>파일 찾기</b>: 오른쪽 [🔎 파일 찾기]에서 수신자 이름(일부도 됨)으로.</li>
@@ -27,6 +31,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
   root.innerHTML = `
     <div class="sp-bar">
       <button type="button" class="cs-btn cs-btn-primary" data-sp-run>▶ 파일 정리 실행</button>
+      <label class="cs-btn sp-upbtn" title="송장 사진·동영상 → NAS [배송기록] (평일 09:20 · 18:50 에 보냄 · 목록에 끌어다 놓아도 됨)"><input type="file" accept="image/*,video/*" multiple data-sp-file hidden>⬆ 사진·동영상 올리기</label>
       <span class="pb-seg sp-seg" role="group" aria-label="보기"><button type="button" data-sp-mode="all" class="is-on">📋 전체 리스트</button><button type="button" data-sp-mode="find">🔎 파일 찾기</button></span>
       <span class="sp-find" data-sp-findbox hidden><input type="search" class="sp-search" data-sp-q placeholder="수신자 이름 (예: 홍길동 · 길동)" aria-label="수신자 이름"><button type="button" class="cs-btn cs-btn-primary" data-sp-go>검색</button></span>
       <span class="cs-flex"></span>
@@ -60,6 +65,49 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     }
     st.loading = false; render();
   }
+  // ---------- 올리기: 시트가 드라이브 이어 올리기 주소를 만들고(shipUpload) → 여기서 8MB 씩 직접 ----------
+  async function putFile(url, file, onSent) {
+    for (let start = 0; start < file.size; start += CHUNK) {
+      const end = Math.min(file.size, start + CHUNK);
+      let res = null;
+      for (let tries = 0; tries < 3 && !res; tries += 1) {
+        try { res = await fetchImpl(url, { method: "PUT", headers: { "Content-Range": `bytes ${start}-${end - 1}/${file.size}` }, body: file.slice(start, end) }); }
+        catch (error) { if (tries === 2) throw error; await new Promise((ok) => window.setTimeout(ok, 1500 * (tries + 1))); }
+      }
+      if (res.status === 200 || res.status === 201) { onSent(file.size); return; }
+      if (res.status !== 308) throw new Error(`드라이브 응답 ${res.status}`);
+      onSent(end);
+    }
+    throw new Error("드라이브가 끝 응답을 주지 않았습니다");
+  }
+  async function upload(fileList) {
+    const files = [...(fileList || [])].filter((f) => /^(image|video)\//.test(f.type || "") || UPLOAD_EXT.test(f.name || ""));
+    if (!files.length || st.uploading) { if (fileList?.length && !files.length) { st.note = "사진·동영상 파일만 올릴 수 있습니다"; render(); } return; }
+    if (!isLive()) { st.note = "CS 시트 연결 뒤에 올릴 수 있습니다"; render(); return; }
+    st.uploading = true;
+    const total = files.reduce((n, f) => n + f.size, 0);
+    let doneBytes = 0, ok = 0, skipped = 0;
+    const errors = [];
+    const mb = (n) => `${(n / 1024 / 1024).toFixed(n < 10 * 1024 * 1024 ? 1 : 0)}MB`;
+    for (const [i, f] of files.entries()) {
+      const show = (sent) => { st.note = `⬆ 올리는 중 ${i + 1}/${files.length} · ${f.name} · ${Math.round(((doneBytes + sent) / Math.max(1, total)) * 100)}% (${mb(doneBytes + sent)} / ${mb(total)})`; render(); };
+      show(0);
+      try {
+        const js = await post({ action: "shipUpload", name: f.name, mime: f.type || "", size: f.size, origin: window.location.origin });
+        if (js.skip) skipped += 1;
+        else { await putFile(js.url, f, show); ok += 1; }
+      } catch (error) {
+        errors.push(`${f.name}: ${error?.message || error}`);
+      }
+      doneBytes += f.size;
+    }
+    st.uploading = false;
+    st.note = `⬆ 올리기 끝 — ${ok}개 올림${skipped ? ` · 이미 있어서 건너뜀 ${skipped}개` : ""}${errors.length ? ` · ⚠ 실패 ${errors.length}개: ${errors[0]}` : ""}${ok ? " · 평일 09:20 · 18:50 에 NAS [배송기록]으로 보내고, 09:30 · 19:00 에 이 목록에 들어옵니다" : ""}`;
+    const input = $("[data-sp-file]");
+    if (input) input.value = "";
+    await load();
+  }
+
   async function run() {
     if (st.running || !isLive()) return;
     st.running = true; render();
@@ -127,7 +175,8 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     root.querySelectorAll("[data-sp-mode]").forEach((b) => b.classList.toggle("is-on", b.dataset.spMode === st.mode));
     $("[data-sp-findbox]").hidden = st.mode !== "find";
     const live = isLive();
-    $("[data-sp-run]").disabled = st.running || !live;
+    $("[data-sp-run]").disabled = st.running || st.uploading || !live;
+    $(".sp-upbtn")?.classList.toggle("is-busy", st.uploading || !live);
     $("[data-sp-run]").textContent = st.running ? "정리 중…" : "▶ 파일 정리 실행";
     $("[data-sp-progress]").textContent = st.note;
     const folder = $("[data-sp-folder]");
@@ -152,6 +201,11 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     if (!b || b.disabled) return;
     if (b.matches("[data-sp-run]")) run();
   });
+  root.addEventListener("change", (e) => { if (e.target.matches?.("[data-sp-file]")) upload(e.target.files); });
+  const drop = root;
+  drop.addEventListener("dragover", (e) => { if ([...(e.dataTransfer?.types || [])].includes("Files")) { e.preventDefault(); drop.classList.add("is-drag"); } });
+  drop.addEventListener("dragleave", (e) => { if (e.target === drop) drop.classList.remove("is-drag"); });
+  drop.addEventListener("drop", (e) => { if (!e.dataTransfer?.files?.length) return; e.preventDefault(); drop.classList.remove("is-drag"); upload(e.dataTransfer.files); });
   root.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b || b.disabled) return;
@@ -169,5 +223,5 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     else if (t.dataset.spGpick) { for (const f of groupFiles(t.dataset.spGpick)) { if (t.checked) st.picked.add(f.id); else st.picked.delete(f.id); } render(); }
   });
   render();
-  return { load, run, state: st };
+  return { load, run, upload, state: st };
 }

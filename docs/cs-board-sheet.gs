@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -131,7 +131,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
   if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 17 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 18 });
 }
 
 function doPost(e) {
@@ -208,7 +208,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'newList', 'newSave', 'newAdd'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newSave', 'newAdd'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -235,6 +235,7 @@ function route_(body) {
   if (action === 'optionPhotoAi') return optionPhotoAi_(body);
   if (action === 'shipList') return shipList_();
   if (action === 'shipScan') return shipScan_(body);
+  if (action === 'shipUpload') return shipUpload_(body);
   if (action === 'newList') return updList_();
   if (action === 'newSave') return withLock_(function () { return updSave_(body); });
   if (action === 'newAdd') return withLock_(function () { return updAdd_(body); });
@@ -1718,7 +1719,7 @@ function shipFiles_() {
   };
   add(root, '');
   var subs = root.getFolders();
-  while (subs.hasNext()) { var sf = subs.next(); add(sf, sf.getName()); }
+  while (subs.hasNext()) { var sf = subs.next(); if (String(sf.getName()).charAt(0) !== '_') add(sf, sf.getName()); } // '_' 로 시작하는 폴더(_NAS로 등)는 목록에서 뺌
   // 같은 초에 찍힌 사진·동영상은 사진(송장) 먼저 — 반디캠은 캡처와 녹화가 같은 초에 시작됨
   out.sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : a.kind !== b.kind ? (a.kind === 'photo' ? -1 : 1) : a.ms !== b.ms ? a.ms - b.ms : (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
   return out;
@@ -1852,6 +1853,48 @@ function shipRenamePending_(files, known) {
 }
 
 
+// ---------- v18 배송기록 업로드 (2026-11-10) ----------
+// 화면에서 고른 송장 사진·동영상을 5_배송기록 폴더로. 동영상은 수백 MB 라 시트를 거치지 않고:
+//  1) 화면 → shipUpload { name, mime, size, origin } → 시트가 드라이브 '이어 올리기' 주소를 만들어 돌려줌 (주소에 권한이 담김, 그 파일 하나만)
+//  2) 화면이 그 주소로 파일을 8MB 씩 직접 올림
+//  · 올린 파일은 5_배송기록\_NAS로 폴더에 → 사무실 PC 예약(평일 09:20 · 18:50)이 NAS [배송기록]으로 옮김
+//    → 평소처럼 09:30 · 19:00 에 NAS → 5_배송기록 복사 (그때부터 목록 · 파일 정리 대상)
+//  · 사진·동영상만 · 2GB 까지 · V3 화면 주소에서만 · 같은 이름(수신자 붙은 이름 포함) + 같은 크기 파일이 이미 있으면 건너뜀
+var SHIP_UPLOAD_ORIGINS = ['https://w-works-official.github.io'];
+var SHIP_UPLOAD_MAX = 2 * 1024 * 1024 * 1024;
+var SHIP_UPLOAD_FOLDER = '_NAS로';
+var SHIP_UPLOAD_EXT = /\.(jpe?g|png|webp|heic|heif|gif|mp4|mov|avi|mkv|m4v|wmv|3gp)$/i;
+
+function shipUpload_(body) {
+  var name = String(body && body.name || '').replace(/[\\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 180);
+  var mime = String(body && body.mime || '').toLowerCase().slice(0, 80);
+  var size = Math.floor(Number(body && body.size) || 0);
+  var origin = String(body && body.origin || '');
+  if (!name) return { ok: false, error: '파일 이름이 없습니다' };
+  if (!/^(image|video)\//.test(mime) && !SHIP_UPLOAD_EXT.test(name)) return { ok: false, error: name + ': 사진·동영상만 올릴 수 있습니다' };
+  if (!(size > 0) || size > SHIP_UPLOAD_MAX) return { ok: false, error: name + ': 크기가 맞지 않습니다 (2GB 까지)' };
+  if (SHIP_UPLOAD_ORIGINS.indexOf(origin) < 0) return { ok: false, error: 'V3 화면에서만 올릴 수 있습니다' };
+  var base = name.replace(/\.[^.]+$/, '');
+  var root = DriveApp.getFolderById(prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT);
+  var stage = root.getFoldersByName(SHIP_UPLOAD_FOLDER);
+  var stageFolder = stage.hasNext() ? stage.next() : root.createFolder(SHIP_UPLOAD_FOLDER);
+  var waiting = [];
+  var sit = stageFolder.getFiles();
+  while (sit.hasNext()) { var sf = sit.next(); waiting.push({ id: sf.getId(), name: sf.getName(), size: sf.getSize() }); }
+  var same = shipFiles_().concat(waiting).filter(function (f) { return f.size === size && String(f.name).indexOf(base) === 0; })[0];
+  if (same) return { ok: true, skip: true, id: same.id, name: same.name };
+  var folderId = stageFolder.getId();
+  var res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true', {
+    method: 'post', contentType: 'application/json; charset=UTF-8', muteHttpExceptions: true,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Upload-Content-Type': mime || 'application/octet-stream', 'X-Upload-Content-Length': String(size), Origin: origin },
+    payload: JSON.stringify({ name: name, parents: [folderId] }),
+  });
+  var headers = res.getAllHeaders ? res.getAllHeaders() : {};
+  var url = headers.Location || headers.location || '';
+  if (res.getResponseCode() !== 200 || !/^https:\/\/www\.googleapis\.com\/upload\/drive\//.test(url)) return { ok: false, error: '업로드 준비 실패 (' + res.getResponseCode() + ')' };
+  return { ok: true, url: url, name: name };
+}
+
 // ---------- v17 신상품 등록 (2026-11-10) — '업데이트 list' 시트의 '업데이트 순서' 탭 ----------
 // V3 상품 관리 › 신상품 등록 화면이 이 탭을 읽고(newList), 칸 하나씩 고치고(newSave), 새 줄을 붙입니다(newAdd).
 //  · 머리글 1~3줄, 상품은 4줄부터 · A~AD 30칸
@@ -1866,6 +1909,7 @@ var UPD_HEAD_ROWS = 3;
 var UPD_COLS = 30;                    // A ~ AD
 var UPD_KEY_COLS = [4, 5, 6, 9, 10];  // D 제품폴더 · E 체크 항목 · F 옵션 · I 제품명 · J 매입옵션명 — 마지막 상품 줄 찾기
 var UPD_LOG_SHEET = '신상품 기록';
+var UPD_IMG_COL = 3;                  // C 이미지 (셀 안 사진)
 var UPD_CELL_LIMIT = 45000;
 
 function 신상품_권한() {
@@ -1913,11 +1957,14 @@ function updList_() {
     var range = tab.getRange(UPD_HEAD_ROWS + 1, 1, last - UPD_HEAD_ROWS, UPD_COLS);
     var vals = range.getDisplayValues();
     var forms = range.getFormulas();
+    var pics = tab.getRange(UPD_HEAD_ROWS + 1, UPD_IMG_COL, last - UPD_HEAD_ROWS, 1).getValues(); // C열 셀 안 사진 → 구글이 주는 임시 주소
     for (var i = 0; i < vals.length; i++) {
       if (!vals[i].some(function (v) { return String(v || '').trim(); })) continue;
       var f = [];
       for (var c = 0; c < UPD_COLS; c++) if (forms[i][c]) f.push(c);
-      rows.push({ r: UPD_HEAD_ROWS + 1 + i, cells: vals[i].map(function (v) { return String(v == null ? '' : v); }), formulas: f });
+      var pic = pics[i][0], img = '';
+      try { if (pic && typeof pic === 'object' && typeof pic.getContentUrl === 'function') img = String(pic.getContentUrl() || ''); } catch (e) { img = ''; }
+      rows.push({ r: UPD_HEAD_ROWS + 1 + i, cells: vals[i].map(function (v) { return String(v == null ? '' : v); }), formulas: f, img: img });
     }
   }
   return { ok: true, labels: labels, rows: rows, headRows: UPD_HEAD_ROWS, cols: UPD_COLS, sheetUrl: 'https://docs.google.com/spreadsheets/d/' + (prop_('UPD_SHEET') || UPD_SHEET_DEFAULT) + '/edit#gid=' + UPD_TAB_GID };

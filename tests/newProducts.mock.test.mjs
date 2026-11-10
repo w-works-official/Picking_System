@@ -42,7 +42,17 @@ const panel = readFileSync(new URL("../src/app/newProductsPanel.mjs", import.met
 for (const t of ['action: "newList"', 'action: "newSave"', 'action: "newAdd"', "expect: row.cells[e.c]", "＋ 새 상품", "🤖 Claude", "시트 열기"]) assert.ok(panel.includes(t), t);
 assert.doesNotMatch(panel, /api\.anthropic\.com|x-api-key/, "AI 키 없음");
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");
-assert.match(gs, /'shipList', 'shipScan', 'newList', 'newSave', 'newAdd'\]/, "비밀번호(직원) 요청만");
+assert.match(gs, /'shipList', 'shipScan', 'shipUpload', 'newList', 'newSave', 'newAdd'\]/, "비밀번호(직원) 요청만");
 assert.match(gs, /function 신상품_권한\(\)/);
 assert.doesNotMatch(gs, /@OnlyCurrentDoc/, "다른 시트(업데이트 list)를 열어야 해서 뺌 — 주석 안에 있어도 Apps Script 가 읽으므로 글자 자체가 없어야 함");
 console.log("newProducts.mock.test: OK");
+// 11-10 카드 사진: 시트 C열 → 허브 (셀피아코드)
+{
+  const { photoCandidates } = await import("../src/domain/newProducts.mjs");
+  const c = Array(30).fill(""); c[23] = "11606";
+  assert.deepEqual(photoCandidates({ img: "https://lh3.googleusercontent.com/x", cells: c }).map((p) => p.src || p.hub), ["https://lh3.googleusercontent.com/x", "11606.__priority.jpg", "11606.jpg", "11606-1.__priority.jpg", "11606-1.jpg", "11606-1.__group.jpg", "11606-1.__range.jpg"]);
+  assert.deepEqual(photoCandidates({ img: "", cells: Array(30).fill("") }), [], "사진도 코드도 없으면 '사진 없음'");
+  const bad = Array(30).fill(""); bad[23] = "<p>html</p>";
+  assert.deepEqual(photoCandidates({ img: "javascript:x", cells: bad }), [], "https 아닌 주소 · 이상한 코드는 안 씀");
+  console.log("newProducts.mock.test (photos): OK");
+}

@@ -423,7 +423,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     fold.title = folded ? "왼쪽 창 펴기" : "왼쪽 창 접기";
   }
   function saveFold() { try { storage?.setItem(FOLD_KEY, JSON.stringify({ tab: leftTab, folded: foldState.folded })); } catch { /* 이번 화면만 */ } }
-  const AUTO_FOLD = ["msn", "vendor"];       // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 (슬롯을 넓게)
+  const AUTO_FOLD = ["msn", "vendor", "ship"]; // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 (슬롯을 넓게) · 11-10 배송기록도 (왼쪽은 안내뿐)
   function showLeft(tab, { open = false } = {}) {
     leftTab = tab;
     if (open) foldState.folded = false;     // 로그인·설정으로 바로 가는 버튼은 펼쳐서 보여 줌
@@ -1329,7 +1329,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openShip() {
     if (ship) { if (!ship.state.loaded && !ship.state.loading) ship.load(); return; }
     ship = { state: { loaded: false, loading: true }, load() {} };
-    import("./shipPhotosPanel.mjs?v=20261110-ship4")
+    import("./shipPhotosPanel.mjs?v=20261110-ship5")
       .then((m) => { ship = m.mountShipPhotos({ document, window, root: $("[data-ship]"), side: $("[data-ship-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); ship.load(); })
       .catch((error) => { ship = null; toast(`배송사진 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }

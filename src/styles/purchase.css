@@ -1152,3 +1152,61 @@ body.purchase-workspace {
   .pf-shit.pf-prod > img { width: 64px; height: 64px; }
   .pf-shit.pf-prod > .pf-shit-side { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
 }
+
+/* 🆕 신상품 등록 (11-10) — 업데이트 순서 시트 동기화 카드 */
+.np { display: grid; gap: 10px; min-width: 0; }
+.np-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; position: sticky; top: 0; z-index: 3; padding: 8px 0; background: #fff; border-bottom: 1px solid #e5e7eb; }
+.np-q { flex: 1 1 260px; min-width: 0; height: 36px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; font-size: 14px; }
+.np-flex { flex: 1 1 auto; }
+.np-seg { display: inline-flex; border: 1px solid #d1d5db; border-radius: 8px; overflow: hidden; }
+.np-seg button { border: 0; background: #fff; padding: 0 12px; height: 34px; font: inherit; font-size: 13px; font-weight: 700; color: #6b7280; cursor: pointer; }
+.np-seg button.is-on { background: #0f766e; color: #fff; }
+.np-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 34px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #fff; color: #111827; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; white-space: nowrap; }
+.np-btn:disabled { opacity: .5; cursor: default; }
+.np-btn-main { background: #0f766e; border-color: #0f766e; color: #fff; }
+.np-btn-ai { background: #7c3aed; border-color: #7c3aed; color: #fff; height: 30px; font-size: 12px; }
+.np-btn-ghost { border-color: transparent; }
+a.np-btn:not([href]) { opacity: .5; pointer-events: none; }
+.np-cfg { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid #ddd6fe; border-radius: 10px; background: #faf5ff; font-size: 13px; }
+.np-cfg input { width: min(100%, 520px); height: 32px; margin-left: 6px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; }
+.np-cfg small { color: #6b7280; }
+.np-cfg .np-btn { justify-self: start; }
+.np-msg { margin: 0; font-size: 13px; font-weight: 700; color: #0f766e; }
+.np-msg:empty { display: none; }
+.np-msg.is-bad, .np-empty-msg.is-bad { color: #b91c1c; }
+.np-count { margin: 0; font-size: 12.5px; font-weight: 700; color: #6b7280; }
+.np-empty-msg { margin: 20px 4px; font-size: 14px; font-weight: 700; color: #6b7280; }
+.np-list { display: grid; gap: 10px; }
+.np-card { display: grid; gap: 8px; padding: 10px 12px 8px; border: 1px solid #e5e7eb; border-left: 4px solid #f59e0b; border-radius: 10px; background: #fff; min-width: 0; }
+.np-card.is-done { border-left-color: #10b981; }
+.np-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.np-row { flex: 0 0 auto; padding: 2px 8px; border-radius: 999px; background: #f3f4f6; color: #6b7280; font-size: 12px; font-weight: 800; }
+.np-folder { min-width: 0; max-width: 100%; border: 0; background: none; padding: 2px 4px; border-radius: 6px; font: inherit; font-size: 15px; font-weight: 800; color: #111827; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.np-folder:hover { background: #f0fdfa; }
+.np-chip { padding: 2px 8px; border-radius: 6px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.np-chip.is-vendor { background: #fef3c7; color: #92400e; }
+.np-steps { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.np-step { padding: 2px 7px; border-radius: 6px; background: #f3f4f6; color: #9ca3af; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.np-step.is-done { background: #d1fae5; color: #047857; }
+.np-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px 12px; min-width: 0; }
+.np-f { display: grid; gap: 2px; min-width: 0; align-content: start; }
+.np-f.is-multi, .np-f.is-edit { grid-column: span 2; }
+.np-k { font-size: 11.5px; font-weight: 800; color: #6b7280; }
+.np-k small { font-weight: 600; color: #9ca3af; }
+.np-v { display: block; width: 100%; min-height: 30px; padding: 5px 8px; border: 1px solid transparent; border-radius: 6px; background: #f9fafb; font: inherit; font-size: 13.5px; color: #111827; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
+.np-v:hover { border-color: #99f6e4; background: #f0fdfa; }
+.np-v.is-formula { color: #6b7280; cursor: not-allowed; background: #f3f4f6; }
+.np-empty { color: #d1d5db; font-style: normal; }
+.np-in { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 2px solid #14b8a6; border-radius: 6px; font: inherit; font-size: 13.5px; resize: vertical; }
+input.np-in { height: 34px; }
+.np-editbtns { display: flex; gap: 6px; margin-top: 4px; }
+.np-more { justify-self: start; border: 0; background: none; padding: 2px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: #0f766e; cursor: pointer; }
+.np-grid.is-rest { padding-top: 8px; border-top: 1px dashed #e5e7eb; }
+.np-addbox { display: grid; gap: 8px; padding: 12px; border: 2px solid #14b8a6; border-radius: 10px; background: #f0fdfa; }
+.np-addbox small { color: #6b7280; font-weight: 600; }
+@media (max-width: 600px) {
+  .np-grid { grid-template-columns: minmax(0, 1fr); }
+  .np-f.is-multi, .np-f.is-edit { grid-column: auto; }
+  .np-steps { width: 100%; }
+}
+.np-cfg[hidden], .np-addbox[hidden] { display: none; }

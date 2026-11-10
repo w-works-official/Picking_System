@@ -2274,3 +2274,8 @@ a.cs-btn {
 .sp-progress:empty, .sp-counts:empty { display: none; }
 .sp-progress { color: #0e7490; font-weight: 800; }
 @media (max-width: 600px) { .sp-file { width: calc(50% - 4px); } .sp-search { width: 150px; } }
+/* 11-10 배송기록: 오른쪽 목록이 길면 아래로 스크롤 (패널은 한 칸 · 위 버튼 줄은 고정) */
+.cs-right-panel[data-right-panel="ship"] { grid-template-rows: minmax(0, 1fr); }
+.cs-right-panel[data-right-panel="ship"] > .sp { min-height: 0; overflow-y: auto; align-content: start; padding-top: 0; }
+.sp > .sp-bar { position: sticky; top: 0; z-index: 2; padding: 8px 0; background: #fff; border-bottom: 1px solid #e2e8f0; }
+.sp-progress { color: #1d4ed8; }

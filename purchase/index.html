@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261109-zoom90">
-    <link rel="stylesheet" href="../src/styles/purchase.css?v=20261110-finder3">
+    <link rel="stylesheet" href="../src/styles/purchase.css?v=20261110-new1">
   </head>
   <body class="purchase-workspace">
     <div id="purchase-app" class="purchase-shell">
@@ -90,11 +90,11 @@
           <div class="purchase-panel-head">
             <div>
               <h2 id="purchase-naming-title">신상품 등록</h2>
-              <p>상품명 요청 — 키워드 · 메모를 넣으면 AI 가 상품명 후보를 만듭니다 (신상품 등록 화면은 준비 중)</p>
+              <p>구글시트 '업데이트 list' › 업데이트 순서 탭과 동기화 — 칸을 눌러 고치면 시트에 바로 저장 · ＋ 새 상품 · 🤖 Claude</p>
             </div>
           </div>
           <div class="purchase-panel-body">
-            <div class="product-names" data-product-names></div>
+            <div class="np" data-new-products></div>
           </div>
         </section>
 
@@ -148,7 +148,7 @@
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261028-purchase1"></script>
     <script type="module" src="../src/app/purchaseApp.mjs?v=20261110-pbox1"></script>
     <script type="module" src="../src/app/remoteBoardPanel.mjs?v=20261103-autohide2"></script>
-    <script type="module" src="../src/app/productNamePanel.mjs?v=20261105-point1"></script>
+    <script type="module" src="../src/app/newProductsPanel.mjs?v=20261110-new1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
     <script type="module" src="../src/app/productBoardPanel.mjs?v=20261110-pbox1"></script>
     <script type="module" src="../src/app/productFinderPanel.mjs?v=20261110-finder3"></script>

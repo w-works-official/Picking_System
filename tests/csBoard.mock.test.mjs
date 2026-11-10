@@ -33,7 +33,7 @@ import {
 } from "../src/domain/csBoard.mjs";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_REVIEW_ROWS } from "../src/domain/csBoardSamples.mjs";
 import { cardHtml, escapeHtml, jobsHtml, slotHtml } from "../src/app/csBoardApp.mjs";
-import { loadCsBoardScript } from "./helpers/csBoardFakeSheet.mjs";
+import { fakeSheet, loadCsBoardScript } from "./helpers/csBoardFakeSheet.mjs";
 
 // 공개 저장소: 주소는 비어 있거나 Apps Script 웹앱 주소만, 토큰·키는 코드에 없음
 assert.ok(CS_BOARD_ENDPOINT === "" || /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(CS_BOARD_ENDPOINT));
@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 16 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 17 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 16);
+  assert.equal(g5.get().version, 17);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -960,6 +960,48 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.equal(g2.post({ action: "shipList", token: TOKEN }).renamePending, 0);
   assert.equal(g2.sheets.find((sh) => sh.getName() === "배송사진").data[1][2], "bandicam 2026-11-06 17-20-00-000_홍길동.jpg", "탭의 바뀐이름도");
   console.log("csBoard.mock.test (ship photos bandicam v16): OK");
+}
+
+// v17 신상품 등록: '업데이트 list' › '업데이트 순서' (머리글 3줄 · 4줄부터 상품 · A~AD) — 읽기 · 칸 하나 고치기(먼저 바뀐 칸 보호) · 새 줄
+{
+  const UPD = "1-o0XpuHE_A8ZrGpbnRyOqpKP715bHd21pTlLBwjOj4o";
+  const other = fakeSheet("다른 탭", { id: 1 });
+  const tab = fakeSheet("업데이트 순서", { id: 813202838, formulas: { "5,15": "=M5/N5" } });
+  const row = (vals) => { const r = Array(30).fill(""); for (const [c, v] of Object.entries(vals)) r[c] = v; return r; };
+  tab.data.push(row({ 1: "브랜드", 3: "제품폴더", 8: "제품명", 9: "매입옵션명" }), row({ 3: "피어싱의 경우", 4: "전체 써지컬 :" }), row({ 3: "두줄로 구분" }));
+  tab.data.push(row({ 3: "GP00540 14K 링", 5: "골드\n로즈", 8: "14K 스컬프 링", 23: "11606" }), row({ 3: "GP00541 아코디언", 8: "14K 아코디언", 14: "2.20" }), row({}), row({ 25: "메모만" }));
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN }, others: { [UPD]: [other, tab] } });
+  assert.equal(g.post({ action: "newList", token: "wrong" }).denied, true);
+  const l = g.post({ action: "newList", token: TOKEN });
+  assert.equal(l.ok, true);
+  assert.equal(l.labels[3], "제품폴더 피어싱의 경우 두줄로 구분", "머리글 1~3줄을 이어 붙임");
+  assert.equal(l.labels.length, 30);
+  assert.deepEqual(l.rows.map((r) => r.r), [4, 5], "빈 줄 · 핵심 칸 없는 아래쪽 줄은 뺌 (D·E·F·I·J 중 하나라도 있는 마지막 줄까지)");
+  assert.equal(l.rows[0].cells[5], "골드\n로즈", "줄바꿈 그대로");
+  assert.deepEqual(l.rows[1].formulas, [14], "수식 칸 표시");
+  // 칸 고치기
+  const ok = g.post({ action: "newSave", token: TOKEN, r: 4, c: 8, expect: "14K 스컬프 링", value: "14K 스컬프 원터치 링", editor: "시험" });
+  assert.deepEqual([ok.ok, ok.value], [true, "14K 스컬프 원터치 링"]);
+  assert.equal(tab.data[3][8], "14K 스컬프 원터치 링");
+  const stale = g.post({ action: "newSave", token: TOKEN, r: 4, c: 8, expect: "14K 스컬프 링", value: "덮어쓰기" });
+  assert.deepEqual([stale.ok, stale.conflict, stale.current], [false, true, "14K 스컬프 원터치 링"], "시트에서 먼저 바뀐 칸은 안 씀");
+  assert.equal(tab.data[3][8], "14K 스컬프 원터치 링");
+  assert.match(g.post({ action: "newSave", token: TOKEN, r: 5, c: 14, expect: "2.20", value: "3" }).error, /수식/, "수식 칸은 안 씀");
+  assert.equal(g.post({ action: "newSave", token: TOKEN, r: 2, c: 8, expect: "", value: "x" }).ok, false, "머리글 줄은 안 씀");
+  assert.equal(g.post({ action: "newSave", token: TOKEN, r: 4, c: 30, expect: "", value: "x" }).ok, false, "AD 넘는 칸은 안 씀");
+  g.post({ action: "newSave", token: TOKEN, r: 5, c: 25, expect: "", value: "=IMPORTXML(1)" });
+  assert.equal(tab.data[4][25], "=IMPORTXML(1)", "글자로 저장 (앞에 ' — 가짜 시트는 ' 를 뗌)");
+  // 새 줄: 마지막 상품 줄(5) 다음 빈 줄 → 6 (7줄의 메모만 있는 줄은 핵심 칸이 비어 있어 마지막으로 안 봄 · 6줄은 비어 있음)
+  const add = g.post({ action: "newAdd", token: TOKEN, cells: { 3: "GP00999 새 상품", 8: "새 상품명", 40: "무시" }, editor: "시험" });
+  assert.deepEqual([add.ok, add.r], [true, 6]);
+  assert.deepEqual([tab.data[5][3], tab.data[5][8]], ["GP00999 새 상품", "새 상품명"]);
+  const add2 = g.post({ action: "newAdd", token: TOKEN, cells: { 3: "또 새 상품", 25: "메모" } });
+  assert.equal(add2.r, 8, "7줄은 메모 칸(Z)이 차 있어 건너뜀");
+  assert.equal(g.post({ action: "newAdd", token: TOKEN, cells: {} }).ok, false);
+  const log = g.sheets.find((sh) => sh.getName() === "신상품 기록");
+  assert.deepEqual(log.data[1].slice(1, 6), ["시험", 4, "I", "14K 스컬프 링", "14K 스컬프 원터치 링"], "고친 기록 (전 값 · 새 값)");
+  assert.equal(log.data.length, 1 + 2 + 2 + 2, "머리글 + 고친 칸 2 + 새 줄 칸 2 + 2");
+  console.log("csBoard.mock.test (new products v17): OK");
 }
 
 // v14 XX 표시: 통째로 바꿔 저장 · 대문자 · 같은 코드 한 번

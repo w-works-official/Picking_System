@@ -1,7 +1,7 @@
 /**
- * @OnlyCurrentDoc  (시트 권한은 "이 시트 하나"로만 제한. AI 추천 때문에 외부 주소 호출 권한만 추가로 묻습니다)
+ * (v17 부터 @OnlyCurrentDoc 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -131,7 +131,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
   if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 16 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 17 });
 }
 
 function doPost(e) {
@@ -208,7 +208,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'newList', 'newSave', 'newAdd'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -235,6 +235,9 @@ function route_(body) {
   if (action === 'optionPhotoAi') return optionPhotoAi_(body);
   if (action === 'shipList') return shipList_();
   if (action === 'shipScan') return shipScan_(body);
+  if (action === 'newList') return updList_();
+  if (action === 'newSave') return withLock_(function () { return updSave_(body); });
+  if (action === 'newAdd') return withLock_(function () { return updAdd_(body); });
   if (action === 'xxList') return xxList_();
   if (action === 'xxSet') return withLock_(function () { return xxSet_(body); });
   if (action === 'loginShotGet') return loginShotGet_(body);
@@ -1848,6 +1851,131 @@ function shipRenamePending_(files, known) {
   return out;
 }
 
+
+// ---------- v17 신상품 등록 (2026-11-10) — '업데이트 list' 시트의 '업데이트 순서' 탭 ----------
+// V3 상품 관리 › 신상품 등록 화면이 이 탭을 읽고(newList), 칸 하나씩 고치고(newSave), 새 줄을 붙입니다(newAdd).
+//  · 머리글 1~3줄, 상품은 4줄부터 · A~AD 30칸
+//  · 고칠 때: 화면이 본 값(expect)과 지금 시트 값이 다르면 쓰지 않고 알려 줌 (시트에서 먼저 바꾼 것 덮어쓰기 방지)
+//  · 수식 칸은 쓰지 않음 · '=' 로 시작하는 글은 글자로 저장 · 줄은 지우지 않음
+//  · 고친 기록은 이 CS 시트 '신상품 기록' 탭에 (시각 · 수정자 · 줄 · 칸 · 전 값 · 새 값)
+//  · 처음 한 번: 편집기에서 '신상품_권한' 실행 → 스프레드시트 권한 허용
+var UPD_SHEET_DEFAULT = '1-o0XpuHE_A8ZrGpbnRyOqpKP715bHd21pTlLBwjOj4o'; // 업데이트 list (스크립트 속성 UPD_SHEET 로 바꿀 수 있음)
+var UPD_TAB_GID = 813202838;
+var UPD_TAB_NAME = '업데이트 순서';
+var UPD_HEAD_ROWS = 3;
+var UPD_COLS = 30;                    // A ~ AD
+var UPD_KEY_COLS = [4, 5, 6, 9, 10];  // D 제품폴더 · E 체크 항목 · F 옵션 · I 제품명 · J 매입옵션명 — 마지막 상품 줄 찾기
+var UPD_LOG_SHEET = '신상품 기록';
+var UPD_CELL_LIMIT = 45000;
+
+function 신상품_권한() {
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, ['https://www.googleapis.com/auth/spreadsheets']);
+  var tab = updTab_();
+  Logger.log('업데이트 list › ' + tab.getName() + ' — 읽기·쓰기 권한 확인 완료 (마지막 줄 ' + tab.getLastRow() + ')');
+}
+
+function updTab_() {
+  var book = SpreadsheetApp.openById(prop_('UPD_SHEET') || UPD_SHEET_DEFAULT);
+  var sheets = book.getSheets();
+  for (var i = 0; i < sheets.length; i++) if (sheets[i].getSheetId && sheets[i].getSheetId() === UPD_TAB_GID) return sheets[i];
+  var byName = book.getSheetByName(UPD_TAB_NAME);
+  if (!byName) throw new Error("'" + UPD_TAB_NAME + "' 탭을 찾지 못했습니다");
+  return byName;
+}
+
+function updLabels_(tab) {
+  var head = tab.getRange(1, 1, UPD_HEAD_ROWS, UPD_COLS).getDisplayValues();
+  var out = [];
+  for (var c = 0; c < UPD_COLS; c++) {
+    var parts = [];
+    for (var r = 0; r < UPD_HEAD_ROWS; r++) { var t = String(head[r][c] || '').replace(/\s+/g, ' ').trim(); if (t && parts.indexOf(t) < 0) parts.push(t); }
+    out.push(parts.join(' '));
+  }
+  return out;
+}
+
+function updLastRow_(tab) {
+  var last = tab.getLastRow();
+  if (last <= UPD_HEAD_ROWS) return UPD_HEAD_ROWS;
+  var vals = tab.getRange(UPD_HEAD_ROWS + 1, 1, last - UPD_HEAD_ROWS, UPD_COLS).getDisplayValues();
+  for (var i = vals.length - 1; i >= 0; i--) {
+    for (var k = 0; k < UPD_KEY_COLS.length; k++) if (String(vals[i][UPD_KEY_COLS[k] - 1] || '').trim()) return UPD_HEAD_ROWS + 1 + i;
+  }
+  return UPD_HEAD_ROWS;
+}
+
+function updList_() {
+  var tab = updTab_();
+  var labels = updLabels_(tab);
+  var last = updLastRow_(tab);
+  var rows = [];
+  if (last > UPD_HEAD_ROWS) {
+    var range = tab.getRange(UPD_HEAD_ROWS + 1, 1, last - UPD_HEAD_ROWS, UPD_COLS);
+    var vals = range.getDisplayValues();
+    var forms = range.getFormulas();
+    for (var i = 0; i < vals.length; i++) {
+      if (!vals[i].some(function (v) { return String(v || '').trim(); })) continue;
+      var f = [];
+      for (var c = 0; c < UPD_COLS; c++) if (forms[i][c]) f.push(c);
+      rows.push({ r: UPD_HEAD_ROWS + 1 + i, cells: vals[i].map(function (v) { return String(v == null ? '' : v); }), formulas: f });
+    }
+  }
+  return { ok: true, labels: labels, rows: rows, headRows: UPD_HEAD_ROWS, cols: UPD_COLS, sheetUrl: 'https://docs.google.com/spreadsheets/d/' + (prop_('UPD_SHEET') || UPD_SHEET_DEFAULT) + '/edit#gid=' + UPD_TAB_GID };
+}
+
+function updValue_(value) {
+  var text = String(value == null ? '' : value).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').slice(0, UPD_CELL_LIMIT);
+  return text.charAt(0) === '=' ? "'" + text : text; // 수식으로 해석되지 않게
+}
+
+function updLog_(rows) {
+  var book = book_();
+  var sheet = book.getSheetByName(UPD_LOG_SHEET);
+  if (!sheet) { sheet = book.insertSheet(UPD_LOG_SHEET); sheet.appendRow(['시각', '수정자', '줄', '칸', '전 값', '새 값']); sheet.setFrozenRows(1); }
+  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, 6).setValues(rows.map(function (x) {
+    return [x[0], x[1], x[2], x[3], clean_(String(x[4]).slice(0, 2000), 2000), clean_(String(x[5]).slice(0, 2000), 2000)];
+  }));
+}
+
+function updColName_(c) { var s = ''; c += 1; while (c > 0) { var m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; }
+
+function updSave_(body) {
+  var r = Math.floor(Number(body && body.r)), c = Math.floor(Number(body && body.c));
+  if (!(r > UPD_HEAD_ROWS) || !(c >= 0 && c < UPD_COLS)) return { ok: false, error: '줄·칸 번호가 맞지 않습니다' };
+  var tab = updTab_();
+  var cell = tab.getRange(r, c + 1);
+  if (cell.getFormula()) return { ok: false, error: updColName_(c) + r + ' 칸은 수식이라 시트에서 직접 고쳐 주세요' };
+  var before = String(cell.getDisplayValue());
+  if (before !== String(body.expect == null ? '' : body.expect)) return { ok: false, conflict: true, current: before, error: '시트에서 먼저 바뀐 칸입니다 — 새 값을 보여 드립니다' };
+  var next = updValue_(body.value);
+  cell.setValue(next);
+  var now = String(cell.getDisplayValue());
+  updLog_([[new Date(), plain_(clean_(body.editor, 40)), r, updColName_(c), before, now]]);
+  return { ok: true, r: r, c: c, value: now };
+}
+
+function updAdd_(body) {
+  var cells = body && body.cells && typeof body.cells === 'object' ? body.cells : {};
+  var keys = Object.keys(cells).map(Number).filter(function (c) { return c >= 0 && c < UPD_COLS && String(cells[c] == null ? '' : cells[c]).trim(); });
+  if (!keys.length) return { ok: false, error: '넣을 내용이 없습니다' };
+  var tab = updTab_();
+  var target = updLastRow_(tab) + 1;
+  for (var tries = 0; tries < 50; tries++, target++) {
+    var range = tab.getRange(target, 1, 1, UPD_COLS);
+    var vals = range.getDisplayValues()[0], forms = range.getFormulas()[0];
+    var busy = keys.some(function (c) { return String(vals[c] || '').trim() || forms[c]; });
+    if (!busy) break;
+  }
+  if (tries >= 50) return { ok: false, error: '빈 줄을 찾지 못했습니다' };
+  var who = plain_(clean_(body.editor, 40)), at = new Date(), log = [];
+  keys.forEach(function (c) {
+    var v = updValue_(cells[c]);
+    tab.getRange(target, c + 1).setValue(v);
+    log.push([at, who, target, updColName_(c), '', v]);
+  });
+  updLog_(log);
+  return { ok: true, r: target };
+}
 
 // ---------- v14 XX 표시 (전달사항 · 임의필드) ----------
 // 상품 현황에서 [XX 표시 올리기]로 엑셀(상품코드 · 전달사항 · 임의필드)을 올리면 표시가 있는 옵션만 통째로 바꿔 저장

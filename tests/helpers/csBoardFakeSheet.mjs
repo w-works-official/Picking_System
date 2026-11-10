@@ -2,14 +2,16 @@
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
-export function fakeSheet(name = "시트1") {
-  const data = [];
+export function fakeSheet(name = "시트1", { id = 0, formulas = {} } = {}) {
+  const data = [];  // formulas = { "행,열": "=수식" } (1부터)
   let sheetName = name;
   const strip = (v) => (typeof v === "string" && v.startsWith("'") ? v.slice(1) : v);
   const sheetObj = {
     data,
     setName(next) { sheetName = next; },
     getName: () => sheetName,
+    getSheetId: () => id,
+    formulas,
     getLastRow: () => data.length,
     writes: 0,
     getMaxRows() { return Math.max(1000, data.length); },
@@ -19,12 +21,15 @@ export function fakeSheet(name = "시트1") {
     getRange(row, col, rows = 1, cols = 1) {
       return {
         getValues: () => data.slice(row - 1, row - 1 + rows).map((r) => Array.from({ length: cols }, (_, i) => r[col - 1 + i] ?? "")),
-        getDisplayValues: () => data.slice(row - 1, row - 1 + rows).map((r) => Array.from({ length: cols }, (_, i) => String(r[col - 1 + i] ?? ""))),
+        getDisplayValues: () => Array.from({ length: Math.max(0, Math.min(rows, Math.max(data.length, row - 1 + rows) - (row - 1))) }, (_, k) => Array.from({ length: cols }, (_, i) => String(data[row - 1 + k]?.[col - 1 + i] ?? ""))),
         clearContent() { for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) if (data[row - 1 + r]) data[row - 1 + r][col - 1 + c] = ""; },
         setNumberFormat() {},
         setValues(values) { sheetObj.writes++; values.forEach((vals, r) => { data[row - 1 + r] ||= []; vals.forEach((v, c) => { data[row - 1 + r][col - 1 + c] = strip(v); }); }); },
         getValue: () => data[row - 1]?.[col - 1] ?? "",
-        setValue: (v) => { data[row - 1][col - 1] = strip(v); },
+        getDisplayValue: () => String(data[row - 1]?.[col - 1] ?? ""),
+        getFormula: () => formulas[`${row},${col}`] || "",
+        getFormulas: () => Array.from({ length: rows }, (_, r) => Array.from({ length: cols }, (_, c) => formulas[`${row + r},${col + c}`] || "")),
+        setValue: (v) => { data[row - 1] ||= []; data[row - 1][col - 1] = strip(v); },
       };
     },
   };
@@ -32,7 +37,7 @@ export function fakeSheet(name = "시트1") {
 }
 
 // claude(payload) → 가짜 AI 응답 문자열(답변 배열 JSON). status 를 바꾸면 오류 응답.
-export async function loadCsBoardScript({ props = {}, claude, sheets, drive } = {}) {
+export async function loadCsBoardScript({ props = {}, claude, sheets, drive, others = {} } = {}) {
   const source = await readFile(new URL("../../docs/cs-board-sheet.gs", import.meta.url), "utf8");
   const book = sheets || [fakeSheet()];
   const properties = { ...props };
@@ -51,6 +56,12 @@ export async function loadCsBoardScript({ props = {}, claude, sheets, drive } = 
         insertSheet: (n) => { const s = fakeSheet(n); book.push(s); return s; },
         deleteSheet: (sh) => { const i = book.indexOf(sh); if (i >= 0) book.splice(i, 1); },
       }),
+      // v17 다른 시트 열기: others = { 시트ID: [fakeSheet…] }
+      openById: (id) => {
+        const list = others[id];
+        if (!list) throw new Error("시트 없음 " + id);
+        return { getSheets: () => list, getSheetByName: (n) => list.find((x) => x.getName() === n) || null };
+      },
     },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     // v11 원격 로그인: 임시 보관 (만료는 흉내 안 냄 · 100KB 넘으면 거절 = 실제 CacheService 와 같음)

@@ -3,23 +3,21 @@
 //  · 📋 전체 리스트: 시간 순서 그대로 · 송장 사진 = 묶음 시작 → 그 뒤 동영상·사진은 다음 송장 사진 전까지 같은 묶음
 //  · 🔎 파일 찾기: 수신자 이름(일부 · 가려진 글자 * ○ 무시)으로 그 묶음만
 //  · 둘 다 체크로 고르고 [⬇ 선택 다운로드] (드라이브에서 바로 받음 — 이 화면은 파일을 저장·전송하지 않음)
-import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship4";
+import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship5";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const FOLDER_URL = (id) => `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
 
 export function mountShipPhotos({ document, window, root, side, post, isLive = () => true } = {}) {
   if (!root || !side) return null;
-  const st = { files: [], groups: [], unchecked: 0, renamePending: 0, folder: "", loaded: false, loading: false, running: false, stop: false, mode: "all", q: "", picked: new Set(), error: "", note: "" };
+  const st = { files: [], groups: [], unchecked: 0, renamePending: 0, folder: "", loaded: false, loading: false, running: false, mode: "all", q: "", picked: new Set(), error: "", note: "" };
 
   side.innerHTML = `
     <fieldset class="cs-box sp-side">
       <legend>🚚 배송기록</legend>
       <p class="cs-note">드라이브 <a data-sp-folder target="_blank" rel="noopener">'5_배송기록' 폴더</a>의 배송 중 사진·동영상을 시간 순서로 봅니다.</p>
-      <div class="cs-row"><button type="button" class="cs-btn cs-btn-primary" data-sp-run>▶ 파일 정리 실행</button><button type="button" class="cs-btn" data-sp-stop hidden>멈춤</button></div>
-      <p class="cs-note sp-progress" data-sp-progress></p>
       <ol class="cs-note cs-install-steps">
-        <li><b>파일 정리</b>: 아직 확인 안 한 사진을 AI 가 보고 <b>송장 사진</b>이면 받는 분 이름을 <b>파일명 끝</b>에 붙입니다 (예: <code>20261110_143012_홍길동.jpg</code> · 가려진 글자는 ○). 파일은 지우지 않고 순서도 그대로입니다.</li>
+        <li><b>[▶ 파일 정리 실행]</b> (오른쪽 위): 아직 확인 안 한 사진을 AI 가 보고 <b>송장 사진</b>이면 받는 분 이름을 <b>파일명 끝</b>에 붙입니다 (예: <code>20261110_143012_홍길동.jpg</code> · 가려진 글자는 ○). 파일은 지우지 않고 순서도 그대로입니다.</li>
         <li><b>묶음</b>: 송장 사진 뒤의 동영상·사진은 다음 송장 사진 전까지 그 수신자 묶음입니다.</li>
         <li><b>파일 찾기</b>: 오른쪽 [🔎 파일 찾기]에서 수신자 이름(일부도 됨)으로.</li>
         <li><b>다운로드</b>: 체크로 고르고 [⬇ 선택 다운로드]. 크롬이 "여러 파일 다운로드"를 물으면 [허용].</li>
@@ -28,6 +26,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     </fieldset>`;
   root.innerHTML = `
     <div class="sp-bar">
+      <button type="button" class="cs-btn cs-btn-primary" data-sp-run>▶ 파일 정리 실행</button>
       <span class="pb-seg sp-seg" role="group" aria-label="보기"><button type="button" data-sp-mode="all" class="is-on">📋 전체 리스트</button><button type="button" data-sp-mode="find">🔎 파일 찾기</button></span>
       <span class="sp-find" data-sp-findbox hidden><input type="search" class="sp-search" data-sp-q placeholder="수신자 이름 (예: 홍길동 · 길동)" aria-label="수신자 이름"><button type="button" class="cs-btn cs-btn-primary" data-sp-go>검색</button></span>
       <span class="cs-flex"></span>
@@ -36,6 +35,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       <button type="button" class="cs-btn cs-btn-green" data-sp-dl disabled>⬇ 선택 다운로드</button>
       <button type="button" class="cs-btn" data-sp-reload>⟳ 새로고침</button>
     </div>
+    <p class="sp-msg sp-progress" data-sp-progress></p>
     <p class="sp-msg" data-sp-msg></p>
     <div class="sp-list" data-sp-list></div>`;
   const $ = (s) => root.querySelector(s) || side.querySelector(s);
@@ -43,7 +43,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
   // ---------- 불러오기 · 정리 ----------
   async function load() {
     if (st.loading) return;
-    if (!isLive()) { st.error = "CS 시트에 연결하면 보입니다 (🏠 메인보드 맨 위 웹 연결)."; render(); return; }
+    if (!isLive()) { st.error = ""; render(); return; }
     st.loading = true; st.error = ""; render();
     try {
       const js = await post({ action: "shipList" });
@@ -62,11 +62,11 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
   }
   async function run() {
     if (st.running || !isLive()) return;
-    st.running = true; st.stop = false; render();
+    st.running = true; render();
     let done = 0, invoices = 0, renamed = 0;
     const errors = [];
     try {
-      for (let guard = 0; guard < 500 && !st.stop; guard += 1) {
+      for (let guard = 0; guard < 500; guard += 1) {
         const js = await post({ action: "shipScan" });
         done += Number(js.done) || 0;
         const ok = (js.results || []).filter((r) => r.invoice && r.recipient);
@@ -77,7 +77,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
         render();
         if (!js.done || !js.remaining) break;
       }
-      st.note = `${st.stop ? "멈춤" : "정리 끝"} — 확인 ${done}장 · 송장 ${invoices}장 · 이름 붙임 ${renamed}장`;
+      st.note = `정리 끝 — 확인 ${done}장 · 송장 ${invoices}장 · 이름 붙임 ${renamed}장`;
       if (errors.length) st.note += ` · ⚠ 이름 못 바꿈 ${errors.length}장: ${errors[0].error}`;
     } catch (error) {
       st.note = `정리 중 멈춤: ${error?.message || error}`;
@@ -129,7 +129,6 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const live = isLive();
     $("[data-sp-run]").disabled = st.running || !live;
     $("[data-sp-run]").textContent = st.running ? "정리 중…" : "▶ 파일 정리 실행";
-    $("[data-sp-stop]").hidden = !st.running;
     $("[data-sp-progress]").textContent = st.note;
     const folder = $("[data-sp-folder]");
     if (st.folder) folder.href = FOLDER_URL(st.folder); else folder.removeAttribute("href");
@@ -152,7 +151,6 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const b = e.target.closest("button");
     if (!b || b.disabled) return;
     if (b.matches("[data-sp-run]")) run();
-    else if (b.matches("[data-sp-stop]")) { st.stop = true; st.note = "이번 묶음까지 하고 멈춥니다…"; render(); }
   });
   root.addEventListener("click", (e) => {
     const b = e.target.closest("button");

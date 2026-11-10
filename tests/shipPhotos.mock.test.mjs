@@ -42,10 +42,10 @@ assert.match(html, /data-left-panel="ship"[^>]*><div data-ship-side><\/div><\/di
 assert.match(html, /data-right-panel="ship" hidden>\s*<div class="sp" data-ship><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "ship"\) openShip\(\);/);
-assert.match(app, /import\("\.\/shipPhotosPanel\.mjs\?v=20261110-ship4"\)/);
+assert.match(app, /import\("\.\/shipPhotosPanel\.mjs\?v=20261110-ship5"\)/);
 const panel = readFileSync(new URL("../src/app/shipPhotosPanel.mjs", import.meta.url), "utf8");
 for (const t of ["▶ 파일 정리 실행", "📋 전체 리스트", "🔎 파일 찾기", "⬇ 선택 다운로드", 'action: "shipScan"', 'action: "shipList"']) assert.ok(panel.includes(t), t);
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");
-assert.match(gs, /'optionPhotoAi', 'shipList', 'shipScan'\]/);
+assert.match(gs, /'optionPhotoAi', 'shipList', 'shipScan'[,\]]/);
 assert.match(gs, /function 배송사진_권한\(\)/, "드라이브 권한 허용용 함수");
 console.log("shipPhotos.mock.test: OK");

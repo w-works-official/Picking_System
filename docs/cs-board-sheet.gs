@@ -1968,33 +1968,82 @@ function updList_() {
   return { ok: true, labels: labels, rows: rows, headRows: UPD_HEAD_ROWS, cols: UPD_COLS, sheetUrl: 'https://docs.google.com/spreadsheets/d/' + (prop_('UPD_SHEET') || UPD_SHEET_DEFAULT) + '/edit#gid=' + UPD_TAB_GID };
 }
 
-// C열 셀 안 사진 → 구글이 주는 임시 주소. 한 장에 0.2초쯤 걸려서 목록과 따로, 줄 묶음(최대 60줄)으로 · 3시간 기억
-//  · 기억 열쇠 = 줄 번호 + 제품폴더(D) 글자 — 줄에 다른 상품이 들어오면 새로 읽음
+// C열 셀 안 사진 → 드라이브 'V3_신상품 사진' 폴더에 사본 (구글이 셀 사진 주소를 다른 화면에서 못 열게 막아서)
+//  · 상품(제품폴더 D 글자)마다 한 번만 만들고, 만든 것은 CS 시트 '신상품 사진' 탭에 (열쇠 · 파일ID · 줄 · 만든 시각)
+//  · 폴더는 '링크가 있는 사람 보기' — 화면은 https://lh3.googleusercontent.com/d/파일ID=w400 로 봄
+//  · 줄 묶음(최대 40줄) · 3시간 기억 · 시트 C열은 안 바꿈
 var UPD_PIC_CACHE_SEC = 3 * 3600;
+var UPD_PIC_FOLDER = 'V3_신상품 사진';
+var UPD_PIC_SHEET = '신상품 사진';
+function updPicFolder_() {
+  var id = prop_('NEW_PIC_FOLDER');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* 지워졌으면 새로 */ } }
+  var found = DriveApp.getFoldersByName(UPD_PIC_FOLDER);
+  var folder = found.hasNext() ? found.next() : DriveApp.createFolder(UPD_PIC_FOLDER);
+  try { folder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { /* 공유 못 하면 사진만 안 보임 */ }
+  PropertiesService.getScriptProperties().setProperty('NEW_PIC_FOLDER', folder.getId());
+  return folder;
+}
+function updPicMap_() {
+  var sheet = book_().getSheetByName(UPD_PIC_SHEET);
+  var map = {};
+  if (!sheet || sheet.getLastRow() < 2) return map;
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues().forEach(function (r) { if (r[0] && r[1]) map[String(r[0])] = String(r[1]); });
+  return map;
+}
+function updPicKey_(folderText) {
+  return Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(folderText || '').trim())).slice(0, 16);
+}
+var updPicUrl_ = function (id) { return id ? 'https://lh3.googleusercontent.com/d/' + id + '=w400' : ''; };
 function updPics_(body) {
-  var want = (Array.isArray(body && body.rows) ? body.rows : []).map(function (r) { return Math.floor(Number(r)); }).filter(function (r) { return r > UPD_HEAD_ROWS; }).slice(0, 60);
+  var want = (Array.isArray(body && body.rows) ? body.rows : []).map(function (r) { return Math.floor(Number(r)); }).filter(function (r) { return r > UPD_HEAD_ROWS; }).slice(0, 40);
   if (!want.length) return { ok: true, pics: {} };
   var tab = updTab_();
   var lo = Math.min.apply(null, want), hi = Math.max.apply(null, want);
   var folders = tab.getRange(lo, 4, hi - lo + 1, 1).getDisplayValues();
   var cache = CacheService.getScriptCache();
-  var key = function (r) { return 'updpic:' + r + ':' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(folders[r - lo][0] || ''))).slice(0, 12); };
-  var keys = want.map(key);
-  var hit = cache.getAll(keys) || {};
+  var keyOf = function (r) { return updPicKey_(folders[r - lo][0]); };
+  var ckeys = want.map(function (r) { return 'updpic2:' + keyOf(r); });
+  var hit = cache.getAll(ckeys) || {};
   var pics = {}, todo = [];
-  want.forEach(function (r, i) { if (hit[keys[i]] != null) pics[r] = hit[keys[i]]; else todo.push(r); });
-  if (todo.length) {
-    var cells = tab.getRange(lo, UPD_IMG_COL, hi - lo + 1, 1).getValues();
-    var put = {};
-    todo.forEach(function (r) {
-      var pic = cells[r - lo][0], url = '';
-      try { if (pic && typeof pic === 'object' && typeof pic.getContentUrl === 'function') url = String(pic.getContentUrl() || ''); } catch (e) { url = ''; }
-      pics[r] = url;
-      put[key(r)] = url;
-    });
-    try { cache.putAll(put, UPD_PIC_CACHE_SEC); } catch (e) { /* 기억 못 해도 이번엔 줌 */ }
-  }
-  return { ok: true, pics: pics };
+  want.forEach(function (r, i) { if (hit[ckeys[i]] != null) pics[r] = hit[ckeys[i]]; else todo.push(r); });
+  if (!todo.length) return { ok: true, pics: pics };
+  var map = updPicMap_();
+  var cells = null, folder = null, made = [], put = {};
+  var token = ScriptApp.getOAuthToken();
+  todo.forEach(function (r) {
+    var key = keyOf(r);
+    var id = String(folders[r - lo][0] || '').trim() ? map[key] : '';
+    if (!id && String(folders[r - lo][0] || '').trim()) {
+      if (!cells) cells = tab.getRange(lo, UPD_IMG_COL, hi - lo + 1, 1).getValues();
+      var pic = cells[r - lo][0], src = '';
+      try { if (pic && typeof pic === 'object' && typeof pic.getContentUrl === 'function') src = String(pic.getContentUrl() || ''); } catch (e) { src = ''; }
+      if (src) {
+        try {
+          var res = UrlFetchApp.fetch(src, { headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true, followRedirects: true });
+          var blob = res.getResponseCode() === 200 ? res.getBlob() : null;
+          var type = blob ? String(blob.getContentType() || '').toLowerCase() : '';
+          if (blob && /^image\//.test(type)) {
+            if (!folder) folder = updPicFolder_();
+            var name = (r + '_' + String(folders[r - lo][0]).replace(/[\\\/:*?"<>|\r\n]+/g, ' ').trim()).slice(0, 80) + (/png/.test(type) ? '.png' : '.jpg');
+            id = folder.createFile(blob.setName(name)).getId();
+            map[key] = id;
+            made.push([key, id, r, new Date()]);
+          }
+        } catch (e) { id = ''; }
+      }
+    }
+    pics[r] = updPicUrl_(id);
+    put['updpic2:' + key] = pics[r];
+  });
+  if (made.length) withLock_(function () {
+    var book = book_();
+    var sheet = book.getSheetByName(UPD_PIC_SHEET);
+    if (!sheet) { sheet = book.insertSheet(UPD_PIC_SHEET); sheet.appendRow(['열쇠(제품폴더)', '드라이브 파일ID', '줄', '만든 시각']); sheet.setFrozenRows(1); }
+    sheet.getRange(sheet.getLastRow() + 1, 1, made.length, 4).setValues(made);
+  });
+  try { cache.putAll(put, UPD_PIC_CACHE_SEC); } catch (e) { /* 기억 못 해도 이번엔 줌 */ }
+  return { ok: true, pics: pics, made: made.length };
 }
 
 function updValue_(value) {

@@ -113,6 +113,15 @@ export async function loadCsBoardScript({ props = {}, claude, sheets, drive, oth
           createFolder: (n) => { (drive.folders ||= []).push(n); return { getId: () => `folder:${n}`, getName: () => n, getFiles: () => iter([]) }; },
         };
       },
+      Access: { ANYONE_WITH_LINK: "anyone" }, Permission: { VIEW: "view" },
+      // v18 신상품 사진 사본 폴더 (내 드라이브 바로 아래)
+      getFoldersByName: (n) => { const list = (drive?.rootFolders || []).filter((f) => f.name === n); let i = 0; return { hasNext: () => i < list.length, next: () => list[i++].obj }; },
+      createFolder: (n) => {
+        const rec = { name: n, files: [], sharing: "" };
+        rec.obj = { getId: () => `pics:${n}`, getName: () => n, setSharing: (a) => { rec.sharing = a; }, createFile: (blob) => { const id = `pic${rec.files.length + 1}`; rec.files.push({ id, name: blob.name }); return { getId: () => id }; } };
+        if (drive) (drive.rootFolders ||= []).push(rec);
+        return rec.obj;
+      },
       getFileById(id) {
         const f = drive?.files.find((x) => x.id === id);
         if (!f) throw new Error("파일 없음");
@@ -130,10 +139,11 @@ export async function loadCsBoardScript({ props = {}, claude, sheets, drive, oth
     },
   };
   function reply(url, options) {
-    if (!options?.payload) { // v13: 상품 사진 받기 (허브 공개 주소)
+    if (!options?.payload) { // v13: 상품 사진 받기 (허브 공개 주소) · v18 시트 셀 사진
       calls.push({ url, image: true });
       const ok = !/missing/.test(url);
-      return { getResponseCode: () => (ok ? 200 : 404), getBlob: () => ({ getContentType: () => "image/jpeg", getBytes: () => [1, 2, 3] }) };
+      const blob = { name: "", getContentType: () => "image/jpeg", getBytes: () => [1, 2, 3], setName(n) { blob.name = n; return blob; } };
+      return { getResponseCode: () => (ok ? 200 : 404), getBlob: () => blob };
     }
     const payload = JSON.parse(options.payload);
     calls.push({ url, headers: options.headers, payload });

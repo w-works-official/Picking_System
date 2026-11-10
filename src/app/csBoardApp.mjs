@@ -438,7 +438,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
   }
 
-  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저", ship: "🚚 배송사진" };
+  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저", ship: "🚚 배송기록" };
   function showRight(tab) {
     $$("[data-right-panel]").forEach((p) => { p.hidden = p.dataset.rightPanel !== tab; });
     const title = $("[data-right-title]");
@@ -1329,7 +1329,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openShip() {
     if (ship) { if (!ship.state.loaded && !ship.state.loading) ship.load(); return; }
     ship = { state: { loaded: false, loading: true }, load() {} };
-    import("./shipPhotosPanel.mjs?v=20261110-ship3")
+    import("./shipPhotosPanel.mjs?v=20261110-ship4")
       .then((m) => { ship = m.mountShipPhotos({ document, window, root: $("[data-ship]"), side: $("[data-ship-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); ship.load(); })
       .catch((error) => { ship = null; toast(`배송사진 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }

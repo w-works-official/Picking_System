@@ -37,12 +37,12 @@ assert.equal(shipDownloadUrl("a b"), "https://drive.google.com/uc?export=downloa
 
 // 화면: 거래처 뒤 🚚 배송사진 탭 · 왼쪽 안내 · 오른쪽 목록 · 시트 v16
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
-assert.match(html, /data-left-tab="vendor"[^>]*>📦 거래처<\/button>\s*<button[^>]*data-left-tab="ship"[^>]*>🚚 배송사진<\/button>\s*<button[^>]*data-left-tab="settings"/, "거래처 뒤");
+assert.match(html, /data-left-tab="vendor"[^>]*>📦 거래처<\/button>\s*<button[^>]*data-left-tab="ship"[^>]*>🚚 배송기록<\/button>\s*<button[^>]*data-left-tab="settings"/, "거래처 뒤");
 assert.match(html, /data-left-panel="ship"[^>]*><div data-ship-side><\/div><\/div>/);
 assert.match(html, /data-right-panel="ship" hidden>\s*<div class="sp" data-ship><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "ship"\) openShip\(\);/);
-assert.match(app, /import\("\.\/shipPhotosPanel\.mjs\?v=20261110-ship3"\)/);
+assert.match(app, /import\("\.\/shipPhotosPanel\.mjs\?v=20261110-ship4"\)/);
 const panel = readFileSync(new URL("../src/app/shipPhotosPanel.mjs", import.meta.url), "utf8");
 for (const t of ["▶ 파일 정리 실행", "📋 전체 리스트", "🔎 파일 찾기", "⬇ 선택 다운로드", 'action: "shipScan"', 'action: "shipList"']) assert.ok(panel.includes(t), t);
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");

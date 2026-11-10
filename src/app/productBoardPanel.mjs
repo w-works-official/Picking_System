@@ -69,21 +69,32 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
   root.innerHTML = `
     <div class="pb-bar">
       <div class="pb-cats" data-pb-cats></div>
-      <div class="pb-tools">
-        <input type="search" class="pb-search" data-pb-search placeholder="검색 — 셀피아 코드 · 상품명 · 옵션명 · 자사코드 (띄어쓰기로 여러 낱말)" aria-label="상품 검색">
-        <span class="pb-seg" role="group" aria-label="표시 방법"><button type="button" data-pb-unit="option" class="is-on">옵션 단위</button><button type="button" data-pb-unit="product">상품 단위</button></span>
-        <label>정렬 <select data-pb-sort><option value="code">코드 순</option><option value="sales">출고 많은 순</option><option value="salesLow">출고 적은 순</option><option value="stockLow">재고 적은 순</option><option value="stockHigh">재고 많은 순</option></select></label>
-        <button type="button" class="pb-btn" data-pb-reload>⟳ 새로고침</button>
-      </div>
-      <div class="pb-filters">
-        <label>재고 <input type="number" inputmode="numeric" data-pb-f="stockMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="stockMax" placeholder="최대"></label>
-        <label>사진 <select data-pb-f="photo"><option value="all">전체</option><option value="none">사진 없는 것</option><option value="has">사진 있는 것</option></select></label>
-        <label title="상품찾기·사진창에서 넣은 보조사진(최대 3장)을 마스터 사진과 같이 보기">보조사진 <select data-pb-subs><option value="off">안 보기</option><option value="show">함께 보기</option><option value="only">있는 것만</option></select></label>
-        <label>출고 기간 <select data-pb-days>${PERIODS.map((p) => `<option value="${p.days}"${p.days === 30 ? " selected" : ""}>${p.label}</option>`).join("")}</select></label>
-        <label>출고 수량 <input type="number" inputmode="numeric" data-pb-f="salesMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="salesMax" placeholder="최대"></label>
-        <label>단종 <select data-pb-disc><option value="exclude">미포함</option><option value="include">포함</option><option value="only">단종만</option></select></label>
-        <button type="button" class="pb-btn pb-btn-mini" data-pb-clear>조건 지우기</button>
-        <label class="pb-btn pb-btn-mini pb-xx-up" title="상품코드 · 전달사항 · 임의필드 칸이 있는 엑셀 (AC·PC 리스트도 됨) — 그 안의 XX · XXX 표시로 통째로 바꿈">📥 XX 표시 올리기<input type="file" accept=".xlsx,.xlsm,.xls" data-pb-xxfile hidden></label>
+      <!-- 11-10 목업 배치: 왼쪽 검색·조건 / 오른쪽 상품 사진 관리 -->
+      <div class="pb-top">
+        <div class="pb-conds">
+          <div class="pb-searchrow">
+            <input type="search" class="pb-search" data-pb-search placeholder="검색 — 셀피아 코드 · 상품명 · 옵션명 · 자사코드 (띄어쓰기로 여러 낱말)" aria-label="상품 검색">
+            <button type="button" class="pb-btn pb-btn-search" data-pb-go>검색</button>
+            <button type="button" class="pb-btn pb-btn-reset" data-pb-clear title="검색어 · 조건 모두 지우기">reset</button>
+          </div>
+          <div class="pb-tools">
+            <span class="pb-seg" role="group" aria-label="표시 방법"><button type="button" data-pb-unit="option" class="is-on">옵션 단위</button><button type="button" data-pb-unit="product">상품 단위</button></span>
+            <label>정렬 <select data-pb-sort><option value="code">코드 순</option><option value="sales">출고 많은 순</option><option value="salesLow">출고 적은 순</option><option value="stockLow">재고 적은 순</option><option value="stockHigh">재고 많은 순</option></select></label>
+            <label>단종 <select data-pb-disc><option value="exclude">미포함</option><option value="include">포함</option><option value="only">단종만</option></select></label>
+            <label class="pb-btn pb-btn-mini pb-xx-up" title="상품코드 · 전달사항 · 임의필드 칸이 있는 엑셀 (AC·PC 리스트도 됨) — 그 안의 XX · XXX 표시로 통째로 바꿈">📥 XX 표시 올리기<input type="file" accept=".xlsx,.xlsm,.xls" data-pb-xxfile hidden></label>
+            <button type="button" class="pb-btn pb-btn-mini" data-pb-reload title="셀피아 재고 · 사진 목록 다시 읽기">⟳ 새로고침</button>
+          </div>
+          <div class="pb-filters">
+            <label>재고 <input type="number" inputmode="numeric" data-pb-f="stockMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="stockMax" placeholder="최대"></label>
+            <label>출고 기간 <select data-pb-days>${PERIODS.map((p) => `<option value="${p.days}"${p.days === 30 ? " selected" : ""}>${p.label}</option>`).join("")}</select></label>
+            <label>출고 수량 <input type="number" inputmode="numeric" data-pb-f="salesMin" placeholder="최소"> ~ <input type="number" inputmode="numeric" data-pb-f="salesMax" placeholder="최대"></label>
+          </div>
+          <div class="pb-filters">
+            <label>사진 <select data-pb-f="photo"><option value="all">전체</option><option value="none">사진 없는 것</option><option value="has">사진 있는 것</option></select></label>
+            <label title="상품찾기·사진창에서 넣은 보조사진(최대 3장)을 마스터 사진과 같이 보기">보조사진 <select data-pb-subs><option value="off">안 보기</option><option value="show">함께 보기</option><option value="only">있는 것만</option></select></label>
+          </div>
+        </div>
+        <div class="pb-photo-box" data-pb-photo-box></div>
       </div>
       <div class="pb-pickbar">
         <label class="pb-check"><input type="checkbox" data-pb-pick-all> <span data-pb-all-label>검색 결과 전체 선택</span></label>
@@ -108,7 +119,6 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
   const view = () => sortView(boardView(st.products, filter()), st.sort, st.days);
   const key = () => salesKey(st.days);
   const sales = (n) => (st.sales ? fmt(n) : "—");
-  const periodCls = (d) => (st.days === d ? " is-period" : "");
 
   function photoCell(file, kind = "option") {
     if (file) {
@@ -121,9 +131,9 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     <span class="pb-n">${fmt(x.stock)}${x.available !== x.stock ? `<small>가용 ${fmt(x.available)}</small>` : ""}</span>
     <span class="pb-n pb-price">${x.buyMin === undefined ? fmt(x.buy) : range(x.buyMin, x.buyMax)}</span>
     <span class="pb-n pb-price">${x.sellMin === undefined ? fmt(x.sell) : range(x.sellMin, x.sellMax)}</span>
-    <span class="pb-n pb-s${periodCls(7)}">${sales(x.s7)}</span>
-    <span class="pb-n pb-s${periodCls(30)}">${sales(x.s30)}</span>
-    <span class="pb-n pb-s${periodCls(90)}">${sales(x.s90)}</span>`;
+    <span class="pb-n pb-s">${sales(x.s7)}</span>
+    <span class="pb-n pb-s">${sales(x.s30)}</span>
+    <span class="pb-n pb-s">${sales(x.s90)}</span>`;
   // 11-10 보조사진 작게 (누르면 크게) — '함께 보기' · '있는 것만'일 때
   const subsHtml = (o) => (st.subs === "off" || !o.subs?.length ? "" : `<span class="pb-subs" title="보조사진 ${o.subs.length}장">${o.subs.map((f) => `<a href="${esc(photoUrl(f))}" target="_blank" rel="noopener" title="보조사진 ${esc(f.replace(/^.*\.__sub(\d)\.jpg$/i, "$1"))}"><img src="${esc(photoUrl(f))}" alt="" loading="lazy"></a>`).join("")}</span>`);
   const optRow = (p, o, withPhoto) => `
@@ -135,7 +145,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     </div>`;
 
   function renderHead() {
-    $("[data-pb-head]").innerHTML = `<div class="pb-row pb-headrow"><span></span><span>사진</span><span>${st.unit === "product" ? "상품" : "옵션"}</span><span class="pb-n">재고</span><span class="pb-n">매입가</span><span class="pb-n">출고가</span><span class="pb-n${periodCls(7)}">7일</span><span class="pb-n${periodCls(30)}">30일</span><span class="pb-n${periodCls(90)}">90일</span></div>`;
+    $("[data-pb-head]").innerHTML = `<div class="pb-row pb-headrow"><span></span><span>사진</span><span>${st.unit === "product" ? "상품" : "옵션"}</span><span class="pb-n">재고</span><span class="pb-n">매입가</span><span class="pb-n">출고가</span><span class="pb-n">7일</span><span class="pb-n">30일</span><span class="pb-n">90일</span></div>`;
   }
 
   function renderPager(pg) {
@@ -178,7 +188,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
         </article>`;
       }
       return `<article class="pb-product${ps !== "none" ? " is-picked" : ""}${p.disc ? " is-disc" : ""}" data-pb-product="${esc(p.code)}">
-        <header class="pb-phead">${head}<b class="pb-code">${esc(p.code)}</b><span class="pb-name">${esc(p.name)}</span><span class="pb-tag pb-tag-${p.category}">${esc(tagOf(p))}</span><span class="pb-sum">재고 <b>${fmt(stats.stock)}</b> · 7일 <b>${sales(stats.s7)}</b> · 30일 <b>${sales(stats.s30)}</b> · 90일 <b>${sales(stats.s90)}</b></span></header>
+        <header class="pb-row pb-phead">${head}<span class="pb-pspace"></span><span class="pb-ptitle"><b class="pb-code">${esc(p.code)}</b> <span class="pb-name">${esc(p.name)}</span> <span class="pb-tag pb-tag-${p.category}">${esc(tagOf(p))}</span></span><span class="pb-n">${fmt(stats.stock)}</span><span></span><span></span><span class="pb-n pb-s">${sales(stats.s7)}</span><span class="pb-n pb-s">${sales(stats.s30)}</span><span class="pb-n pb-s">${sales(stats.s90)}</span></header>
         <div class="pb-options">${options.map((o) => optRow(p, o, true)).join("")}</div>
       </article>`;
     }).join("");
@@ -334,6 +344,7 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
       st.snapshotAt = at ? new Date(new Date(at).getTime() + 9 * 3600000).toISOString().slice(0, 16).replace("T", " ") : "";
       st.photos = names.filter((n) => !/\.__sub\d\.jpg$/i.test(n)).length;
       st.subCount = names.filter((n) => /\.__sub[1-3]\.jpg$/i.test(n)).length;
+      st.rows = rows;
       st.products = buildProducts(rows, photoIndex(names));
       st.loaded = true;
       await Promise.all([loadDisc(), loadXx()]);
@@ -346,6 +357,21 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
       st.loading = false;
       $("[data-pb-reload]").disabled = false;
     }
+  }
+
+  // 11-10 사진 올린 뒤: 셀피아 줄은 그대로 두고 사진 목록만 다시 읽어 붙임
+  async function reloadPhotos() {
+    if (!st.loaded || st.loading || !st.rows) return;
+    try {
+      const names = await listPhotos(fetchImpl);
+      st.photos = names.filter((n) => !/\.__sub\d\.jpg$/i.test(n)).length;
+      st.subCount = names.filter((n) => /\.__sub[1-3]\.jpg$/i.test(n)).length;
+      st.products = buildProducts(st.rows, photoIndex(names));
+      applyDisc(st.products, st.disc);
+      applyXx(st.products, st.xx);
+      if (st.sales) attachSales(st.products, st.sales, today());
+      render();
+    } catch { /* 다음 새로고침 때 */ }
   }
 
   // ---------- 선택 → 엑셀 (사진 포함) ----------
@@ -406,6 +432,9 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
   // ---------- 이벤트 ----------
   const reset = () => { st.page = 1; render(); };
   let timer = 0;
+  root.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches("[data-pb-search]")) { window.clearTimeout(timer); st.q = e.target.value; st.collect = false; reset(); }
+  });
   root.addEventListener("input", (e) => {
     if (e.target.matches("[data-pb-search]")) { window.clearTimeout(timer); timer = window.setTimeout(() => { st.q = e.target.value; reset(); }, 250); return; }
     const f = e.target.dataset.pbF;
@@ -435,7 +464,8 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
   root.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b || b.disabled) return;
-    if (b.dataset.pbCat) { st.cat = b.dataset.pbCat; st.collect = false; reset(); }
+    if (b.matches("[data-pb-go]")) { window.clearTimeout(timer); st.q = $("[data-pb-search]").value; st.collect = false; reset(); }
+    else if (b.dataset.pbCat) { st.cat = b.dataset.pbCat; st.collect = false; reset(); }
     else if (b.dataset.pbUnit) { st.unit = b.dataset.pbUnit; reset(); }
     else if (b.dataset.pbPage) { st.page = Number(b.dataset.pbPage) || 1; render(); $("[data-pb-head]").scrollIntoView?.({ block: "start" }); }
     else if (b.dataset.pbToggle) { const c = b.dataset.pbToggle; if (st.open.has(c)) st.open.delete(c); else st.open.add(c); if (st.allOpen) { st.allOpen = false; st.open = new Set(view().map((x) => x.p.code).filter((x) => x !== c)); } render(); }
@@ -454,6 +484,10 @@ export function mountProductBoard({ document, window, storages = [], fetchImpl =
     } else if (b.matches("[data-pb-reload]")) { st.loaded = false; load(); }
   });
   render();
+  // 11-10 오른쪽 위 「상품 사진 관리」 (사진 올리기 · 사진요청보기)
+  import("./productPhotoBox.mjs?v=20261110-pbox1")
+    .then((m) => m.mountProductPhotoBox({ document, window, root: $("[data-pb-photo-box]"), fetchImpl, onUploaded: () => reloadPhotos() }))
+    .catch(() => { const box = $("[data-pb-photo-box]"); if (box) box.textContent = "상품 사진 관리를 불러오지 못했습니다 — 새로고침(Ctrl+Shift+R)"; });
   // 상품 현황 탭을 처음 열 때 불러옴 (다른 탭만 쓰면 안 읽음)
   const panel = root.closest("[data-purchase-panel]");
   const maybeLoad = () => { if (!st.loaded && !st.loading && panel && !panel.hidden) load(); };

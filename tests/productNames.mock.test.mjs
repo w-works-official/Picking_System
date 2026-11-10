@@ -19,7 +19,7 @@ assert.equal(denied.denied, true);
 assert.match(denied.message, /비밀번호/);
 
 const [page, panel, sheet] = await Promise.all(["../purchase/index.html", "../src/app/productNamePanel.mjs", "../docs/cs-board-sheet.gs"].map((f) => readFile(new URL(f, import.meta.url), "utf8")));
-assert.match(page, /data-purchase-tab="naming">상품명 요청</);
+assert.match(page, /data-purchase-tab="naming">신상품 등록</, "11-10 메뉴 이름 신상품 등록 (상품명 요청 화면)");
 assert.match(page, /data-purchase-panel="naming"[^>]*hidden/);
 assert.match(page, /<div class="product-names" data-product-names><\/div>/);
 assert.match(page, /productNamePanel\.mjs\?v=20261105-point1/);

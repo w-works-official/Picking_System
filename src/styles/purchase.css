@@ -1057,3 +1057,81 @@ body.purchase-workspace {
 .pb-subs a { display: block; width: 44px; height: 44px; border-radius: 5px; overflow: hidden; border: 1px solid #c4b5fd; background: #f9fafb; }
 .pb-subs img { width: 100%; height: 100%; object-fit: cover; }
 @media (max-width: 760px) { .pb-subs a { width: 38px; height: 38px; } }
+
+/* ---- 11-10 상품 현황 목업 배치 ---- */
+/* 사이드 메뉴 묶음 제목 · 목업 메뉴 */
+.purchase-tab-group { margin: 14px 4px 0; font-size: 17px; font-weight: 900; color: #111827; }
+.purchase-tab-group:first-child { margin-top: 2px; }
+.purchase-tab.is-mock { border-style: dashed; color: #6b7280; }
+.purchase-tab.is-mock::after { content: " · 준비 중"; font-size: 11px; font-weight: 700; color: #9ca3af; }
+.purchase-tab.is-mock.active { color: #fff; border-style: solid; }
+.purchase-tab.is-mock.active::after { color: #d9f5e6; }
+.purchase-mock { margin: 20px auto; max-width: 520px; padding: 28px 20px; border: 2px dashed var(--purchase-line); border-radius: 12px; background: #fffdf2; text-align: center; font-weight: 800; color: var(--purchase-muted); }
+@media (max-width: 960px) { .purchase-tab-group { display: none; } .purchase-tab.is-mock::after { content: ""; } }
+
+/* 검색 · 조건(왼쪽) + 상품 사진 관리(오른쪽) — 위에 붙이지 않음 (사진 관리 칸이 커서 목록을 가리지 않게) */
+.pb-bar { position: static; margin: 0 0 4px; padding: 0 0 10px; }
+.pb-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, 46%); gap: 12px 16px; align-items: start; }
+.pb-conds { display: grid; gap: 8px; min-width: 0; }
+.pb-searchrow { display: flex; align-items: center; gap: 8px; }
+.pb-searchrow .pb-search { flex: 1 1 auto; min-width: 0; height: 40px; font-size: 15px; }
+.pb-btn-search { height: 40px; padding: 0 22px; border-color: var(--purchase-green); background: var(--purchase-green); color: #fff; font-size: 17px; font-weight: 900; }
+.pb-btn-reset { height: 30px; padding: 0 10px; border: 2px solid #111827; border-radius: 3px; background: #fff; color: #111827; font-weight: 900; }
+@media (max-width: 1100px) { .pb-top { grid-template-columns: minmax(0, 1fr); } }
+
+/* 상품 줄(옵션 단위 머리줄)도 아래 옵션 줄과 같은 칸 — 재고 · 7일 · 30일 · 90일 숫자가 칸 아래에 맞게 */
+.pb-row.pb-phead { display: grid; flex-wrap: nowrap; gap: 8px; padding: 8px 10px; }
+.pb-phead > .pb-pspace { display: none; }
+.pb-phead .pb-ptitle { grid-column: 2 / span 2; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.pb-phead .pb-name { flex: 0 1 auto; }
+.pb-phead .pb-n { font-size: 13px; }
+@media (max-width: 760px) {
+  .pb-row.pb-phead { gap: 2px 8px; }
+  .pb-phead > .pb-ptitle { grid-column: 2 / -1 !important; grid-row: 1; }
+  .pb-phead .pb-n::before { display: block; font-size: 10px; font-weight: 700; color: var(--purchase-muted); }
+  .pb-phead .pb-n:nth-child(4)::before { content: "재고"; }
+  .pb-phead .pb-n:nth-child(7)::before { content: "7일"; }
+  .pb-phead .pb-n:nth-child(8)::before { content: "30일"; }
+  .pb-phead .pb-n:nth-child(9)::before { content: "90일"; }
+}
+
+/* 상품 사진 관리 칸 */
+.pb-photo-box { min-width: 0; padding: 12px 14px; border: 2px solid #111827; border-radius: 10px; background: #fff; display: grid; gap: 8px; }
+.pp-head { display: flex; align-items: center; gap: 10px; }
+.pp-head > b { font-size: 16px; font-weight: 900; }
+.pp-req-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.pp-badge { min-width: 20px; padding: 0 6px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11px; font-weight: 900; line-height: 18px; text-align: center; }
+.pp-help { margin: 0; font-size: 11.5px; line-height: 1.5; color: #4b5563; font-weight: 600; }
+.pp-help code { padding: 0 3px; border-radius: 3px; background: #f3f4f6; font-size: 11px; }
+.pp-row { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 10px; align-items: stretch; }
+.pp-drop { display: grid; place-content: center; gap: 4px; min-height: 92px; padding: 10px; border: 2px dashed #93c5fd; border-radius: 10px; background: #f8fbff; color: #1d4ed8; text-align: center; cursor: pointer; }
+.pp-drop b { font-size: 14px; }
+.pp-drop small { color: #475569; font-size: 11px; font-weight: 700; }
+.pp-drop.is-drag { background: #dbeafe; border-color: #2563eb; }
+.pp-drop.is-busy { opacity: .6; cursor: progress; }
+.pp-pick { display: grid; gap: 6px; align-content: center; text-align: center; }
+.pp-pick-btn { height: 44px; border: 0; border-radius: 8px; background: #2563eb; color: #fff; font: inherit; font-size: 15px; font-weight: 900; cursor: pointer; }
+.pp-pick-btn:disabled { opacity: .6; cursor: progress; }
+.pp-pick small { font-size: 11px; color: #4b5563; font-weight: 700; }
+.pp-status:empty { display: none; }
+.pp-status { font-size: 12px; font-weight: 700; color: #374151; }
+.pp-status.is-ok { color: var(--purchase-green-dark); }
+.pp-status.is-warn, .pp-status.is-bad { color: #b45309; }
+.pp-status ul { margin: 4px 0 0; padding-left: 18px; max-height: 120px; overflow: auto; }
+.pp-req { border-top: 1px solid #e5e7eb; padding-top: 8px; display: grid; gap: 6px; }
+.pp-req-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; font-weight: 700; color: #4b5563; }
+.pp-req-head b { font-size: 14px; color: #111827; }
+.pp-req-scroll { max-height: 320px; overflow: auto; border: 1px solid #fde68a; border-radius: 8px; }
+.pp-req table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pp-req th { position: sticky; top: 0; background: #fef3c7; text-align: left; padding: 5px 8px; font-weight: 900; }
+.pp-req td { padding: 5px 8px; border-top: 1px solid #f3f4f6; vertical-align: middle; }
+.pp-req td small { color: #6b7280; }
+.pp-code { white-space: nowrap; font-weight: 800; }
+.pp-change { display: inline-block; margin-top: 2px; padding: 0 6px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 10.5px; font-weight: 800; }
+.pp-empty { margin: 4px 0; font-size: 12px; color: #6b7280; font-weight: 700; }
+@media (max-width: 600px) { .pp-row { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) {
+  .pb-btn-search { padding: 0 14px; }
+  .pb-filters label { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+}
+.product-board > *, .pb-top > *, .pb-conds > * { min-width: 0; }

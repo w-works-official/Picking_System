@@ -1609,7 +1609,7 @@ function optionPhotoAi_(body) {
   var model = OPTION_PHOTO_MODELS.indexOf(String(body.model || '')) >= 0 ? String(body.model) : (prop_('CLAUDE_MODEL') || DEFAULT_MODEL);
   var payload = {
     model: model,
-    max_tokens: Math.min(4000, 400 + 90 * opts.length),
+    max_tokens: Math.min(8000, 1500 + 160 * opts.length),
     system: '당신은 액세서리(피어싱·귀걸이·반지·목걸이 등) 쇼핑몰 사진 정리 담당입니다. 옵션(색·모양·크기·종류)마다 맞는 상품 사진을 고릅니다. ' +
       '출력은 JSON 하나만, 설명 없이: {"options":[{"n":옵션번호,"photo":사진번호(없으면 0),"box":[x0,y0,x1,y1] 또는 null,"score":0~100,"why":"한 줄 이유"}]} — box 는 사진 가로·세로를 각각 0~1000 으로 본 비율 좌표.',
     messages: [{ role: 'user', content: content }],
@@ -1640,7 +1640,9 @@ function optionPhotoAi_(body) {
     results.push({ sku: opt.sku, url: url, box: url ? box : null, score: Math.max(0, Math.min(100, Math.round(Number(o.score) || 0))), why: plain_(clean_(o.why, 200)) });
   });
   var u = data.usage || {};
-  return { ok: true, results: results, images: shown, model: model, tokens: { input: u.input_tokens || 0, output: u.output_tokens || 0 } };
+  var res = { ok: true, results: results, images: shown, model: model, tokens: { input: u.input_tokens || 0, output: u.output_tokens || 0 }, stop: String(data.stop_reason || '') };
+  if (!results.length) res.raw = text.slice(0, 1500);   // 읽지 못한 답 확인용
+  return res;
 }
 
 

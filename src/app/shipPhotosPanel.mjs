@@ -3,14 +3,14 @@
 //  · 📋 전체 리스트: 시간 순서 그대로 · 송장 사진 = 묶음 시작 → 그 뒤 동영상·사진은 다음 송장 사진 전까지 같은 묶음
 //  · 🔎 파일 찾기: 수신자 이름(일부 · 가려진 글자 * ○ 무시)으로 그 묶음만
 //  · 둘 다 체크로 고르고 [⬇ 선택 다운로드] (드라이브에서 바로 받음 — 이 화면은 파일을 저장·전송하지 않음)
-import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship1";
+import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship2";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const FOLDER_URL = (id) => `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
 
 export function mountShipPhotos({ document, window, root, side, post, isLive = () => true } = {}) {
   if (!root || !side) return null;
-  const st = { files: [], groups: [], unchecked: 0, folder: "", loaded: false, loading: false, running: false, stop: false, mode: "all", q: "", picked: new Set(), error: "", note: "" };
+  const st = { files: [], groups: [], unchecked: 0, renamePending: 0, folder: "", loaded: false, loading: false, running: false, stop: false, mode: "all", q: "", picked: new Set(), error: "", note: "" };
 
   side.innerHTML = `
     <fieldset class="cs-box sp-side">
@@ -49,6 +49,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       const js = await post({ action: "shipList" });
       st.files = Array.isArray(js.files) ? js.files : [];
       st.unchecked = Number(js.unchecked) || 0;
+      st.renamePending = Number(js.renamePending) || 0;
       st.folder = js.folder || "";
       st.groups = groupShipFiles(st.files);
       st.loaded = true;
@@ -62,17 +63,22 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
   async function run() {
     if (st.running || !isLive()) return;
     st.running = true; st.stop = false; render();
-    let done = 0, invoices = 0;
+    let done = 0, invoices = 0, renamed = 0;
+    const errors = [];
     try {
       for (let guard = 0; guard < 500 && !st.stop; guard += 1) {
         const js = await post({ action: "shipScan" });
         done += Number(js.done) || 0;
-        invoices += (js.results || []).filter((r) => r.invoice && r.recipient).length;
+        const ok = (js.results || []).filter((r) => r.invoice && r.recipient);
+        invoices += ok.length;
+        renamed += ok.filter((r) => !r.renameError).length + (Number(js.renamed) || 0);
+        errors.push(...(js.renameErrors || []));
         st.note = `확인 ${done}장 · 송장 ${invoices}장 · 남은 사진 ${js.remaining ?? 0}장`;
         render();
         if (!js.done || !js.remaining) break;
       }
-      st.note = `${st.stop ? "멈춤" : "정리 끝"} — 확인 ${done}장 · 송장 ${invoices}장 (이름 붙임)`;
+      st.note = `${st.stop ? "멈춤" : "정리 끝"} — 확인 ${done}장 · 송장 ${invoices}장 · 이름 붙임 ${renamed}장`;
+      if (errors.length) st.note += ` · ⚠ 이름 못 바꿈 ${errors.length}장: ${errors[0].error}`;
     } catch (error) {
       st.note = `정리 중 멈춤: ${error?.message || error}`;
     }
@@ -128,7 +134,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const folder = $("[data-sp-folder]");
     if (st.folder) folder.href = FOLDER_URL(st.folder); else folder.removeAttribute("href");
     const inv = st.groups.filter((g) => g.invoice).length;
-    $("[data-sp-counts]").textContent = st.loaded ? `전체 ${st.files.length}개 · 송장 묶음 ${inv}개 · 동영상 ${st.files.filter((f) => f.kind === "video").length}개 · 확인 안 한 사진 ${st.unchecked}장` : "";
+    $("[data-sp-counts]").textContent = st.loaded ? `전체 ${st.files.length}개 · 송장 묶음 ${inv}개 · 동영상 ${st.files.filter((f) => f.kind === "video").length}개 · 확인 안 한 사진 ${st.unchecked}장${st.renamePending ? ` · ⚠ 이름 못 붙인 송장 ${st.renamePending}장 ([▶ 파일 정리 실행]으로 다시)` : ""}` : "";
     $("[data-sp-dl]").disabled = !st.picked.size;
     $("[data-sp-dl]").textContent = `⬇ 선택 다운로드${st.picked.size ? ` (${st.picked.size})` : ""}`;
     const list = $("[data-sp-list]");

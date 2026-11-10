@@ -945,6 +945,20 @@ console.log("csBoard.mock.test (ss board api): OK");
   const s = g.post({ action: "shipScan", token: TOKEN });
   assert.deepEqual(s.results.map((r) => r.name), ["bandicam 2026-11-06 16-59-58-746_가나다.jpg", "bandicam 2026-11-06 17-06-41-357_라마.jpg", "bandicam 2026-11-06 17-08-02-984.jpg"]);
   assert.deepEqual(g.post({ action: "shipList", token: TOKEN }).files.map((f) => f.id), order, "이름 바뀐 뒤에도 순서 그대로");
+  // 이름 바꾸기가 막혔던 송장 사진 → 다음 실행 때 AI 없이 이름만 다시 · 실패 이유는 돌려줌
+  const d2 = { folderId: drive.folderId, files: [b("17-20-00-000", "jpg")] };
+  let calls = 0;
+  d2.lockRename = "권한 없음";
+  const g2 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, CLAUDE_KEY: "k" }, drive: d2, claude: () => { calls += 1; return { status: 200, text: '{"photos":[{"n":1,"invoice":true,"name":"홍길동","score":90}]}' }; } });
+  const f1 = g2.post({ action: "shipScan", token: TOKEN });
+  assert.deepEqual(f1.renameErrors, [{ name: "bandicam 2026-11-06 17-20-00-000.jpg", error: "권한 없음" }]);
+  assert.equal(g2.post({ action: "shipList", token: TOKEN }).renamePending, 1);
+  d2.lockRename = "";
+  const f2 = g2.post({ action: "shipScan", token: TOKEN });
+  assert.deepEqual([f2.renamed, f2.renameErrors, calls], [1, [], 1], "AI 는 다시 안 부름");
+  assert.equal(d2.files[0].name, "bandicam 2026-11-06 17-20-00-000_홍길동.jpg");
+  assert.equal(g2.post({ action: "shipList", token: TOKEN }).renamePending, 0);
+  assert.equal(g2.sheets.find((sh) => sh.getName() === "배송사진").data[1][2], "bandicam 2026-11-06 17-20-00-000_홍길동.jpg", "탭의 바뀐이름도");
   console.log("csBoard.mock.test (ship photos bandicam v16): OK");
 }
 

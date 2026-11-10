@@ -1729,7 +1729,7 @@ function shipList_() {
     if (k) { f.invoice = k.invoice; f.recipient = k.recipient; f.score = k.score; f.orig = k.orig; }
     else if (f.kind === 'photo') unchecked++;
   });
-  return { ok: true, files: files, unchecked: unchecked, folder: prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT };
+  return { ok: true, files: files, unchecked: unchecked, renamePending: shipPendingRenames_(files, known).length, folder: prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT };
 }
 
 // 송장 이름을 파일명 끝에 (확장자 앞) — 이미 붙어 있으면 그대로
@@ -1752,7 +1752,12 @@ function shipScan_(body) {
   var known = shipKnown_();
   var todo = files.filter(function (f) { return f.kind === 'photo' && !known[f.id]; });
   var batch = todo.slice(0, Math.max(1, Math.min(SHIP_BATCH, Number(body && body.limit) || SHIP_BATCH)));
-  if (!batch.length) return { ok: true, done: 0, remaining: 0, results: [] };
+  if (!batch.length) {
+    var fix = shipRenamePending_(files, known);
+    var res = { ok: true, done: 0, remaining: 0, results: [] };
+    if (fix.tried) { res.renamed = fix.renamed; res.renameErrors = fix.errors; }
+    return res;
+  }
   var reserved = withLock_(function () { return reserveAi_(1); });
   if (!reserved.allow) return { ok: false, error: '오늘 AI 사용 한도(' + reserved.limit + '회)를 다 썼습니다.' };
 
@@ -1817,7 +1822,28 @@ function shipScan_(body) {
       return [r.id, r.orig, r.name, r.invoice ? '예' : '', r.recipient, r.score, now];
     }));
   });
-  return { ok: true, done: results.length, remaining: Math.max(0, todo.length - batch.length), results: results, ms: Date.now() - started };
+  var errs = results.filter(function (r) { return r.renameError; }).map(function (r) { return { name: r.orig, error: r.renameError }; });
+  var ret = { ok: true, done: results.length, remaining: Math.max(0, todo.length - batch.length), results: results, ms: Date.now() - started };
+  if (errs.length) ret.renameErrors = errs;
+  return ret;
+}
+
+// 송장 + 이름은 읽었는데 파일 이름을 못 바꾼 사진(권한 문제 등) → AI 없이 이름만 다시 붙임 · 탭의 바뀐이름 칸도 고침
+function shipPendingRenames_(files, known) {
+  return files.filter(function (f) { var k = known[f.id]; return k && k.invoice && k.recipient && shipRename_(f.name, k.recipient) !== f.name; });
+}
+function shipRenamePending_(files, known) {
+  var pending = shipPendingRenames_(files, known);
+  var out = { tried: pending.length, renamed: 0, errors: [] };
+  if (!pending.length) return out;
+  var fixed = [];
+  pending.forEach(function (f) {
+    var next = shipRename_(f.name, known[f.id].recipient);
+    try { DriveApp.getFileById(f.id).setName(next); out.renamed++; fixed.push({ row: known[f.id].row, name: next }); }
+    catch (e) { out.errors.push({ name: f.name, error: String(e && e.message || e).slice(0, 160) }); }
+  });
+  if (fixed.length) withLock_(function () { var sheet = shipSheet_(); fixed.forEach(function (x) { sheet.getRange(x.row, 3).setValue(x.name); }); });
+  return out;
 }
 
 

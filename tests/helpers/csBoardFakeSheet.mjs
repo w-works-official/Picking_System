@@ -100,7 +100,7 @@ export async function loadCsBoardScript({ props = {}, claude, sheets, drive } = 
       getFileById(id) {
         const f = drive?.files.find((x) => x.id === id);
         if (!f) throw new Error("파일 없음");
-        return { setName: (n) => { f.name = n; } };
+        return { setName: (n) => { if (drive.lockRename) throw new Error(drive.lockRename); f.name = n; } };  // drive.lockRename = "이유" → 이름 바꾸기 실패 시험
       },
     },
     UrlFetchApp: {

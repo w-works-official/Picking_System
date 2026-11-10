@@ -871,8 +871,6 @@ console.log("csBoard.mock.test (ss board api): OK");
     images: [`${MALL}0310.jpg`, "https://evil.example/x.jpg", `${CJ}missing.jpg`, `${CJ}a_01.jpg`] });
   assert.equal(r.ok, true);
   assert.deepEqual(r.images, [`${MALL}0310.jpg`, `${CJ}a_01.jpg`], "자사몰 · 상세 서버 사진만, 받은 것만");
-  const pilot = "https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/_pilot/src/1/0-0.jpg";
-  assert.deepEqual(g.post({ action: "optionPhotoAi", token: TOKEN, options: [{ sku: "1-1" }], images: [pilot, "https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/1-1.jpg"] }).images, [pilot], "허브는 검토 폴더(_pilot) 조각만");
   assert.deepEqual(r.results, [
     { sku: "8601-1", url: `${CJ}a_01.jpg`, box: [100, 200, 400, 600], score: 92, why: "골드 링" },
     { sku: "8601-2", url: `${MALL}0310.jpg`, box: null, score: 55, why: "" },
@@ -884,7 +882,9 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.ok(!JSON.stringify(seen).includes("evil.example"));
   assert.equal(g.post({ action: "optionPhotoAi", token: TOKEN, model: "gpt", options: [{ sku: "1-1" }], images: [`${MALL}a.jpg`] }).ok, true);
   assert.equal(seen.model, "claude-haiku-5-5", "모르는 모델 → 기본");
-  assert.equal(JSON.parse(g.properties.AI_USAGE)[Object.keys(JSON.parse(g.properties.AI_USAGE))[0]].kinds["옵션사진"], 2, "사용량 기록");
+  const pilot = "https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/_pilot/src/1/0-0.jpg";
+  assert.deepEqual(g.post({ action: "optionPhotoAi", token: TOKEN, options: [{ sku: "1-1" }], images: [pilot, "https://bpgvqmtsjgegnrdzmpep.supabase.co/storage/v1/object/public/product-images/sellpia/1-1.jpg"] }).images, [pilot], "허브는 검토 폴더(_pilot) 조각만");
+  assert.equal(JSON.parse(g.properties.AI_USAGE)[Object.keys(JSON.parse(g.properties.AI_USAGE))[0]].kinds["옵션사진"], 3, "사용량 기록");
   console.log("csBoard.mock.test (optionPhotoAi v15): OK");
 }
 

@@ -84,7 +84,7 @@ export async function loadCsBoardScript({ props = {}, claude, sheets, drive } = 
     },
     Logger: { log: (m) => logs.push(String(m)) },
     // v16 배송사진: drive = { folderId, files: [{ id, name, mime, created: Date, size, folder? }] } — setName 은 files 에 바로 반영
-    ScriptApp: { getOAuthToken: () => "oauth-token" },
+    ScriptApp: { getOAuthToken: () => "oauth-token", AuthMode: { FULL: "FULL" }, requireScopes: () => {} },
     DriveApp: {
       getFolderById(id) {
         if (!drive || id !== drive.folderId) throw new Error("폴더 없음 " + id);

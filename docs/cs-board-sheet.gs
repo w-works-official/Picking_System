@@ -1659,8 +1659,10 @@ var SHIP_BATCH = 6;          // AI 한 번에 볼 사진 수
 var SHIP_MAX_FILES = 3000;
 
 function 배송사진_권한() {
+  // 구글 권한 창에서 항목을 하나씩 고를 수 있어서, 드라이브 '수정' 권한이 빠지면 이름 바꾸기만 막힘 → 빠진 권한을 다시 물음
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/script.external_request']);
   var folder = DriveApp.getFolderById(prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT);
-  Logger.log('배송사진 폴더: ' + folder.getName() + ' — 권한 확인 완료');
+  Logger.log('배송사진 폴더: ' + folder.getName() + ' — 드라이브 보기·수정 권한 확인 완료');
   Logger.log('토큰: ' + (ScriptApp.getOAuthToken() ? '있음' : '없음'));
 }
 

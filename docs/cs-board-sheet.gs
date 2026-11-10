@@ -208,7 +208,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newSave', 'newAdd'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -237,6 +237,7 @@ function route_(body) {
   if (action === 'shipScan') return shipScan_(body);
   if (action === 'shipUpload') return shipUpload_(body);
   if (action === 'newList') return updList_();
+  if (action === 'newPics') return updPics_(body);
   if (action === 'newSave') return withLock_(function () { return updSave_(body); });
   if (action === 'newAdd') return withLock_(function () { return updAdd_(body); });
   if (action === 'xxList') return xxList_();
@@ -1957,17 +1958,43 @@ function updList_() {
     var range = tab.getRange(UPD_HEAD_ROWS + 1, 1, last - UPD_HEAD_ROWS, UPD_COLS);
     var vals = range.getDisplayValues();
     var forms = range.getFormulas();
-    var pics = tab.getRange(UPD_HEAD_ROWS + 1, UPD_IMG_COL, last - UPD_HEAD_ROWS, 1).getValues(); // C열 셀 안 사진 → 구글이 주는 임시 주소
     for (var i = 0; i < vals.length; i++) {
       if (!vals[i].some(function (v) { return String(v || '').trim(); })) continue;
       var f = [];
       for (var c = 0; c < UPD_COLS; c++) if (forms[i][c]) f.push(c);
-      var pic = pics[i][0], img = '';
-      try { if (pic && typeof pic === 'object' && typeof pic.getContentUrl === 'function') img = String(pic.getContentUrl() || ''); } catch (e) { img = ''; }
-      rows.push({ r: UPD_HEAD_ROWS + 1 + i, cells: vals[i].map(function (v) { return String(v == null ? '' : v); }), formulas: f, img: img });
+      rows.push({ r: UPD_HEAD_ROWS + 1 + i, cells: vals[i].map(function (v) { return String(v == null ? '' : v); }), formulas: f });
     }
   }
   return { ok: true, labels: labels, rows: rows, headRows: UPD_HEAD_ROWS, cols: UPD_COLS, sheetUrl: 'https://docs.google.com/spreadsheets/d/' + (prop_('UPD_SHEET') || UPD_SHEET_DEFAULT) + '/edit#gid=' + UPD_TAB_GID };
+}
+
+// C열 셀 안 사진 → 구글이 주는 임시 주소. 한 장에 0.2초쯤 걸려서 목록과 따로, 줄 묶음(최대 60줄)으로 · 3시간 기억
+//  · 기억 열쇠 = 줄 번호 + 제품폴더(D) 글자 — 줄에 다른 상품이 들어오면 새로 읽음
+var UPD_PIC_CACHE_SEC = 3 * 3600;
+function updPics_(body) {
+  var want = (Array.isArray(body && body.rows) ? body.rows : []).map(function (r) { return Math.floor(Number(r)); }).filter(function (r) { return r > UPD_HEAD_ROWS; }).slice(0, 60);
+  if (!want.length) return { ok: true, pics: {} };
+  var tab = updTab_();
+  var lo = Math.min.apply(null, want), hi = Math.max.apply(null, want);
+  var folders = tab.getRange(lo, 4, hi - lo + 1, 1).getDisplayValues();
+  var cache = CacheService.getScriptCache();
+  var key = function (r) { return 'updpic:' + r + ':' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, String(folders[r - lo][0] || ''))).slice(0, 12); };
+  var keys = want.map(key);
+  var hit = cache.getAll(keys) || {};
+  var pics = {}, todo = [];
+  want.forEach(function (r, i) { if (hit[keys[i]] != null) pics[r] = hit[keys[i]]; else todo.push(r); });
+  if (todo.length) {
+    var cells = tab.getRange(lo, UPD_IMG_COL, hi - lo + 1, 1).getValues();
+    var put = {};
+    todo.forEach(function (r) {
+      var pic = cells[r - lo][0], url = '';
+      try { if (pic && typeof pic === 'object' && typeof pic.getContentUrl === 'function') url = String(pic.getContentUrl() || ''); } catch (e) { url = ''; }
+      pics[r] = url;
+      put[key(r)] = url;
+    });
+    try { cache.putAll(put, UPD_PIC_CACHE_SEC); } catch (e) { /* 기억 못 해도 이번엔 줌 */ }
+  }
+  return { ok: true, pics: pics };
 }
 
 function updValue_(value) {

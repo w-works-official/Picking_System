@@ -4,7 +4,7 @@
 //  · 🤖 Claude: 그 줄 정보를 복사하고 Claude 대화를 엶 (주소는 ⚙ 에서 바꿈 — 이 기기에만 저장)
 //  · 비밀번호는 CS 관리 화면과 같은 것 (이 브라우저에 한 번 넣으면 같이 씀)
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261105-point1";
-import { ADD_FIELDS, CLAUDE_URL_DEFAULT, COL, MAIN_FIELDS, MULTILINE, STEPS, claudeLink, claudePrompt, colName, filterRows, isHtml, labelOf, photoCandidates, preview, stepsOf } from "../domain/newProducts.mjs?v=20261110-new3";
+import { ADD_FIELDS, CLAUDE_URL_DEFAULT, COL, MAIN_FIELDS, MULTILINE, STEPS, claudeLink, claudePrompt, colName, filterRows, isHtml, labelOf, photoCandidates, preview, stepsOf } from "../domain/newProducts.mjs?v=20261110-new4";
 import { publicUrl } from "../domain/subPhotos.mjs?v=20261107-finder1";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -12,7 +12,7 @@ const URL_KEY = "system_v3_new_claude_url";
 
 export function mountNewProducts({ document, window, root, storages = [], fetchImpl = (...a) => window.fetch(...a), navigator = window.navigator } = {}) {
   if (!root) return null;
-  const st = { rows: [], labels: [], sheetUrl: "", loaded: false, loading: false, error: "", q: "", todo: false, open: new Set(), edit: null, saving: false, adding: false, note: "", claudeUrl: "" };
+  const st = { rows: [], labels: [], sheetUrl: "", loaded: false, loading: false, error: "", q: "", todo: false, open: new Set(), edit: null, saving: false, adding: false, note: "", claudeUrl: "", picsAsked: new Set(), picsGen: 0 };
   for (const s of storages) { try { const v = s?.getItem?.(URL_KEY); if (v) { st.claudeUrl = v; break; } } catch { /* 없음 */ } }
 
   const token = () => {
@@ -59,10 +59,36 @@ export function mountNewProducts({ document, window, root, storages = [], fetchI
       const js = await post({ action: "newList" });
       if (!js.ok) throw new Error(/알 수 없는 요청/.test(js.error || "") ? "CS 시트가 아직 신상품 등록(v17) 전입니다 — 시트 새 버전 배포 뒤 다시" : js.error || "시트 오류");
       st.rows = js.rows || []; st.labels = js.labels || []; st.sheetUrl = js.sheetUrl || ""; st.loaded = true;
+      st.picsAsked = new Set(); st.picsGen += 1;
     } catch (error) {
       st.error = error?.message || String(error);
     }
     st.loading = false; render();
+    if (st.loaded) loadPics();
+  }
+
+  // 시트 C열 사진: 목록이 뜬 뒤 보이는 순서대로 40줄씩 · 3묶음 동시 (시트가 3시간 기억 → 다음엔 빠름)
+  async function loadPics() {
+    const gen = st.picsGen;
+    const order = [...filterRows(st.rows, { q: st.q, todo: st.todo }), ...st.rows].map((r) => r.r).filter((r) => !st.picsAsked.has(r));
+    const queue = [];
+    for (const r of order) { if (st.picsAsked.has(r)) continue; st.picsAsked.add(r); if (!queue.length || queue[queue.length - 1].length >= 40) queue.push([]); queue[queue.length - 1].push(r); }
+    const worker = async () => {
+      while (queue.length && gen === st.picsGen) {
+        const batch = queue.shift();
+        let pics = {};
+        try { const js = await post({ action: "newPics", rows: batch }); if (js.ok) pics = js.pics || {}; } catch { /* 허브 사진으로 */ }
+        if (gen !== st.picsGen) return;
+        for (const r of batch) {
+          const row = st.rows.find((x) => x.r === r);
+          if (!row) continue;
+          row.img = String(pics[r] || "");
+          const el = root.querySelector(`[data-np-pic="${r}"]`);
+          if (el && (row.img || el.classList.contains("is-none"))) el.outerHTML = photoHtml(row);
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
   }
 
   // ---------- 고치기 ----------
@@ -137,9 +163,10 @@ export function mountNewProducts({ document, window, root, storages = [], fetchI
   // 사진: 시트 C열 → 허브(셀피아코드). 안 나오면 다음 후보로, 다 없으면 "사진 없음"
   const photoHtml = (row) => {
     const list = photoCandidates(row).map((p) => ({ src: p.src || publicUrl(p.hub), from: p.from }));
-    if (!list.length) return '<span class="np-pic is-none">사진 없음</span>';
+    const waiting = row.img === undefined; // 시트 사진 주소를 아직 받는 중
+    if (!list.length) return `<span class="np-pic is-none" data-np-pic="${row.r}">${waiting ? "사진 불러오는 중…" : "사진 없음"}</span>`;
     const [first, ...rest] = list;
-    return `<a class="np-pic" href="${esc(first.src)}" target="_blank" rel="noopener" title="${esc(first.from)} 사진 — 크게 보기"><img src="${esc(first.src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-np-next="${esc(JSON.stringify(rest))}"><small>${esc(first.from)}</small></a>`;
+    return `<a class="np-pic" data-np-pic="${row.r}" href="${esc(first.src)}" target="_blank" rel="noopener" title="${esc(first.from)} 사진 — 크게 보기"><img src="${esc(first.src)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-np-next="${esc(JSON.stringify(rest))}"><small>${esc(first.from)}</small></a>`;
   };
   const cardHtml = (row) => {
     const c = row.cells;

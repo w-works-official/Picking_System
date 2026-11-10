@@ -91,6 +91,9 @@ export async function loadCsBoardScript({ props = {}, claude, sheets, drive, oth
         return fmt.replace(/yyyy|yy|MM|dd|HH|mm|ss/g, (t) => p[t]);
       },
       base64Encode: (bytes) => Buffer.from(bytes).toString("base64"),
+      DigestAlgorithm: { MD5: "md5" },
+      computeDigest: (alg, text) => [...Buffer.from(String(text))].slice(0, 16),
+      base64EncodeWebSafe: (bytes) => Buffer.from(bytes).toString("base64url"),
       getUuid: () => `${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`,
     },
     Logger: { log: (m) => logs.push(String(m)) },

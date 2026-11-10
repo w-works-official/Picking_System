@@ -997,7 +997,12 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.deepEqual(l.rows.map((r) => r.r), [4, 5], "빈 줄 · 핵심 칸 없는 아래쪽 줄은 뺌 (D·E·F·I·J 중 하나라도 있는 마지막 줄까지)");
   assert.equal(l.rows[0].cells[5], "골드\n로즈", "줄바꿈 그대로");
   assert.deepEqual(l.rows[1].formulas, [14], "수식 칸 표시");
-  assert.deepEqual(l.rows.map((r) => r.img), ["https://lh3.googleusercontent.com/pic4", ""], "C열 셀 안 사진 → 주소");
+  assert.equal(l.rows[0].img, undefined, "사진은 목록과 따로 (느려서)");
+  let reads = 0;
+  tab.data[3][2] = { getContentUrl: () => { reads += 1; return "https://lh3.googleusercontent.com/pic4"; } };
+  assert.deepEqual(g.post({ action: "newPics", token: TOKEN, rows: [4, 5, 2] }).pics, { 4: "https://lh3.googleusercontent.com/pic4", 5: "" }, "C열 셀 안 사진 → 주소 (머리글 줄은 무시)");
+  assert.deepEqual(g.post({ action: "newPics", token: TOKEN, rows: [4] }).pics, { 4: "https://lh3.googleusercontent.com/pic4" });
+  assert.equal(reads, 1, "두 번째는 기억한 주소 (다시 안 읽음)");
   // 칸 고치기
   const ok = g.post({ action: "newSave", token: TOKEN, r: 4, c: 8, expect: "14K 스컬프 링", value: "14K 스컬프 원터치 링", editor: "시험" });
   assert.deepEqual([ok.ok, ok.value], [true, "14K 스컬프 원터치 링"]);

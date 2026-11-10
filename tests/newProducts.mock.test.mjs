@@ -43,5 +43,5 @@ assert.doesNotMatch(panel, /api\.anthropic\.com|x-api-key/, "AI 키 없음");
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");
 assert.match(gs, /'shipList', 'shipScan', 'newList', 'newSave', 'newAdd'\]/, "비밀번호(직원) 요청만");
 assert.match(gs, /function 신상품_권한\(\)/);
-assert.doesNotMatch(gs, /^ \* @OnlyCurrentDoc/m, "다른 시트(업데이트 list)를 열어야 해서 뺌");
+assert.doesNotMatch(gs, /@OnlyCurrentDoc/, "다른 시트(업데이트 list)를 열어야 해서 뺌 — 주석 안에 있어도 Apps Script 가 읽으므로 글자 자체가 없어야 함");
 console.log("newProducts.mock.test: OK");

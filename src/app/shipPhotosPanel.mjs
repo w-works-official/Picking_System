@@ -1,9 +1,9 @@
-// 🚚 CS 관리 › 배송사진 (2026-11-10) — 드라이브 '배송사진' 폴더 (배송 중 찍은 사진 + 동영상)
+// 🚚 CS 관리 › 배송사진 (2026-11-10) — 드라이브 '5_배송기록' 폴더 (배송 중 찍은 사진 + 동영상)
 //  · [▶ 파일 정리 실행]: 확인 안 한 사진을 시트(v16 shipScan)가 6장씩 AI 로 보고, 송장 사진이면 수신자 이름을 파일명 끝에 붙임
 //  · 📋 전체 리스트: 시간 순서 그대로 · 송장 사진 = 묶음 시작 → 그 뒤 동영상·사진은 다음 송장 사진 전까지 같은 묶음
 //  · 🔎 파일 찾기: 수신자 이름(일부 · 가려진 글자 * ○ 무시)으로 그 묶음만
 //  · 둘 다 체크로 고르고 [⬇ 선택 다운로드] (드라이브에서 바로 받음 — 이 화면은 파일을 저장·전송하지 않음)
-import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship2";
+import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship3";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const FOLDER_URL = (id) => `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
@@ -15,7 +15,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
   side.innerHTML = `
     <fieldset class="cs-box sp-side">
       <legend>🚚 배송사진</legend>
-      <p class="cs-note">드라이브 <a data-sp-folder target="_blank" rel="noopener">'배송사진' 폴더</a>의 배송 중 사진·동영상을 시간 순서로 봅니다.</p>
+      <p class="cs-note">드라이브 <a data-sp-folder target="_blank" rel="noopener">'5_배송기록' 폴더</a>의 배송 중 사진·동영상을 시간 순서로 봅니다.</p>
       <div class="cs-row"><button type="button" class="cs-btn cs-btn-primary" data-sp-run>▶ 파일 정리 실행</button><button type="button" class="cs-btn" data-sp-stop hidden>멈춤</button></div>
       <p class="cs-note sp-progress" data-sp-progress></p>
       <ol class="cs-note cs-install-steps">

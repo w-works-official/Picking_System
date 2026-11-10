@@ -890,7 +890,7 @@ console.log("csBoard.mock.test (ss board api): OK");
 
 // v16 배송사진: 폴더 파일을 시간 순서로 · 송장 사진은 AI 가 읽은 수신자 이름을 파일명에 · 결과는 '배송사진' 탭
 {
-  const FOLDER = "1LKwNxSdQt1o2A2TVnqv9qOn9yFQ1ZHij";
+  const FOLDER = "1BYw0-dWxwq5zTwPot_dVS0EuDG52-_ie";
   const drive = { folderId: FOLDER, files: [
     { id: "v2", name: "20261110_101500.mp4", mime: "video/mp4" },
     { id: "p1", name: "20261110_101000.jpg", mime: "image/jpeg" },
@@ -937,7 +937,7 @@ console.log("csBoard.mock.test (ss board api): OK");
 {
   const up = new Date("2026-11-10T05:35:00Z");   // 올린 시각은 뒤죽박죽 → 이름 속 시각으로
   const b = (n, ext) => ({ id: n + ext, name: `bandicam 2026-11-06 ${n}.${ext}`, mime: ext === "jpg" ? "image/jpeg" : "video/mp4", created: up });
-  const drive = { folderId: "1LKwNxSdQt1o2A2TVnqv9qOn9yFQ1ZHij", files: [b("17-06-41-310", "mp4"), b("17-06-41-357", "jpg"), b("16-58-42-882", "mp4"), b("16-59-59-029", "mp4"), b("16-59-58-746", "jpg"), b("17-08-03-141", "mp4"), b("17-08-02-984", "jpg")] };
+  const drive = { folderId: "1BYw0-dWxwq5zTwPot_dVS0EuDG52-_ie", files: [b("17-06-41-310", "mp4"), b("17-06-41-357", "jpg"), b("16-58-42-882", "mp4"), b("16-59-59-029", "mp4"), b("16-59-58-746", "jpg"), b("17-08-03-141", "mp4"), b("17-08-02-984", "jpg")] };
   const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, CLAUDE_KEY: "k" }, drive, claude: () => ({ status: 200, text: '{"photos":[{"n":1,"invoice":true,"name":"가나다","score":90},{"n":2,"invoice":true,"name":"라마","score":90},{"n":3,"invoice":false,"name":"","score":90}]}' }) });
   const order = ["16-58-42-882mp4", "16-59-58-746jpg", "16-59-59-029mp4", "17-06-41-357jpg", "17-06-41-310mp4", "17-08-02-984jpg", "17-08-03-141mp4"];
   assert.deepEqual(g.post({ action: "shipList", token: TOKEN }).files.map((f) => f.id), order, "이름 속 시각 · 같은 초는 사진 먼저");

@@ -2132,8 +2132,11 @@ function shipHints_(body) {
   var m = /\{[\s\S]*\}/.exec(text);
   var out = parse_(m ? m[0] : '', {});
   var hints = { name: clean_(out.name, 30), phone: clean_(out.phone, 30), invoice: clean_(out.invoice, 30), address: clean_(out.address, 120), zip: clean_(out.zip, 10), t: file.t };
-  if (cache) try { cache.put('shiphint_' + id, JSON.stringify(hints), 21600); } catch (e) { /* 캐시 없이 */ }
-  return { ok: true, hints: hints };
+  var empty = !hints.name && !hints.phone && !hints.invoice && !hints.address;
+  if (cache && !empty) try { cache.put('shiphint_' + id, JSON.stringify(hints), 21600); } catch (e) { /* 캐시 없이 */ }   // 못 읽은 결과는 캐시 안 함
+  var ret = { ok: true, hints: hints };
+  if (empty) ret.read = { json: !!m, keys: Object.keys(out).join(','), chars: text.length, stop: String(data.stop_reason || ''), img: blob.getBytes().length };   // 못 읽었을 때 원인 확인용 (내용은 안 보냄)
+  return ret;
 }
 
 // ---------- v18 배송기록 업로드 (2026-11-10) ----------

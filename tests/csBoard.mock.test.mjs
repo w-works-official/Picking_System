@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 19 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 20 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 19);
+  assert.equal(g5.get().version, 20);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -1032,6 +1032,33 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.deepEqual(log.data[1].slice(1, 6), ["시험", 4, "I", "14K 스컬프 링", "14K 스컬프 원터치 링"], "고친 기록 (전 값 · 새 값)");
   assert.equal(log.data.length, 1 + 2 + 2 + 2, "머리글 + 고친 칸 2 + 새 줄 칸 2 + 2");
   console.log("csBoard.mock.test (new products v17): OK");
+}
+
+// v20 상담톡: 수집기가 넣고(chatIngest) · 화면이 읽고(chatList) · 답변 후보(chatSuggest)
+{
+  let sent = null;
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: "collector-token-1", CLAUDE_KEY: "k" }, claude: (payload) => { sent = payload; return { status: 200, text: '["네 확인해 드리겠습니다", "로즈골드 2mm 로 출고 전달드렸습니다", "추가 옵션에서 선택 부탁드립니다", "감사합니다", "확인 후 안내드리겠습니다"]' }; } });
+  const conv = (id, extra = {}) => ({ id, name: "고객" + id, tag: "사이즈 문의", time: "오후 3:25", preview: "볼사이즈 2mm 있었는데", unread: 1, messages: [{ who: "c", text: "볼사이즈2mm 없어졌나요?", time: "오후 3:26" }, { who: "s", text: "고객님 안녕하세요", time: "오후 3:49" }], aux: { title: "구매이력", lines: ["2026-11-02 14K 미니 골드볼 16,500원"] }, ...extra });
+  assert.equal(g.post({ action: "chatIngest", token: TOKEN, platform: "smart", convs: [conv("a")] }).denied, true, "수집기 비밀번호만");
+  assert.match(g.post({ action: "chatIngest", token: "collector-token-1", platform: "line", convs: [] }).error, /smart · kakao/);
+  const r1 = g.post({ action: "chatIngest", token: "collector-token-1", platform: "smart", convs: [conv("a"), conv("b")] });
+  assert.deepEqual([r1.added, r1.changed], [2, 0]);
+  g.post({ action: "chatIngest", token: "collector-token-1", platform: "kakao", convs: [conv("k1", { name: "카카오 고객" })] });
+  const r2 = g.post({ action: "chatIngest", token: "collector-token-1", platform: "smart", convs: [conv("a", { unread: 0 })] });
+  assert.deepEqual([r2.added, r2.changed], [0, 1], "같은 대화는 바뀐 것만");
+  const l = g.post({ action: "chatList", token: TOKEN });
+  assert.deepEqual([l.smart.length, l.kakao.length, l.kakao[0].name], [2, 1, "카카오 고객"]);
+  const a = l.smart.find((x) => x.id === "a");
+  assert.equal(a.messages[0].text, "볼사이즈2mm 없어졌나요?");
+  assert.equal(a.aux.lines[0], "2026-11-02 14K 미니 골드볼 16,500원");
+  assert.equal(g.post({ action: "chatList", token: "collector-token-1" }).denied, true, "화면 비밀번호만");
+  const s = g.post({ action: "chatSuggest", token: TOKEN, platform: "smart", name: "고객a", messages: a.messages, aux: a.aux, avoid: ["감사합니다 고객님"] });
+  assert.deepEqual([s.ok, s.answers.length], [true, 5]);
+  assert.match(sent.messages[0].content, /\[고객\] 볼사이즈2mm 없어졌나요\?\n\[우리\] 고객님 안녕하세요/);
+  assert.match(sent.messages[0].content, /이것과 다르게/);
+  assert.match(sent.system[0].text, /상담톡/);
+  assert.match(g.post({ action: "chatSuggest", token: TOKEN, messages: [] }).error, /대화 내용/);
+  console.log("csBoard.mock.test (chat v20): OK");
 }
 
 // v19 반품기록 메모: 카드 추가 · 고치기(먼저 고친 것 보호) · 삭제 표시

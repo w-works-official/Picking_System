@@ -2320,3 +2320,72 @@ a.cs-btn {
 .rt-steps button { padding: 4px 10px; border: 1px solid #fecdd3; border-radius: 999px; background: #fff; font: inherit; font-size: 12px; font-weight: 700; color: #9f1239; cursor: pointer; }
 .rt-steps button.is-on { background: #e11d48; border-color: #e11d48; color: #fff; }
 @media (max-width: 600px) { .rt-f.is-multi { grid-column: auto; } .rt-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- 💬 상담톡 (2026-11-11) — 위 톡톡 · 아래 해피톡 · 구역마다 [목록 | 2층 슬롯 | 보조내용] ---------- */
+.cs-left-tab.tab-chat { background: #ede9fe; color: #6d28d9; }
+.cs-left-tab.tab-chat.active { background: #7c3aed; color: #ffffff; }
+.cs-right-panel[data-right-panel="chat"] { grid-template-rows: minmax(0, 1fr); }
+.ct { position: relative; min-height: 560px; height: calc(100dvh - 124px); display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 6px 10px 10px; min-width: 0; box-sizing: border-box; }
+.ct-msg { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 12px; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .18); font-size: 12.5px; font-weight: 700; color: #be123c; }
+.ct-msg:empty { display: none; }
+.ct-msg.is-ok { color: #047857; }
+.ct-zone { --ct-c: #03c75a; --ct-soft: #e8f9ef; --ct-me: #03c75a; --ct-me-ink: #fff; --ct-talk-bg: #f4f6f8; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr) 240px; border: 2px solid var(--ct-c); border-radius: 10px; overflow: hidden; background: #fff; }
+.ct-zone.ct-kakao { --ct-c: #f2c500; --ct-soft: #fffbe0; --ct-me: #fee500; --ct-me-ink: #191919; --ct-talk-bg: #b2c7da; }
+.ct-list { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border-right: 1px solid #e2e8f0; background: #fff; }
+.ct-list-head, .ct-aux-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: var(--ct-soft); border-bottom: 1px solid #e2e8f0; font-size: 13px; }
+.ct-list-head small { color: #64748b; font-weight: 700; font-size: 11.5px; }
+.ct-logo { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; background: var(--ct-c); color: #fff; font-size: 12px; }
+.ct-kakao .ct-logo { color: #3c1e1e; }
+.ct-list-body { min-height: 0; overflow-y: auto; }
+.ct-item { width: 100%; display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px; border: 0; border-bottom: 1px solid #f1f5f9; border-left: 3px solid transparent; background: #fff; text-align: left; font: inherit; cursor: pointer; }
+.ct-item:hover { background: #f8fafc; }
+.ct-item.is-open { border-left-color: var(--ct-c); }
+.ct-item.is-sel { background: var(--ct-soft); }
+.ct-ava { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #e2e8f0; color: #475569; font-weight: 800; font-size: 13px; }
+.ct-item-main { min-width: 0; display: grid; }
+.ct-item-main b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-item-main small, .ct-item-side small { font-size: 11.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-item-side { display: grid; justify-items: end; gap: 2px; }
+.ct-item-side i { font-style: normal; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; text-align: center; }
+.ct-mid { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); background: #f8fafc; }
+.ct-mid-bar { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
+.ct-hint { font-size: 11.5px; font-weight: 700; color: #94a3b8; }
+.ct-reload { padding: 3px 10px; font-size: 12px; }
+.ct-seg { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 7px; overflow: hidden; }
+.ct-seg button { border: 0; background: #fff; padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; }
+.ct-seg button.is-on { background: var(--ct-c); color: #fff; }
+.ct-kakao .ct-seg button.is-on { color: #3c1e1e; }
+.ct-slots { --ct-cols: 2; min-height: 0; display: grid; grid-template-columns: repeat(var(--ct-cols), minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; }
+.ct-slot { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; }
+.ct-slot.is-sel { border-color: var(--ct-c); box-shadow: 0 0 0 2px var(--ct-c); }
+.ct-slot.is-empty { display: grid; place-items: center; border-style: dashed; background: transparent; cursor: default; }
+.ct-slot.is-empty p { margin: 0; padding: 8px; font-size: 12px; color: #94a3b8; text-align: center; }
+.ct-slot-head { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-bottom: 1px solid #e2e8f0; font-size: 12.5px; min-width: 0; }
+.ct-slot-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-slot-head small { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+.ct-tag { padding: 0 5px; border-radius: 4px; background: var(--ct-soft); color: #334155; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.ct-x { border: 0; background: none; color: #94a3b8; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.ct-talk { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding: 6px; background: var(--ct-talk-bg); }
+.ct-b { max-width: 85%; display: flex; align-items: flex-end; gap: 4px; }
+.ct-b p { margin: 0; padding: 5px 8px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
+.ct-b small { font-size: 10px; color: #64748b; white-space: nowrap; }
+.ct-kakao .ct-b small { color: #475569; }
+.ct-b.is-cu { align-self: flex-start; }
+.ct-b.is-cu p { background: #fff; border: 1px solid #e2e8f0; border-top-left-radius: 2px; }
+.ct-b.is-me { align-self: flex-end; flex-direction: row-reverse; }
+.ct-b.is-me p { background: var(--ct-me); color: var(--ct-me-ink); border-top-right-radius: 2px; }
+.ct-input { position: relative; border-top: 1px solid #e2e8f0; }
+.ct-input textarea { display: block; width: 100%; box-sizing: border-box; resize: none; border: 0; padding: 5px 30px 5px 7px; font: inherit; font-size: 12.5px; line-height: 1.4; background: #fff; }
+.ct-input textarea:focus { outline: 2px solid var(--ct-c); outline-offset: -2px; }
+.ct-copy { position: absolute; right: 4px; top: 4px; border: 1px solid #e2e8f0; border-radius: 5px; background: #fff; font-size: 13px; padding: 1px 4px; cursor: pointer; }
+.ct-ai { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 4px; border-top: 1px solid #f1f5f9; background: #fff; }
+.ct-ai button { border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; padding: 2px 8px; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; }
+.ct-ai button:disabled { opacity: .4; cursor: default; }
+.ct-ai .ct-ai-go { min-width: 44px; background: #7c3aed; border-color: #7c3aed; color: #fff; }
+.ct-ai small { min-width: 34px; font-size: 11px; color: #64748b; font-weight: 700; }
+.ct-ai .is-bad { color: #be123c; }
+.ct-aux { min-height: 0; overflow-y: auto; border-left: 1px solid #e2e8f0; background: #fff; }
+.ct-aux-head { font-weight: 800; position: sticky; top: 0; }
+.ct-aux-name { margin: 8px 10px 4px; font-size: 13px; }
+.ct-aux ul { margin: 0; padding: 0 10px 10px 26px; display: grid; gap: 4px; font-size: 12.5px; color: #334155; }
+.ct-none { margin: 10px; font-size: 12px; color: #94a3b8; }

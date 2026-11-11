@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-11 v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -131,7 +131,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
   if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 19 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 20 });
 }
 
 function doPost(e) {
@@ -208,8 +208,8 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave'];
-  var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest'];
+  var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot', 'chatIngest'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
   } else if (collector.indexOf(action) >= 0) {
@@ -238,6 +238,9 @@ function route_(body) {
   if (action === 'shipUpload') return shipUpload_(body);
   if (action === 'newList') return updList_();
   if (action === 'retList') return retList_();
+  if (action === 'chatList') return chatList_(body);
+  if (action === 'chatSuggest') return chatSuggest_(body);
+  if (action === 'chatIngest') return withLock_(function () { return chatIngest_(body); });
   if (action === 'retSave') return withLock_(function () { return retSave_(body); });
   if (action === 'newPics') return updPics_(body);
   if (action === 'newSave') return withLock_(function () { return updSave_(body); });
@@ -1855,6 +1858,108 @@ function shipRenamePending_(files, known) {
   return out;
 }
 
+
+// ---------- v20 💬 상담톡 (2026-11-11) — 스마트스토어 톡톡 · 카카오 해피톡 ----------
+// 수집기 PC 가 상담 화면에서 대화를 읽어 chatIngest 로 넣고, CS 관리 › 💬 상담톡 화면이 chatList 로 읽습니다.
+//  · 이 시트 '상담톡' 탭: 한 줄 = 대화 하나 (매체 · 대화ID · 바뀐 시각 · 이름 · 안 읽음 · 내용 JSON)
+//  · 내용 JSON: { name, tag, time, preview, unread, messages: [{ who: 'c'(고객)|'s'(우리), text, time }], aux: { title, lines: [...] } }
+//  · 답변 후보: chatSuggest — 대화 글자를 AI 에 보내 5개 (이미 본 후보는 피함). 보내기는 사람이 (붙여넣기만)
+var CHAT_SHEET = '상담톡';
+var CHAT_HEADER = ['매체', '대화ID', '바뀐 시각', '이름', '안 읽음', '내용'];
+var CHAT_PLATFORMS = ['smart', 'kakao'];
+var CHAT_KEEP = 200;   // 매체마다 남길 대화 수 (오래된 것부터 지움 — 이 탭은 화면용 임시 저장)
+
+function chatSheet_() {
+  var book = book_();
+  var sheet = book.getSheetByName(CHAT_SHEET);
+  if (!sheet) { sheet = book.insertSheet(CHAT_SHEET); sheet.appendRow(CHAT_HEADER); sheet.setFrozenRows(1); }
+  return sheet;
+}
+function chatClean_(c) {
+  var msgs = (Array.isArray(c.messages) ? c.messages : []).slice(-60).map(function (m) {
+    return { who: m && m.who === 's' ? 's' : 'c', text: body_(m && m.text, 2000), time: clean_(m && m.time, 30) };
+  }).filter(function (m) { return m.text; });
+  var aux = c.aux && typeof c.aux === 'object' ? { title: clean_(c.aux.title, 60), lines: (Array.isArray(c.aux.lines) ? c.aux.lines : []).slice(0, 30).map(function (l) { return body_(l, 300); }) } : { title: '', lines: [] };
+  return { name: clean_(c.name, 60), tag: clean_(c.tag, 30), time: clean_(c.time, 30), preview: clean_(c.preview, 200), unread: Math.max(0, Math.floor(Number(c.unread) || 0)), messages: msgs, aux: aux };
+}
+function chatIngest_(body) {
+  var platform = String(body && body.platform || '');
+  if (CHAT_PLATFORMS.indexOf(platform) < 0) return { ok: false, error: '매체는 smart · kakao 만' };
+  var convs = (Array.isArray(body.convs) ? body.convs : []).slice(0, 60);
+  var sheet = chatSheet_();
+  var n = sheet.getLastRow() - 1;
+  var rows = n > 0 ? sheet.getRange(2, 1, n, CHAT_HEADER.length).getValues() : [];
+  var at = {};
+  rows.forEach(function (r, i) { at[r[0] + '|' + r[1]] = i; });
+  var now = new Date(), added = 0, changed = 0;
+  convs.forEach(function (c) {
+    var id = clean_(c && c.id, 80);
+    if (!id) return;
+    var v = chatClean_(c);
+    var json = JSON.stringify(v);
+    if (json.length > CELL_LIMIT) { v.messages = v.messages.slice(-20); json = JSON.stringify(v).slice(0, CELL_LIMIT); }
+    var row = [platform, id, now, v.name, v.unread, json];
+    var i = at[platform + '|' + id];
+    if (i == null) { rows.push(row); at[platform + '|' + id] = rows.length - 1; added++; }
+    else if (String(rows[i][5]) !== json || Number(rows[i][4]) !== v.unread) { rows[i] = row; changed++; }
+  });
+  // 매체마다 최근 CHAT_KEEP 개만
+  var keep = [];
+  CHAT_PLATFORMS.forEach(function (p) {
+    keep = keep.concat(rows.filter(function (r) { return r[0] === p; }).sort(function (a, b) { return new Date(b[2]) - new Date(a[2]); }).slice(0, CHAT_KEEP));
+  });
+  if (n > 0) sheet.getRange(2, 1, n, CHAT_HEADER.length).clearContent();
+  if (keep.length) sheet.getRange(2, 1, keep.length, CHAT_HEADER.length).setValues(keep);
+  return { ok: true, added: added, changed: changed, total: keep.length };
+}
+function chatList_(body) {
+  var sheet = chatSheet_();
+  var n = sheet.getLastRow() - 1;
+  var out = { smart: [], kakao: [] };
+  if (n > 0) sheet.getRange(2, 1, n, CHAT_HEADER.length).getValues().forEach(function (r) {
+    if (!out[r[0]]) return;
+    var v = parse_(String(r[5] || ''), null);
+    if (!v) return;
+    v.id = String(r[1]); v.at = r[2] instanceof Date ? r[2].toISOString() : String(r[2] || '');
+    out[r[0]].push(v);
+  });
+  CHAT_PLATFORMS.forEach(function (p) { out[p].sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; }); out[p] = out[p].slice(0, 60); });
+  return { ok: true, smart: out.smart, kakao: out.kakao };
+}
+var CHAT_RULES = '\n\n상담톡(스마트스토어 톡톡 · 카카오 해피톡) 대화일 때\n' +
+  '- 대화 글은 [고객] / [우리] 로 표시됩니다. 마지막 고객 말에 바로 보낼 짧은 채팅 답장을 만듭니다 (게시판 답변보다 짧게, 1~3문장)\n' +
+  '- 보조내용(구매이력 · 고객정보)이 있으면 참고하되, 주소·전화번호 같은 개인정보는 답장에 되풀이하지 않습니다\n' +
+  '- 모르는 사실(재고 · 발송일 · 환불 여부)은 지어내지 않고 "확인 후 안내드리겠습니다" 처럼 씁니다';
+function chatSuggest_(body) {
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
+  var msgs = (Array.isArray(body.messages) ? body.messages : []).slice(-30);
+  if (!msgs.length) return { ok: false, error: '대화 내용이 없습니다' };
+  var count = Math.max(3, Math.min(8, Math.floor(Number(body.count)) || 5));
+  var quota = withLock_(function () { return reserveAi_(1); });
+  if (!quota.allow) return { ok: false, error: '오늘 AI 사용 한도(' + quota.limit + '회)를 다 썼습니다.' };
+  var model = prop_('CLAUDE_MODEL') || DEFAULT_MODEL;
+  var text = '매체: ' + (body.platform === 'kakao' ? '카카오 해피톡' : '스마트스토어 톡톡') + (body.name ? ' / 고객: ' + plain_(clean_(body.name, 40)) : '') + '\n\n대화:\n' +
+    msgs.map(function (m) { return (m && m.who === 's' ? '[우리] ' : '[고객] ') + body_(m && m.text, 800); }).join('\n');
+  var aux = body.aux && Array.isArray(body.aux.lines) ? body.aux.lines.slice(0, 20).map(function (l) { return body_(l, 200); }).join('\n') : '';
+  if (aux) text += '\n\n보조내용(참고):\n' + aux;
+  var avoid = (Array.isArray(body.avoid) ? body.avoid : []).slice(-15).map(function (a) { return body_(a, 300); }).filter(String);
+  if (avoid.length) text += '\n\n이미 보여 준 후보(이것과 다르게):\n' + avoid.map(function (a) { return '- ' + a; }).join('\n');
+  text += '\n\n마지막 고객 말에 보낼 답장 후보 ' + count + '개를 서로 다르게, JSON 문자열 배열로만 출력하세요.';
+  var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    payload: JSON.stringify({ model: model, max_tokens: 1200, system: [{ type: 'text', text: SHOP_RULES + CHAT_RULES, cache_control: { type: 'ephemeral' } }], messages: [{ role: 'user', content: text }] }),
+  });
+  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+  var res = parse_(response.getContentText(), {});
+  var out = '';
+  (Array.isArray(res.content) ? res.content : []).forEach(function (c) { if (c && c.type === 'text') out += c.text; });
+  withLock_(function () { recordUsage_(res.usage, model, '상담톡'); });
+  var answers = answersFrom_(out, count).map(function (a) { return body_(a, 600).trim(); }).filter(String);
+  if (!answers.length) return { ok: false, error: 'AI 가 답장을 만들지 못했습니다 — 다시 눌러 주세요.' };
+  return { ok: true, answers: answers };
+}
 
 // ---------- v19 반품기록 메모 (2026-11-10) ----------
 // CS 관리 › ↩ 반품기록 탭의 카드 메모. 이 시트 '반품기록' 탭 한 줄 = 카드 하나.

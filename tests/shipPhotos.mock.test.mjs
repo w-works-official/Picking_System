@@ -37,7 +37,7 @@ assert.equal(shipDownloadUrl("a b"), "https://drive.google.com/uc?export=downloa
 
 // 화면: 거래처 뒤 🚚 배송사진 탭 · 왼쪽 안내 · 오른쪽 목록 · 시트 v16
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
-assert.match(html, /data-left-tab="vendor"[^>]*>📦 거래처<\/button>\s*<button[^>]*data-left-tab="ship"[^>]*>🚚 배송기록<\/button>/, "거래처 뒤");
+assert.match(html, /data-left-tab="vendor"[^>]*>📦 거래처<\/button>\s*<button[^>]*data-left-tab="chat"[^>]*>💬 상담톡<\/button>\s*<button[^>]*data-left-tab="ship"[^>]*>🚚 배송기록<\/button>/, "거래처 · 상담톡 뒤");
 assert.match(html, /data-left-panel="ship"[^>]*><div data-ship-side><\/div><\/div>/);
 assert.match(html, /data-right-panel="ship" hidden>\s*<div class="sp" data-ship><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");

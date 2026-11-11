@@ -409,7 +409,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   // ---------- 탭·접기 ----------
   // 2026-11-04: 왼쪽 탭 = 메뉴 이동 (게시판·리뷰·메신저는 오른쪽 답변 화면도 같이), 오른쪽은 제목만
-  const TAB_COLORS = { main: "#e11d74", board: "#2563eb", review: "#ff7a00", msn: "#00b84a", vendor: "#eab308", ship: "#0891b2", ret: "#e11d48", settings: "#64748b" };
+  let chat = null;   // 💬 상담톡 화면 (11-11) — 탭 바꿀 때 멈추므로 위에 둠
+  const TAB_COLORS = { main: "#e11d74", board: "#2563eb", review: "#ff7a00", msn: "#00b84a", vendor: "#eab308", ship: "#0891b2", ret: "#e11d48", chat: "#7c3aed", settings: "#64748b" };
   // 11-06: 왼쪽 창 접힘·보던 탭 = 마지막 상태 그대로 (이 기기에 기억 → 새로고침·다시 열어도 유지)
   const FOLD_KEY = "system_v3_cs_left_fold";
   const foldState = (() => { try { const v = JSON.parse(storage?.getItem(FOLD_KEY) || "{}"); return { tab: String(v.tab || ""), folded: v.folded === true }; } catch { return { tab: "", folded: false }; } })();
@@ -423,7 +424,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     fold.title = folded ? "왼쪽 창 펴기" : "왼쪽 창 접기";
   }
   function saveFold() { try { storage?.setItem(FOLD_KEY, JSON.stringify({ tab: leftTab, folded: foldState.folded })); } catch { /* 이번 화면만 */ } }
-  const AUTO_FOLD = ["msn", "vendor", "ship", "ret"]; // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 (슬롯을 넓게) · 11-10 배송기록도 (왼쪽은 안내뿐)
+  const AUTO_FOLD = ["msn", "vendor", "ship", "ret", "chat"]; // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 (슬롯을 넓게) · 11-10 배송기록도 (왼쪽은 안내뿐)
   function showLeft(tab, { open = false } = {}) {
     leftTab = tab;
     if (open) foldState.folded = false;     // 로그인·설정으로 바로 가는 버튼은 펼쳐서 보여 줌
@@ -436,10 +437,11 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (tab === "settings" && state.connected && !state.sample) loadUsage();
     if (tab === "ship") openShip();
     if (tab === "ret") openRet();
+    if (tab === "chat") openChat(); else chat?.stop?.();
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
   }
 
-  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저", ship: "🚚 배송기록", ret: "↩ 반품기록" };
+  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저", ship: "🚚 배송기록", ret: "↩ 반품기록", chat: "💬 상담톡" };
   function showRight(tab) {
     $$("[data-right-panel]").forEach((p) => { p.hidden = p.dataset.rightPanel !== tab; });
     const title = $("[data-right-title]");
@@ -1327,6 +1329,14 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     import("./returnsPanel.mjs?v=20261110-ret1")
       .then((m) => { ret = m.mountReturns({ document, window, root: $("[data-ret]"), side: $("[data-ret-side]"), post: postRaw, isLive: () => state.connected && !state.sample, editor: () => state.editor }); ret.load(); })
       .catch((error) => { ret = null; toast(`반품기록 화면을 불러오지 못했습니다: ${error?.message || error}`); });
+  }
+  // ---------- 💬 상담톡 (11-11): 탭을 열 때 불러오고 20초마다 새로 ----------
+  function openChat() {
+    if (chat) { chat.load(); chat.start?.(); return; }
+    chat = { load() {}, start() {}, stop() {} };
+    import("./chatTalkPanel.mjs?v=20261111-chat1")
+      .then((m) => { chat = m.mountChatTalk({ document, window, root: $("[data-chat]"), side: $("[data-chat-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); chat.load(); chat.start(); })
+      .catch((error) => { chat = null; toast(`상담톡 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }
   async function postRaw(body) {
     const response = await doFetch(state.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ ...body, token: state.token }) });

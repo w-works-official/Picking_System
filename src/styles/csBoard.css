@@ -2419,7 +2419,7 @@ a.cs-btn {
 .sp-mdel, .sp-madd { height: 30px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; padding: 0 8px; }
 .sp-mdel { padding: 0 6px; color: #94a3b8; }
 .sp-madd { color: #0e7490; border-color: #a5f3fc; }
-.sp-mf-etc { flex: 1 1 220px; min-width: 0; }
+.sp-mf-etc { flex: 0 1 540px; min-width: 0; }   /* 11-11 기타 칸은 반 길이 (약 540) */
 .sp-mf-etc input { width: 100%; }
 .sp-mstate { align-self: center; font-size: 11.5px; font-weight: 700; color: #64748b; white-space: nowrap; }
 /* 📦 거래처 › 💬 전체 멘트 (11-11) — 주문서 올리기 옆 */

@@ -1,6 +1,6 @@
 // 🚚 배송기록 › 주문서 찾기 (11-11) — 보이는 글자만으로 일치도
 import assert from "node:assert/strict";
-import { maskedRatio, invoiceRatio, addressRatio, scoreOrder, rankOrders, mergeHints, receiptWindow, itemsToLines, phoneTail } from "../src/domain/shipOrderMatch.mjs";
+import { maskedRatio, invoiceRatio, addressRatio, scoreOrder, rankOrders, mergeHints, receiptWindow, itemsToLines, phoneTail, supplierName, vendorsOf } from "../src/domain/shipOrderMatch.mjs";
 
 assert.equal(maskedRatio("홍?동", "홍길동"), 1, "가려진 글자는 빼고 비교");
 assert.equal(maskedRatio("홍*동", "홍길순"), 0.5);
@@ -38,4 +38,9 @@ const same = [
   { ord_no: "NEW", receiver: "정도유", receiver_mobile: "010-4944-0000", receipt_date: "2026-11-02" },
 ];
 assert.deepEqual(rankOrders({ name: "정도유", phone: "010-4944-1367" }, same).map((r) => r.order.ord_no), ["NEW", "OLD", "X"], "정도유 묶음 먼저 · 그 안은 최근 날짜 위");
+// 매입처 (11-11) — 셀피아 매입처 칸 → 업체명 · 겹치면 하나 · 여러 업체면 ' · '
+assert.equal(supplierName("0-세븐피어싱 [ 1 ]"), "세븐피어싱");
+assert.equal(supplierName("오르골드"), "오르골드");
+assert.equal(vendorsOf([{ sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]" }, { sellpia_supplier_cell_raw: "3-오르골드 [ 2 ]" }, { sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]" }, { sellpia_supplier_cell_raw: null }]), "세븐피어싱 · 오르골드");
+assert.equal(vendorsOf([{ p_name: "x" }]), "", "매입처 칸 없으면 빈칸");
 console.log("shipOrderMatch.mock.test: OK");

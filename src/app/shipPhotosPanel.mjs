@@ -10,7 +10,7 @@
 //    (피킹 DB 는 피킹 로그인 세션이 있어야 읽힘 — 피킹시스템에서 로그인한 탭에서 CS 관리로)
 //  · [👤＋ 슬롯 추가]: 사진·영상 없이 반품 메모만 쓰는 빈 슬롯 (맨 위)
 import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship6";
-import { itemsToLines, mergeHints, phoneTail, rankOrders, receiptWindow } from "../domain/shipOrderMatch.mjs?v=20261111-find3";
+import { itemsToLines, mergeHints, phoneTail, rankOrders, receiptWindow, vendorsOf } from "../domain/shipOrderMatch.mjs?v=20261111-fill2";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const FOLDER_URL = (id) => `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
@@ -86,6 +86,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
         <li><b>묶음</b>: 송장 사진 뒤의 동영상·사진은 다음 송장 사진 전까지 그 수신자 묶음입니다.</li>
         <li><b>검색</b>: 수신자 이름(일부도 됨)이나 메모 글자 · 날짜 · "상품코드 적힌 주문만".</li>
         <li><b>다운로드</b>: 체크로 고르고 [⬇ 선택 다운로드]. 크롬이 "여러 파일 다운로드"를 물으면 [허용].</li>
+        <li><b>비우기</b>: [주문 찾기]로 잘못 채웠으면 메모 오른쪽 [비우기]를 두 번 — 전화번호 · 매입처 · 주문번호 · 상품 줄이 비워집니다 (이름은 남음). [주문 찾기]로 다시 채우면 앞 상품 줄은 지워지고 새 주문으로 바뀝니다.</li>
         <li><b>빈 슬롯 지우기</b>: 사진·영상 없는 메모 슬롯을 체크하고 [🗑 선택 지우기]를 두 번 누릅니다. 지운 슬롯은 CS 시트 '배송기록 메모_지움' 탭에 남아 되살릴 수 있습니다. 송장 묶음 메모는 지우지 않습니다.</li>
         <li><b>메모</b>: 송장 묶음마다 이름 · 전화번호 · 매입처, 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타. 쓰면 자동 저장됩니다 (CS 시트 '배송기록 메모' 탭). 체크한 묶음의 메모는 [📝 메모 CSV] 로 받습니다.</li>
         <li><b>[주문 찾기]</b> (이름 왼쪽): 이름칸에 확정한 이름 + 송장에서 보이는 전화·운송장·주소로 피킹 주문 후보를 찾아 채웁니다 — 피킹시스템에서 로그인한 탭에서 와야 합니다. 매입처는 직접.</li>
@@ -291,20 +292,39 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     if (!c || !session) return;
     paintCands(key, `<p class="sp-cand-msg">주문 상품 불러오는 중…</p>`);
     try {
-      const items = await pickRows(`order_items?select=p_name,p_option,o_amount,p_dpcode,p_code&ord_no=eq.${encodeURIComponent(c.order.ord_no)}&order=sort_order.asc`, session);
+      const q = (cols) => pickRows(`order_items?select=${cols}&ord_no=eq.${encodeURIComponent(c.order.ord_no)}&order=sort_order.asc`, session);
+      let items;
+      try { items = await q("p_name,p_option,o_amount,p_dpcode,p_code,sellpia_supplier_cell_raw"); }
+      catch (error) { if (/만료/.test(error?.message || "")) throw error; items = await q("p_name,p_option,o_amount,p_dpcode,p_code"); }   // 매입처 칸을 못 읽으면 매입처 없이
       const m = memoOf(key);
       const box = root.querySelector(`[data-sp-memo="${CSS.escape(key)}"]`);
       if (box) readMemo(box);
-      const old = m.lines || [];
+      // 11-11 다시 채우면 앞서 채운 상품 줄(기타 포함)은 지우고 새 주문으로 바꿈
       m.name = String(c.order.receiver_name || c.order.receiver || "");
       m.phone = String(c.order.receiver_mobile || c.order.receiver_tel || "");
       m.ordNo = String(c.order.ord_no || "");
-      m.lines = itemsToLines(items).map((l, k) => ({ ...l, etc: old[k]?.etc || "" }));   // 줄마다 쓴 기타는 그대로
+      m.vendor = vendorsOf(items);
+      m.lines = itemsToLines(items);
       if (!m.lines.length) m.lines = [emptyLine()];
       st.cands.delete(key);
       if (box) box.outerHTML = memoHtml(groupByKey(key));
       queueMemo(key);
     } catch (error) { paintCands(key, `<p class="sp-cand-msg is-bad">${esc(error?.message || error)}</p>`); }
+  }
+  // ⌫ 비우기 (11-11) — 주문 찾기를 잘못 채웠을 때: 전화번호 · 매입처 · 주문번호 · 상품 줄 전부 비움 (이름은 남김 — 다시 [주문 찾기])
+  //  · 한 번 누르면 "한 번 더" (3초), 다시 누르면 비움 (확인 창 없음)
+  function clearMemo(key, btn) {
+    if (!btn.classList.contains("is-armed")) {
+      btn.classList.add("is-armed"); btn.textContent = "한 번 더";
+      window.setTimeout(() => { if (btn.isConnected) { btn.classList.remove("is-armed"); btn.textContent = "비우기"; } }, 3000);
+      return;
+    }
+    const box = root.querySelector(`[data-sp-memo="${CSS.escape(key)}"]`);
+    const m = box ? readMemo(box) : memoOf(key);
+    Object.assign(m, { phone: "", vendor: "", ordNo: "", lines: [emptyLine()] });
+    st.cands.delete(key);
+    if (box) box.outerHTML = memoHtml(groupByKey(key));
+    queueMemo(key);
   }
   function downloadCsv() {
     const groups = pickedGroups();
@@ -417,7 +437,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       return `<section class="sp-group is-memo-only">
       <header><input type="checkbox" data-sp-mpick="${esc(g.key)}"${st.pickedMemo.has(g.key) ? " checked" : ""} aria-label="메모 슬롯 선택">
         <b>👤 ${esc(memoOf(g.key).name || "메모 슬롯")}</b><small>${esc(shipTimeLabel(g.t))} · 사진·영상 없음</small></header>
-      <div class="sp-body">${memoHtml(g)}</div>
+      <div class="sp-body"><div class="sp-files sp-files-empty" aria-hidden="true"><span class="sp-file sp-file-empty"><span class="sp-thumb">송장 사진<br>없음</span></span><span class="sp-file sp-file-empty"><span class="sp-thumb">동영상<br>없음</span></span></div>${memoHtml(g)}</div>
     </section>`;
     }
     const files = [...(g.invoice ? [g.invoice] : []), ...g.items];
@@ -444,6 +464,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
           <label class="sp-mf sp-mf-phone"><span>전화번호</span><input data-spm-phone value="${esc(m.phone || "")}" inputmode="tel"></label>
           <label class="sp-mf sp-mf-vendor"><span>매입처</span><input data-spm-vendor value="${esc(m.vendor || "")}"></label>
           ${m.ordNo ? `<small class="sp-mord">주문 ${esc(m.ordNo)}</small>` : ""}
+          <button type="button" class="sp-mclear" data-spm-clear title="전화번호 · 매입처 · 주문번호 · 상품 줄을 한 번에 비움 (이름은 남김) — 두 번 누르기">비우기</button>
           <small class="sp-mstate" data-spm-state>${m.editor ? `${esc(m.editor)} · ${esc(kstLabel(m.updatedAt))}` : ""}</small>
         </div>
         <div class="sp-mcands" data-spm-cands></div>
@@ -502,6 +523,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     else if (b.matches("[data-sp-all]")) { for (const g of visibleGroups()) { if (g.memoOnly) st.pickedMemo.add(g.key); for (const f of groupFiles(g.key)) st.picked.add(f.id); } render(); }
     else if (b.matches("[data-sp-none]")) { st.picked.clear(); st.pickedMemo.clear(); render(); }
     else if (b.matches("[data-sp-addslot]")) addSlot();
+    else if (b.matches("[data-spm-clear]")) clearMemo(b.closest("[data-sp-memo]").dataset.spMemo, b);
     else if (b.matches("[data-spm-find]")) findOrder(b.closest("[data-sp-memo]").dataset.spMemo);
     else if (b.dataset.spmUse != null) useOrder(b.closest("[data-sp-memo]").dataset.spMemo, Number(b.dataset.spmUse));
     else if (b.matches("[data-sp-dl]")) download();

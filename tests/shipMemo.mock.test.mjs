@@ -39,7 +39,12 @@ for (const t of ['action: "shipMemoList"', 'action: "shipMemoSave"', 'action: "s
 for (const t of ["이름", "전화번호", "매입처"]) assert.ok(panel.includes(`<span>${t}</span>`), `메모 칸 ${t}`);
 assert.ok(!panel.includes("data-sp-mode"), "🔎 파일 찾기 버튼 뺌");
 assert.ok(!panel.includes('class="sp-memo-t"'), "메모 앞 📝 메모 글자 없음");
-assert.match(panel, /order_items\?select=p_name,p_option,o_amount,p_dpcode,p_code&ord_no=eq\./, "주문 상품 읽기");
+assert.match(panel, /order_items\?select=\$\{cols\}&ord_no=eq\./, "주문 상품 읽기");
+assert.ok(panel.includes('q("p_name,p_option,o_amount,p_dpcode,p_code,sellpia_supplier_cell_raw")'), "매입처도 피킹 주문 상품에서");
+assert.ok(panel.includes("m.vendor = vendorsOf(items)"), "매입처 채움");
+assert.ok(!panel.includes("old[k]?.etc"), "다시 채우면 앞 상품 줄 지움");
+assert.ok(panel.includes("data-spm-clear") && panel.includes('phone: "", vendor: "", ordNo: "", lines: [emptyLine()]'), "비우기");
+assert.ok(panel.includes("sp-file-empty"), "빈 슬롯도 사진·동영상 빈자리");
 assert.match(panel, /"x-picking-session": session\.token/, "피킹 로그인 세션으로만");
 assert.ok(!/method: "(POST|PATCH|DELETE)"/.test(panel.split("pickRows")[1] || ""), "피킹 DB 는 읽기만");
 assert.ok(!/confirm\(|alert\(/.test(panel), "확인 창 없음");

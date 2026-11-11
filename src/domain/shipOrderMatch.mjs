@@ -108,5 +108,13 @@ export function itemsToLines(items = []) {
   }));
 }
 
+// 매입처 (11-11) — 피킹 order_items.sellpia_supplier_cell_raw (셀피아 매입처 칸 그대로, 예 '0-세븐피어싱 [ 1 ]') → 업체명만 · 여러 업체면 ' · ' 로
+export const supplierName = (raw) => String(raw ?? "").replace(/\[\s*\d+\s*\]\s*$/, "").replace(/^\s*\d+\s*-\s*/, "").trim();
+export function vendorsOf(items = []) {
+  const out = [];
+  for (const it of items) { const v = supplierName(it.sellpia_supplier_cell_raw ?? it.supplier ?? ""); if (v && !out.includes(v)) out.push(v); }
+  return out.join(" · ");
+}
+
 // 후보 표시용 — 전화는 끝 4자리만
 export const phoneTail = (o = {}) => { const d = onlyDigits(o.receiver_mobile || o.receiver_tel); return d ? `…${d.slice(-4)}` : ""; };

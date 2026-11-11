@@ -1345,7 +1345,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openShip() {
     if (ship) { if (!ship.state.loaded && !ship.state.loading) ship.load(); return; }
     ship = { state: { loaded: false, loading: true }, load() {} };
-    import("./shipPhotosPanel.mjs?v=20261111-del1")
+    import("./shipPhotosPanel.mjs?v=20261111-fill2")
       .then((m) => { ship = m.mountShipPhotos({ document, window, root: $("[data-ship]"), side: $("[data-ship-side]"), post: postRaw, isLive: () => state.connected && !state.sample, editor: () => state.editor, storages: [(() => { try { return window.sessionStorage; } catch { return null; } })(), (() => { try { return window.localStorage; } catch { return null; } })()].filter(Boolean) }); ship.load(); })
       .catch((error) => { ship = null; toast(`배송사진 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }

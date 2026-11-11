@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """docs/g1_v3_link.py 시험 (수집기·시트 없이 가짜로) — python3 tests/g1V3Link.test.py"""
-import datetime, json, os, sys, tempfile, time, types
+import datetime, json, os, re, sys, tempfile, time, types
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 tmp = tempfile.mkdtemp()
@@ -1141,6 +1141,86 @@ ms_page.context = types.SimpleNamespace(cookies=lambda: [])
 ok, msg, results = L.run_register_job({"id": "JM3", "kind": "register", "body": {"items": [mk("817500")]}}, {"out_dir": out_dir}, say)
 assert not ok and results[0]["state"] == "확인 필요" and "로그인" in results[0]["note"]
 G.Browser = keepB
+
+# ── 1.26 메이크샵 게시판(Q&A) 답변 — 간편답변 창 · 이미 답변 있으면 건너뜀 · [입력] 뒤 다시 확인 ──
+class MsBoardPage:
+    def __init__(self, threads):
+        self.threads = threads                 # num1 → 답변 수
+        self.url = ""
+        self.calls = []
+        self.handlers = {}
+        self.filled = {}
+        self.fail_fill = set()
+        self.no_save = set()
+        self.context = types.SimpleNamespace(cookies=lambda: [{"domain": "special346.makeshop.co.kr"}])
+    def on(self, ev, fn): self.handlers[ev] = fn
+    def goto(self, url, **kw): self.url = url; self.calls.append(("goto", url))
+    def wait_for_timeout(self, ms): pass
+    def _num1(self):
+        m = re.search(r"num1=([0-9]+)", self.url)
+        return m.group(1) if m else ""
+    def evaluate(self, js, arg=None):
+        if js == L.MS_BOARD_CODES_JS:
+            return [["mym2mboard", "1:1 고객 게시판"], ["curiouswiz", "Q&A"], ["curiouswiz_board7", "도매 문의"]] if "board_all_list" in self.url else []
+        if js == L.MS_THREAD_JS:
+            n = self._num1()
+            if n not in self.threads:
+                return {"form": False}
+            return {"form": True, "num1": n, "thread": 1 + self.threads[n], "replies": self.threads[n], "button": True, "box": True}
+        if js == L.MS_FILL_JS:
+            n = self._num1()
+            if n in self.fail_fill:
+                return False
+            self.filled[n] = arg
+            return True
+        raise AssertionError("unexpected js")
+    def click(self, sel):
+        assert sel == "#reply_insert"
+        n = self._num1()
+        self.calls.append(("insert", n, self.filled.get(n)))
+        if "dialog" in self.handlers:
+            self.handlers["dialog"](types.SimpleNamespace(message="답변이 등록되었습니다.", accept=lambda: None))
+        if n not in self.no_save:
+            self.threads[n] += 1
+
+
+mb_page = MsBoardPage({"913777": 0, "913776": 1, "913800": 0, "913801": 0, "913802": 0})
+mb_page.fail_fill.add("913801")
+mb_page.no_save.add("913802")
+
+
+class MsBoardBrowser(MsBrowser):
+    def page(self): return mb_page
+
+
+G.Browser = MsBoardBrowser
+qa = lambda n, board="Q&A", text="안녕하세요 고객님 :) 확인 후 안내드리겠습니다.": {"key": f"메이크샵_{board}_{n}", "vendor": "메이크샵", "board": board, "id": n, "date": "", "text": text}
+assert L.ms_board_code([["a", "Q&A"], ["b", "도매 문의"]], "Q&A") == "a" and L.ms_board_code([["b", "도매 문의"]], "도매") == "b" and L.ms_board_code([], "Q&A") == ""
+ok, msg, results = L.run_register_job({"id": "JB1", "kind": "register", "body": {"items": [qa("913777"), qa("913776"), qa("913800", board="도매 문의"), qa("913801"), qa("913802"), qa("913999"), qa("913803", board="없는 게시판")]}}, {"out_dir": out_dir}, say)
+by = {r["key"].split("_")[-1]: (r["state"], r["note"]) for r in results}
+assert ok and msg == "등록 2건 · 확인 필요 4건 · 건너뜀 1건", msg
+assert by["913777"][0] == "등록완료" and "답변 ✓" in by["913777"][1] and "답변이 등록되었습니다" in by["913777"][1]
+assert by["913776"] == ("건너뜀", "이미 답변 있음 — 덮어쓰지 않음"), "이미 답변 있는 글은 안 씀"
+assert by["913800"][0] == "등록완료", "도매 문의 게시판도 이름으로 코드 찾음"
+assert by["913801"][0] == "확인 필요" and "문안을 넣지 못함" in by["913801"][1]
+assert by["913802"][0] == "확인 필요" and "답변이 안 보임" in by["913802"][1], "[입력] 뒤 다시 확인"
+assert by["913999"][0] == "확인 필요" and "찾지 못함" in by["913999"][1]
+assert by["913803"][0] == "확인 필요" and "게시판 코드" in by["913803"][1]
+ins = [c for c in mb_page.calls if c[0] == "insert"]
+assert [c[1] for c in ins] == ["913777", "913800", "913802"], "답변 있는 글·문안 못 넣은 글·없는 글은 [입력] 안 누름"
+assert ins[0][2] == "안녕하세요 고객님 :) 확인 후 안내드리겠습니다."
+assert mb_page.calls[0] == ("goto", "https://special346.makeshop.co.kr/makeshop/newmanager/board_all_list.html"), "게시판 목록에서 코드"
+assert ("goto", "https://special346.makeshop.co.kr/makeshop/newmanager/board_simple_reply.html?code=curiouswiz&type=&num1=913777&num2=00000&brandname=") in mb_page.calls
+# 리뷰 + 게시판 + 스마트스토어가 섞여도 나눠서
+_keep_ss = L.run_ss_register
+L.run_ss_register = lambda job, items, cfg, say: (True, f"등록 {len(items)}건", [dict(key=x["key"], state="등록완료", note="") for x in items])
+mb_page.threads["913900"] = 0
+ok, msg, results = L.run_register_job({"id": "JB2", "kind": "register", "body": {"items": [qa("913900"), {"key": "스마트스토어_상품문의_1", "vendor": "스마트스토어", "board": "상품문의", "id": "1", "text": "네"}]}}, {"out_dir": out_dir}, say)
+assert ok and msg == "메이크샵 게시판: 등록 1건 · 확인 필요 0건 · 건너뜀 0건 / 스마트스토어: 등록 1건", msg
+assert sorted(r["key"] for r in results) == ["메이크샵_Q&A_913900", "스마트스토어_상품문의_1"]
+L.run_ss_register = _keep_ss
+assert L.LINK_VER.startswith("1.26") and L.LINK_NOTE
+print("g1V3Link ms board reply (1.26): OK")
 
 # 1.17 메신저 전용 모드: 도우미만 켜고 시트는 안 부름
 _ms_logs = []

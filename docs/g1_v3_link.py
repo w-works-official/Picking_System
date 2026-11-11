@@ -139,7 +139,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.25 (2026-11-09)"
+LINK_VER = "1.26 (2026-11-11)"
+LINK_NOTE = "메이크샵 Q&A 등 게시판 답변 자동 등록 (간편답변과 같은 길 · 이미 답변 있으면 건너뜀)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -831,15 +832,19 @@ def ss_api(cfg, say):
 
 def run_register_job(job, cfg, say, d=None):
     items = (job.get("body") or {}).get("items") or []
-    ms = [x for x in items if x.get("vendor") == "메이크샵" and x.get("board") == "리뷰"]
-    rest = [x for x in items if not (x.get("vendor") == "메이크샵" and x.get("board") == "리뷰")]
-    if not ms:
-        return run_ss_register(job, rest, cfg, say)
-    ok1, msg1, res1 = run_ms_review_register(ms, cfg, say, d)
-    if not rest:
-        return ok1, msg1, res1
-    ok2, msg2, res2 = run_ss_register(job, rest, cfg, say)
-    return ok1 and ok2, f"메이크샵 리뷰: {msg1} / 스마트스토어: {msg2}", res1 + res2
+    ms_rev = [x for x in items if x.get("vendor") == "메이크샵" and x.get("board") == "리뷰"]
+    ms_board = [x for x in items if x.get("vendor") == "메이크샵" and x.get("board") != "리뷰"]   # 1.26 Q&A 등 게시판
+    rest = [x for x in items if x.get("vendor") != "메이크샵"]
+    parts = []
+    if ms_rev:
+        parts.append(("메이크샵 리뷰",) + tuple(run_ms_review_register(ms_rev, cfg, say, d)))
+    if ms_board:
+        parts.append(("메이크샵 게시판",) + tuple(run_ms_board_register(ms_board, cfg, say, d)))
+    if rest or not parts:
+        parts.append(("스마트스토어",) + tuple(run_ss_register(job, rest, cfg, say)))
+    if len(parts) == 1:
+        return parts[0][1], parts[0][2], parts[0][3]
+    return all(x[1] for x in parts), " / ".join(f"{x[0]}: {x[2]}" for x in parts), [r for x in parts for r in x[3]]
 
 
 def run_ss_register(job, items, cfg, say):
@@ -1077,6 +1082,135 @@ def run_ms_review_register(items, cfg, say, d=None):
                 except Exception as e:
                     state, note = "확인 필요", f"오류: {str(e)[:150]}"
                 say(f"  {x.get('id')}: {state} — {note}")
+                results.append(dict(key=x["key"], state=state, note=note))
+    finally:
+        G.RUN_LOCK.release()
+    n = {k: sum(1 for r in results if r["state"] == k) for k in ("등록완료", "확인 필요", "건너뜀")}
+    return True, f"등록 {n['등록완료']}건 · 확인 필요 {n['확인 필요']}건 · 건너뜀 {n['건너뜀']}건", results
+
+
+# ───────── 메이크샵 게시판(Q&A 등) 답변 (1.26, 2026-11-11) ─────────
+# 사람이 [게시글 통합 관리] → [간편답변] 을 누를 때와 같은 길: board_simple_reply.html 창 → 답변 칸에 문안 → [입력]
+#  · 게시판 이름(Q&A 등) → 게시판 코드는 통합 관리 화면의 게시판 목록에서 찾음
+#  · 그 글 묶음(num1)에 이미 답변(num2 가 00000 아닌 글)이 있으면 덮어쓰지 않고 건너뜀
+#  · [입력] 뒤에 다시 열어 답변이 생겼는지 확인 — 안 보이면 '확인 필요'
+#  · 고객 알림(알림톡) 등 다른 칸은 화면 기본값 그대로 (사람이 간편답변으로 쓸 때와 같음)
+MS_BOARD_LIST_PATH = "/makeshop/newmanager/board_all_list.html"
+MS_SIMPLE_REPLY_PATH = "/makeshop/newmanager/board_simple_reply.html"
+MS_BOARD_CODES_JS = "() => [...document.querySelectorAll('select[name=board_code] option')].map(o => [String(o.value || ''), String(o.textContent || '').trim()]).filter(x => x[0])"
+MS_THREAD_JS = r"""(num1) => {
+  const f = document.forms.namedItem('form1');
+  const hrefs = [...document.querySelectorAll('a[href*="board_simple_reply.html"]')].map(a => a.getAttribute('href') || '');
+  const mine = hrefs.filter(h => new RegExp('[?&]num1=' + num1 + '(&|$)').test(h));
+  const replies = mine.filter(h => !/[?&]num2=00000(&|$)/.test(h));
+  return { form: !!f, num1: f && f.num1 ? String(f.num1.value) : '', thread: mine.length, replies: replies.length,
+           button: !!document.querySelector('#reply_insert'), box: !!(f && f.content) };
+}"""
+MS_FILL_JS = r"""(text) => {
+  const f = document.forms.namedItem('form1');
+  if (!f || !f.content) return false;
+  f.content.value = text;
+  f.content.dispatchEvent(new Event('input', { bubbles: true }));
+  f.content.dispatchEvent(new Event('change', { bubbles: true }));
+  return f.content.value === text;
+}"""
+
+
+def ms_board_code(codes, board):
+    """게시판 이름(Q&A) → 코드. 같은 이름 → 이름 포함 순"""
+    b = str(board or "").strip()
+    for code, name in codes:
+        if name == b:
+            return code
+    for code, name in codes:
+        if b and (b in name or name in b):
+            return code
+    return ""
+
+
+def ms_open_board_list(pg, cfg, say, d=None):
+    tried = []
+    for host in ms_admin_hosts(pg, cfg, d):
+        try:
+            pg.goto(f"https://{host}{MS_BOARD_LIST_PATH}", wait_until="domcontentloaded", timeout=60000)
+            pg.wait_for_timeout(2000)
+            codes = pg.evaluate(MS_BOARD_CODES_JS) or []
+            if codes:
+                return host, codes
+        except Exception as e:
+            say(f"  메이크샵 {host}: {str(e)[:120]}")
+        tried.append(host)
+    say(f"⚠ 메이크샵 게시글 통합 관리 화면을 열지 못함 (시도: {', '.join(tried) or '주소 후보 없음'}) — 로그인 확인")
+    return None, []
+
+
+def ms_reply_url(host, code, num1):
+    return f"https://{host}{MS_SIMPLE_REPLY_PATH}?code={code}&type=&num1={num1}&num2=00000&brandname="
+
+
+def ms_board_one(pg, host, code, x, dialogs):
+    num1 = re.sub(r"[^0-9]", "", str(x.get("id") or ""))
+    text = str(x.get("text") or "").strip()
+    if not num1:
+        return "확인 필요", "글 번호가 없음 — 등록 안 함"
+    if not text:
+        return "건너뜀", "답변 문안 없음"
+    pg.goto(ms_reply_url(host, code, num1), wait_until="domcontentloaded", timeout=60000)
+    pg.wait_for_timeout(1500)
+    st = pg.evaluate(MS_THREAD_JS, num1) or {}
+    if not st.get("form") or st.get("num1") != num1:
+        return "확인 필요", "간편답변 창에서 이 글을 찾지 못함 (삭제·다른 게시판?) — 등록 안 함"
+    if st.get("replies", 0) > 0:
+        return "건너뜀", "이미 답변 있음 — 덮어쓰지 않음"
+    if not st.get("button") or not st.get("box"):
+        return "확인 필요", "간편답변 창 모양이 다름 ([입력] 버튼·답변 칸 없음) — 등록 안 함"
+    if not pg.evaluate(MS_FILL_JS, text):
+        return "확인 필요", "답변 칸에 문안을 넣지 못함 — 등록 안 함"
+    dialogs.clear()
+    pg.click("#reply_insert")
+    pg.wait_for_timeout(2500)
+    said = " / ".join(dialogs)[:150]
+    pg.goto(ms_reply_url(host, code, num1), wait_until="domcontentloaded", timeout=60000)
+    pg.wait_for_timeout(1500)
+    after = pg.evaluate(MS_THREAD_JS, num1) or {}
+    if after.get("replies", 0) > 0:
+        return "등록완료", "답변 ✓" + (f" ({said})" if said else "")
+    return "확인 필요", "[입력] 뒤 다시 열어 봤는데 답변이 안 보임" + (f" — {said}" if said else "")
+
+
+def run_ms_board_register(items, cfg, say, d=None):
+    G = _G()
+    if not G.RUN_LOCK.acquire(blocking=False):
+        return False, "수집 중이라 지금 못 함 — 끝난 뒤 다시", [dict(key=x["key"], state="건너뜀", note="수집 중이라 못 함 — 다시 요청") for x in items]
+    results = []
+    try:
+        with G.Browser(bool(cfg.get("show_browser"))) as br:
+            pg = br.page()
+            dialogs = []
+            def on_dialog(dg):
+                try:
+                    dialogs.append(str(dg.message or "")[:120])
+                    dg.accept()
+                except Exception:
+                    pass
+            try:
+                pg.on("dialog", on_dialog)
+            except Exception:
+                pass
+            host, codes = ms_open_board_list(pg, cfg, say, d)
+            if not host:
+                return False, "메이크샵 관리자 화면 접근 안 됨 (로그인 필요)", [dict(key=x["key"], state="확인 필요", note="메이크샵 관리자 화면 접근 안 됨 — 로그인 후 다시") for x in items]
+            say(f"📤 메이크샵 게시판 답변 {len(items)}건 ({host})")
+            for x in items:
+                code = ms_board_code(codes, x.get("board"))
+                try:
+                    if not code:
+                        state, note = "확인 필요", f"'{x.get('board')}' 게시판 코드를 찾지 못함 — 등록 안 함"
+                    else:
+                        state, note = ms_board_one(pg, host, code, x, dialogs)
+                except Exception as e:
+                    state, note = "확인 필요", f"오류: {str(e)[:150]}"
+                say(f"  {x.get('board')} {x.get('id')}: {state} — {note}")
                 results.append(dict(key=x["key"], state=state, note=note))
     finally:
         G.RUN_LOCK.release()

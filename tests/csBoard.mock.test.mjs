@@ -145,6 +145,13 @@ assert.equal(isCsRowLocked(requested), true);
 assert.equal(normalizeCsRow({ key: "x", closed: true, reg: { state: "완료" } }).status, "등록완료");
 assert.equal(normalizeCsRow({ key: "x", reg: { state: "이상한값" } }).reg, null);
 const cand = registerCandidates([ssPicked, zzPicked, requested, row, { ...ssPicked, key: "h", choice: { ...ssPicked.choice, hold: true } }]);
+{
+  // 11-11 메이크샵 게시판(Q&A) = 수집기 1.26 부터 자동
+  const msQna = { ...ssPicked, key: "ms-qna", vendor: "메이크샵", board: "Q&A" };
+  assert.equal(registerCandidates([msQna], "문의", "1.25 (2026-11-09)").auto.length, 0, "1.25 면 직접 등록");
+  assert.equal(registerCandidates([msQna], "문의", "1.26 (2026-11-11)").auto.length, 1, "1.26 부터 자동");
+  assert.equal(registerCandidates([{ ...msQna, vendor: "지그재그" }], "문의", "1.26").auto.length, 0, "지그재그는 아직 직접");
+}
 assert.deepEqual(cand.auto.map((r) => r.key), ["스마트스토어_상품문의_9"], "only picked, unlocked smartstore rows");
 assert.deepEqual(cand.manual.map((r) => r.key), ["지그재그_상품문의_8"]);
 assert.deepEqual(csRegisterPayload(cand.auto, "희진"), { action: "request", kind: "register", keys: ["스마트스토어_상품문의_9"], editor: "희진" });
@@ -173,7 +180,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 24 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 25 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +527,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 24);
+  assert.equal(g5.get().version, 25);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -1054,6 +1061,19 @@ console.log("csBoard.mock.test (ss board api): OK");
   console.log("csBoard.mock.test (shipMemo v22): OK");
 }
 
+// v25 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청
+{
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: "collector-token-1" } });
+  g.post({ action: "ingest", token: "collector-token-1", rows: [{ 업체: "메이크샵", 게시판: "Q&A", id: "913777", 날짜: "2026-11-11 10:00", 상품명: "미니볼", 문의: "바 변경 되나요?", 답변안: ["네 됩니다"] }, { 업체: "지그재그", 게시판: "주문문의", id: "z9", 날짜: "2026-11-11 10:00", 문의: "?", 답변안: ["네"] }], snapshot: { kind: "문의", vendors: {}, days: 7, collectedAt: "2026-11-11 11:00" }, autoSuggest: false });
+  g.post({ action: "save", token: TOKEN, key: "메이크샵_Q&A_913777", baseVersion: 0, choice: { pick: 0 } });
+  g.post({ action: "save", token: TOKEN, key: "지그재그_주문문의_z9", baseVersion: 0, choice: { pick: 0 } });
+  const r = g.post({ action: "request", token: TOKEN, kind: "register", keys: ["메이크샵_Q&A_913777", "지그재그_주문문의_z9"], editor: "김성수" });
+  assert.equal(r.ok, true);
+  const job = g.post({ action: "poll", token: "collector-token-1", pc: "OFFICE-PC" }).job;
+  assert.deepEqual(JSON.parse(JSON.stringify(job.body.items)).map((x) => [x.vendor, x.board, x.id, x.text]), [["메이크샵", "Q&A", "913777", "네 됩니다"]], "메이크샵 Q&A 는 받고 지그재그는 아직 안 받음");
+  console.log("csBoard.mock.test (ms board register v25): OK");
+}
+
 // v24 배송기록 메모 칸 늘림 · 빈 메모 슬롯 · 주문서 찾기 힌트
 {
   const old = fakeSheet("배송기록 메모");
@@ -1131,7 +1151,7 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.deepEqual(g.post({ action: "retList", token: TOKEN }).items, []);
   const a = g.post({ action: "retSave", token: TOKEN, who: "홍길동 / 20261110-1", item: "14K 링", reason: "사이즈\n안 맞음", status: "접수", memo: "=1+1", editor: "시험" });
   assert.equal(a.ok, true);
-  assert.match(a.item.id, /^R\d{12}\d{2}$/);
+  assert.match(a.item.id, /^R\d{12}\d{3}$/);
   assert.deepEqual([a.item.who, a.item.reason, a.item.memo, a.item.status, a.item.by], ["홍길동 / 20261110-1", "사이즈\n안 맞음", "=1+1", "접수", "시험"], "줄바꿈 · 수식 글자 그대로 (글자로 저장)");
   const tab = g.sheets.find((sh) => sh.getName() === "반품기록");
   assert.equal(JSON.stringify(tab.data[0].slice(0, 3)), JSON.stringify(["ID", "작성 시각", "수정 시각"]));

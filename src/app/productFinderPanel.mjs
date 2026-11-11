@@ -3,7 +3,7 @@
 //     · 색인(사진 2만여 장의 특징값)은 PC 에서 [🔄 색인 갱신]으로 만들어 CS 시트 '사진색인' 탭에 저장 → 각 기기는 받아서 기기에 보관
 //  ② 사진 등록: 셀피아 코드 · 자사코드 · 상품명으로 검색 → 선택 → 사진 선택 · 끌어다 놓기 · 📷 카메라 → 칸 3개 → [등록]
 //     · 저장 = 허브 product-images/sellpia/코드.__sub1~3.jpg (보조사진) — 마스터 사진은 그대로, ☆ 로 맞바꾸기
-import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261111-upd1";
+import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261111-msqa1";
 import { buildCatalog, initialSlots, searchCatalog } from "../domain/productFinder.mjs?v=20261107-finder1";
 import { DIM, FINDER_TOPS, MODEL_ID, chunkText, decodeIndex, encodeIndex, keywordSearch, percentOf, refreshPlan, searchIndex, searchProducts } from "../domain/photoSearch.mjs?v=20261110-finder3";
 import { BUCKET, FOLDER, HUB_KEY, HUB_URL, SUB_SLOTS, listSubs, masterCandidates, nextEmpty, publicUrl, putPhoto, registerPlan, removePhoto, subName, swapMaster, toJpeg } from "../domain/subPhotos.mjs?v=20261107-finder1";

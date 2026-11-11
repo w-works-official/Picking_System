@@ -196,14 +196,18 @@ export function isCsRowLocked(row) {
   return row.closed || row.reg?.state === "요청" || row.reg?.state === "완료";
 }
 
-export function isRegisterSupported(row) {
-  return CS_REGISTER_SUPPORTED.includes(`${row.vendor}|${row.board}`);
+// 11-11 메이크샵 게시판(Q&A 등) = 시트 v25 + 웹연결 1.26 — 수집기 PC 가 1.26 전이면 직접 등록으로
+export const CS_MS_BOARD_MIN_LINK = "1.26";
+export function isRegisterSupported(row, linkVer = "") {
+  if (CS_REGISTER_SUPPORTED.includes(`${row.vendor}|${row.board}`)) return true;
+  if (row.vendor === "메이크샵" && row.board && row.board !== "리뷰") return !!linkVer && !linkVersionNewer(CS_MS_BOARD_MIN_LINK, linkVer);
+  return false;
 }
 
 // 📤 등록 확인 창: 채택된 문의(또는 리뷰)를 자동 등록·직접 등록으로 나눔
-export function registerCandidates(rows = [], kind = "문의") {
+export function registerCandidates(rows = [], kind = "문의", linkVer = "") {
   const picked = rows.filter((row) => row.kind === kind && !isCsRowLocked(row) && !row.choice.hold && row.choice.pick >= 0 && pickedText(row).trim());
-  return { auto: picked.filter(isRegisterSupported), manual: picked.filter((row) => !isRegisterSupported(row)) };
+  return { auto: picked.filter((row) => isRegisterSupported(row, linkVer)), manual: picked.filter((row) => !isRegisterSupported(row, linkVer)) };
 }
 
 export function normalizeCsJob(raw = {}) {

@@ -42,6 +42,7 @@ import {
   parseCsBoardResponse,
   pickedText,
   registerCandidates,
+  CS_MS_BOARD_MIN_LINK,
   sortCsRows,
   usageForMonth,
   withEdit,
@@ -53,7 +54,7 @@ import {
   csPointPayload,
   CS_POINT_DEFAULT,
   csShotPoint,
-} from "../domain/csBoard.mjs?v=20261111-upd1";
+} from "../domain/csBoard.mjs?v=20261111-msqa1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261109-layout1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
@@ -1533,7 +1534,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openRegister(kind = "문의") {
     if (!live()) return;
     const review = kind === "리뷰";
-    const { auto, manual } = registerCandidates(state.rows, review ? "리뷰" : "문의");
+    const linkVer = currentLinkVersion();
+    const { auto, manual } = registerCandidates(state.rows, review ? "리뷰" : "문의", linkVer);
+    const msWait = !review && manual.some((row) => row.vendor === "메이크샵");
     const pendingSaves = state.timers.size + state.saving.size;
     const list = (rows, cls) => rows.map((row) => `<li class="${cls}"><span class="cs-vendor-chip" data-vendor="${escapeHtml(row.vendor)}">${escapeHtml(row.vendor)}</span> ${escapeHtml(row.board)} · ${escapeHtml(row.id)}<div class="cs-note">${escapeHtml(pickedText(row).slice(0, 120))}</div></li>`).join("");
     $("#cs-modal-body").innerHTML = `
@@ -1542,9 +1545,10 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       ${review ? `<h3>자동 등록 ${auto.length}건 <small>(메이크샵 리뷰 — 답글 + 적립금)</small></h3>
       <p class="cs-note cs-point-note">💰 적립금: <b>${escapeHtml(pointLine())}</b><br>네이버페이 리뷰(쇼핑몰 회원 아님)·이미 적립된 리뷰는 답글만 올립니다. 설정은 왼쪽 [💰 메이크샵 리뷰 적립금].</p>
       ${auto.length ? `<ul class="cs-reg-list">${list(auto, "")}</ul>` : `<p class="cs-note">채택된 메이크샵 리뷰가 없습니다.</p>`}
-      <h3>직접 등록 ${manual.length}건 <small>(스마트스토어·지그재그 리뷰 — 아직 자동 등록 없음 · 에이블리는 답글 기능 없음)</small></h3>` : `<h3>자동 등록 ${auto.length}건 <small>(스마트스토어 상품문의·고객문의)</small></h3>
-      ${auto.length ? `<ul class="cs-reg-list">${list(auto, "")}</ul>` : `<p class="cs-note">채택된 스마트스토어 문의가 없습니다.</p>`}
-      <h3>직접 등록 ${manual.length}건 <small>(지그재그·에이블리·메이크샵 — 아직 자동 등록 기능 없음)</small></h3>`}
+      <h3>직접 등록 ${manual.length}건 <small>(스마트스토어·지그재그 리뷰 — 아직 자동 등록 없음 · 에이블리는 답글 기능 없음)</small></h3>` : `<h3>자동 등록 ${auto.length}건 <small>(스마트스토어 상품문의·고객문의 · 메이크샵 Q&A 등 게시판)</small></h3>
+      ${auto.length ? `<ul class="cs-reg-list">${list(auto, "")}</ul>` : `<p class="cs-note">채택된 자동 등록 문의가 없습니다.</p>`}
+      <h3>직접 등록 ${manual.length}건 <small>(지그재그·에이블리 — 아직 자동 등록 기능 없음)</small></h3>
+      ${msWait ? `<p class="cs-pending-text">메이크샵 게시판 답변 자동 등록은 수집기 PC ${CS_MS_BOARD_MIN_LINK} 부터 됩니다 (지금 ${escapeHtml(linkVer ? linkVer.split(" ")[0] : "확인 전")}) — 설정 탭 [⬆ 수집기 PC 업데이트]</p>` : ""}`}
       ${manual.length ? `<ul class="cs-reg-list">${list(manual, "is-manual")}</ul><p class="cs-note">각 카드의 [📋 복사] → [바로가기]로 열어 붙여넣어 주세요.</p>` : `<p class="cs-note">없음</p>`}`;
     const ok = $("#cs-modal-ok");
     ok.textContent = `${auto.length}건 등록 요청`;

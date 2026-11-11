@@ -1,5 +1,5 @@
-// ★ 공지 메모장 (2026-11-11 사장님 요청) — 피킹시스템 맨 위 줄
-//  · 칸에는 맨 아래 3줄만 보임 (★ 표시) · 누르면 창이 열려 위쪽 메모까지 다 보고 고침
+// ● 공지 메모장 (2026-11-11 사장님 요청) — 피킹시스템 맨 위 줄 (노란 동그라미 · 처음엔 ★ 였다가 바꿈)
+//  · 칸에는 맨 아래 3줄만 보임 (노란 동그라미 표시) · 누르면 창이 열려 위쪽 메모까지 다 보고 고침
 //  · 여러 PC가 같이 봄: CS 시트 '공지' 탭 (noticeGet · noticeSave, 시트 v27) — 이 PC 에서 CS 관리 웹 연결(비밀번호)을 해 둔 경우
 //  · 먼저 고친 사람이 있으면 덮어쓰지 않음 (버전) · [저장] 또는 Ctrl+Enter · 닫을 때 고친 게 있으면 저장
 //  · 1분마다 새 내용 확인 (창이 열려 있을 땐 안 함)
@@ -36,13 +36,13 @@ export function mountNotice({ document, window, host, storages = [], fetchImpl =
   }
   const take = (n = {}) => Object.assign(st, { text: String(n.text || ""), version: Number(n.version) || 0, editor: String(n.editor || ""), updatedAt: String(n.updatedAt || "") });
 
-  host.innerHTML = `<button type="button" class="pk-notice-box" data-notice-open title="공지 메모 — 누르면 전체 보기 · 고치기"><b class="pk-notice-star" aria-hidden="true">★</b><span class="pk-notice-lines" data-notice-lines></span></button>`;
+  host.innerHTML = `<button type="button" class="pk-notice-box" data-notice-open title="공지 메모 — 누르면 전체 보기 · 고치기"><b class="pk-notice-dot" aria-hidden="true"></b><span class="pk-notice-lines" data-notice-lines></span></button>`;
   const modal = document.createElement("div");
   modal.className = "pk-notice-modal";
   modal.hidden = true;
   modal.innerHTML = `
     <div class="pk-notice-dialog" role="dialog" aria-modal="true" aria-label="공지 메모">
-      <header><b>★</b><small data-notice-meta></small><button type="button" class="pk-notice-x" data-notice-close aria-label="닫기">×</button></header>
+      <header><b class="pk-notice-dot" aria-hidden="true"></b><small data-notice-meta></small><button type="button" class="pk-notice-x" data-notice-close aria-label="닫기">×</button></header>
       <textarea data-notice-text spellcheck="false" placeholder="공지 · 메모를 적으세요 (맨 아래 3줄이 위 칸에 보입니다)"></textarea>
       <footer><small data-notice-msg></small><button type="button" class="pk-notice-btn" data-notice-close>닫기</button><button type="button" class="pk-notice-btn is-primary" data-notice-save>저장</button></footer>
     </div>`;

@@ -1144,8 +1144,11 @@ input {
 
 .brand h1 {
   margin: 0;
-  font-size: 18px;
-  line-height: 1.2;
+  font-size: 26px;      /* 11-11 사장님: 옆 PK 로고 상자(34px)와 비슷한 크기 */
+  line-height: 34px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
 }
 
 .brand p {

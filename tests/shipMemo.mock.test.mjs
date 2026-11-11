@@ -59,4 +59,12 @@ assert.ok(panel.includes("data-sp-del"), "🗑 선택 지우기 버튼");
 assert.match(panel, /const pickedSlots = \(\) => memoOnlyGroups\(\)/, "지우기는 빈 메모 슬롯 체크만 (송장 묶음 아님)");
 assert.match(panel, /한 번 더 누르면 \$\{slotPicks\}개 지움/, "두 번 눌러야 지움");
 assert.match(panel, /clearTimeout\(st\.memoTimers\.get\(k\)\)/, "지우기 전 안 보낸 저장 취소");
+// 11-11 버튼 순서 (사장님 그림대로) — 왼쪽 … 검색 · 전체 선택 · 선택 해제 · 선택 지우기 · 새로고침 ‖ 오른쪽 끝 메모 CSV · 사진/영상
+{
+  const bar = panel.slice(panel.indexOf('<div class="sp-bar">'), panel.indexOf('<p class="sp-msg sp-progress"'));
+  const order = ["data-sp-run", "data-sp-file", "data-sp-clear", "data-sp-q", "data-sp-from", "data-sp-to", "data-sp-codeonly", "data-sp-go", "data-sp-all", "data-sp-none", "data-sp-del", "data-sp-reload", "cs-flex", "data-sp-csv", "data-sp-dl"];
+  const at = order.map((k) => bar.indexOf(k));
+  assert.ok(at.every((x) => x >= 0), "버튼 다 있음");
+  assert.deepEqual(at, [...at].sort((a, b) => a - b), "버튼 순서");
+}
 console.log("shipMemo.mock.test: OK");

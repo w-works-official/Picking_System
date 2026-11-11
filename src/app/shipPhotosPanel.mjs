@@ -1,6 +1,7 @@
 // 🚚 CS 관리 › 배송사진 (2026-11-10) — 드라이브 '5_배송기록' 폴더 (배송 중 찍은 사진 + 동영상)
 //  · [▶ 파일 정리 실행]: 확인 안 한 사진을 시트(v16 shipScan)가 6장씩 AI 로 보고, 송장 사진이면 수신자 이름을 파일명 끝에 붙임
 //  · 📋 전체 리스트: 시간 순서 그대로 · 송장 사진 = 묶음 시작 → 그 뒤 동영상·사진은 다음 송장 사진 전까지 같은 묶음
+//  · 11-11 버튼 순서(사장님 그림대로): 파일 정리 · 올리기 · 전체 리스트 · 검색창 · 📅~📅 · 상품코드만 · [검색] · 전체 선택 · 선택 해제 · 선택 지우기 · 새로고침 ‖ 오른쪽 끝 [⬇ 메모 CSV] [⬇ 사진/영상]
 //  · 검색: 수신자 이름(일부 · 가려진 글자 * ○ 무시) · 메모 글자 — 11-11 [🔎 파일 찾기] 버튼은 뺌 (검색창이 늘 보임) · 날짜 · 상품코드 적힌 주문만
 //  · 둘 다 체크로 고르고 [⬇ 사진/영상] (드라이브에서 바로 받음 — 이 화면은 파일을 저장·전송하지 않음)
 //  · 11-11 주문(송장 묶음)별 📝 메모: 이름 + 줄마다 [상품코드 · 수량 · 기타] (＋ 상품 = 아래로 한 줄) → 0.8초 뒤 자동 저장 (시트 v23 '배송기록 메모' 탭)
@@ -99,15 +100,16 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       <button type="button" class="cs-btn cs-btn-primary" data-sp-run>▶ 파일 정리 실행</button>
       <label class="cs-btn sp-upbtn" title="송장 사진·동영상 → NAS [배송기록] (평일 09:20 · 18:50 에 보냄 · 목록에 끌어다 놓아도 됨)"><input type="file" accept="image/*,video/*" multiple data-sp-file hidden>⬆ 사진·동영상 올리기</label>
       <button type="button" class="cs-btn sp-allbtn" data-sp-clear title="검색·조건을 지우고 전체">📋 전체 리스트</button>
-      <span class="sp-find"><input type="search" class="sp-search" data-sp-q placeholder="수신자 이름 · 메모 글자 (예: 홍길동 · 길동)" aria-label="검색"><button type="button" class="cs-btn cs-btn-primary" data-sp-go>검색</button></span>
+      <span class="sp-find"><input type="search" class="sp-search" data-sp-q placeholder="수신자 이름 · 메모 글자 (예: 홍길동 · 길동)" aria-label="검색"></span>
       <span class="sp-cond"><label class="sp-cal" title="부터 (날짜 고르기)"><b data-sp-cal="from">📅</b><input type="date" data-sp-from aria-label="부터"></label><span>~</span><label class="sp-cal" title="까지 (날짜 고르기)"><b data-sp-cal="to">📅</b><input type="date" data-sp-to aria-label="까지"></label><label class="sp-codeonly"><input type="checkbox" data-sp-codeonly> 상품코드 적힌 주문만</label></span>
-      <span class="cs-flex"></span>
+      <button type="button" class="cs-btn cs-btn-primary" data-sp-go>검색</button>
       <button type="button" class="cs-btn" data-sp-all>☑ 보이는 것 전체 선택</button>
       <button type="button" class="cs-btn" data-sp-none>☐ 선택 해제</button>
-      <button type="button" class="cs-btn cs-btn-green" data-sp-dl disabled title="체크한 사진·동영상을 받기 (드라이브에서)">⬇ 사진/영상</button>
-      <button type="button" class="cs-btn" data-sp-csv disabled title="체크한 묶음의 메모를 CSV(엑셀)로 받기">⬇ 메모 CSV</button>
       <button type="button" class="cs-btn sp-delbtn" data-sp-del disabled title="체크한 빈 메모 슬롯(사진·영상 없는 것)을 지움 — 한 번 더 눌러야 지워짐 · 송장 묶음 메모는 안 지움">🗑 선택 지우기</button>
       <button type="button" class="cs-btn" data-sp-reload>⟳ 새로고침</button>
+      <span class="cs-flex"></span>
+      <button type="button" class="cs-btn" data-sp-csv disabled title="체크한 묶음의 메모를 CSV(엑셀)로 받기">⬇ 메모 CSV</button>
+      <button type="button" class="cs-btn cs-btn-green" data-sp-dl disabled title="체크한 사진·동영상을 받기 (드라이브에서)">⬇ 사진/영상</button>
     </div>
     <p class="sp-msg sp-progress" data-sp-progress></p>
     <p class="sp-msg" data-sp-msg></p>

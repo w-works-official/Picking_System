@@ -31,4 +31,11 @@ assert.equal(mergeHints({ name: "홍?동" }, {}).name, "", "이름은 확정된 
 assert.deepEqual(receiptWindow("20261110143012"), { from: "2026-10-27", to: "2026-11-10" }, "배송일 앞 14일");
 assert.equal(JSON.stringify(itemsToLines([{ p_name: "미니볼", p_option: "3mm", o_amount: 2, p_dpcode: "WW-1", p_code: "A-1" }])), JSON.stringify([{ pname: "미니볼", option: "3mm", qty: "2", own: "WW-1", code: "A-1", etc: "" }]));
 assert.equal(phoneTail(orders[0]), "…5678");
+// 이름 묶음 → 같은 이름은 최근 날짜 위 (일치율이 조금 낮아도 같은 이름이면 붙어서)
+const same = [
+  { ord_no: "OLD", receiver: "정도유", receiver_mobile: "010-4944-1367", receipt_date: "2026-10-20" },
+  { ord_no: "X", receiver: "정지연", receiver_mobile: "010-0000-7838", receipt_date: "2026-11-06" },
+  { ord_no: "NEW", receiver: "정도유", receiver_mobile: "010-4944-0000", receipt_date: "2026-11-02" },
+];
+assert.deepEqual(rankOrders({ name: "정도유", phone: "010-4944-1367" }, same).map((r) => r.order.ord_no), ["NEW", "OLD", "X"], "정도유 묶음 먼저 · 그 안은 최근 날짜 위");
 console.log("shipOrderMatch.mock.test: OK");

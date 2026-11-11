@@ -2467,7 +2467,7 @@ a.cs-btn {
 .sp-mf-option input { width: 130px; }
 .sp-mf-own input { width: 96px; }
 .sp-mf-code input { width: 100px; }
-.sp-mcands { display: grid; gap: 4px; width: 100%; }
+.sp-mcands { display: grid; gap: 4px; width: 100%; max-width: 1030px; }   /* 11-11 [이 주문으로 채우기] 가 화면이 넓어도 그 자리에 */
 .sp-mcands:empty { display: none; }
 .sp-cand-msg { margin: 0; font-size: 12px; font-weight: 700; color: #475569; }
 .sp-cand-msg.is-bad { color: #be123c; }

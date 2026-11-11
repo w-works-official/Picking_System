@@ -63,11 +63,16 @@ export function scoreOrder(hints = {}, order = {}) {
   return { score: max ? Math.round((got / max) * 100) : 0, parts };
 }
 
+// 순서 (11-11): 일치율 높은 이름부터 → 같은 이름(받는 분) 안에서는 최근 접수일이 위
+//  · 이름 묶음의 순서 = 그 이름 주문 중 가장 높은 일치율
 export function rankOrders(hints = {}, orders = [], top = 5) {
-  return orders
-    .map((o) => ({ order: o, ...scoreOrder(hints, o) }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score || String(b.order.receipt_date || "").localeCompare(String(a.order.receipt_date || "")))
+  const scored = orders.map((o) => ({ order: o, ...scoreOrder(hints, o) })).filter((x) => x.score > 0);
+  const nameOf = (x) => clean(x.order.receiver_name || x.order.receiver).replace(/\s+/g, "");
+  const best = new Map();
+  for (const x of scored) best.set(nameOf(x), Math.max(best.get(nameOf(x)) ?? 0, x.score));
+  const date = (x) => String(x.order.receipt_date || "");
+  return scored
+    .sort((a, b) => (best.get(nameOf(b)) - best.get(nameOf(a))) || nameOf(a).localeCompare(nameOf(b), "ko") || date(b).localeCompare(date(a)) || b.score - a.score)
     .slice(0, top);
 }
 

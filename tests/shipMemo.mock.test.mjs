@@ -47,4 +47,5 @@ const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), 
 assert.ok(!/returnsPanel|openRet/.test(app), "반품기록 탭은 배송기록 메모로 옮김");
 assert.match(app, /editor: \(\) => state\.editor, storages: \[/);
 assert.match(panel, /<label class="sp-cal"[^>]*><b data-sp-cal="from">📅<\/b><input type="date" data-sp-from/, "날짜는 달력 아이콘");
+assert.match(panel, /Prefer: "count=exact"/, "피킹 DB 주문 범위·건수 표시");
 console.log("shipMemo.mock.test: OK");

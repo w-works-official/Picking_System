@@ -10,7 +10,7 @@
 //    (피킹 DB 는 피킹 로그인 세션이 있어야 읽힘 — 피킹시스템에서 로그인한 탭에서 CS 관리로)
 //  · [👤＋ 슬롯 추가]: 사진·영상 없이 반품 메모만 쓰는 빈 슬롯 (맨 위)
 import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship6";
-import { itemsToLines, mergeHints, phoneTail, rankOrders, receiptWindow } from "../domain/shipOrderMatch.mjs?v=20261111-find2";
+import { itemsToLines, mergeHints, phoneTail, rankOrders, receiptWindow } from "../domain/shipOrderMatch.mjs?v=20261111-find3";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const FOLDER_URL = (id) => `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
@@ -215,6 +215,18 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     }
     return rows;
   }
+  // 피킹 DB 에 쌓인 주문 범위 (첫 · 마지막 접수일 · 전체 건수) — 한 번만 읽음
+  async function pickStats(session) {
+    if (st.pickStats) return st.pickStats;
+    const headers = { apikey: PICK_KEY, Authorization: `Bearer ${PICK_KEY}`, "x-picking-session": session.token };
+    const one = async (order) => { const r = await fetchImpl(`${PICK_URL}/rest/v1/orders?select=receipt_date&receipt_date=not.is.null&order=receipt_date.${order}&limit=1`, { headers, cache: "no-store" }); return r.ok ? ((await r.json())[0]?.receipt_date || "") : ""; };
+    try {
+      const [first, last, cnt] = await Promise.all([one("asc"), one("desc"), fetchImpl(`${PICK_URL}/rest/v1/orders?select=ord_no`, { headers: { ...headers, Prefer: "count=exact", "Range-Unit": "items", Range: "0-0" }, cache: "no-store" })]);
+      const total = Number(String(cnt.headers?.get?.("content-range") || "").split("/")[1]) || null;
+      st.pickStats = { first, last, total };
+    } catch { st.pickStats = { first: "", last: "", total: null }; }
+    return st.pickStats;
+  }
   const paintCands = (key, html) => { const el = root.querySelector(`[data-sp-memo="${CSS.escape(key)}"] [data-spm-cands]`); if (el) el.innerHTML = html; };
   async function findOrder(key) {
     const box = root.querySelector(`[data-sp-memo="${CSS.escape(key)}"]`);
@@ -234,11 +246,13 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const win = g?.invoice ? receiptWindow(g.invoice.t) : (st.from || st.to) ? { from: st.from || receiptWindow(kstNowT(), 60).from, to: st.to || receiptWindow(kstNowT(), 0).to } : receiptWindow(memoT(m) || kstNowT(), 30);
     paintCands(key, `<p class="sp-cand-msg">피킹 주문 읽는 중… (접수일 ${win.from} ~ ${win.to})</p>`);
     try {
+      const stats = await pickStats(session);
       const orders = await pickRows(`orders?select=ord_no,inv_no,receiver,receiver_name,receiver_mobile,receiver_tel,receiver_address,seller,receipt_date&receipt_date=gte.${win.from}&receipt_date=lte.${win.to}&order=ord_no.asc`, session);
       const ranked = rankOrders(hints, orders, 5);
       st.cands.set(key, ranked);
       const hintText = [hints.name && `이름 ${hints.name}`, hints.phone && `전화 ${hints.phone}`, hints.invoice && `송장 ${hints.invoice}`, hints.address && `주소 ${hints.address}`].filter(Boolean).join(" · ");
-      paintCands(key, `<p class="sp-cand-msg">힌트: ${esc(hintText)}${note ? ` · ${esc(note)}` : ""} — 주문 ${orders.length}건 중</p>`
+      const dbText = stats.first ? ` · 피킹 DB 주문 ${stats.first} ~ ${stats.last}${stats.total != null ? ` 전체 ${stats.total.toLocaleString()}건` : ""}` : "";
+      paintCands(key, `<p class="sp-cand-msg">힌트: ${esc(hintText)}${note ? ` · ${esc(note)}` : ""} — 접수일 ${win.from} ~ ${win.to} 주문 ${orders.length}건 중${esc(dbText)}</p>`
         + (ranked.length ? ranked.map((c, i) => `<div class="sp-cand"><b class="sp-cand-score">${c.score}%</b><span>${esc(c.order.receiver_name || c.order.receiver || "")}</span><small>${esc(phoneTail(c.order))} · ${esc(String(c.order.receiver_address || "").slice(0, 24))} · ${esc(c.order.receipt_date || "")} · ${esc(c.order.seller || "")}</small><button type="button" class="cs-btn cs-btn-mini" data-spm-use="${i}">이 주문으로 채우기</button></div>`).join("")
           : `<p class="sp-cand-msg is-bad">맞는 주문이 없습니다 — 이름·전화를 고쳐 적거나 날짜 조건을 넓혀 다시.</p>`));
     } catch (error) { paintCands(key, `<p class="sp-cand-msg is-bad">${esc(error?.message || error)}</p>`); }

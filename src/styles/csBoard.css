@@ -2444,7 +2444,11 @@ a.cs-btn {
 
 /* 11-11 배송기록: 검색 늘 보임 · 조건(날짜 · 상품코드) · 메모 칸 늘림 · 주문서 찾기 · 빈 메모 슬롯 */
 .sp-cond { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: #475569; }
-.sp-cond input[type="date"] { height: 30px; padding: 0 6px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; font-size: 12.5px; }
+/* 11-11 날짜는 달력 아이콘 두 개 [📅]~[📅] — 투명한 날짜칸을 아이콘 위에 겹쳐 누르면 달력 */
+.sp-cal { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 30px; padding: 0 6px; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; }
+.sp-cal b { font-weight: 700; font-size: 13px; white-space: nowrap; pointer-events: none; }
+.sp-cal input[type="date"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; padding: 0; cursor: pointer; }
+.sp-cal input[type="date"]::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; cursor: pointer; }
 .sp-codeonly { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .sp-addrow > header { gap: 10px; }
 .sp-addslot { border: 1px dashed #0891b2; border-radius: 7px; background: #fff; padding: 4px 12px; font: inherit; font-size: 13px; font-weight: 800; color: #0e7490; cursor: pointer; }
@@ -2452,8 +2456,8 @@ a.cs-btn {
 .sp-group.is-memo-only { border-style: dashed; }
 .sp-group.is-memo-only .sp-memo { border-left: 0; }
 .sp-mhead { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 8px; }
-.sp-mname { display: grid; gap: 4px; justify-items: stretch; }
-.sp-mfind { height: 26px; border: 1px solid #0891b2; border-radius: 6px; background: #0891b2; color: #fff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.sp-mname { display: flex; align-items: flex-end; gap: 6px; }   /* 11-11 [주문 찾기] 는 이름 왼쪽 정사각 */
+.sp-mfind { width: 46px; height: 46px; flex: none; padding: 0; border: 1px solid #0891b2; border-radius: 7px; background: #0891b2; color: #fff; font: inherit; font-size: 12px; font-weight: 800; line-height: 1.25; cursor: pointer; }
 .sp-mfind:hover { background: #0e7490; }
 .sp-mf-phone input { width: 130px; }
 .sp-mf-vendor input { width: 120px; }

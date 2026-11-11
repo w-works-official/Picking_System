@@ -6,11 +6,11 @@
 //  · 11-11 주문(송장 묶음)별 📝 메모: 이름 + 줄마다 [상품코드 · 수량 · 기타] (＋ 상품 = 아래로 한 줄) → 0.8초 뒤 자동 저장 (시트 v23 '배송기록 메모' 탭)
 //    반품 요청 → 그 주문 영상 확인 → 메모. 체크한 묶음의 메모는 [📝 메모 CSV] 로 받음 (엑셀에서 열림)
 //  · 11-11 메모 칸: 이름 · 전화번호 · 매입처 / 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타 (시트 v24)
-//    [주문서 찾기]: 송장 사진에서 보이는 글자만 AI 힌트(shipHints) + 적은 이름·전화 → 피킹 DB 주문(접수일 14일 안)과 일치도 → 후보 5개 → 고르면 채움
+//    [주문 찾기] (이름 왼쪽 정사각 버튼): 이름칸에 확정된 이름 + 송장에서 보이는 글자(전화·운송장·주소, shipHints) → 피킹 DB 주문(접수일 14일 안)과 일치도 → 후보 5개 → 고르면 채움
 //    (피킹 DB 는 피킹 로그인 세션이 있어야 읽힘 — 피킹시스템에서 로그인한 탭에서 CS 관리로)
 //  · [👤＋ 슬롯 추가]: 사진·영상 없이 반품 메모만 쓰는 빈 슬롯 (맨 위)
 import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship6";
-import { itemsToLines, mergeHints, phoneTail, rankOrders, receiptWindow } from "../domain/shipOrderMatch.mjs?v=20261111-find1";
+import { itemsToLines, mergeHints, phoneTail, rankOrders, receiptWindow } from "../domain/shipOrderMatch.mjs?v=20261111-find2";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const FOLDER_URL = (id) => `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
@@ -87,7 +87,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
         <li><b>검색</b>: 수신자 이름(일부도 됨)이나 메모 글자 · 날짜 · "상품코드 적힌 주문만".</li>
         <li><b>다운로드</b>: 체크로 고르고 [⬇ 선택 다운로드]. 크롬이 "여러 파일 다운로드"를 물으면 [허용].</li>
         <li><b>메모</b>: 송장 묶음마다 이름 · 전화번호 · 매입처, 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타. 쓰면 자동 저장됩니다 (CS 시트 '배송기록 메모' 탭). 체크한 묶음의 메모는 [📝 메모 CSV] 로 받습니다.</li>
-        <li><b>[주문서 찾기]</b>: 송장에서 보이는 글자 + 적은 이름·전화로 피킹 주문 후보를 찾아 채웁니다 — 피킹시스템에서 로그인한 탭에서 와야 합니다. 매입처는 직접.</li>
+        <li><b>[주문 찾기]</b> (이름 왼쪽): 이름칸에 확정한 이름 + 송장에서 보이는 전화·운송장·주소로 피킹 주문 후보를 찾아 채웁니다 — 피킹시스템에서 로그인한 탭에서 와야 합니다. 매입처는 직접.</li>
         <li><b>[👤＋ 슬롯 추가]</b> (목록 맨 위): 사진·영상 없이 반품 메모만 쓰는 슬롯.</li>
       </ol>
       <p class="cs-note sp-counts" data-sp-counts></p>
@@ -98,7 +98,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       <label class="cs-btn sp-upbtn" title="송장 사진·동영상 → NAS [배송기록] (평일 09:20 · 18:50 에 보냄 · 목록에 끌어다 놓아도 됨)"><input type="file" accept="image/*,video/*" multiple data-sp-file hidden>⬆ 사진·동영상 올리기</label>
       <button type="button" class="cs-btn sp-allbtn" data-sp-clear title="검색·조건을 지우고 전체">📋 전체 리스트</button>
       <span class="sp-find"><input type="search" class="sp-search" data-sp-q placeholder="수신자 이름 · 메모 글자 (예: 홍길동 · 길동)" aria-label="검색"><button type="button" class="cs-btn cs-btn-primary" data-sp-go>검색</button></span>
-      <span class="sp-cond"><input type="date" data-sp-from aria-label="부터"><span>~</span><input type="date" data-sp-to aria-label="까지"><label class="sp-codeonly"><input type="checkbox" data-sp-codeonly> 상품코드 적힌 주문만</label></span>
+      <span class="sp-cond"><label class="sp-cal" title="부터 (날짜 고르기)"><b data-sp-cal="from">📅</b><input type="date" data-sp-from aria-label="부터"></label><span>~</span><label class="sp-cal" title="까지 (날짜 고르기)"><b data-sp-cal="to">📅</b><input type="date" data-sp-to aria-label="까지"></label><label class="sp-codeonly"><input type="checkbox" data-sp-codeonly> 상품코드 적힌 주문만</label></span>
       <span class="cs-flex"></span>
       <button type="button" class="cs-btn" data-sp-all>☑ 보이는 것 전체 선택</button>
       <button type="button" class="cs-btn" data-sp-none>☐ 선택 해제</button>
@@ -228,7 +228,8 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       try { photo = (await post({ action: "shipHints", id: g.invoice.id })).hints || {}; }
       catch (error) { note = /알 수 없는 요청/.test(error?.message || "") ? "시트 v24 전이라 송장 글자는 못 읽음" : `송장 글자 못 읽음: ${error?.message || error}`; }
     }
-    const hints = mergeHints(photo, { name: m.name, phone: m.phone });
+    // 이름 = 이름칸에 확정된 이름 (비어 있으면 칸에 보이는 송장 이름) — AI 가 다시 읽은 이름은 안 씀
+    const hints = mergeHints(photo, { name: m.name || g?.recipient || "", phone: m.phone });
     if (!Object.values(hints).some(Boolean)) { paintCands(key, `<p class="sp-cand-msg is-bad">${note ? `${esc(note)} — ` : ""}힌트가 없습니다. 이름이나 전화번호를 적고 다시 눌러 주세요.</p>`); return; }
     const win = g?.invoice ? receiptWindow(g.invoice.t) : (st.from || st.to) ? { from: st.from || receiptWindow(kstNowT(), 60).from, to: st.to || receiptWindow(kstNowT(), 0).to } : receiptWindow(memoT(m) || kstNowT(), 30);
     paintCands(key, `<p class="sp-cand-msg">피킹 주문 읽는 중… (접수일 ${win.from} ~ ${win.to})</p>`);
@@ -396,8 +397,8 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const field = (l, i, f) => `<label class="sp-mf sp-mf-${f.k}">${head(i, f.label)}<input data-spm-f="${f.k}" value="${esc(l[f.k] ?? "")}"${f.ph ? ` placeholder="${esc(f.ph)}"` : ""}${f.num ? ' type="number" min="0" inputmode="numeric"' : ""}></label>`;
     return `<div class="sp-memo" data-sp-memo="${esc(g.key)}">
         <div class="sp-mhead">
-          <div class="sp-mname"><label class="sp-mf sp-mf-name"><span>이름</span><input data-spm-name value="${esc(m.name)}" placeholder="${esc(g.recipient || "이름")}"></label>
-            <button type="button" class="sp-mfind" data-spm-find title="송장 글자 + 적은 이름·전화로 피킹 주문 찾기">주문서 찾기</button></div>
+          <div class="sp-mname"><button type="button" class="sp-mfind" data-spm-find title="이름칸의 이름(확정) + 송장 글자(전화·운송장·주소)로 피킹 주문 찾기">주문<br>찾기</button>
+            <label class="sp-mf sp-mf-name"><span>이름</span><input data-spm-name value="${esc(m.name)}" placeholder="${esc(g.recipient || "이름")}"></label></div>
           <label class="sp-mf sp-mf-phone"><span>전화번호</span><input data-spm-phone value="${esc(m.phone || "")}" inputmode="tel"></label>
           <label class="sp-mf sp-mf-vendor"><span>매입처</span><input data-spm-vendor value="${esc(m.vendor || "")}"></label>
           ${m.ordNo ? `<small class="sp-mord">주문 ${esc(m.ordNo)}</small>` : ""}
@@ -448,7 +449,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
   root.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b || b.disabled) return;
-    if (b.matches("[data-sp-clear]")) { st.q = st.from = st.to = ""; st.codeOnly = false; for (const s of ["[data-sp-q]", "[data-sp-from]", "[data-sp-to]"]) $(s).value = ""; $("[data-sp-codeonly]").checked = false; render(); }
+    if (b.matches("[data-sp-clear]")) { st.q = st.from = st.to = ""; st.codeOnly = false; for (const s of ["[data-sp-q]", "[data-sp-from]", "[data-sp-to]"]) $(s).value = ""; $("[data-sp-codeonly]").checked = false; paintCal(); render(); }
     else if (b.matches("[data-sp-go]")) { st.q = $("[data-sp-q]").value.trim(); render(); }
     else if (b.matches("[data-sp-all]")) { for (const g of visibleGroups()) { if (g.memoOnly) st.pickedMemo.add(g.key); for (const f of groupFiles(g.key)) st.picked.add(f.id); } render(); }
     else if (b.matches("[data-sp-none]")) { st.picked.clear(); st.pickedMemo.clear(); render(); }
@@ -475,11 +476,14 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     readMemo(box); queueMemo(box.dataset.spMemo);
     if (e.target.matches("[data-spm-name]")) { const h = box.closest(".is-memo-only")?.querySelector("header b"); if (h) h.textContent = `👤 ${e.target.value || "메모 슬롯"}`; }
   });
+  // 날짜 = 달력 아이콘 두 개 (11-11) — 누르면 달력, 고르면 아이콘 옆에 날짜(월-일)
+  const paintCal = () => { for (const k of ["from", "to"]) { const v = st[k]; const el = $(`[data-sp-cal="${k}"]`); if (el) el.textContent = v ? `📅 ${v.slice(5)}` : "📅"; } };
+  root.addEventListener("click", (e) => { const inp = e.target.closest?.("[data-sp-from], [data-sp-to]"); if (inp) { try { inp.showPicker?.(); } catch { /* 달력 안 열리면 그대로 */ } } });
   root.addEventListener("keydown", (e) => { if (e.key === "Enter" && e.target.matches("[data-sp-q]")) { st.q = e.target.value.trim(); render(); } });
   root.addEventListener("change", (e) => {
     const t = e.target;
-    if (t.matches?.("[data-sp-from]")) { st.from = t.value; render(); }
-    else if (t.matches?.("[data-sp-to]")) { st.to = t.value; render(); }
+    if (t.matches?.("[data-sp-from]")) { st.from = t.value; paintCal(); render(); }
+    else if (t.matches?.("[data-sp-to]")) { st.to = t.value; paintCal(); render(); }
     else if (t.matches?.("[data-sp-codeonly]")) { st.codeOnly = t.checked; render(); }
     else if (t.dataset.spMpick) { if (t.checked) st.pickedMemo.add(t.dataset.spMpick); else st.pickedMemo.delete(t.dataset.spMpick); render(); }
     else if (t.dataset.spPick) { if (t.checked) st.picked.add(t.dataset.spPick); else st.picked.delete(t.dataset.spPick); render(); }

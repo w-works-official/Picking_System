@@ -72,9 +72,10 @@ export function rankOrders(hints = {}, orders = [], top = 5) {
 }
 
 // 화면에서 쓴 이름·전화도 힌트로 (송장 힌트보다 앞)
+//  · 11-11 이름은 사람이 확인해 이름칸에 확정한 것만 씀 — 송장에서 AI 가 다시 읽은 이름은 쓰지 않음
 export function mergeHints(photo = {}, typed = {}) {
   return {
-    name: clean(typed.name) || clean(photo.name),
+    name: clean(typed.name),
     phone: clean(typed.phone) || clean(photo.phone),
     invoice: clean(photo.invoice),
     address: clean(photo.address),

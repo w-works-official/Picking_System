@@ -27,6 +27,7 @@ assert.ok(ranked[0].score > ranked[1].score + 30);
 assert.deepEqual(rankOrders({ name: "박" }, orders), [], "맞는 것 없으면 빈 목록");
 assert.equal(scoreOrder({ name: "홍?동" }, orders[0]).score, 100, "힌트가 이름뿐이면 이름만으로");
 assert.deepEqual(mergeHints({ name: "홍?동", phone: "010" }, { name: "홍길동", phone: "" }), { name: "홍길동", phone: "010", invoice: "", address: "" }, "적은 글자가 먼저");
+assert.equal(mergeHints({ name: "홍?동" }, {}).name, "", "이름은 확정된 이름칸만 — AI 가 읽은 이름은 안 씀");
 assert.deepEqual(receiptWindow("20261110143012"), { from: "2026-10-27", to: "2026-11-10" }, "배송일 앞 14일");
 assert.equal(JSON.stringify(itemsToLines([{ p_name: "미니볼", p_option: "3mm", o_amount: 2, p_dpcode: "WW-1", p_code: "A-1" }])), JSON.stringify([{ pname: "미니볼", option: "3mm", qty: "2", own: "WW-1", code: "A-1", etc: "" }]));
 assert.equal(phoneTail(orders[0]), "…5678");

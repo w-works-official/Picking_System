@@ -29,4 +29,5 @@ const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), 
 assert.ok(!/returnsPanel|openRet/.test(app), "반품기록 탭은 배송기록 메모로 옮김");
 assert.match(app, /editor: \(\) => state\.editor \}\); ship\.load\(\);/);
 assert.match(panel, /<div class="sp-body"><div class="sp-files">.*<\/div>\$\{g\.invoice \? memoHtml\(g\) : ""\}<\/div>/, "메모는 사진·동영상 옆");
+assert.ok(!panel.includes('class="sp-memo-t"'), "메모 앞 📝 메모 글자 없음");
 console.log("shipMemo.mock.test: OK");

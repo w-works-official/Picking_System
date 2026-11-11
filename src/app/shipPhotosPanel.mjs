@@ -257,7 +257,6 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     // 줄마다 [상품코드 · 수량 · 기타 · ×] — 항목 이름은 첫 줄에만 · ＋ 상품 = 아래로 한 줄
     const head = (i, t) => (i === 0 ? `<span>${t}</span>` : "");
     return `<div class="sp-memo" data-sp-memo="${esc(g.key)}">
-        <b class="sp-memo-t">📝 메모</b>
         <label class="sp-mf sp-mf-name"><span>이름</span><input data-spm-name value="${esc(m.name)}" placeholder="${esc(g.recipient || "이름")}"></label>
         <div class="sp-mlines">${lines.map((l, i) => `<div class="sp-ml" data-spm-i="${i}"><label class="sp-mf sp-mf-code">${head(i, "상품코드")}<input data-spm-code value="${esc(l.code)}" placeholder="셀피아 코드"></label><label class="sp-mf sp-mf-qty">${head(i, "수량")}<input data-spm-qty type="number" min="0" inputmode="numeric" value="${esc(l.qty)}"></label><label class="sp-mf sp-mf-etc">${head(i, "기타")}<input data-spm-etc value="${esc(l.etc || "")}" placeholder="반품 사유 · 영상 확인 결과 …"></label>${lines.length > 1 ? `<button type="button" class="sp-mdel" data-spm-del title="이 줄 빼기">×</button>` : ""}</div>`).join("")}<button type="button" class="sp-madd" data-spm-add>＋ 상품</button></div>
         <small class="sp-mstate" data-spm-state>${m.editor ? `${esc(m.editor)} · ${esc(kstLabel(m.updatedAt))}` : ""}</small>

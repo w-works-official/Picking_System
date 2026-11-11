@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-11 v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-11 v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -131,7 +131,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
   if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 23 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 24 });
 }
 
 function doPost(e) {
@@ -208,7 +208,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot', 'chatIngest'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -241,6 +241,7 @@ function route_(body) {
   if (action === 'chatList') return chatList_(body);
   if (action === 'shipMemoList') return shipMemoList_();
   if (action === 'shipMemoSave') return withLock_(function () { return shipMemoSave_(body); });
+  if (action === 'shipHints') return shipHints_(body);
   if (action === 'chatSuggest') return chatSuggest_(body);
   if (action === 'chatIngest') return withLock_(function () { return chatIngest_(body); });
   if (action === 'retSave') return withLock_(function () { return retSave_(body); });
@@ -2037,23 +2038,30 @@ function retSave_(body) {
 //  · 이 시트 '배송기록 메모' 탭: 한 줄 = 묶음 하나 · 상품코드·수량·기타는 줄바꿈으로 여러 줄 (v23: 기타도 상품 줄마다)
 //  · 먼저 고친 사람이 있으면 덮어쓰지 않음 (버전) · 지우기 없음 (칸을 비우면 빈 메모)
 var SHIPMEMO_SHEET = '배송기록 메모';
-var SHIPMEMO_HEADER = ['묶음 키', '수신자', '송장 시각', '이름', '상품코드', '수량', '기타', '작성자', '수정 시각', '버전'];
+// v24: 칸은 뒤에 덧붙임 (예전 줄은 그대로 읽힘) — 상품 줄 칸(상품코드·수량·기타·상품명·옵션명·자사코드)은 줄바꿈으로 여러 줄
+var SHIPMEMO_HEADER = ['묶음 키', '수신자', '송장 시각', '이름', '상품코드', '수량', '기타', '작성자', '수정 시각', '버전', '전화번호', '매입처', '상품명', '옵션명', '자사코드', '주문번호'];
+var SHIPMEMO_LINE_COLS = { code: 4, qty: 5, etc: 6, pname: 12, option: 13, own: 14 };   // 0부터
 
 function shipMemoSheet_() {
   var book = book_();
   var sheet = book.getSheetByName(SHIPMEMO_SHEET);
-  if (!sheet) { sheet = book.insertSheet(SHIPMEMO_SHEET); sheet.appendRow(SHIPMEMO_HEADER); sheet.setFrozenRows(1); }
+  if (!sheet) { sheet = book.insertSheet(SHIPMEMO_SHEET); sheet.appendRow(SHIPMEMO_HEADER); sheet.setFrozenRows(1); return sheet; }
+  var head = sheet.getRange(1, 1, 1, SHIPMEMO_HEADER.length).getValues()[0];
+  if (String(head[SHIPMEMO_HEADER.length - 1]) !== SHIPMEMO_HEADER[SHIPMEMO_HEADER.length - 1]) sheet.getRange(1, 1, 1, SHIPMEMO_HEADER.length).setValues([SHIPMEMO_HEADER]);   // v24 칸 이름 덧붙임
   return sheet;
 }
 function shipMemoRow_(r) {
-  var codes = String(r[4] || '').split('\n'), qtys = String(r[5] || '').split('\n'), etcs = String(r[6] || '').split('\n');
+  var cols = {};
+  Object.keys(SHIPMEMO_LINE_COLS).forEach(function (k) { cols[k] = String(r[SHIPMEMO_LINE_COLS[k]] || '').split('\n'); });
+  var count = Math.max.apply(null, Object.keys(cols).map(function (k) { return cols[k].length; }));
   var lines = [];
-  for (var i = 0; i < Math.max(codes.length, qtys.length, etcs.length); i++) {
-    var code = plain_(codes[i] || '').trim(), qty = String(qtys[i] || '').trim(), etc = plain_(etcs[i] || '').trim();
-    if (code || qty || etc) lines.push({ code: code, qty: qty, etc: etc });
+  for (var i = 0; i < count; i++) {
+    var l = {};
+    Object.keys(cols).forEach(function (k) { l[k] = (k === 'qty' ? String(cols[k][i] || '') : plain_(cols[k][i] || '')).trim(); });
+    if (l.code || l.qty || l.etc || l.pname || l.option || l.own) lines.push(l);
   }
-  return { key: String(r[0]), recipient: String(r[1] || ''), t: retTime_(r[2]), name: plain_(String(r[3] || '')), lines: lines, etc: plain_(String(r[6] || '')),
-    editor: String(r[7] || ''), updatedAt: retTime_(r[8]), version: Number(r[9]) || 1 };
+  return { key: String(r[0]), recipient: String(r[1] || ''), t: retTime_(r[2]), name: plain_(String(r[3] || '')), phone: plain_(String(r[10] || '')), vendor: plain_(String(r[11] || '')), ordNo: String(r[15] || ''),
+    lines: lines, etc: plain_(String(r[6] || '')), editor: String(r[7] || ''), updatedAt: retTime_(r[8]), version: Number(r[9]) || 1 };
 }
 function shipMemoList_() {
   var sheet = shipMemoSheet_();
@@ -2066,10 +2074,12 @@ function shipMemoSave_(body) {
   var key = clean_(body && body.key, 80);
   if (!/^[A-Za-z0-9_-]{10,80}$/.test(key)) return { ok: false, error: '묶음 키가 맞지 않습니다' };
   var safe = function (v, n) { var t = clean_(String(v == null ? '' : v).replace(/[\r\n]+/g, ' '), n); return /^[=+\-@]/.test(t) ? "'" + t : t; };
-  var lines = (Array.isArray(body.lines) ? body.lines : []).slice(0, 30).map(function (l) { return { code: safe(l && l.code, 60), qty: String(Math.max(0, Math.floor(Number(l && l.qty) || 0)) || ''), etc: safe(l && l.etc, 300) }; })
-    .filter(function (l) { return l.code || l.qty || l.etc; });
+  var lines = (Array.isArray(body.lines) ? body.lines : []).slice(0, 30).map(function (l) {
+    l = l || {};
+    return { code: safe(l.code, 60), qty: String(Math.max(0, Math.floor(Number(l.qty) || 0)) || ''), etc: safe(l.etc, 300), pname: safe(l.pname, 150), option: safe(l.option, 150), own: safe(l.own, 60) };
+  }).filter(function (l) { return l.code || l.qty || l.etc || l.pname || l.option || l.own; });
   if (body.etc && lines.length && !lines[0].etc) lines[0].etc = safe(body.etc, 300);   // v22 화면이 보낸 하나짜리 기타 → 첫 줄
-  else if (body.etc && !lines.length) lines.push({ code: '', qty: '', etc: safe(body.etc, 300) });
+  else if (body.etc && !lines.length) lines.push({ code: '', qty: '', etc: safe(body.etc, 300), pname: '', option: '', own: '' });
   var cellOf = function (k) { var v = lines.map(function (l) { return String(l[k]).replace(/^'/, ''); }).join('\n'); return /^[=+\-@]/.test(v) ? "'" + v : v; };
   var who = plain_(clean_(body.editor, 40));
   var now = new Date();
@@ -2080,7 +2090,8 @@ function shipMemoSave_(body) {
   var rows = n > 0 ? sheet.getRange(2, 1, n, SHIPMEMO_HEADER.length).getValues() : [];
   var at = -1;
   for (var i = 0; i < rows.length; i++) if (String(rows[i][0]) === key) { at = i; break; }
-  var row = [key, safe(body.recipient, 60), t, safe(body.name, 60), cellOf('code'), cellOf('qty'), cellOf('etc'), who, now, 1];
+  var row = [key, safe(body.recipient, 60), t, safe(body.name, 60), cellOf('code'), cellOf('qty'), cellOf('etc'), who, now, 1,
+    safe(body.phone, 40), safe(body.vendor, 60), cellOf('pname'), cellOf('option'), cellOf('own'), safe(body.ordNo, 40)];
   if (at < 0) { sheet.appendRow(row); return { ok: true, memo: shipMemoRow_(row) }; }
   var cur = shipMemoRow_(rows[at]);
   if (Number(body.base || 0) !== cur.version) return { ok: false, conflict: true, memo: cur, error: '다른 사람이 먼저 고쳤습니다 — 새 내용을 보여 드립니다' };
@@ -2089,6 +2100,40 @@ function shipMemoSave_(body) {
   row[9] = cur.version + 1;
   sheet.getRange(at + 2, 1, 1, SHIPMEMO_HEADER.length).setValues([row]);
   return { ok: true, memo: shipMemoRow_(row) };
+}
+
+// v24 주문서 찾기 힌트: 송장 사진에서 '또렷이 보이는 글자만' AI 가 읽음 (가려지거나 흐린 글자는 ?) — 화면이 이 힌트로 피킹 주문과 일치도를 매김
+//  · 배송기록 폴더 사진만 · 결과는 6시간 캐시 (같은 사진 다시 눌러도 AI 를 또 쓰지 않음) · 시트에는 남기지 않음
+function shipHints_(body) {
+  var id = clean_(body && body.id, 80);
+  var file = shipFiles_().filter(function (f) { return f.id === id && f.kind === 'photo'; })[0];
+  if (!file) return { ok: false, error: '배송기록 폴더의 송장 사진이 아닙니다' };
+  var cache = null;
+  try { cache = CacheService.getScriptCache(); var hit = cache.get('shiphint_' + id); if (hit) return { ok: true, hints: JSON.parse(hit), cached: true }; } catch (e) { cache = null; }
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
+  var reserved = withLock_(function () { return reserveAi_(1); });
+  if (!reserved.allow) return { ok: false, error: '오늘 AI 사용 한도(' + reserved.limit + '회)를 다 썼습니다.' };
+  var res = UrlFetchApp.fetchAll([{ url: 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w1600', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true, followRedirects: true }])[0];
+  var blob = res.getResponseCode() === 200 ? res.getBlob() : null;
+  var type = blob ? String(blob.getContentType() || '').toLowerCase().split(';')[0] : '';
+  if (!blob || !/^image\/(jpeg|png|webp|gif)$/.test(type)) return { ok: false, error: '송장 사진을 불러오지 못했습니다' };
+  var payload = {
+    model: prop_('SHIP_MODEL') || DEFAULT_MODEL, max_tokens: 500,
+    system: '택배 송장 사진에서 받는 분 정보를 찾는 도우미입니다. 또렷이 보이는 글자만 적고, 가려지거나(* ○ 등) 흐리거나 안 보이는 글자는 한 글자마다 ? 로 적습니다. 추측해서 채우지 마세요. 보내는 분 정보는 적지 않습니다. 출력은 JSON 하나만: {"name":"받는 분 이름","phone":"받는 분 전화(숫자·?·-)","invoice":"운송장(등기)번호(숫자·?)","address":"받는 분 주소에서 보이는 낱말들","zip":"우편번호"} — 없으면 빈 글자',
+    messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: type, data: Utilities.base64Encode(blob.getBytes()) } }, { type: 'text', text: '이 송장에서 받는 분 정보를 보이는 만큼만 읽어 주세요.' }] }],
+  };
+  var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', { method: 'post', contentType: 'application/json', muteHttpExceptions: true, headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }, payload: JSON.stringify(payload) });
+  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+  var data = parse_(response.getContentText(), {});
+  var text = '';
+  (Array.isArray(data.content) ? data.content : []).forEach(function (c) { if (c && c.type === 'text') text += c.text; });
+  withLock_(function () { recordUsage_(data.usage, payload.model, '주문서 찾기'); });
+  var m = /\{[\s\S]*\}/.exec(text);
+  var out = parse_(m ? m[0] : '', {});
+  var hints = { name: clean_(out.name, 30), phone: clean_(out.phone, 30), invoice: clean_(out.invoice, 30), address: clean_(out.address, 120), zip: clean_(out.zip, 10), t: file.t };
+  if (cache) try { cache.put('shiphint_' + id, JSON.stringify(hints), 21600); } catch (e) { /* 캐시 없이 */ }
+  return { ok: true, hints: hints };
 }
 
 // ---------- v18 배송기록 업로드 (2026-11-10) ----------

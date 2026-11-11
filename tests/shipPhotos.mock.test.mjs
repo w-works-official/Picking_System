@@ -43,7 +43,7 @@ assert.match(html, /data-left-panel="ship"[^>]*><div data-ship-side><\/div><\/di
 assert.match(html, /data-right-panel="ship" hidden>\s*<div class="sp" data-ship><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "ship"\) openShip\(\);/);
-assert.match(app, /import\("\.\/shipPhotosPanel\.mjs\?v=20261111-memo4"\)/);
+assert.match(app, /import\("\.\/shipPhotosPanel\.mjs\?v=20261111-find1"\)/);
 const panel = readFileSync(new URL("../src/app/shipPhotosPanel.mjs", import.meta.url), "utf8");
 for (const t of ["▶ 파일 정리 실행", "📋 전체 리스트", "🔎 파일 찾기", "⬇ 선택 다운로드", 'action: "shipScan"', 'action: "shipList"']) assert.ok(panel.includes(t), t);
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");

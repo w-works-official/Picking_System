@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 23 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 24 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 23);
+  assert.equal(g5.get().version, 24);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -1041,7 +1041,7 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.match(g.post({ action: "shipMemoSave", token: TOKEN, key: "../x" }).error, /묶음 키/);
   const a = g.post({ action: "shipMemoSave", token: TOKEN, key: KEY, recipient: "홍○동", t: "20261110143012", name: "홍길동", lines: [{ code: "=HYPER", qty: "2" }, { code: "B-01", qty: "x" }, { code: "", qty: "" }], etc: "영상상 2개 포장 확인", editor: "김성수" });
   assert.equal(a.ok, true);
-  assert.equal(JSON.stringify(a.memo.lines), JSON.stringify([{ code: "=HYPER", qty: "2", etc: "영상상 2개 포장 확인" }, { code: "B-01", qty: "", etc: "" }]), "숫자만 · 빈 줄 버림");
+  assert.equal(JSON.stringify(a.memo.lines), JSON.stringify([{ code: "=HYPER", qty: "2", etc: "영상상 2개 포장 확인", pname: "", option: "", own: "" }, { code: "B-01", qty: "", etc: "", pname: "", option: "", own: "" }]), "숫자만 · 빈 줄 버림");
   assert.deepEqual([a.memo.version, a.memo.name, a.memo.lines[0].etc, a.memo.t], [1, "홍길동", "영상상 2개 포장 확인", "'2026-11-10 14:30:12"]);
   assert.equal(a.memo.lines[0].etc, "영상상 2개 포장 확인", "v22 화면의 하나짜리 기타 → 첫 줄");
   const b = g.post({ action: "shipMemoSave", token: TOKEN, key: KEY, base: 1, name: "홍길동", lines: [{ code: "A-9", qty: 3, etc: "불량 반품" }, { code: "", qty: "", etc: "포장 영상 확인함" }], editor: "유지영" });
@@ -1052,6 +1052,41 @@ console.log("csBoard.mock.test (ss board api): OK");
   const l = g.post({ action: "shipMemoList", token: TOKEN });
   assert.deepEqual([Object.keys(l.memos).length, l.memos[KEY].name, l.memos[KEY].editor], [1, "홍길동", "유지영"]);
   console.log("csBoard.mock.test (shipMemo v22): OK");
+}
+
+// v24 배송기록 메모 칸 늘림 · 빈 메모 슬롯 · 주문서 찾기 힌트
+{
+  const old = fakeSheet("배송기록 메모");
+  old.data.push(["묶음 키", "수신자", "송장 시각", "이름", "상품코드", "수량", "기타", "작성자", "수정 시각", "버전"]);
+  old.data.push(["1AbCdEfGhIjKlMnOp_q", "홍○동", "2026-11-10 14:30:12", "홍길동", "A-1", "2", "예전 메모", "김성수", "2026-11-11T03:00:00Z", 1]);
+  let seen = null;
+  const drive = { folderId: "1BYw0-dWxwq5zTwPot_dVS0EuDG52-_ie", files: [{ id: "INVphoto0001", name: "20261110_143012_홍○동.jpg", mime: "image/jpeg" }, { id: "VIDvideo0001", name: "20261110_143030.mp4", mime: "video/mp4" }] };
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, CLAUDE_KEY: "k" }, sheets: [fakeSheet(), old], drive, claude: (payload) => { seen = payload; return { status: 200, text: '{"name":"홍?동","phone":"010-????-5678","invoice":"6891????4321","address":"서울 강남구 테헤란로","zip":""}' }; } });
+  const l0 = g.post({ action: "shipMemoList", token: TOKEN });
+  assert.equal(JSON.stringify(l0.memos["1AbCdEfGhIjKlMnOp_q"].lines), JSON.stringify([{ code: "A-1", qty: "2", etc: "예전 메모", pname: "", option: "", own: "" }]), "예전 줄 그대로 읽힘");
+  assert.equal(old.data[0].length, 16, "칸 이름 덧붙임");
+  assert.deepEqual(old.data[0].slice(10), ["전화번호", "매입처", "상품명", "옵션명", "자사코드", "주문번호"]);
+  const r = g.post({ action: "shipMemoSave", token: TOKEN, key: "1AbCdEfGhIjKlMnOp_q", base: 1, name: "홍길동", phone: "010-1234-5678", vendor: "세븐피어싱", ordNo: "202611100001",
+    lines: [{ pname: "14K 미니볼", option: "3mm/골드", qty: 2, own: "WW-1", code: "A-1", etc: "불량" }, { pname: "링", option: "", qty: "", own: "", code: "", etc: "" }], editor: "김성수" });
+  assert.equal(r.ok, true);
+  assert.deepEqual([r.memo.phone, r.memo.vendor, r.memo.ordNo, r.memo.version], ["010-1234-5678", "세븐피어싱", "202611100001", 2]);
+  assert.equal(JSON.stringify(r.memo.lines), JSON.stringify([{ code: "A-1", qty: "2", etc: "불량", pname: "14K 미니볼", option: "3mm/골드", own: "WW-1" }, { code: "", qty: "", etc: "", pname: "링", option: "", own: "" }]), "상품명만 있는 줄도 남김");
+  // 빈 메모 슬롯 (사진 없이)
+  const blank = g.post({ action: "shipMemoSave", token: TOKEN, key: "memo-lx2k9a1b2c", t: "20261111140500", name: "", lines: [], editor: "김성수" });
+  assert.deepEqual([blank.ok, blank.memo.key], [true, "memo-lx2k9a1b2c"]);
+  assert.ok(g.post({ action: "shipMemoList", token: TOKEN }).memos["memo-lx2k9a1b2c"], "빈 메모 슬롯도 목록에");
+  // 주문서 찾기 힌트
+  assert.match(g.post({ action: "shipHints", token: TOKEN, id: "VIDvideo0001" }).error, /송장 사진이 아닙니다/, "동영상은 안 됨");
+  assert.match(g.post({ action: "shipHints", token: TOKEN, id: "다른파일" }).error, /송장 사진이 아닙니다/, "배송기록 폴더 밖은 안 됨");
+  const h = g.post({ action: "shipHints", token: TOKEN, id: "INVphoto0001" });
+  assert.equal(h.ok, true);
+  assert.deepEqual([h.hints.name, h.hints.phone, h.hints.invoice, h.hints.t], ["홍?동", "010-????-5678", "6891????4321", "20261110143012"]);
+  assert.match(seen.system, /또렷이 보이는 글자만/);
+  assert.equal(seen.messages[0].content[0].type, "image");
+  seen = null;
+  const h2 = g.post({ action: "shipHints", token: TOKEN, id: "INVphoto0001" });
+  assert.deepEqual([h2.cached, seen], [true, null], "같은 사진은 AI 다시 안 씀");
+  console.log("csBoard.mock.test (shipMemo v24): OK");
 }
 
 // v20 상담톡: 수집기가 넣고(chatIngest) · 화면이 읽고(chatList) · 답변 후보(chatSuggest)

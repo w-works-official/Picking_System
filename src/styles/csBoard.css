@@ -2404,7 +2404,7 @@ a.cs-btn {
 /* 11-11 메모는 사진·동영상 오른쪽 (좁으면 아래로) */
 .sp-body { display: flex; flex-wrap: wrap; align-items: stretch; }
 .sp-body > .sp-files { flex: 0 1 auto; min-width: 330px; box-sizing: border-box; align-content: flex-start; }
-.sp-memo { flex: 1 1 460px; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 6px 10px; padding: 10px 12px; border-left: 1px dashed #a5f3fc; background: #f8fdff; }
+.sp-memo { flex: 1 1 460px; display: flex; flex-direction: column; flex-wrap: nowrap; align-items: flex-start; align-content: flex-start; gap: 6px 10px; padding: 10px 12px; border-left: 1px dashed #a5f3fc; background: #f8fdff; }
 .sp-memo-t { align-self: flex-start; margin-top: 23px; font-size: 13px; color: #0e7490; }
 .sp-mf { display: grid; gap: 2px; }
 .sp-mf > span { font-size: 11px; font-weight: 800; color: #64748b; text-align: center; }   /* 11-11 항목 이름은 입력칸 가운데 */
@@ -2412,14 +2412,13 @@ a.cs-btn {
 .sp-mf input:focus { outline: 2px solid #0891b2; outline-offset: -1px; border-color: #0891b2; }
 .sp-mf-name input { width: 110px; }
 /* 11-11 상품 줄은 아래로 쌓임 — 줄마다 상품코드 · 수량 · 기타 */
-.sp-mlines { flex: 1 1 440px; min-width: 0; display: grid; gap: 5px; justify-items: start; }
+.sp-mlines { flex: none; min-width: 0; display: grid; gap: 5px; justify-items: start; }
 .sp-ml { display: flex; align-items: flex-end; gap: 6px; width: 100%; box-sizing: border-box; }
-.sp-ml input[data-spm-code] { width: 120px; }
-.sp-mf-qty input { width: 58px; }
+.sp-mf-qty input { width: 52px; }
 .sp-mdel, .sp-madd { height: 30px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; padding: 0 8px; }
 .sp-mdel { padding: 0 6px; color: #94a3b8; }
 .sp-madd { color: #0e7490; border-color: #a5f3fc; }
-.sp-mf-etc { flex: 0 1 540px; min-width: 0; }   /* 11-11 기타 칸은 반 길이 (약 540) */
+.sp-mf-etc { flex: 0 1 280px; min-width: 0; }   /* 11-11 기타 칸 (칸이 늘어 280) */
 .sp-mf-etc input { width: 100%; }
 .sp-mstate { align-self: center; font-size: 11.5px; font-weight: 700; color: #64748b; white-space: nowrap; }
 /* 📦 거래처 › 💬 전체 멘트 (11-11) — 주문서 올리기 옆 */
@@ -2442,3 +2441,32 @@ a.cs-btn {
 .vm-msg:empty { display: none; }
 .vm-msg.is-ok { color: #15803d; }
 .vm-msg.is-bad { color: #b91c1c; }
+
+/* 11-11 배송기록: 검색 늘 보임 · 조건(날짜 · 상품코드) · 메모 칸 늘림 · 주문서 찾기 · 빈 메모 슬롯 */
+.sp-cond { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: #475569; }
+.sp-cond input[type="date"] { height: 30px; padding: 0 6px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; font-size: 12.5px; }
+.sp-codeonly { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.sp-addrow > header { gap: 10px; }
+.sp-addslot { border: 1px dashed #0891b2; border-radius: 7px; background: #fff; padding: 4px 12px; font: inherit; font-size: 13px; font-weight: 800; color: #0e7490; cursor: pointer; }
+.sp-addslot:hover { background: #ecfeff; }
+.sp-group.is-memo-only { border-style: dashed; }
+.sp-group.is-memo-only .sp-memo { border-left: 0; }
+.sp-mhead { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 8px; }
+.sp-mname { display: grid; gap: 4px; justify-items: stretch; }
+.sp-mfind { height: 26px; border: 1px solid #0891b2; border-radius: 6px; background: #0891b2; color: #fff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.sp-mfind:hover { background: #0e7490; }
+.sp-mf-phone input { width: 130px; }
+.sp-mf-vendor input { width: 120px; }
+.sp-mord { align-self: center; margin-top: 16px; font-size: 11.5px; font-weight: 700; color: #0e7490; white-space: nowrap; }
+.sp-mhead .sp-mstate { margin-top: 18px; }
+.sp-mf-pname input { width: 170px; }
+.sp-mf-option input { width: 130px; }
+.sp-mf-own input { width: 96px; }
+.sp-mf-code input { width: 100px; }
+.sp-mcands { display: grid; gap: 4px; width: 100%; }
+.sp-mcands:empty { display: none; }
+.sp-cand-msg { margin: 0; font-size: 12px; font-weight: 700; color: #475569; }
+.sp-cand-msg.is-bad { color: #be123c; }
+.sp-cand { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid #a5f3fc; border-radius: 7px; background: #fff; font-size: 12.5px; }
+.sp-cand-score { min-width: 40px; color: #0e7490; }
+.sp-cand small { color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }

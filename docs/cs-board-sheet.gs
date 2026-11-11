@@ -2119,7 +2119,7 @@ function shipHints_(body) {
   var type = blob ? String(blob.getContentType() || '').toLowerCase().split(';')[0] : '';
   if (!blob || !/^image\/(jpeg|png|webp|gif)$/.test(type)) return { ok: false, error: '송장 사진을 불러오지 못했습니다' };
   var payload = {
-    model: prop_('SHIP_MODEL') || DEFAULT_MODEL, max_tokens: 500,
+    model: prop_('SHIP_MODEL') || DEFAULT_MODEL, max_tokens: 2000,   // 500 은 답이 잘림 (11-11 실제 송장)
     system: '택배 송장 사진에서 받는 분 정보를 찾는 도우미입니다. 또렷이 보이는 글자만 적고, 가려지거나(* ○ 등) 흐리거나 안 보이는 글자는 한 글자마다 ? 로 적습니다. 추측해서 채우지 마세요. 보내는 분 정보는 적지 않습니다. 출력은 JSON 하나만: {"name":"받는 분 이름","phone":"받는 분 전화(숫자·?·-)","invoice":"운송장(등기)번호(숫자·?)","address":"받는 분 주소에서 보이는 낱말들","zip":"우편번호"} — 없으면 빈 글자',
     messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: type, data: Utilities.base64Encode(blob.getBytes()) } }, { type: 'text', text: '이 송장에서 받는 분 정보를 보이는 만큼만 읽어 주세요.' }] }],
   };

@@ -18,8 +18,10 @@ assert.match(html, /<div class="vo-row">\s*<div class="vo-box" data-vendor-order
 const slots = readFileSync(new URL("../src/app/msnSlots.mjs", import.meta.url), "utf8");
 assert.match(slots, /placeholder="Tab\(\+←→ 또는 숫자\)"/, "안내는 Tab 만");
 assert.ok(!/placeholder="보낼 답변/.test(slots), "나머지 설명 지움");
-assert.match(slots, /import\("\.\/vendorMent\.mjs\?v=20261111-ment1"\)/);
+assert.match(slots, /import\("\.\/vendorMent\.mjs\?v=20261111-ment2"\)/);
 const panel = readFileSync(new URL("../src/app/vendorMent.mjs", import.meta.url), "utf8");
+assert.match(panel, /const bars = \[slotsRoot\?\.querySelector\("\.cs-answer-top"\), row\]/, "슬롯 설정 줄 · 멘트 줄 둘 다");
+assert.match(panel, /el\.style\.maxWidth = /, "슬롯 오른쪽 끝까지만");
 for (const t of ["전체 적용", "data-vm-save", "data-vm-load", "data-vm-recent", "dataset.vmApplied"]) assert.ok(panel.includes(t), t);
 assert.ok(!/helperCall|\/send|confirm\(/.test(panel), "붙이기만 — 보내지 않음");
 assert.equal(typeof mountVendorMent, "function");

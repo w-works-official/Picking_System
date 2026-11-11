@@ -2404,21 +2404,22 @@ a.cs-btn {
 /* 11-11 메모는 사진·동영상 오른쪽 (좁으면 아래로) */
 .sp-body { display: flex; flex-wrap: wrap; align-items: stretch; }
 .sp-body > .sp-files { flex: 0 1 auto; min-width: 330px; box-sizing: border-box; align-content: flex-start; }
-.sp-memo { flex: 1 1 460px; display: flex; flex-wrap: wrap; align-items: flex-end; align-content: flex-start; gap: 6px 10px; padding: 10px 12px; border-left: 1px dashed #a5f3fc; background: #f8fdff; }
-.sp-memo-t { align-self: center; font-size: 13px; color: #0e7490; }
+.sp-memo { flex: 1 1 460px; display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 6px 10px; padding: 10px 12px; border-left: 1px dashed #a5f3fc; background: #f8fdff; }
+.sp-memo-t { align-self: flex-start; margin-top: 23px; font-size: 13px; color: #0e7490; }
 .sp-mf { display: grid; gap: 2px; }
-.sp-mf > span { font-size: 11px; font-weight: 800; color: #64748b; }
+.sp-mf > span { font-size: 11px; font-weight: 800; color: #64748b; text-align: center; }   /* 11-11 항목 이름은 입력칸 가운데 */
 .sp-mf input { height: 30px; box-sizing: border-box; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; font-size: 13px; background: #fff; }
 .sp-mf input:focus { outline: 2px solid #0891b2; outline-offset: -1px; border-color: #0891b2; }
 .sp-mf-name input { width: 110px; }
-.sp-mlines { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
-.sp-ml { display: inline-flex; align-items: flex-end; gap: 4px; padding: 3px 5px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; }
+/* 11-11 상품 줄은 아래로 쌓임 — 줄마다 상품코드 · 수량 · 기타 */
+.sp-mlines { flex: 1 1 440px; min-width: 0; display: grid; gap: 5px; justify-items: start; }
+.sp-ml { display: flex; align-items: flex-end; gap: 6px; width: 100%; box-sizing: border-box; }
 .sp-ml input[data-spm-code] { width: 120px; }
 .sp-mf-qty input { width: 58px; }
 .sp-mdel, .sp-madd { height: 30px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; padding: 0 8px; }
 .sp-mdel { padding: 0 6px; color: #94a3b8; }
 .sp-madd { color: #0e7490; border-color: #a5f3fc; }
-.sp-mf-etc { flex: 1 1 220px; }
+.sp-mf-etc { flex: 1 1 220px; min-width: 0; }
 .sp-mf-etc input { width: 100%; }
 .sp-mstate { align-self: center; font-size: 11.5px; font-weight: 700; color: #64748b; white-space: nowrap; }
 /* 📦 거래처 › 💬 전체 멘트 (11-11) — 주문서 올리기 옆 */

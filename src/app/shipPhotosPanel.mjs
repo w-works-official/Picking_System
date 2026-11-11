@@ -3,7 +3,7 @@
 //  · 📋 전체 리스트: 시간 순서 그대로 · 송장 사진 = 묶음 시작 → 그 뒤 동영상·사진은 다음 송장 사진 전까지 같은 묶음
 //  · 🔎 파일 찾기: 수신자 이름(일부 · 가려진 글자 * ○ 무시)으로 그 묶음만
 //  · 둘 다 체크로 고르고 [⬇ 선택 다운로드] (드라이브에서 바로 받음 — 이 화면은 파일을 저장·전송하지 않음)
-//  · 11-11 주문(송장 묶음)별 📝 메모: 이름 · 상품코드 · 수량(여러 줄) · 기타 → 0.8초 뒤 자동 저장 (시트 v22 '배송기록 메모' 탭)
+//  · 11-11 주문(송장 묶음)별 📝 메모: 이름 + 줄마다 [상품코드 · 수량 · 기타] (＋ 상품 = 아래로 한 줄) → 0.8초 뒤 자동 저장 (시트 v23 '배송기록 메모' 탭)
 //    반품 요청 → 그 주문 영상 확인 → 메모. 체크한 묶음의 메모는 [📝 메모 CSV] 로 받음 (엑셀에서 열림)
 import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship6";
 
@@ -22,9 +22,9 @@ export function shipMemoCsv(groups = [], memos = {}) {
   for (const g of groups) {
     if (!g.invoice) continue;
     const m = memos[g.key] || {};
-    const lines = (m.lines || []).filter((l) => l.code || l.qty);
-    for (const l of lines.length ? lines : [{ code: "", qty: "" }]) {
-      rows.push([rows.length + 1, shipTimeLabel(g.invoice.t), g.recipient, m.name || "", l.code || "", l.qty || "", m.etc || "", m.editor || "", kstLabel(m.updatedAt)]);
+    const lines = (m.lines || []).filter((l) => l.code || l.qty || l.etc);
+    for (const l of lines.length ? lines : [{ code: "", qty: "", etc: m.etc || "" }]) {
+      rows.push([rows.length + 1, shipTimeLabel(g.invoice.t), g.recipient, m.name || "", l.code || "", l.qty || "", l.etc || "", m.editor || "", kstLabel(m.updatedAt)]);
     }
   }
   return "\uFEFF" + [MEMO_COLS, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
@@ -107,8 +107,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
   function readMemo(box) {
     const m = memoOf(box.dataset.spMemo);
     m.name = box.querySelector("[data-spm-name]")?.value || "";
-    m.etc = box.querySelector("[data-spm-etc]")?.value || "";
-    m.lines = [...box.querySelectorAll("[data-spm-i]")].map((el) => ({ code: el.querySelector("[data-spm-code]").value, qty: el.querySelector("[data-spm-qty]").value }));
+    m.lines = [...box.querySelectorAll("[data-spm-i]")].map((el) => ({ code: el.querySelector("[data-spm-code]").value, qty: el.querySelector("[data-spm-qty]").value, etc: el.querySelector("[data-spm-etc]").value }));
     return m;
   }
   function queueMemo(key) {
@@ -126,7 +125,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const m = memoOf(key);
     st.memoSaving.add(key); paintMemo(key);
     try {
-      const js = await post({ action: "shipMemoSave", key, base: m.version || 0, recipient: g?.recipient || "", t: g?.invoice?.t || "", name: m.name, lines: m.lines, etc: m.etc, editor: editor() });
+      const js = await post({ action: "shipMemoSave", key, base: m.version || 0, recipient: g?.recipient || "", t: g?.invoice?.t || "", name: m.name, lines: m.lines, editor: editor() });
       Object.assign(m, { version: js.memo?.version || m.version, editor: js.memo?.editor, updatedAt: js.memo?.updatedAt });
       st.memoSaving.delete(key); paintMemo(key, "저장됨");
     } catch (error) {
@@ -253,13 +252,14 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     </section>`;
   }
   function memoHtml(g) {
-    const m = st.memos[g.key] || { name: "", lines: [], etc: "" };
-    const lines = m.lines?.length ? m.lines : [{ code: "", qty: "" }];
+    const m = st.memos[g.key] || { name: "", lines: [] };
+    const lines = m.lines?.length ? m.lines : [{ code: "", qty: "", etc: m.etc || "" }];
+    // 줄마다 [상품코드 · 수량 · 기타 · ×] — 항목 이름은 첫 줄에만 · ＋ 상품 = 아래로 한 줄
+    const head = (i, t) => (i === 0 ? `<span>${t}</span>` : "");
     return `<div class="sp-memo" data-sp-memo="${esc(g.key)}">
         <b class="sp-memo-t">📝 메모</b>
         <label class="sp-mf sp-mf-name"><span>이름</span><input data-spm-name value="${esc(m.name)}" placeholder="${esc(g.recipient || "이름")}"></label>
-        <span class="sp-mlines">${lines.map((l, i) => `<span class="sp-ml" data-spm-i="${i}"><label class="sp-mf"><span>상품코드</span><input data-spm-code value="${esc(l.code)}" placeholder="셀피아 코드"></label><label class="sp-mf sp-mf-qty"><span>수량</span><input data-spm-qty type="number" min="0" inputmode="numeric" value="${esc(l.qty)}"></label>${lines.length > 1 ? `<button type="button" class="sp-mdel" data-spm-del title="이 줄 빼기">×</button>` : ""}</span>`).join("")}<button type="button" class="sp-madd" data-spm-add>＋ 상품</button></span>
-        <label class="sp-mf sp-mf-etc"><span>기타</span><input data-spm-etc value="${esc(m.etc)}" placeholder="반품 사유 · 영상 확인 결과 …"></label>
+        <div class="sp-mlines">${lines.map((l, i) => `<div class="sp-ml" data-spm-i="${i}"><label class="sp-mf sp-mf-code">${head(i, "상품코드")}<input data-spm-code value="${esc(l.code)}" placeholder="셀피아 코드"></label><label class="sp-mf sp-mf-qty">${head(i, "수량")}<input data-spm-qty type="number" min="0" inputmode="numeric" value="${esc(l.qty)}"></label><label class="sp-mf sp-mf-etc">${head(i, "기타")}<input data-spm-etc value="${esc(l.etc || "")}" placeholder="반품 사유 · 영상 확인 결과 …"></label>${lines.length > 1 ? `<button type="button" class="sp-mdel" data-spm-del title="이 줄 빼기">×</button>` : ""}</div>`).join("")}<button type="button" class="sp-madd" data-spm-add>＋ 상품</button></div>
         <small class="sp-mstate" data-spm-state>${m.editor ? `${esc(m.editor)} · ${esc(kstLabel(m.updatedAt))}` : ""}</small>
       </div>`;
   }
@@ -314,7 +314,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     else if (b.matches("[data-spm-add]") || b.matches("[data-spm-del]")) {
       const box = b.closest("[data-sp-memo]");
       const m = readMemo(box);
-      if (b.matches("[data-spm-add]")) { if (!m.lines.length) m.lines.push({ code: "", qty: "" }); m.lines.push({ code: "", qty: "" }); }
+      if (b.matches("[data-spm-add]")) { if (!m.lines.length) m.lines.push({ code: "", qty: "", etc: "" }); m.lines.push({ code: "", qty: "", etc: "" }); }
       else m.lines.splice(Number(b.closest("[data-spm-i]").dataset.spmI), 1);
       box.outerHTML = memoHtml(st.groups.find((g) => g.key === box.dataset.spMemo));
       queueMemo(box.dataset.spMemo);

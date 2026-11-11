@@ -3,6 +3,7 @@
 //  · 다시 적용하면 앞서 붙인 멘트만 새 멘트로 바뀜 (칸에 직접 쓴 글은 그대로)
 //  · 상황별 멘트 저장 슬롯 3개 (💾 저장 · 누르면 불러오기) · 최근 적용한 멘트 5개 · 입력란은 다음에 열어도 그대로
 //  · 이 PC 브라우저에만 저장 (시트로 보내지 않음)
+//  · 11-11 위 버튼 줄(슬롯 설정 포함) · 주문서 올리기 + 전체 멘트 줄은 카톡 슬롯들 오른쪽 끝보다 길어지지 않음 (더 넓히면 오른쪽 여백만)
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const KEY = "system_v3_cs_vendor_ment";
 export const MENT_SAVED = 3;
@@ -87,5 +88,32 @@ export function mountVendorMent({ document, window, storage, root, slotsRoot } =
   });
   ta.addEventListener("input", () => { st.text = ta.value; keep(); });
   paint();
-  return { apply, state: st };
+
+  // 줄 폭 = 슬롯들 오른쪽 끝까지 (슬롯 칸은 배율 보정이 따로 있어 화면에서 재서 맞춤)
+  const row = root.closest(".vo-row");
+  const bars = [slotsRoot?.querySelector(".cs-answer-top"), row].filter(Boolean);
+  const slotsBox = slotsRoot?.querySelector("[data-msn-slots]");
+  function fit() {
+    if (!row || !slotsBox) return;
+    const slots = [...slotsBox.querySelectorAll(".msn-slot")];
+    if (!slots.length || !row.getBoundingClientRect().width) return;            // 탭이 숨어 있으면 다음에
+    const box = slotsBox.getBoundingClientRect();
+    const right = Math.min(box.right, Math.max(...slots.map((s) => s.getBoundingClientRect().right)));
+    for (const el of bars) {
+      el.style.maxWidth = "";
+      const r = el.getBoundingClientRect();
+      const z = r.width / (el.offsetWidth || r.width);   // 이 줄의 화면 배율
+      el.style.maxWidth = `${Math.max(320, Math.round((right - r.left) / z))}px`;
+      const over = Math.max(0, ...[...el.querySelectorAll("*")].filter((c) => c.offsetParent !== null).map((c) => c.getBoundingClientRect().right)) - right;   // 안쪽 여백만큼 더 나간 것
+      if (over > 1) el.style.maxWidth = `${Math.max(320, Math.round((right - r.left - over) / z))}px`;
+    }
+  }
+  if (row && slotsBox) {
+    const RO = window.ResizeObserver, MO = window.MutationObserver;
+    if (RO) new RO(() => fit()).observe(slotsBox);
+    if (MO) new MO(() => fit()).observe(slotsBox, { childList: true, attributes: true, attributeFilter: ["style"] });
+    window.addEventListener("resize", fit);
+    fit();
+  }
+  return { apply, fit, state: st };
 }

@@ -74,7 +74,7 @@ export function filterShipGroups(groups = [], memos = {}, { q = "", from = "", t
 
 export function mountShipPhotos({ document, window, root, side, post, isLive = () => true, editor = () => "", fetchImpl = (...a) => window.fetch(...a), storages = [] } = {}) {
   if (!root || !side) return null;
-  const st = { files: [], groups: [], unchecked: 0, renamePending: 0, folder: "", loaded: false, loading: false, running: false, uploading: false, q: "", from: "", to: "", codeOnly: false, picked: new Set(), pickedMemo: new Set(), error: "", note: "", memos: {}, memoError: "", memoTimers: new Map(), memoChains: new Map(), memoSaving: new Set(), cands: new Map() };
+  const st = { files: [], groups: [], unchecked: 0, renamePending: 0, folder: "", loaded: false, loading: false, running: false, uploading: false, q: "", from: "", to: "", codeOnly: false, picked: new Set(), pickedMemo: new Set(), error: "", note: "", memos: {}, memoError: "", memoTimers: new Map(), memoChains: new Map(), memoSaving: new Set(), cands: new Map(), delArm: false, deleting: false, delTimer: 0 };
 
   side.innerHTML = `
     <fieldset class="cs-box sp-side">
@@ -86,6 +86,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
         <li><b>묶음</b>: 송장 사진 뒤의 동영상·사진은 다음 송장 사진 전까지 그 수신자 묶음입니다.</li>
         <li><b>검색</b>: 수신자 이름(일부도 됨)이나 메모 글자 · 날짜 · "상품코드 적힌 주문만".</li>
         <li><b>다운로드</b>: 체크로 고르고 [⬇ 선택 다운로드]. 크롬이 "여러 파일 다운로드"를 물으면 [허용].</li>
+        <li><b>빈 슬롯 지우기</b>: 사진·영상 없는 메모 슬롯을 체크하고 [🗑 선택 지우기]를 두 번 누릅니다. 지운 슬롯은 CS 시트 '배송기록 메모_지움' 탭에 남아 되살릴 수 있습니다. 송장 묶음 메모는 지우지 않습니다.</li>
         <li><b>메모</b>: 송장 묶음마다 이름 · 전화번호 · 매입처, 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타. 쓰면 자동 저장됩니다 (CS 시트 '배송기록 메모' 탭). 체크한 묶음의 메모는 [📝 메모 CSV] 로 받습니다.</li>
         <li><b>[주문 찾기]</b> (이름 왼쪽): 이름칸에 확정한 이름 + 송장에서 보이는 전화·운송장·주소로 피킹 주문 후보를 찾아 채웁니다 — 피킹시스템에서 로그인한 탭에서 와야 합니다. 매입처는 직접.</li>
         <li><b>[👤＋ 슬롯 추가]</b> (목록 맨 위): 사진·영상 없이 반품 메모만 쓰는 슬롯.</li>
@@ -104,6 +105,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       <button type="button" class="cs-btn" data-sp-none>☐ 선택 해제</button>
       <button type="button" class="cs-btn cs-btn-green" data-sp-dl disabled>⬇ 선택 다운로드</button>
       <button type="button" class="cs-btn" data-sp-csv disabled title="체크한 송장 묶음의 메모를 CSV(엑셀)로">📝 메모 CSV</button>
+      <button type="button" class="cs-btn sp-delbtn" data-sp-del disabled title="체크한 빈 메모 슬롯(사진·영상 없는 것)을 지움 — 한 번 더 눌러야 지워짐 · 송장 묶음 메모는 안 지움">🗑 선택 지우기</button>
       <button type="button" class="cs-btn" data-sp-reload>⟳ 새로고침</button>
     </div>
     <p class="sp-msg sp-progress" data-sp-progress></p>
@@ -194,6 +196,32 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     render();
     root.querySelector(`[data-sp-memo="${CSS.escape(key)}"] [data-spm-name]`)?.focus();
     queueMemo(key);
+  }
+  // 🗑 선택 지우기 (11-11) — 체크한 빈 메모 슬롯만 · 한 번 누르면 "한 번 더" 상태(4초), 다시 누르면 지움 (확인 창은 안 띄움)
+  const pickedSlots = () => memoOnlyGroups().map((g) => g.key).filter((k) => st.pickedMemo.has(k));
+  async function deleteSlots() {
+    const keys = pickedSlots();
+    if (!keys.length) return;
+    const btn = $("[data-sp-del]");
+    if (!st.delArm) {
+      st.delArm = true; render();
+      clearTimeout(st.delTimer);
+      st.delTimer = window.setTimeout(() => { st.delArm = false; render(); }, 4000);
+      return;
+    }
+    clearTimeout(st.delTimer); st.delArm = false;
+    for (const k of keys) { clearTimeout(st.memoTimers.get(k)); st.memoTimers.delete(k); }   // 아직 안 보낸 저장은 취소
+    await Promise.all(keys.map((k) => st.memoChains.get(k)).filter(Boolean));            // 보내는 중인 저장은 끝난 뒤 지움
+    st.deleting = true; render();
+    try {
+      const js = await post({ action: "shipMemoDelete", keys, editor: editor() });
+      for (const k of keys) { delete st.memos[k]; st.pickedMemo.delete(k); st.memoChains.delete(k); }
+      $("[data-sp-msg]").textContent = `빈 슬롯 ${keys.length}개를 지웠습니다 — CS 시트 '배송기록 메모_지움' 탭에 남아 있어 되살릴 수 있습니다.`;
+    } catch (error) {
+      $("[data-sp-msg]").textContent = /알 수 없는 요청/.test(error?.message || "") ? "⚠ 지우기는 시트 v26 배포 뒤에 됩니다" : `⚠ 지우지 못했습니다: ${error?.message || error}`;
+    }
+    st.deleting = false; render();
+    btn?.blur();
   }
   // ---------- [주문서 찾기] ----------
   function pickSession() {
@@ -438,6 +466,12 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const memoGroups = pickedGroups().length;
     $("[data-sp-csv]").disabled = !memoGroups;
     $("[data-sp-csv]").textContent = `📝 메모 CSV${memoGroups ? ` (${memoGroups})` : ""}`;
+    const slotPicks = pickedSlots().length;
+    if (!slotPicks) st.delArm = false;
+    const del = $("[data-sp-del]");
+    del.disabled = !slotPicks || st.deleting;
+    del.classList.toggle("is-armed", !!st.delArm);
+    del.textContent = st.deleting ? "지우는 중…" : st.delArm ? `한 번 더 누르면 ${slotPicks}개 지움` : `🗑 선택 지우기${slotPicks ? ` (${slotPicks})` : ""}`;
     const list = $("[data-sp-list]");
     if (st.error) { list.innerHTML = `<p class="sp-empty is-bad">${esc(st.error)}</p>`; return; }
     if (st.loading && !st.loaded) { list.innerHTML = '<p class="sp-empty">불러오는 중…</p>'; return; }
@@ -472,6 +506,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     else if (b.dataset.spmUse != null) useOrder(b.closest("[data-sp-memo]").dataset.spMemo, Number(b.dataset.spmUse));
     else if (b.matches("[data-sp-dl]")) download();
     else if (b.matches("[data-sp-csv]")) downloadCsv();
+    else if (b.matches("[data-sp-del]")) deleteSlots();
     else if (b.matches("[data-spm-add]") || b.matches("[data-spm-del]")) {
       const box = b.closest("[data-sp-memo]");
       const m = readMemo(box);

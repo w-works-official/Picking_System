@@ -2244,6 +2244,8 @@ a.cs-btn {
 .cs-right-title[data-tone="ship"] { color: #0891b2; }
 .sp { display: grid; gap: 8px; padding: 8px 12px 16px; min-width: 0; }
 .sp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cs-btn.sp-delbtn:not(:disabled) { color: #b91c1c; border-color: #fca5a5; }
+.cs-btn.sp-delbtn.is-armed, .cs-btn.sp-delbtn.is-armed:hover { background: #dc2626; color: #fff; border-color: #dc2626; font-weight: 700; }
 .sp-seg { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
 .sp-seg button { border: 0; background: #fff; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 800; color: #64748b; cursor: pointer; }
 .sp-seg button.is-on { background: #0891b2; color: #fff; }

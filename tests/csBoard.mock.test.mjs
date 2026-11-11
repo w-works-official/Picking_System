@@ -180,7 +180,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 25 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 26 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -527,7 +527,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 25);
+  assert.equal(g5.get().version, 26);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -1188,4 +1188,22 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.equal(g.post({ action: "xxSet", token: TOKEN, items: [{ sku: "9-1", mark: "XX", field: "임의필드", text: "x" }] }).total, 1);
   assert.deepEqual(g.post({ action: "xxList", token: TOKEN }).items.map((x) => x.sku), ["9-1"], "통째로 바뀜");
   console.log("csBoard.mock.test (xx v14): OK");
+}
+
+// v26 빈 메모 슬롯 선택 지우기 — '배송기록 메모_지움' 탭으로 옮김 · 송장 묶음 메모는 안 지움
+{
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN } });
+  for (const key of ["memo-aaaa1111", "memo-bbbb2222", "memo-cccc3333", "1AbCdEfGhIjKlMnOp_q"]) g.post({ action: "shipMemoSave", token: TOKEN, key, t: "20261111140500", name: key.slice(0, 6), lines: [], editor: "김성수" });
+  assert.match(g.post({ action: "shipMemoDelete", token: TOKEN, keys: ["1AbCdEfGhIjKlMnOp_q"] }).error, /빈 메모 슬롯이 없습니다/, "송장 묶음 메모는 안 지움");
+  const r = g.post({ action: "shipMemoDelete", token: TOKEN, keys: ["memo-aaaa1111", "memo-cccc3333", "memo-zzzz9999", "1AbCdEfGhIjKlMnOp_q"], editor: "유지영" });
+  assert.deepEqual(JSON.parse(JSON.stringify([r.ok, r.deleted, r.missing])), [true, ["memo-aaaa1111", "memo-cccc3333"], ["memo-zzzz9999"]]);
+  assert.deepEqual(Object.keys(g.post({ action: "shipMemoList", token: TOKEN }).memos).sort(), ["1AbCdEfGhIjKlMnOp_q", "memo-bbbb2222"], "남은 것만 목록에");
+  const memo = g.sheets.find((s) => s.getName() === "배송기록 메모");
+  assert.deepEqual(JSON.parse(JSON.stringify(memo.data.slice(1).map((x) => x[0]))), ["memo-bbbb2222", "1AbCdEfGhIjKlMnOp_q"], "가운데 줄 지워도 다른 줄 그대로");
+  const trash = g.sheets.find((s) => s.getName() === "배송기록 메모_지움");
+  assert.ok(trash, "지움 탭 생김");
+  assert.equal(JSON.stringify(trash.data[0].slice(-2)), JSON.stringify(["지운 시각", "지운 사람"]));
+  assert.deepEqual(JSON.parse(JSON.stringify(trash.data.slice(1).map((x) => [x[0], x[x.length - 1]]))), [["memo-aaaa1111", "유지영"], ["memo-cccc3333", "유지영"]], "지운 줄은 지움 탭에 남음");
+  assert.match(g.post({ action: "shipMemoDelete", keys: ["memo-bbbb2222"] }).error || "", /./, "토큰 없으면 안 됨");
+  console.log("csBoard.mock.test (shipMemoDelete v26): OK");
 }

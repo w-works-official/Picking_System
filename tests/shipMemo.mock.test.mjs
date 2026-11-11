@@ -48,4 +48,10 @@ assert.ok(!/returnsPanel|openRet/.test(app), "반품기록 탭은 배송기록 �
 assert.match(app, /editor: \(\) => state\.editor, storages: \[/);
 assert.match(panel, /<label class="sp-cal"[^>]*><b data-sp-cal="from">📅<\/b><input type="date" data-sp-from/, "날짜는 달력 아이콘");
 assert.match(panel, /Prefer: "count=exact"/, "피킹 DB 주문 범위·건수 표시");
+// 🗑 선택 지우기 (11-11) — 빈 메모 슬롯만 · 두 번 눌러야 지움 · 확인 창 없음
+assert.ok(panel.includes('action: "shipMemoDelete"'), "시트 지우기 요청");
+assert.ok(panel.includes("data-sp-del"), "🗑 선택 지우기 버튼");
+assert.match(panel, /const pickedSlots = \(\) => memoOnlyGroups\(\)/, "지우기는 빈 메모 슬롯 체크만 (송장 묶음 아님)");
+assert.match(panel, /한 번 더 누르면 \$\{slotPicks\}개 지움/, "두 번 눌러야 지움");
+assert.match(panel, /clearTimeout\(st\.memoTimers\.get\(k\)\)/, "지우기 전 안 보낸 저장 취소");
 console.log("shipMemo.mock.test: OK");

@@ -17,6 +17,7 @@ export function fakeSheet(name = "시트1", { id = 0, formulas = {} } = {}) {
     getMaxRows() { return Math.max(1000, data.length); },
     insertRowsAfter() {},
     appendRow(row) { data.push(row.map(strip)); },
+    deleteRow(n) { data.splice(n - 1, 1); },
     setFrozenRows() {},
     getRange(row, col, rows = 1, cols = 1) {
       return {

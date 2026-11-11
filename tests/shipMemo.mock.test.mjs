@@ -35,7 +35,7 @@ assert.deepEqual(keys({ q: "철수" }), ["INV2"], "수신자 이름으로 찾기
 assert.deepEqual(keys({ q: "반품" }), ["INV1", "memo-abc12345"]);
 
 const panel = readFileSync(new URL("../src/app/shipPhotosPanel.mjs", import.meta.url), "utf8");
-for (const t of ['action: "shipMemoList"', 'action: "shipMemoSave"', 'action: "shipHints"', "base: m.version", "data-sp-csv", "＋ 상품", "📝 메모 CSV", "주문<br>찾기", "m.name || g?.recipient", "👤＋ 슬롯 추가", "data-sp-codeonly", "data-sp-from", "data-sp-to"]) assert.ok(panel.includes(t), t);
+for (const t of ['action: "shipMemoList"', 'action: "shipMemoSave"', 'action: "shipHints"', "base: m.version", "data-sp-csv", "＋ 상품", "⬇ 메모 CSV", "주문<br>찾기", "m.name || g?.recipient", "👤＋ 슬롯 추가", "data-sp-codeonly", "data-sp-from", "data-sp-to"]) assert.ok(panel.includes(t), t);
 for (const t of ["이름", "전화번호", "매입처"]) assert.ok(panel.includes(`<span>${t}</span>`), `메모 칸 ${t}`);
 assert.ok(!panel.includes("data-sp-mode"), "🔎 파일 찾기 버튼 뺌");
 assert.ok(!panel.includes('class="sp-memo-t"'), "메모 앞 📝 메모 글자 없음");

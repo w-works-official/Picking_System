@@ -2,9 +2,9 @@
 //  · [▶ 파일 정리 실행]: 확인 안 한 사진을 시트(v16 shipScan)가 6장씩 AI 로 보고, 송장 사진이면 수신자 이름을 파일명 끝에 붙임
 //  · 📋 전체 리스트: 시간 순서 그대로 · 송장 사진 = 묶음 시작 → 그 뒤 동영상·사진은 다음 송장 사진 전까지 같은 묶음
 //  · 검색: 수신자 이름(일부 · 가려진 글자 * ○ 무시) · 메모 글자 — 11-11 [🔎 파일 찾기] 버튼은 뺌 (검색창이 늘 보임) · 날짜 · 상품코드 적힌 주문만
-//  · 둘 다 체크로 고르고 [⬇ 선택 다운로드] (드라이브에서 바로 받음 — 이 화면은 파일을 저장·전송하지 않음)
+//  · 둘 다 체크로 고르고 [⬇ 사진/영상] (드라이브에서 바로 받음 — 이 화면은 파일을 저장·전송하지 않음)
 //  · 11-11 주문(송장 묶음)별 📝 메모: 이름 + 줄마다 [상품코드 · 수량 · 기타] (＋ 상품 = 아래로 한 줄) → 0.8초 뒤 자동 저장 (시트 v23 '배송기록 메모' 탭)
-//    반품 요청 → 그 주문 영상 확인 → 메모. 체크한 묶음의 메모는 [📝 메모 CSV] 로 받음 (엑셀에서 열림)
+//    반품 요청 → 그 주문 영상 확인 → 메모. 체크한 묶음의 메모는 [⬇ 메모 CSV] 로 받음 (엑셀에서 열림)
 //  · 11-11 메모 칸: 이름 · 전화번호 · 매입처 / 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타 (시트 v24)
 //    [주문 찾기] (이름 왼쪽 정사각 버튼): 이름칸에 확정된 이름 + 송장에서 보이는 글자(전화·운송장·주소, shipHints) → 피킹 DB 주문(접수일 14일 안)과 일치도 → 후보 5개 → 고르면 채움
 //    (피킹 DB 는 피킹 로그인 세션이 있어야 읽힘 — 피킹시스템에서 로그인한 탭에서 CS 관리로)
@@ -85,10 +85,10 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
         <li><b>[▶ 파일 정리 실행]</b> (오른쪽 위): 아직 확인 안 한 사진을 AI 가 보고 <b>송장 사진</b>이면 받는 분 이름을 <b>파일명 끝</b>에 붙입니다 (예: <code>20261110_143012_홍길동.jpg</code> · 가려진 글자는 ○). 파일은 지우지 않고 순서도 그대로입니다.</li>
         <li><b>묶음</b>: 송장 사진 뒤의 동영상·사진은 다음 송장 사진 전까지 그 수신자 묶음입니다.</li>
         <li><b>검색</b>: 수신자 이름(일부도 됨)이나 메모 글자 · 날짜 · "상품코드 적힌 주문만".</li>
-        <li><b>다운로드</b>: 체크로 고르고 [⬇ 선택 다운로드]. 크롬이 "여러 파일 다운로드"를 물으면 [허용].</li>
+        <li><b>다운로드</b>: 체크로 고르고 [⬇ 사진/영상]. 크롬이 "여러 파일 다운로드"를 물으면 [허용].</li>
         <li><b>비우기</b>: [주문 찾기]로 잘못 채웠으면 메모 오른쪽 [비우기]를 두 번 — 전화번호 · 매입처 · 주문번호 · 상품 줄이 비워집니다 (이름은 남음). [주문 찾기]로 다시 채우면 앞 상품 줄은 지워지고 새 주문으로 바뀝니다.</li>
         <li><b>빈 슬롯 지우기</b>: 사진·영상 없는 메모 슬롯을 체크하고 [🗑 선택 지우기]를 두 번 누릅니다. 지운 슬롯은 CS 시트 '배송기록 메모_지움' 탭에 남아 되살릴 수 있습니다. 송장 묶음 메모는 지우지 않습니다.</li>
-        <li><b>메모</b>: 송장 묶음마다 이름 · 전화번호 · 매입처, 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타. 쓰면 자동 저장됩니다 (CS 시트 '배송기록 메모' 탭). 체크한 묶음의 메모는 [📝 메모 CSV] 로 받습니다.</li>
+        <li><b>메모</b>: 송장 묶음마다 이름 · 전화번호 · 매입처, 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타. 쓰면 자동 저장됩니다 (CS 시트 '배송기록 메모' 탭). 체크한 묶음의 메모는 [⬇ 메모 CSV] 로 받습니다.</li>
         <li><b>[주문 찾기]</b> (이름 왼쪽): 이름칸에 확정한 이름 + 송장에서 보이는 전화·운송장·주소로 피킹 주문 후보를 찾아 채웁니다 — 피킹시스템에서 로그인한 탭에서 와야 합니다. 매입처는 직접.</li>
         <li><b>[👤＋ 슬롯 추가]</b> (목록 맨 위): 사진·영상 없이 반품 메모만 쓰는 슬롯.</li>
       </ol>
@@ -104,8 +104,8 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       <span class="cs-flex"></span>
       <button type="button" class="cs-btn" data-sp-all>☑ 보이는 것 전체 선택</button>
       <button type="button" class="cs-btn" data-sp-none>☐ 선택 해제</button>
-      <button type="button" class="cs-btn cs-btn-green" data-sp-dl disabled>⬇ 선택 다운로드</button>
-      <button type="button" class="cs-btn" data-sp-csv disabled title="체크한 송장 묶음의 메모를 CSV(엑셀)로">📝 메모 CSV</button>
+      <button type="button" class="cs-btn cs-btn-green" data-sp-dl disabled title="체크한 사진·동영상을 받기 (드라이브에서)">⬇ 사진/영상</button>
+      <button type="button" class="cs-btn" data-sp-csv disabled title="체크한 묶음의 메모를 CSV(엑셀)로 받기">⬇ 메모 CSV</button>
       <button type="button" class="cs-btn sp-delbtn" data-sp-del disabled title="체크한 빈 메모 슬롯(사진·영상 없는 것)을 지움 — 한 번 더 눌러야 지워짐 · 송장 묶음 메모는 안 지움">🗑 선택 지우기</button>
       <button type="button" class="cs-btn" data-sp-reload>⟳ 새로고침</button>
     </div>
@@ -336,7 +336,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     a.download = `배송기록_메모_${k.slice(2, 4)}${k.slice(5, 7)}${k.slice(8, 10)}_${k.slice(11, 13)}${k.slice(14, 16)}.csv`;
     document.body.appendChild(a); a.click(); a.remove();
     window.setTimeout(() => window.URL.revokeObjectURL(a.href), 60000);
-    $("[data-sp-msg]").textContent = `📝 메모 CSV — 송장 묶음 ${groups.length}개 · 브라우저 다운로드 폴더에 ${a.download}`;
+    $("[data-sp-msg]").textContent = `⬇ 메모 CSV — 송장 묶음 ${groups.length}개 · 브라우저 다운로드 폴더에 ${a.download}`;
   }
   // ---------- 올리기: 시트가 드라이브 이어 올리기 주소를 만들고(shipUpload) → 여기서 8MB 씩 직접 ----------
   async function putFile(url, file, onSent) {
@@ -483,10 +483,10 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const inv = st.groups.filter((g) => g.invoice).length;
     $("[data-sp-counts]").textContent = st.loaded ? `전체 ${st.files.length}개 · 송장 묶음 ${inv}개 · 동영상 ${st.files.filter((f) => f.kind === "video").length}개 · 확인 안 한 사진 ${st.unchecked}장${st.renamePending ? ` · ⚠ 이름 못 붙인 송장 ${st.renamePending}장 ([▶ 파일 정리 실행]으로 다시)` : ""}` : "";
     $("[data-sp-dl]").disabled = !st.picked.size;
-    $("[data-sp-dl]").textContent = `⬇ 선택 다운로드${st.picked.size ? ` (${st.picked.size})` : ""}`;
+    $("[data-sp-dl]").textContent = `⬇ 사진/영상${st.picked.size ? ` (${st.picked.size})` : ""}`;
     const memoGroups = pickedGroups().length;
     $("[data-sp-csv]").disabled = !memoGroups;
-    $("[data-sp-csv]").textContent = `📝 메모 CSV${memoGroups ? ` (${memoGroups})` : ""}`;
+    $("[data-sp-csv]").textContent = `⬇ 메모 CSV${memoGroups ? ` (${memoGroups})` : ""}`;
     const slotPicks = pickedSlots().length;
     if (!slotPicks) st.delArm = false;
     const del = $("[data-sp-del]");

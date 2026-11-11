@@ -3,7 +3,7 @@
 //  · 출고 수량 = 피킹 주문 데이터(orders.receipt_date × order_items.qty) — 이 탭에 피킹 로그인이 있을 때만
 //  · 1열 · 한 쪽에 상품 100개 · 검색 기준(재고 · 사진 · 출고 기간 × 수량) · 옵션 단위 / 상품 단위 · 선택 · 선택 모아보기 · 사진 포함 엑셀
 //  · 읽기 전용: 어디에도 쓰지 않음
-import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261106-remote1";
+import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261111-upd1";
 import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, applyXx, xxFromRows, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261110-subs1";
 import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
 

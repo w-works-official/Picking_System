@@ -2474,3 +2474,12 @@ a.cs-btn {
 .sp-cand { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid #a5f3fc; border-radius: 7px; background: #fff; font-size: 12.5px; }
 .sp-cand-score { min-width: 40px; color: #0e7490; }
 .sp-cand small { color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+
+/* 11-11 ⬆ 수집기 PC 업데이트 — 설정 탭 맨 위 · 잘 보이게 */
+.cs-update-box { border: 2px solid #2563eb; background: #eff6ff; }
+.cs-update-box.has-new { border-color: #16a34a; background: #f0fdf4; }
+.cs-update-vers { display: flex; gap: 16px; font-size: 14px; color: #334155; }
+.cs-update-vers b { font-size: 20px; color: #0f172a; }
+.cs-update-vers b.is-new { color: #16a34a; }
+.cs-update-what { font-weight: 700; color: #15803d; }
+.cs-update-run { font-size: 15px; padding: 8px 16px; }

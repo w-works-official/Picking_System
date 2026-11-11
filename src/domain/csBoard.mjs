@@ -54,6 +54,10 @@ export function linkRawUrl(commit) {
 export function linkVersionOf(source) {
   return (String(source || "").match(/LINK_VER = "([^"]+)"/) || [])[1] || "";
 }
+// 11-11 새 버전에서 바뀐 것 (g1_v3_link.py 의 LINK_NOTE = "…")
+export function linkNoteOf(source) {
+  return (String(source || "").match(/LINK_NOTE = "([^"]+)"/) || [])[1] || "";
+}
 // "1.3.1 (2026-10-29)" 끼리 비교 (앞 숫자만)
 export function linkVersionNewer(latest, current) {
   const nums = (v) => String(v || "").split(" ")[0].split(".").map((n) => Number(n) || 0);

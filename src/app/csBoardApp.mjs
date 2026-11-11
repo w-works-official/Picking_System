@@ -15,7 +15,7 @@ import {
   autoSettings,
   linkRawUrl,
   linkVersionNewer,
-  linkVersionOf,
+  linkNoteOf, linkVersionOf,
   csPcPayload,
   latestJob,
   canCycleBox,
@@ -53,7 +53,7 @@ import {
   csPointPayload,
   CS_POINT_DEFAULT,
   csShotPoint,
-} from "../domain/csBoard.mjs?v=20261106-remote1";
+} from "../domain/csBoard.mjs?v=20261111-upd1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261109-layout1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
@@ -901,7 +901,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       const sha256 = [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
       const ver = linkVersionOf(new TextDecoder().decode(bytes));
       if (!ver) throw new Error("웹연결 파일이 아닙니다");
-      state.update = { url, sha256, ver, commit: commit.sha.slice(0, 7), at: clock() };
+      state.update = { url, sha256, ver, note: linkNoteOf(new TextDecoder().decode(bytes)), commit: commit.sha.slice(0, 7), at: clock() };
       if (!quiet) toast(`최신 웹연결: ${ver.split(" ")[0]}`);
     } catch (error) {
       state.update = { error: error.message, at: clock() };
@@ -925,6 +925,11 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     run.disabled = !on;
     run.classList.toggle("is-pending", !on);
     run.textContent = newer ? `⬆ 업데이트 (${cur.split(" ")[0]} → ${u.ver.split(" ")[0]})` : "⬆ 업데이트";
+    const curEl = $("#cs-update-cur"), newEl = $("#cs-update-new"), noteEl = $("#cs-update-note");
+    if (curEl) curEl.textContent = cur ? cur.split(" ")[0] : "—";
+    if (newEl) { newEl.textContent = u?.ver ? u.ver.split(" ")[0] : "—"; newEl.classList.toggle("is-new", newer); }
+    if (noteEl) { noteEl.hidden = !(u?.note && newer); noteEl.textContent = u?.note ? `새 버전 ${u.ver.split(" ")[0]}: ${u.note}` : ""; }
+    $(".cs-update-box")?.classList.toggle("has-new", newer);
   }
 
   function runUpdate() {

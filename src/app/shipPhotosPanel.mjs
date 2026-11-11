@@ -249,8 +249,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       <header><input type="checkbox" data-sp-gpick="${esc(g.key)}"${all ? " checked" : ""} aria-label="묶음 전체 선택">
         <b>${g.invoice ? `👤 ${esc(g.recipient)}` : "송장 전 파일"}</b>
         <small>${g.invoice ? esc(shipTimeLabel(g.invoice.t)) + " · " : ""}동영상 ${videos} · 사진 ${photos}</small></header>
-      <div class="sp-files">${files.map((f) => tile(f, f === g.invoice)).join("")}</div>
-      ${g.invoice ? memoHtml(g) : ""}
+      <div class="sp-body"><div class="sp-files">${files.map((f) => tile(f, f === g.invoice)).join("")}</div>${g.invoice ? memoHtml(g) : ""}</div>
     </section>`;
   }
   function memoHtml(g) {

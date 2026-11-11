@@ -17,9 +17,13 @@ assert.match(html, /data-left-tab="vendor"[^>]*>📦 거래처<\/button>\s*<butt
 assert.match(html, /data-right-panel="chat" hidden>\s*<div class="ct" data-chat><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "chat"\) openChat\(\); else chat\?\.stop\?\.\(\);/);
-assert.match(app, /import\("\.\/chatTalkPanel\.mjs\?v=20261111-chat1"\)/);
+assert.match(app, /import\("\.\/chatTalkPanel\.mjs\?v=20261111-chat2"\)/);
 assert.ok(app.indexOf("let chat = null") < app.indexOf("function showLeft") || app.indexOf("let chat = null") < app.indexOf('if (tab === "chat")'), "chat 은 쓰기 전에 선언");
 const panel = readFileSync(new URL("../src/app/chatTalkPanel.mjs", import.meta.url), "utf8");
 for (const t of ['action: "chatList"', 'action: "chatSuggest"', "avoid: ai.list", "count: 5", "&lt;&lt;", "&gt;&gt;", "data-ct-copy"]) assert.ok(panel.includes(t), t);
 assert.ok(!/\.click\(\)|dispatchEvent|send\(/i.test(panel), "자동 전송 없음");
+assert.ok(CHAT_SAMPLE.smart[0].aux.items?.length, "예시에 상품 카드");
+for (const t of ["ct-card", "safeImg", 'referrerpolicy="no-referrer"', "사진 없음"]) assert.ok(panel.includes(t), t);
+const css = readFileSync(new URL("../src/styles/csBoard.css", import.meta.url), "utf8");
+assert.match(css, /\.ct-card \{/);
 console.log("chatTalk.mock.test: OK");

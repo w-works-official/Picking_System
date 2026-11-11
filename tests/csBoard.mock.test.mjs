@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 20 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 21 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 20);
+  assert.equal(g5.get().version, 21);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -1058,7 +1058,15 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.match(sent.messages[0].content, /이것과 다르게/);
   assert.match(sent.system[0].text, /상담톡/);
   assert.match(g.post({ action: "chatSuggest", token: TOKEN, messages: [] }).error, /대화 내용/);
-  console.log("csBoard.mock.test (chat v20): OK");
+  // v21 상담 상품 카드: https 사진 주소만 · 10개까지 · AI 에 상품명 전달
+  g.post({ action: "chatIngest", token: "collector-token-1", platform: "smart", convs: [conv("p", { aux: { title: "구매이력", lines: [], items: [
+    { img: "https://shop-phinf.pstatic.net/x/a.jpg", name: "14K 미니 골드볼", option: "3mm", price: "16,500원", status: "배송완료", order: "2026111100001" },
+    { img: "javascript:alert(1)", name: "나쁜 주소" }, { img: "http://plain/x.jpg", name: "http 주소" }, {} ] } })] });
+  const p = g.post({ action: "chatList", token: TOKEN }).smart.find((x) => x.id === "p");
+  assert.equal(JSON.stringify(p.aux.items.map((x) => [x.img, x.name])), JSON.stringify([["https://shop-phinf.pstatic.net/x/a.jpg", "14K 미니 골드볼"], ["", "나쁜 주소"], ["", "http 주소"]]), "https 만 · 빈 카드 버림");
+  g.post({ action: "chatSuggest", token: TOKEN, platform: "smart", messages: p.messages, aux: p.aux });
+  assert.match(sent.messages[0].content, /상담 상품: 14K 미니 골드볼 \/ 3mm \/ 배송완료/);
+  console.log("csBoard.mock.test (chat v20·v21): OK");
 }
 
 // v19 반품기록 메모: 카드 추가 · 고치기(먼저 고친 것 보호) · 삭제 표시

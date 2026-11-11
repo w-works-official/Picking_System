@@ -3,6 +3,7 @@
 //  · 슬롯 아래 << AI >> — AI 한 번에 답변 후보 5개 새로, << >> 로 앞뒤 · 후보는 입력창에 (고쳐 쓸 수 있음)
 //  · 보내기는 사람이: 📋 복사 → 매체 창에 붙여넣고 전송 (자동 전송 없음)
 //  · 수집기 PC 가 대화를 넣기 전에는 예시 대화로 화면만 보여 줌
+//  · 11-11 보조내용에 상담 상품 카드 (사진 · 상품명 · 옵션 · 주문) — 톡톡 오른쪽 상품 정보를 수집기가 읽어 옴 (시트 v21)
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const CHAT_SLOT_CHOICES = [4, 6, 8, 10];
 export const CHAT_ZONES = [
@@ -18,10 +19,10 @@ export const CHAT_SAMPLE = {
     { id: "ex-s1", name: "예시고객1", tag: "사이즈 문의", time: "오후 3:26", unread: 2, messages: [
       { who: "c", text: "볼사이즈 2mm 있었는데 없어졌나요?", time: "오후 3:26" },
       { who: "c", text: "2mm 로 사고 싶어요", time: "오후 3:26" }],
-      aux: { title: "구매이력", lines: ["11-02 14K 미니 골드볼 피어싱 · 1개 · 배송완료", "10-15 써지컬 링 6mm · 2개 · 구매확정"] } },
+      aux: { title: "구매이력", items: [{ img: "", name: "14K 미니 골드볼 피어싱", option: "볼 3mm / 골드", price: "16,500원", status: "배송완료", order: "예시-0001" }], lines: ["11-02 14K 미니 골드볼 피어싱 · 1개 · 배송완료", "10-15 써지컬 링 6mm · 2개 · 구매확정"] } },
     { id: "ex-s2", name: "예시고객2", tag: "배송 문의", time: "오후 2:10", unread: 1, messages: [
       { who: "c", text: "어제 주문했는데 언제 출고되나요?", time: "오후 2:10" }],
-      aux: { title: "구매이력", lines: ["11-10 실버 체인 귀걸이 · 1개 · 발송준비"] } },
+      aux: { title: "구매이력", items: [{ img: "", name: "실버 체인 귀걸이", option: "5cm", price: "12,900원", status: "발송준비", order: "예시-0002" }], lines: ["11-10 실버 체인 귀걸이 · 1개 · 발송준비"] } },
     { id: "ex-s3", name: "예시고객3", tag: "교환", time: "오전 11:42", unread: 0, messages: [
       { who: "c", text: "링 사이즈가 커서 교환하고 싶습니다", time: "오전 11:40" },
       { who: "s", text: "고객님 안녕하세요, 교환 접수 도와드리겠습니다.", time: "오전 11:41" },
@@ -180,6 +181,12 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
   }
 
   // ---------- 그리기 ----------
+  const safeImg = (u) => (/^https:\/\/[^\s"'<>]+$/.test(String(u || "")) ? String(u) : "");
+  const auxItems = (items = []) => (items.length ? `<div class="ct-items">${items.map((it) => `
+      <div class="ct-card">
+        ${safeImg(it.img) ? `<img src="${esc(safeImg(it.img))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ct-noimg',textContent:'사진 없음'}))">` : `<span class="ct-noimg">사진</span>`}
+        <div class="ct-card-main"><b>${esc(it.name || "")}</b>${it.option ? `<small>${esc(it.option)}</small>` : ""}<small>${[it.price, it.status].filter(Boolean).map(esc).join(" · ")}</small>${it.order ? `<small class="ct-order">주문 ${esc(it.order)}</small>` : ""}</div>
+      </div>`).join("")}</div>` : "");
   const bubble = (m) => `<div class="ct-b ${m.who === "s" ? "is-me" : "is-cu"}"><p>${esc(m.text)}</p>${m.time ? `<small>${esc(m.time)}</small>` : ""}</div>`;
   function slotHtml(zone, id, i) {
     const conv = convOf(zone, id);
@@ -239,7 +246,8 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
     $(`[data-ct-aux="${zone}"]`).innerHTML = `
       <header class="ct-aux-head">${esc(sel?.aux?.title || z.auxTitle)}</header>
       ${sel ? `<p class="ct-aux-name"><b>${esc(sel.name || "")}</b>${sel.tag ? ` · ${esc(sel.tag)}` : ""}</p>
-        ${(sel.aux?.lines || []).length ? `<ul>${sel.aux.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : `<p class="ct-none">보조내용 없음</p>`}`
+        ${auxItems(sel.aux?.items)}
+        ${(sel.aux?.lines || []).length ? `<ul>${sel.aux.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : (sel.aux?.items || []).length ? "" : `<p class="ct-none">보조내용 없음</p>`}`
         : `<p class="ct-none">슬롯을 누르면 여기에 뜹니다</p>`}`;
   }
   function render() {

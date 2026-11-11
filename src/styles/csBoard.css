@@ -2329,7 +2329,8 @@ a.cs-btn {
 .ct-msg { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 12px; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .18); font-size: 12.5px; font-weight: 700; color: #be123c; }
 .ct-msg:empty { display: none; }
 .ct-msg.is-ok { color: #047857; }
-.ct-zone { --ct-c: #03c75a; --ct-soft: #e8f9ef; --ct-me: #03c75a; --ct-me-ink: #fff; --ct-talk-bg: #f4f6f8; min-height: 0; display: grid; grid-template-columns: 230px minmax(0, 1fr) 240px; border: 2px solid var(--ct-c); border-radius: 10px; overflow: hidden; background: #fff; }
+/* 11-11 넓으면 메시지 창은 최대 폭 · 보조내용은 바로 옆 · 남는 건 오른쪽 여백 */
+.ct-zone { --ct-c: #03c75a; --ct-soft: #e8f9ef; --ct-me: #03c75a; --ct-me-ink: #fff; --ct-talk-bg: #f4f6f8; min-height: 0; width: fit-content; max-width: 100%; box-sizing: border-box; display: grid; grid-template-columns: 230px minmax(0, max-content) 240px; border: 2px solid var(--ct-c); border-radius: 10px; overflow: hidden; background: #fff; }
 .ct-zone.ct-kakao { --ct-c: #f2c500; --ct-soft: #fffbe0; --ct-me: #fee500; --ct-me-ink: #191919; --ct-talk-bg: #b2c7da; }
 .ct-list { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border-right: 1px solid #e2e8f0; background: #fff; }
 .ct-list-head, .ct-aux-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: var(--ct-soft); border-bottom: 1px solid #e2e8f0; font-size: 13px; }
@@ -2355,7 +2356,8 @@ a.cs-btn {
 .ct-seg button { border: 0; background: #fff; padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; }
 .ct-seg button.is-on { background: var(--ct-c); color: #fff; }
 .ct-kakao .ct-seg button.is-on { color: #3c1e1e; }
-.ct-slots { --ct-cols: 2; min-height: 0; display: grid; grid-template-columns: repeat(var(--ct-cols), minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; }
+/* 11-11 메시지 창 폭: 최소 256 · 최대 318 (CS 화면 90% 배율 → 실제 약 230 · 286) · 좁으면 옆으로 넘김 */
+.ct-slots { --ct-cols: 2; min-height: 0; display: grid; grid-template-columns: repeat(var(--ct-cols), minmax(256px, 318px)); justify-content: start; overflow-x: auto; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; }
 .ct-slot { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; }
 .ct-slot.is-sel { border-color: var(--ct-c); box-shadow: 0 0 0 2px var(--ct-c); }
 .ct-slot.is-empty { display: grid; place-items: center; border-style: dashed; background: transparent; cursor: default; }
@@ -2419,3 +2421,23 @@ a.cs-btn {
 .sp-mf-etc { flex: 1 1 220px; }
 .sp-mf-etc input { width: 100%; }
 .sp-mstate { align-self: center; font-size: 11.5px; font-weight: 700; color: #64748b; white-space: nowrap; }
+/* 📦 거래처 › 💬 전체 멘트 (11-11) — 주문서 올리기 옆 */
+.vo-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin: 8px 12px 4px; }
+.vo-row > .vo-box { margin: 0; flex: 1 1 520px; min-width: 0; }
+.vm-box { flex: 1 1 420px; min-width: 0; display: grid; gap: 6px; padding: 8px 10px; border: 2px solid #eab308; border-radius: 10px; background: #fefce8; }
+.vm-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.vm-head > b { font-size: 13px; color: #854d0e; margin-right: 4px; }
+.vm-slots { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.vm-slot { display: inline-flex; border: 1px solid #fde047; border-radius: 6px; overflow: hidden; background: #fff; }
+.vm-slot button { border: 0; background: #fff; padding: 3px 8px; font: inherit; font-size: 12px; font-weight: 700; color: #713f12; cursor: pointer; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vm-slot.is-empty button[data-vm-load] { color: #a3a3a3; font-weight: 600; }
+.vm-slot .vm-save { border-left: 1px solid #fde047; padding: 3px 6px; }
+.vm-slot button:hover { background: #fef9c3; }
+.vm-recent { margin-left: auto; height: 26px; max-width: 220px; border: 1px solid #fde047; border-radius: 6px; font: inherit; font-size: 12px; background: #fff; }
+.vm-body { display: flex; gap: 8px; align-items: stretch; }
+.vm-body textarea { flex: 1; min-width: 0; resize: vertical; padding: 6px 8px; border: 1px solid #fcd34d; border-radius: 6px; font: inherit; font-size: 13px; line-height: 1.4; background: #fff; }
+.vm-apply { white-space: nowrap; font-weight: 800; }
+.vm-msg { font-size: 12px; font-weight: 700; color: #854d0e; min-height: 0; }
+.vm-msg:empty { display: none; }
+.vm-msg.is-ok { color: #15803d; }
+.vm-msg.is-bad { color: #b91c1c; }

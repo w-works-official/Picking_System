@@ -1325,7 +1325,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openChat() {
     if (chat) { chat.load(); chat.start?.(); return; }
     chat = { load() {}, start() {}, stop() {} };
-    import("./chatTalkPanel.mjs?v=20261111-ship7")
+    import("./chatTalkPanel.mjs?v=20261111-ment1")
       .then((m) => { chat = m.mountChatTalk({ document, window, root: $("[data-chat]"), side: $("[data-chat-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); chat.load(); chat.start(); })
       .catch((error) => { chat = null; toast(`상담톡 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }

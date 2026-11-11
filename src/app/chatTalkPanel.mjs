@@ -1,7 +1,8 @@
 // 💬 CS 관리 › 상담톡 (2026-11-11) — 위: 스마트스토어 톡톡 · 아래: 카카오 해피톡 (CS 시트 v20 '상담톡' 탭)
 //  · 구역마다 [대화 목록 | 2층 슬롯 4/6/8/10 | 고른 슬롯의 보조내용]
 //  · 슬롯 아래 << AI >> — AI 한 번에 답변 후보 5개 새로, << >> 로 앞뒤 · 후보는 입력창에 (고쳐 쓸 수 있음)
-//  · 보내기는 사람이: 📋 복사 → 매체 창에 붙여넣고 전송 (자동 전송 없음)
+//  · 보내기는 사람이: 입력창에서 Enter = 매체 창에 붙이고 발송 (11-11 사장님 요청 · Shift+Enter = 줄바꿈)
+//    매체 창에 붙이는 일은 수집기 PC(2단계)가 함 — 그 전까지 Enter = 복사만 (매체 창에서 Ctrl+V → Enter)
 //  · 수집기 PC 가 대화를 넣기 전에는 예시 대화로 화면만 보여 줌
 //  · 11-11 보조내용에 상담 상품 카드 (사진 · 상품명 · 옵션 · 주문) — 톡톡 오른쪽 상품 정보를 수집기가 읽어 옴 (시트 v21)
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -65,7 +66,7 @@ export function fillSlots(prev = [], convs = [], count = 4) {
 // 후보 앞뒤 (끝에서 돌아감)
 export const stepIndex = (idx, len, d) => (len ? (((idx + d) % len) + len) % len : 0);
 
-export function mountChatTalk({ document, window, root, side, post, isLive = () => true, clipboard } = {}) {
+export function mountChatTalk({ document, window, root, side, post, isLive = () => true, clipboard, sender = null } = {}) {
   if (!root) return null;
   const saved = readStore(window);
   const st = {
@@ -112,7 +113,8 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
       <aside class="ct-aux" data-ct-aux="${z.key}"></aside>
     </section>`).join("")}`;
   const $ = (s) => root.querySelector(s);
-  const msg = (t, tone = "") => { const el = $("[data-ct-msg]"); el.textContent = t || ""; el.className = `ct-msg ${tone}`; };
+  let msgTimer = 0;   // 알림은 6초 뒤 사라짐 (위 칸을 가리지 않게)
+  const msg = (t, tone = "") => { const el = $("[data-ct-msg]"); el.textContent = t || ""; el.className = `ct-msg ${tone}`; window.clearTimeout(msgTimer); if (t) msgTimer = window.setTimeout(() => { el.textContent = ""; }, 6000); };
   const convOf = (zone, id) => st.data[zone].find((c) => c.id === id);
 
   async function load() {
@@ -168,6 +170,24 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
     if (!text.trim()) { msg("입력창이 비어 있습니다", "is-bad"); return; }
     try { await (clipboard || window.navigator.clipboard).writeText(text); msg("📋 복사했습니다 — 매체 창 입력칸에 붙여넣고 직접 전송하세요", "is-ok"); }
     catch { msg("복사하지 못했습니다 — 입력창 글을 직접 선택해 복사해 주세요", "is-bad"); }
+  }
+  // Enter = 붙이고 발송 — sender(매체, 대화ID, 글) 가 있으면 그것으로, 없으면(수집기 연결 전) 복사만
+  async function send(zone, id) {
+    const k = keyOf(zone, id);
+    const text = (st.drafts.get(k) || "").trim();
+    if (!text) { msg("입력창이 비어 있습니다", "is-bad"); return; }
+    if (!sender) {
+      try { await (clipboard || window.navigator.clipboard).writeText(text); } catch { /* 아래 안내 */ }
+      msg("자동 발송은 수집기 PC 연결(2단계) 뒤부터 됩니다 — 지금은 복사만 했습니다: 매체 창에서 Ctrl+V → Enter", "is-bad");
+      return;
+    }
+    try {
+      await sender(zone, id, text);
+      st.drafts.set(k, "");
+      const ai = st.ai.get(k); if (ai) { ai.list = []; ai.idx = 0; }
+      paintSlot(zone, id);
+      msg("보냈습니다", "is-ok");
+    } catch (error) { msg(`보내지 못했습니다: ${error?.message || error}`, "is-bad"); }
   }
   function openConv(zone, id) {
     const slots = st.slots[zone];
@@ -285,6 +305,13 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
     const id = e.target.closest?.("[data-ct-slot]")?.dataset.ctId;
     if (zone && id && st.selected[zone] !== id) select(zone, id);
   });
+  root.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.keyCode === 229 || !e.target.matches?.("[data-ct-draft]")) return;
+    e.preventDefault();
+    const zone = e.target.closest("[data-ct-zone]")?.dataset.ctZone;
+    const id = e.target.closest("[data-ct-slot]")?.dataset.ctId;
+    if (zone && id) { st.drafts.set(keyOf(zone, id), e.target.value); send(zone, id); }
+  });
   root.addEventListener("input", (e) => {
     if (!e.target.matches?.("[data-ct-draft]")) return;
     const zone = e.target.closest("[data-ct-zone]")?.dataset.ctZone;
@@ -292,5 +319,5 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
     if (zone && id) st.drafts.set(keyOf(zone, id), e.target.value);
   });
   render();
-  return { load, start, stop, state: st };
+  return { load, start, stop, send, state: st };
 }

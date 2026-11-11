@@ -51,7 +51,7 @@ export function msnSlotHtml(i, { name = "", height = MSN_LIMITS.heights[1], star
         <button type="button" class="cs-btn cs-btn-mini msn-ai-btn" data-msn-act="suggest" data-i="${i}" title="붙은 대화창을 AI 가 읽고 답장 후보를 만듭니다 (그림은 저장 안 함)">💻 AI추천</button>
       </div>
       <div class="msn-sugg" data-msn-sugg="${i}" hidden></div>
-      <textarea data-msn-text="${i}" placeholder="보낼 답변 — Enter = 보내기 · Shift+Enter = 줄바꿈 · Tab(+←→ 또는 숫자) = 다른 슬롯"></textarea>
+      <textarea data-msn-text="${i}" placeholder="Tab(+←→ 또는 숫자)"></textarea>
       <div class="cs-row">
         <button type="button" class="cs-btn cs-btn-mini" data-msn-act="clear" data-i="${i}">지우기</button>
         <span class="cs-flex"></span>
@@ -660,6 +660,7 @@ if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]"
   const storage = (() => { try { return window.localStorage; } catch { return null; } })();
   document.querySelectorAll("[data-msn-panel]").forEach((root) => {
     const inst = mountMsnSlots({ document, window, storage, root });
+    if (inst?.group === "vendor") import("./vendorMent.mjs?v=20261111-ment1").then((m) => m.mountVendorMent({ document, window, storage, root: root.querySelector("[data-vendor-ment]"), slotsRoot: root })).catch((e) => inst.say(`전체 멘트를 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
     if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261110-seq1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
   });
 }

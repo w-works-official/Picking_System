@@ -424,7 +424,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     fold.title = folded ? "왼쪽 창 펴기" : "왼쪽 창 접기";
   }
   function saveFold() { try { storage?.setItem(FOLD_KEY, JSON.stringify({ tab: leftTab, folded: foldState.folded })); } catch { /* 이번 화면만 */ } }
-  const AUTO_FOLD = ["msn", "vendor", "ship", "ret", "chat"]; // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 (슬롯을 넓게) · 11-10 배송기록도 (왼쪽은 안내뿐)
+  const AUTO_FOLD = ["msn", "vendor", "ship", "chat"]; // 11-06: 메신저·거래처 탭은 들어가면 접힘이 기본 (슬롯을 넓게) · 11-10 배송기록도 (왼쪽은 안내뿐)
   function showLeft(tab, { open = false } = {}) {
     leftTab = tab;
     if (open) foldState.folded = false;     // 로그인·설정으로 바로 가는 버튼은 펼쳐서 보여 줌
@@ -436,12 +436,11 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (RIGHT_TITLES[tab]) showRight(tab);
     if (tab === "settings" && state.connected && !state.sample) loadUsage();
     if (tab === "ship") openShip();
-    if (tab === "ret") openRet();
     if (tab === "chat") openChat(); else chat?.stop?.();
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
   }
 
-  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저", ship: "🚚 배송기록", ret: "↩ 반품기록", chat: "💬 상담톡" };
+  const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저", ship: "🚚 배송기록", chat: "💬 상담톡" };
   function showRight(tab) {
     $$("[data-right-panel]").forEach((p) => { p.hidden = p.dataset.rightPanel !== tab; });
     const title = $("[data-right-title]");
@@ -1322,19 +1321,11 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   // ---------- 🚚 배송사진 (11-10): 탭을 처음 열 때 불러옴 ----------
   let ship = null;
-  let ret = null;
-  function openRet() {
-    if (ret) { if (!ret.state.loaded && !ret.state.loading) ret.load(); return; }
-    ret = { state: { loaded: false, loading: true }, load() {} };
-    import("./returnsPanel.mjs?v=20261110-ret1")
-      .then((m) => { ret = m.mountReturns({ document, window, root: $("[data-ret]"), side: $("[data-ret-side]"), post: postRaw, isLive: () => state.connected && !state.sample, editor: () => state.editor }); ret.load(); })
-      .catch((error) => { ret = null; toast(`반품기록 화면을 불러오지 못했습니다: ${error?.message || error}`); });
-  }
   // ---------- 💬 상담톡 (11-11): 탭을 열 때 불러오고 20초마다 새로 ----------
   function openChat() {
     if (chat) { chat.load(); chat.start?.(); return; }
     chat = { load() {}, start() {}, stop() {} };
-    import("./chatTalkPanel.mjs?v=20261111-chat2")
+    import("./chatTalkPanel.mjs?v=20261111-ship7")
       .then((m) => { chat = m.mountChatTalk({ document, window, root: $("[data-chat]"), side: $("[data-chat-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); chat.load(); chat.start(); })
       .catch((error) => { chat = null; toast(`상담톡 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }
@@ -1348,8 +1339,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openShip() {
     if (ship) { if (!ship.state.loaded && !ship.state.loading) ship.load(); return; }
     ship = { state: { loaded: false, loading: true }, load() {} };
-    import("./shipPhotosPanel.mjs?v=20261110-ship6")
-      .then((m) => { ship = m.mountShipPhotos({ document, window, root: $("[data-ship]"), side: $("[data-ship-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); ship.load(); })
+    import("./shipPhotosPanel.mjs?v=20261111-ship7")
+      .then((m) => { ship = m.mountShipPhotos({ document, window, root: $("[data-ship]"), side: $("[data-ship-side]"), post: postRaw, isLive: () => state.connected && !state.sample, editor: () => state.editor }); ship.load(); })
       .catch((error) => { ship = null; toast(`배송사진 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }
 

@@ -173,7 +173,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 21 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 22 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -520,7 +520,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 21);
+  assert.equal(g5.get().version, 22);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -1032,6 +1032,24 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.deepEqual(log.data[1].slice(1, 6), ["시험", 4, "I", "14K 스컬프 링", "14K 스컬프 원터치 링"], "고친 기록 (전 값 · 새 값)");
   assert.equal(log.data.length, 1 + 2 + 2 + 2, "머리글 + 고친 칸 2 + 새 줄 칸 2 + 2");
   console.log("csBoard.mock.test (new products v17): OK");
+}
+
+// v22 배송기록 주문별 메모
+{
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN } });
+  const KEY = "1AbCdEfGhIjKlMnOp_q";
+  assert.match(g.post({ action: "shipMemoSave", token: TOKEN, key: "../x" }).error, /묶음 키/);
+  const a = g.post({ action: "shipMemoSave", token: TOKEN, key: KEY, recipient: "홍○동", t: "20261110143012", name: "홍길동", lines: [{ code: "=HYPER", qty: "2" }, { code: "B-01", qty: "x" }, { code: "", qty: "" }], etc: "영상상 2개 포장 확인", editor: "김성수" });
+  assert.equal(a.ok, true);
+  assert.equal(JSON.stringify(a.memo.lines), JSON.stringify([{ code: "=HYPER", qty: "2" }, { code: "B-01", qty: "" }]), "숫자만 · 빈 줄 버림");
+  assert.deepEqual([a.memo.version, a.memo.name, a.memo.etc, a.memo.t], [1, "홍길동", "영상상 2개 포장 확인", "'2026-11-10 14:30:12"]);
+  const b = g.post({ action: "shipMemoSave", token: TOKEN, key: KEY, base: 1, name: "홍길동", lines: [{ code: "A-9", qty: 3 }], etc: "", editor: "유지영" });
+  assert.deepEqual([b.memo.version, b.memo.recipient, b.memo.lines[0].qty], [2, "홍○동", "3"], "수신자·시각은 그대로 둠");
+  const c = g.post({ action: "shipMemoSave", token: TOKEN, key: KEY, base: 1, name: "덮어쓰기" });
+  assert.equal(c.conflict, true, "먼저 고친 것은 덮어쓰지 않음");
+  const l = g.post({ action: "shipMemoList", token: TOKEN });
+  assert.deepEqual([Object.keys(l.memos).length, l.memos[KEY].name, l.memos[KEY].editor], [1, "홍길동", "유지영"]);
+  console.log("csBoard.mock.test (shipMemo v22): OK");
 }
 
 // v20 상담톡: 수집기가 넣고(chatIngest) · 화면이 읽고(chatList) · 답변 후보(chatSuggest)

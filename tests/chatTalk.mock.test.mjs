@@ -13,11 +13,11 @@ assert.deepEqual(CHAT_SLOT_CHOICES, [4, 6, 8, 10]);
 assert.ok(CHAT_SAMPLE.smart.length && CHAT_SAMPLE.kakao.length && CHAT_SAMPLE.smart.every((c) => /^예시/.test(c.name)), "예시는 지어낸 이름");
 
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
-assert.match(html, /data-left-tab="vendor"[^>]*>📦 거래처<\/button>\s*<button[^>]*data-left-tab="chat"[^>]*>💬 상담톡<\/button>/);
+assert.match(html, /data-left-tab="review"[^>]*>⭐ 리뷰<\/button>\s*<button[^>]*data-left-tab="chat"[^>]*>💬 상담톡<\/button>/, "리뷰 다음");
 assert.match(html, /data-right-panel="chat" hidden>\s*<div class="ct" data-chat><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "chat"\) openChat\(\); else chat\?\.stop\?\.\(\);/);
-assert.match(app, /import\("\.\/chatTalkPanel\.mjs\?v=20261111-chat2"\)/);
+assert.match(app, /import\("\.\/chatTalkPanel\.mjs\?v=20261111-ship7"\)/);
 assert.ok(app.indexOf("let chat = null") < app.indexOf("function showLeft") || app.indexOf("let chat = null") < app.indexOf('if (tab === "chat")'), "chat 은 쓰기 전에 선언");
 const panel = readFileSync(new URL("../src/app/chatTalkPanel.mjs", import.meta.url), "utf8");
 for (const t of ['action: "chatList"', 'action: "chatSuggest"', "avoid: ai.list", "count: 5", "&lt;&lt;", "&gt;&gt;", "data-ct-copy"]) assert.ok(panel.includes(t), t);

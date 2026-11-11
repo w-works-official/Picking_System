@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-11 v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-11 v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -131,7 +131,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   if (p.action === 'photoIndexMeta') return json_(photoIndexMeta_());
   if (p.action === 'photoIndexGet') return json_(photoIndexGet_(p));
-  return json_({ ok: true, service: 'system-v3-cs-board', version: 21 });
+  return json_({ ok: true, service: 'system-v3-cs-board', version: 22 });
 }
 
 function doPost(e) {
@@ -208,7 +208,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot', 'chatIngest'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -239,6 +239,8 @@ function route_(body) {
   if (action === 'newList') return updList_();
   if (action === 'retList') return retList_();
   if (action === 'chatList') return chatList_(body);
+  if (action === 'shipMemoList') return shipMemoList_();
+  if (action === 'shipMemoSave') return withLock_(function () { return shipMemoSave_(body); });
   if (action === 'chatSuggest') return chatSuggest_(body);
   if (action === 'chatIngest') return withLock_(function () { return chatIngest_(body); });
   if (action === 'retSave') return withLock_(function () { return retSave_(body); });
@@ -2028,6 +2030,63 @@ function retSave_(body) {
   next[2] = now; next[4] = who; next[11] = cur.version + 1;
   sheet.getRange(at + 2, 1, 1, RET_HEADER.length).setValues([next]);
   return { ok: true, item: retRow_(next), removed: !!body.remove };
+}
+
+// ---------- v22 배송기록 주문별 메모 (2026-11-11) ----------
+// 반품 요청이 오면 배송기록 영상을 보고 판단 → 그 송장 묶음(주문) 옆에 메모. 묶음 키 = 송장 사진 드라이브 파일 ID (이름이 바뀌어도 그대로)
+//  · 이 시트 '배송기록 메모' 탭: 한 줄 = 묶음 하나 · 상품코드·수량은 줄바꿈으로 여러 줄
+//  · 먼저 고친 사람이 있으면 덮어쓰지 않음 (버전) · 지우기 없음 (칸을 비우면 빈 메모)
+var SHIPMEMO_SHEET = '배송기록 메모';
+var SHIPMEMO_HEADER = ['묶음 키', '수신자', '송장 시각', '이름', '상품코드', '수량', '기타', '작성자', '수정 시각', '버전'];
+
+function shipMemoSheet_() {
+  var book = book_();
+  var sheet = book.getSheetByName(SHIPMEMO_SHEET);
+  if (!sheet) { sheet = book.insertSheet(SHIPMEMO_SHEET); sheet.appendRow(SHIPMEMO_HEADER); sheet.setFrozenRows(1); }
+  return sheet;
+}
+function shipMemoRow_(r) {
+  var codes = String(r[4] || '').split('\n'), qtys = String(r[5] || '').split('\n');
+  var lines = [];
+  for (var i = 0; i < Math.max(codes.length, qtys.length); i++) {
+    var code = plain_(codes[i] || '').trim(), qty = String(qtys[i] || '').trim();
+    if (code || qty) lines.push({ code: code, qty: qty });
+  }
+  return { key: String(r[0]), recipient: String(r[1] || ''), t: retTime_(r[2]), name: plain_(String(r[3] || '')), lines: lines, etc: plain_(String(r[6] || '')),
+    editor: String(r[7] || ''), updatedAt: retTime_(r[8]), version: Number(r[9]) || 1 };
+}
+function shipMemoList_() {
+  var sheet = shipMemoSheet_();
+  var n = sheet.getLastRow() - 1;
+  var memos = {};
+  if (n > 0) sheet.getRange(2, 1, n, SHIPMEMO_HEADER.length).getValues().forEach(function (r) { if (r[0]) memos[String(r[0])] = shipMemoRow_(r); });
+  return { ok: true, memos: memos };
+}
+function shipMemoSave_(body) {
+  var key = clean_(body && body.key, 80);
+  if (!/^[A-Za-z0-9_-]{10,80}$/.test(key)) return { ok: false, error: '묶음 키가 맞지 않습니다' };
+  var safe = function (v, n) { var t = clean_(String(v == null ? '' : v).replace(/[\r\n]+/g, ' '), n); return /^[=+\-@]/.test(t) ? "'" + t : t; };
+  var lines = (Array.isArray(body.lines) ? body.lines : []).slice(0, 30).map(function (l) { return { code: safe(l && l.code, 60), qty: String(Math.max(0, Math.floor(Number(l && l.qty) || 0)) || '') }; })
+    .filter(function (l) { return l.code || l.qty; });
+  var etc = body_(body.etc, 3000); if (/^[=+\-@]/.test(etc)) etc = "'" + etc;
+  var who = plain_(clean_(body.editor, 40));
+  var now = new Date();
+  var tm = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(String(body.t || ''));   // 배송기록 시각 yyyyMMddHHmmss (한국 시각)
+  var t = tm ? "'" + tm[1] + '-' + tm[2] + '-' + tm[3] + ' ' + tm[4] + ':' + tm[5] + ':' + tm[6] : '';
+  var sheet = shipMemoSheet_();
+  var n = sheet.getLastRow() - 1;
+  var rows = n > 0 ? sheet.getRange(2, 1, n, SHIPMEMO_HEADER.length).getValues() : [];
+  var at = -1;
+  for (var i = 0; i < rows.length; i++) if (String(rows[i][0]) === key) { at = i; break; }
+  var row = [key, safe(body.recipient, 60), t, safe(body.name, 60), lines.map(function (l) { return l.code; }).join('\n'), lines.map(function (l) { return l.qty; }).join('\n'), etc, who, now, 1];
+  if (at < 0) { sheet.appendRow(row); return { ok: true, memo: shipMemoRow_(row) }; }
+  var cur = shipMemoRow_(rows[at]);
+  if (Number(body.base || 0) !== cur.version) return { ok: false, conflict: true, memo: cur, error: '다른 사람이 먼저 고쳤습니다 — 새 내용을 보여 드립니다' };
+  if (!row[1]) row[1] = rows[at][1];
+  if (!row[2]) row[2] = rows[at][2];
+  row[9] = cur.version + 1;
+  sheet.getRange(at + 2, 1, 1, SHIPMEMO_HEADER.length).setValues([row]);
+  return { ok: true, memo: shipMemoRow_(row) };
 }
 
 // ---------- v18 배송기록 업로드 (2026-11-10) ----------

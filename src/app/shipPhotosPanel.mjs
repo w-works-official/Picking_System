@@ -7,11 +7,11 @@
 //  · 11-11 주문(송장 묶음)별 📝 메모: 이름 + 줄마다 [상품코드 · 수량 · 기타] (＋ 상품 = 아래로 한 줄) → 0.8초 뒤 자동 저장 (시트 v23 '배송기록 메모' 탭)
 //    반품 요청 → 그 주문 영상 확인 → 메모. 체크한 묶음의 메모는 [⬇ 메모 CSV] 로 받음 (엑셀에서 열림)
 //  · 11-11 메모 칸: 이름 · 전화번호 · 매입처 / 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타 (시트 v24)
-//    [주문 찾기] (이름 왼쪽 정사각 버튼): 이름칸에 확정된 이름 + 송장에서 보이는 글자(전화·운송장·주소, shipHints) → 피킹 DB 주문(접수일 14일 안)과 일치도 → 후보 5개 → 고르면 채움
+//    [주문 찾기] (이름 왼쪽 정사각 버튼): 이름칸의 받는 분 이름과 똑같은 피킹 주문만 (동명이인은 여러 개 · 최근 위 · 일치율 없음 — 11-11 저녁) → 고르면 채움
 //    (피킹 DB 는 피킹 로그인 세션이 있어야 읽힘 — 피킹시스템에서 로그인한 탭에서 CS 관리로)
 //  · [👤＋ 슬롯 추가]: 사진·영상 없이 반품 메모만 쓰는 빈 슬롯 (맨 위)
 import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship6";
-import { itemsToLines, mergeHints, phoneTail, rankOrders, receiptWindow, vendorsOf } from "../domain/shipOrderMatch.mjs?v=20261111-fill2";
+import { itemsToLines, nameFilter, nameUsable, phoneTail, sameNameOrders, vendorsOf } from "../domain/shipOrderMatch.mjs?v=20261111-name5";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const FOLDER_URL = (id) => `https://drive.google.com/drive/folders/${encodeURIComponent(id)}`;
@@ -90,7 +90,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
         <li><b>비우기</b>: [주문 찾기]로 잘못 채웠으면 메모 오른쪽 [비우기]를 두 번 — 전화번호 · 매입처 · 주문번호 · 상품 줄이 비워집니다 (이름은 남음). [주문 찾기]로 다시 채우면 앞 상품 줄은 지워지고 새 주문으로 바뀝니다.</li>
         <li><b>빈 슬롯 지우기</b>: 사진·영상 없는 메모 슬롯을 체크하고 [🗑 선택 지우기]를 두 번 누릅니다. 지운 슬롯은 CS 시트 '배송기록 메모_지움' 탭에 남아 되살릴 수 있습니다. 송장 묶음 메모는 지우지 않습니다.</li>
         <li><b>메모</b>: 송장 묶음마다 이름 · 전화번호 · 매입처, 줄마다 상품명 · 옵션명 · 수량 · 자사코드 · 상품코드 · 기타. 쓰면 자동 저장됩니다 (CS 시트 '배송기록 메모' 탭). 체크한 묶음의 메모는 [⬇ 메모 CSV] 로 받습니다.</li>
-        <li><b>[주문 찾기]</b> (이름 왼쪽): 이름칸에 확정한 이름 + 송장에서 보이는 전화·운송장·주소로 피킹 주문 후보를 찾아 채웁니다 — 피킹시스템에서 로그인한 탭에서 와야 합니다. 매입처는 직접.</li>
+        <li><b>[주문 찾기]</b> (이름 왼쪽): 이름칸의 받는 분 이름과 <b>똑같은 이름</b>의 피킹 주문만 보여 줍니다 (동명이인은 여러 개 · 최근 주문 위). 고르면 상품 · 전화 · 매입처 · 주문번호를 채웁니다 — 피킹시스템에서 로그인한 탭에서 와야 합니다.</li>
         <li><b>[👤＋ 슬롯 추가]</b> (목록 맨 위): 사진·영상 없이 반품 메모만 쓰는 슬롯.</li>
       </ol>
       <p class="cs-note sp-counts" data-sp-counts></p>
@@ -246,46 +246,24 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     }
     return rows;
   }
-  // 피킹 DB 에 쌓인 주문 범위 (첫 · 마지막 접수일 · 전체 건수) — 한 번만 읽음
-  async function pickStats(session) {
-    if (st.pickStats) return st.pickStats;
-    const headers = { apikey: PICK_KEY, Authorization: `Bearer ${PICK_KEY}`, "x-picking-session": session.token };
-    const one = async (order) => { const r = await fetchImpl(`${PICK_URL}/rest/v1/orders?select=receipt_date&receipt_date=not.is.null&order=receipt_date.${order}&limit=1`, { headers, cache: "no-store" }); return r.ok ? ((await r.json())[0]?.receipt_date || "") : ""; };
-    try {
-      const [first, last, cnt] = await Promise.all([one("asc"), one("desc"), fetchImpl(`${PICK_URL}/rest/v1/orders?select=ord_no`, { headers: { ...headers, Prefer: "count=exact", "Range-Unit": "items", Range: "0-0" }, cache: "no-store" })]);
-      const total = Number(String(cnt.headers?.get?.("content-range") || "").split("/")[1]) || null;
-      st.pickStats = { first, last, total };
-    } catch { st.pickStats = { first: "", last: "", total: null }; }
-    return st.pickStats;
-  }
   const paintCands = (key, html) => { const el = root.querySelector(`[data-sp-memo="${CSS.escape(key)}"] [data-spm-cands]`); if (el) el.innerHTML = html; };
+  // 11-11 저녁 (사장님): 받는 분 이름이 똑같은 주문만 — 일치율 없음 · 동명이인은 여러 개(최근 위) · 이름 다르면 안 보임 · 송장 AI 읽기 · 날짜 범위 없음
   async function findOrder(key) {
     const box = root.querySelector(`[data-sp-memo="${CSS.escape(key)}"]`);
     const g = groupByKey(key);
     const m = box ? readMemo(box) : memoOf(key);
     const session = pickSession();
     if (!session) { paintCands(key, `<p class="sp-cand-msg is-bad">피킹 로그인이 필요합니다 — 피킹시스템에서 로그인한 그 탭에서 [CS 관리]로 넘어와 주세요.</p>`); return; }
-    paintCands(key, `<p class="sp-cand-msg">${g?.invoice ? "송장 글자 읽는 중…" : "주문 찾는 중…"}</p>`);
-    let photo = {}, note = "";
-    if (g?.invoice) {
-      try { photo = (await post({ action: "shipHints", id: g.invoice.id })).hints || {}; }
-      catch (error) { note = /알 수 없는 요청/.test(error?.message || "") ? "시트 v24 전이라 송장 글자는 못 읽음" : `송장 글자 못 읽음: ${error?.message || error}`; }
-    }
-    // 이름 = 이름칸에 확정된 이름 (비어 있으면 칸에 보이는 송장 이름) — AI 가 다시 읽은 이름은 안 씀
-    const hints = mergeHints(photo, { name: m.name || g?.recipient || "", phone: m.phone });
-    if (!Object.values(hints).some(Boolean)) { paintCands(key, `<p class="sp-cand-msg is-bad">${note ? `${esc(note)} — ` : ""}힌트가 없습니다. 이름이나 전화번호를 적고 다시 눌러 주세요.</p>`); return; }
-    const win = g?.invoice ? receiptWindow(g.invoice.t) : (st.from || st.to) ? { from: st.from || receiptWindow(kstNowT(), 60).from, to: st.to || receiptWindow(kstNowT(), 0).to } : receiptWindow(memoT(m) || kstNowT(), 30);
-    paintCands(key, `<p class="sp-cand-msg">피킹 주문 읽는 중… (접수일 ${win.from} ~ ${win.to})</p>`);
+    const name = String(m.name || "").trim() || String(g?.recipient || "").trim();
+    if (!nameUsable(name)) { paintCands(key, `<p class="sp-cand-msg is-bad">${name ? `'${esc(name)}' 에 가려진 글자가 있습니다 — ` : ""}이름칸에 받는 분 이름을 정확히 적고 다시 눌러 주세요.</p>`); return; }
+    paintCands(key, `<p class="sp-cand-msg">'${esc(name)}' 주문 찾는 중…</p>`);
     try {
-      const stats = await pickStats(session);
-      const orders = await pickRows(`orders?select=ord_no,inv_no,receiver,receiver_name,receiver_mobile,receiver_tel,receiver_address,seller,receipt_date&receipt_date=gte.${win.from}&receipt_date=lte.${win.to}&order=ord_no.asc`, session);
-      const ranked = rankOrders(hints, orders, 5);
-      st.cands.set(key, ranked);
-      const hintText = [hints.name && `이름 ${hints.name}`, hints.phone && `전화 ${hints.phone}`, hints.invoice && `송장 ${hints.invoice}`, hints.address && `주소 ${hints.address}`].filter(Boolean).join(" · ");
-      const dbText = stats.first ? ` · 피킹 DB 주문 ${stats.first} ~ ${stats.last}${stats.total != null ? ` 전체 ${stats.total.toLocaleString()}건` : ""}` : "";
-      paintCands(key, `<p class="sp-cand-msg">힌트: ${esc(hintText)}${note ? ` · ${esc(note)}` : ""} — 접수일 ${win.from} ~ ${win.to} 주문 ${orders.length}건 중${esc(dbText)}</p>`
-        + (ranked.length ? ranked.map((c, i) => `<div class="sp-cand"><b class="sp-cand-score">${c.score}%</b><span>${esc(c.order.receiver_name || c.order.receiver || "")}</span><small>${esc(phoneTail(c.order))} · ${esc(String(c.order.receiver_address || "").slice(0, 24))} · ${esc(c.order.receipt_date || "")} · ${esc(c.order.seller || "")}</small><button type="button" class="cs-btn cs-btn-mini" data-spm-use="${i}">이 주문으로 채우기</button></div>`).join("")
-          : `<p class="sp-cand-msg is-bad">맞는 주문이 없습니다 — 이름·전화를 고쳐 적거나 날짜 조건을 넓혀 다시.</p>`));
+      const rows = await pickRows(`orders?select=ord_no,receiver,receiver_name,receiver_mobile,receiver_tel,receiver_address,seller,receipt_date&${nameFilter(name)}&order=receipt_date.desc`, session);
+      const found = sameNameOrders(name, rows);
+      st.cands.set(key, found.map((order) => ({ order })));
+      paintCands(key, found.length
+        ? `<p class="sp-cand-msg">'${esc(name)}' 주문 ${found.length}건${found.length > 1 ? " (동명이인 · 최근 위)" : ""}</p>` + found.map((o, i) => `<div class="sp-cand"><span>${esc(o.receiver_name || o.receiver || "")}</span><small>${esc(o.receipt_date || "")} · ${esc(phoneTail(o))} · ${esc(String(o.receiver_address || "").slice(0, 24))} · ${esc(o.seller || "")}</small><button type="button" class="cs-btn cs-btn-mini" data-spm-use="${i}">이 주문으로 채우기</button></div>`).join("")
+        : `<p class="sp-cand-msg is-bad">'${esc(name)}' 이름의 주문이 없습니다 — 이름칸을 확인해 주세요.</p>`);
     } catch (error) { paintCands(key, `<p class="sp-cand-msg is-bad">${esc(error?.message || error)}</p>`); }
   }
   async function useOrder(key, i) {

@@ -1,6 +1,6 @@
 // 🚚 배송기록 › 주문서 찾기 (11-11) — 보이는 글자만으로 일치도
 import assert from "node:assert/strict";
-import { maskedRatio, invoiceRatio, addressRatio, scoreOrder, rankOrders, mergeHints, receiptWindow, itemsToLines, phoneTail, supplierName, vendorsOf } from "../src/domain/shipOrderMatch.mjs";
+import { maskedRatio, invoiceRatio, addressRatio, scoreOrder, rankOrders, mergeHints, receiptWindow, itemsToLines, phoneTail, supplierName, vendorsOf, sameNameOrders, nameUsable, nameFilter } from "../src/domain/shipOrderMatch.mjs";
 
 assert.equal(maskedRatio("홍?동", "홍길동"), 1, "가려진 글자는 빼고 비교");
 assert.equal(maskedRatio("홍*동", "홍길순"), 0.5);
@@ -43,4 +43,19 @@ assert.equal(supplierName("0-세븐피어싱 [ 1 ]"), "세븐피어싱");
 assert.equal(supplierName("오르골드"), "오르골드");
 assert.equal(vendorsOf([{ sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]" }, { sellpia_supplier_cell_raw: "3-오르골드 [ 2 ]" }, { sellpia_supplier_cell_raw: "0-세븐피어싱 [ 1 ]" }, { sellpia_supplier_cell_raw: null }]), "세븐피어싱 · 오르골드");
 assert.equal(vendorsOf([{ p_name: "x" }]), "", "매입처 칸 없으면 빈칸");
+// 11-11 저녁 이름 똑같은 것만
+{
+  const orders = [
+    { ord_no: "A", receiver_name: "홍길동", receipt_date: "2026-11-01" },
+    { ord_no: "B", receiver_name: "홍 길동", receipt_date: "2026-11-09" },
+    { ord_no: "C", receiver_name: "홍길순", receipt_date: "2026-11-10" },
+    { ord_no: "D", receiver: "홍길동", receiver_name: "", receipt_date: "2026-11-05" },
+    { ord_no: "E", receiver_name: "김홍길동", receipt_date: "2026-11-11" },
+  ];
+  assert.deepEqual(sameNameOrders("홍길동", orders).map((o) => o.ord_no), ["B", "D", "A"], "동명이인 여러 개 · 최근 위 · 띄어쓰기 무시 · 이름 다르면 빠짐");
+  assert.deepEqual(sameNameOrders("홍○동", orders), [], "가려진 글자면 안 찾음");
+  assert.equal(nameUsable("홍*동"), false);
+  assert.equal(nameUsable(""), false);
+  assert.equal(decodeURIComponent(nameFilter("홍 길동")), 'or=(receiver_name.eq."홍길동",receiver.eq."홍길동")');
+}
 console.log("shipOrderMatch.mock.test: OK");

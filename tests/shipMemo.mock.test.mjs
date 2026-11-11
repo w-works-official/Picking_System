@@ -35,7 +35,7 @@ assert.deepEqual(keys({ q: "철수" }), ["INV2"], "수신자 이름으로 찾기
 assert.deepEqual(keys({ q: "반품" }), ["INV1", "memo-abc12345"]);
 
 const panel = readFileSync(new URL("../src/app/shipPhotosPanel.mjs", import.meta.url), "utf8");
-for (const t of ['action: "shipMemoList"', 'action: "shipMemoSave"', 'action: "shipHints"', "base: m.version", "data-sp-csv", "＋ 상품", "⬇ 메모 CSV", "주문<br>찾기", "m.name || g?.recipient", "👤＋ 슬롯 추가", "data-sp-codeonly", "data-sp-from", "data-sp-to"]) assert.ok(panel.includes(t), t);
+for (const t of ['action: "shipMemoList"', 'action: "shipMemoSave"', "base: m.version", "data-sp-csv", "＋ 상품", "⬇ 메모 CSV", "주문<br>찾기", "String(m.name || \"\").trim() || String(g?.recipient || \"\").trim()", "👤＋ 슬롯 추가", "data-sp-codeonly", "data-sp-from", "data-sp-to"]) assert.ok(panel.includes(t), t);
 for (const t of ["이름", "전화번호", "매입처"]) assert.ok(panel.includes(`<span>${t}</span>`), `메모 칸 ${t}`);
 assert.ok(!panel.includes("data-sp-mode"), "🔎 파일 찾기 버튼 뺌");
 assert.ok(!panel.includes('class="sp-memo-t"'), "메모 앞 📝 메모 글자 없음");
@@ -52,7 +52,11 @@ const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), 
 assert.ok(!/returnsPanel|openRet/.test(app), "반품기록 탭은 배송기록 메모로 옮김");
 assert.match(app, /editor: \(\) => state\.editor, storages: \[/);
 assert.match(panel, /<label class="sp-cal"[^>]*><b data-sp-cal="from">📅<\/b><input type="date" data-sp-from/, "날짜는 달력 아이콘");
-assert.match(panel, /Prefer: "count=exact"/, "피킹 DB 주문 범위·건수 표시");
+// 11-11 저녁 주문 찾기 = 받는 분 이름 똑같은 것만 (일치율 · 송장 AI · 날짜 범위 없음)
+assert.ok(!panel.includes('action: "shipHints"'), "송장 AI 안 씀");
+assert.ok(!panel.includes("sp-cand-score") && !/rankOrders|\.score/.test(panel), "일치율 없음");
+assert.match(panel, /orders\?select=[^`]*&\$\{nameFilter\(name\)\}&order=receipt_date\.desc/, "피킹 DB 에서 그 이름만");
+assert.ok(panel.includes("sameNameOrders(name, rows)"), "이름 똑같은 것만 남김");
 // 🗑 선택 지우기 (11-11) — 빈 메모 슬롯만 · 두 번 눌러야 지움 · 확인 창 없음
 assert.ok(panel.includes('action: "shipMemoDelete"'), "시트 지우기 요청");
 assert.ok(panel.includes("data-sp-del"), "🗑 선택 지우기 버튼");

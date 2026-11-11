@@ -116,5 +116,18 @@ export function vendorsOf(items = []) {
   return out.join(" · ");
 }
 
+// 11-11 저녁 [주문 찾기] 단순하게 (사장님): 받는 분 이름이 똑같은 주문만 — 일치율 없음 · 동명이인은 여러 개(최근 접수일 위) · 이름 다르면 안 보임
+//  · 띄어쓰기만 무시 · 가려진 글자(○ * ?)가 있으면 찾지 않음 (이름칸에 정확히 적어야 함)
+export const nameKey = (s) => clean(s).replace(/\s+/g, "");
+export const nameUsable = (s) => !!nameKey(s) && !/[?*○●_]/.test(nameKey(s));
+export function sameNameOrders(name, orders = []) {
+  const k = nameKey(name);
+  if (!nameUsable(k)) return [];
+  return orders.filter((o) => nameKey(o.receiver_name) === k || nameKey(o.receiver) === k)
+    .sort((a, b) => String(b.receipt_date || "").localeCompare(String(a.receipt_date || "")) || String(b.ord_no || "").localeCompare(String(a.ord_no || "")));
+}
+// 피킹 DB 에서 그 이름 주문만 읽는 조건 (PostgREST or=)
+export const nameFilter = (name) => { const k = nameKey(name).replace(/"/g, ""); return `or=${encodeURIComponent(`(receiver_name.eq."${k}",receiver.eq."${k}")`)}`; };
+
 // 후보 표시용 — 전화는 끝 4자리만
 export const phoneTail = (o = {}) => { const d = onlyDigits(o.receiver_mobile || o.receiver_tel); return d ? `…${d.slice(-4)}` : ""; };

@@ -94,5 +94,6 @@
   "chatTalk.mock.test.mjs",
   "shipMemo.mock.test.mjs",
   "vendorMent.mock.test.mjs",
-  "shipOrderMatch.mock.test.mjs"
+  "shipOrderMatch.mock.test.mjs",
+  "pickingNotice.mock.test.mjs"
 ]

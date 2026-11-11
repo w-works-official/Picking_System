@@ -31,6 +31,7 @@
       })();
     </script>
     <link rel="stylesheet" href="src/styles/workspaceNavigation.css?v=20261109-zoom90">
+    <link rel="stylesheet" href="src/styles/pickingNotice.css?v=20261111-notice1">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   </head>
   <body>
@@ -50,7 +51,6 @@
           <span class="brand-icon" aria-hidden="true">PK</span>
           <div>
             <h1>System V3</h1>
-            <p>피킹탭 단독 이식 테스트</p>
           </div>
         </div>
         <nav class="workspace-navigation" aria-label="상위 업무">
@@ -58,6 +58,7 @@
           <a id="workspace-cs-link" class="workspace-link" href="./cs/?write=0&amp;events=0">CS 관리</a>
           <a id="workspace-purchase-link" class="workspace-link" href="./purchase/?write=0&amp;events=0">상품 관리</a>
         </nav>
+        <div id="pk-notice" class="pk-notice" aria-label="공지 메모"></div>
         <div class="toolbar">
           <button id="refresh-btn" class="btn">새로고침</button>
           <input id="date-input" class="date-input" type="date">
@@ -547,6 +548,7 @@
     <script src="src/auth/pickingAuth.js?v=20261007-login1"></script>
     <script type="module" src="src/app/workspaceNavigation.mjs?v=20261028-purchase1"></script>
     <script type="module" src="src/app/pickingBootstrap.mjs?v=20261109-photochg1"></script>
+    <script type="module" src="src/app/pickingNoticeBoot.mjs?v=20261111-notice1"></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {

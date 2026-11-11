@@ -128,14 +128,15 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
       else useSample(false);
       st.loaded = true; st.error = "";
     } catch (error) {
-      st.error = /알 수 없는 요청/.test(error?.message || "") ? "시트가 아직 상담톡(v20) 전입니다 — 예시 대화로 보여 드립니다" : `불러오지 못했습니다: ${error?.message || error}`;
+      st.error = /알 수 없는 요청/.test(error?.message || "") ? "시트가 아직 상담톡(v20) 전입니다" : `불러오지 못했습니다: ${error?.message || error}`;
       if (!st.loaded) useSample(false);
     }
     st.loading = false;
     render();
   }
+  // 11-11 예시 대화(가상)는 안 보여 줌 — 대화가 없으면 빈 목록
   function useSample(paint = true) {
-    st.data = JSON.parse(JSON.stringify(CHAT_SAMPLE)); st.sample = true; st.loaded = true;
+    st.data = { smart: [], kakao: [] }; st.sample = false; st.loaded = true;
     if (paint) render();
   }
   function start() { stop(); st.timer = setInterval(() => { if (!document.hidden && isLive() && root.offsetParent !== null) load(); }, REFRESH_MS); }

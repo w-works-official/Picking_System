@@ -173,7 +173,6 @@
               <div class="cs-row cs-row-split cs-collect-head">
                 <div class="cs-row">
                   <button type="button" class="cs-btn cs-btn-primary is-pending" disabled data-job="collect" data-pending="시트 연결 후 작동">▶ 게시판 수집 시작</button>
-                  <button type="button" class="cs-btn cs-btn-test is-pending" disabled data-job="test" data-pending="시트 연결 후 작동">🧪 테스트용 게시판 수집</button>
                 </div>
                 <label class="cs-small cs-days-label">최근 <input id="cs-board-days" type="number" min="1" max="90" value="7" disabled class="is-pending cs-input-num" data-live data-pending="시트 연결 후 작동" title="⚙ 설정의 수집 기간과 같은 값 — 바꾸면 수집기 PC에 저장"> 일 · 답변 없는 문의</label>
               </div>
@@ -204,7 +203,6 @@
               <div class="cs-row cs-row-split cs-collect-head">
                 <div class="cs-row">
                   <button type="button" class="cs-btn cs-btn-orange is-pending" disabled data-job="reviews" data-pending="시트 연결 후 작동">▶ 리뷰 수집 시작</button>
-                  <button type="button" class="cs-btn cs-btn-test is-pending" disabled data-job="testReviews" data-pending="시트 연결 후 작동">🧪 테스트용 리뷰 수집</button>
                 </div>
                 <label class="cs-small cs-days-label">최근 <input id="cs-review-days" type="number" min="1" max="365" value="30" disabled class="is-pending cs-input-num" data-live data-pending="시트 연결 후 작동"> 일 · 답글 없는 리뷰</label>
               </div>
@@ -424,7 +422,6 @@
               <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-excel="export" data-excel-kind="문의" data-live data-pending="시트 연결 후 작동">엑셀</button>
               <button type="button" class="cs-btn cs-btn-excel is-pending" disabled data-excel="import" data-excel-kind="문의" data-live data-pending="시트 연결 후 작동">📥 엑셀 등록</button>
               <span class="cs-flex"></span>
-              <button type="button" class="cs-btn cs-btn-sample" id="cs-sample-toggle" aria-pressed="false">🧪 가상셋팅</button>
             </div>
             <div class="cs-answer-filter">
               <button type="button" class="cs-btn" id="cs-reload" title="시트에서 다시 불러오기">⟳ 다시 불러오기</button>
@@ -449,7 +446,7 @@
               <span class="cs-flex"></span>
               <span id="cs-review-summary" class="cs-summary"></span>
             </div>
-            <div id="cs-review-banner" class="cs-sample-banner">🧪 화면 미리보기(가상 예시) — 시트에 연결되면 실제 리뷰가 보입니다.</div>
+            <div id="cs-review-banner" class="cs-sample-banner" hidden></div>
             <div id="cs-review-list" class="cs-card-list"></div>
           </div>
 
@@ -572,7 +569,7 @@
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261111-name5"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261111-nosample1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
     <script type="module" src="../src/app/msnSlots.mjs?v=20261111-ment2"></script>
   </body>

@@ -56,7 +56,7 @@ import {
   csShotPoint,
 } from "../domain/csBoard.mjs?v=20261111-msqa1";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
-import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261109-layout1";
+import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261111-nosample1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
 import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261103-loginmemo1";
 
@@ -1236,7 +1236,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   function emptyText() {
     if (state.loading) return "시트에서 불러오는 중…";
-    if (!state.endpoint) return "아직 CS 시트가 연결되지 않았습니다.<br>오른쪽 위 <b>🧪 가상셋팅</b>으로 화면 모양을 미리 볼 수 있습니다.";
+    if (!state.endpoint) return "아직 CS 시트가 연결되지 않았습니다.";
     return "<b>[🏠 메인보드]</b> 맨 위 웹 연결에 비밀번호를 입력하면 문의가 보입니다. (휴대폰·태블릿은 화면 아래쪽)";
   }
 
@@ -1275,10 +1275,9 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const list = $("#cs-review-list");
     if (!list) return;
     const banner = $("#cs-review-banner");
-    if (!live()) {
-      if (banner) banner.hidden = false;
-      const rows = sampleReview.map((raw) => normalizeCsRow(raw));
-      list.innerHTML = rows.map((row, i) => cardHtml(row, i + 1, initialView(row), { readonly: true })).join("");
+    if (!live()) {   // 11-11 가상 예시 리뷰는 안 보여 줌
+      if (banner) banner.hidden = true;
+      list.innerHTML = `<div class="cs-empty">시트 연결 후 리뷰가 보입니다.</div>`;
       return;
     }
     if (banner) banner.hidden = true;
@@ -1331,7 +1330,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openChat() {
     if (chat) { chat.load(); chat.start?.(); return; }
     chat = { load() {}, start() {}, stop() {} };
-    import("./chatTalkPanel.mjs?v=20261111-ment1")
+    import("./chatTalkPanel.mjs?v=20261111-nosample1")
       .then((m) => { chat = m.mountChatTalk({ document, window, root: $("[data-chat]"), side: $("[data-chat-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); chat.load(); chat.start(); })
       .catch((error) => { chat = null; toast(`상담톡 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }

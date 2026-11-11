@@ -85,9 +85,9 @@ export function setupSteps(ctx = {}) {
     },
     {
       key: "first", title: "9. 첫 수집", done: ctx.connected ? !!c?.last : null,
-      desc: "[▶ 수집 시작] → 수집기 PC가 게시판을 모아 이 화면에 올립니다. 처음이면 [🧪 테스트용] 으로 먼저 확인해도 됩니다.",
+      desc: "[▶ 수집 시작] → 수집기 PC가 게시판을 모아 이 화면에 올립니다.",
       detail: c?.last?.at ? `마지막 수집 ${c.last.at} · ${c.last.count}건` : "",
-      buttons: [{ label: "▶ 수집 시작", act: "job:collect", main: true, live: true }, { label: "🧪 테스트용", act: "job:test", live: true }],
+      buttons: [{ label: "▶ 수집 시작", act: "job:collect", main: true, live: true }],
     },
   ];
 }

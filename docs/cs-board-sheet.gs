@@ -2109,7 +2109,7 @@ function shipHints_(body) {
   var file = shipFiles_().filter(function (f) { return f.id === id && f.kind === 'photo'; })[0];
   if (!file) return { ok: false, error: '배송기록 폴더의 송장 사진이 아닙니다' };
   var cache = null;
-  try { cache = CacheService.getScriptCache(); var hit = cache.get('shiphint_' + id); if (hit) return { ok: true, hints: JSON.parse(hit), cached: true }; } catch (e) { cache = null; }
+  try { cache = CacheService.getScriptCache(); var hit = cache.get('shiphint_' + id); var hh = hit ? JSON.parse(hit) : null; if (hh && (hh.name || hh.phone || hh.invoice || hh.address)) return { ok: true, hints: hh, cached: true }; } catch (e) { cache = null; }
   var apiKey = prop_('CLAUDE_KEY');
   if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
   var reserved = withLock_(function () { return reserveAi_(1); });

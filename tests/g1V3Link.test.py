@@ -1219,7 +1219,7 @@ ok, msg, results = L.run_register_job({"id": "JB2", "kind": "register", "body": 
 assert ok and msg == "메이크샵 게시판: 등록 1건 · 확인 필요 0건 · 건너뜀 0건 / 스마트스토어: 등록 1건", msg
 assert sorted(r["key"] for r in results) == ["메이크샵_Q&A_913900", "스마트스토어_상품문의_1"]
 L.run_ss_register = _keep_ss
-assert L.LINK_VER.startswith("1.26") and L.LINK_NOTE
+assert L.LINK_NOTE
 print("g1V3Link ms board reply (1.26): OK")
 
 # 1.17 메신저 전용 모드: 도우미만 켜고 시트는 안 부름
@@ -1269,3 +1269,17 @@ with tempfile.TemporaryDirectory() as _d:
     assert "9.99" in open(_me, encoding="utf-8").read() and os.path.exists(_me + "." + L.LINK_VER.split(" ")[0] + ".bak"), "새 파일 + 전 버전 .bak"
 L.MSN_ONLY = False
 print("g1V3Link msn self-update (1.25): OK")
+
+
+# ── 1.27 메이크샵 글자 깨짐: 수집 JS 의 EUC-KR 고정 풀기 → UTF-8 먼저 · 안 되면 EUC-KR ──
+_G127 = types.SimpleNamespace(
+    MS_JS="async () => {\n  " + L.MS_DEC_OLD + "\n  return 1; }",
+    MS_BOARDS_JS="async () => {\n  " + L.MS_DEC_OLD + "\n}",
+    ZZ_JS="x")
+assert L.patch_makeshop_charset(_G127) == ["MS_JS", "MS_BOARDS_JS"]
+assert L.MS_DEC_OLD not in _G127.MS_JS and "TextDecoder('utf-8', {fatal: true})" in _G127.MS_JS and "TextDecoder('euc-kr')" in _G127.MS_JS
+assert L.patch_makeshop_charset(_G127) == [], "두 번 바꾸지 않음"
+assert L.LINK_VER.startswith("1.27") and "깨짐" in L.LINK_NOTE
+# 수집기 원본(11/12 드라이브 g1_cs_collector.py)의 줄과 글자 하나 다르지 않게 맞춰 둔 것
+assert L.MS_DEC_OLD == "const dec = async u => new TextDecoder('euc-kr').decode(await (await fetch(u, {credentials:'include'})).arrayBuffer());"
+print("g1V3Link makeshop charset (1.27): OK")

@@ -180,7 +180,7 @@ const TOKEN = "board-token-123";
 const COLLECTOR = "collector-token-456";
 let claudeText = JSON.stringify(["AI 답 1", "AI 답 2", "AI 답 3"]);
 const gas = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "test-key", AI_DAILY_LIMIT: "4" }, claude: () => ({ status: 200, text: claudeText }) });
-assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 27 }, "GET returns no data");
+assert.deepEqual(gas.get(), { ok: true, service: "system-v3-cs-board", version: 28 }, "GET returns no data");
 assert.equal(gas.post({ action: "list" }).denied, true, "token required");
 assert.equal(gas.post({ action: "list", token: COLLECTOR }).denied, true, "collector token cannot read");
 assert.equal(gas.post({ action: "ingest", token: TOKEN, rows: [] }).denied, true, "board token cannot ingest");
@@ -527,7 +527,7 @@ assert.equal(offline.find((x) => x.key === "login").done, false, "login needed f
   assert.equal(linkVersionNewer("1.3.1", "1.3.1 (y)"), false);
   assert.throws(() => csPcPayload("update", { url, sha256: "x" }), /확인값/);
   const g5 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text: JSON.stringify(["써지컬 미니 볼 피어싱 얇은 0.8mm 20종", "데일리 미니 볼 피어싱 써지컬 0.8mm"]) }) });
-  assert.equal(g5.get().version, 27);
+  assert.equal(g5.get().version, 28);
   const sha = "c".repeat(64);
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace("w-works-official", "someone"), sha256: sha } }).ok, false, "only this repository");
   assert.equal(g5.post({ action: "request", token: TOKEN, kind: "update", options: { url: url.replace(commit, "main"), sha256: sha } }).ok, false, "pinned commit only");
@@ -1221,4 +1221,32 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.equal(g.post({ action: "noticeSave", token: TOKEN, base: 1, text: "x".repeat(30000) }).notice.text.length, 20000, "2만 자까지");
   assert.ok(g.post({ action: "noticeGet" }).error, "토큰 없으면 안 됨");
   console.log("csBoard.mock.test (notice v27): OK");
+}
+
+// v28 메이크샵 글자 깨짐 정리 — 바르게 다시 들어오면 상품명 갱신 · 깨진 글로 만든 AI 답변안 비우고 다시 추천(채택·등록 전만) · 잘린 AI 배열도 나눔
+{
+  let text = JSON.stringify(["새 추천 답변 하나입니다", "새 추천 답변 둘입니다"]);
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: () => ({ status: 200, text }) });
+  const snap = { kind: "문의", vendors: { 메이크샵: { 상태: "ok", 건수: 3 } }, days: 7, collectedAt: "2026-11-12 10:00", file: "x.json" };
+  const bad = (id) => ({ 업체: "메이크샵", 게시판: "Q&A", id, 날짜: "2026-11-12 09:00", 상품명: "�긽�뭹", 문의: "[援먰솚/諛섑뭹] �옱�엯怨�" });
+  g.post({ action: "ingest", token: COLLECTOR, rows: [bad("m1"), bad("m2"), bad("m3")], snapshot: snap });
+  const keyOf = (id) => g.post({ action: "list", token: TOKEN }).rows.find((r) => r.id === id);
+  assert.equal(keyOf("m1").drafts.length, 2, "처음엔 깨진 글로 AI 답변안이 달림");
+  // m2 는 사람이 이미 골라 둠 → 답변안 그대로
+  const m2 = keyOf("m2");
+  g.post({ action: "save", token: TOKEN, key: m2.key, baseVersion: m2.version, choice: { pick: 0, view: [0], edits: {}, hold: false }, editor: "김성수" });
+  text = '["고친 뒤 답변 하나입니다", "고친 뒤 답변 둘입니다", "잘린 답';   // 끝 ] 없이 잘린 AI 답
+  const good = (id) => ({ 업체: "메이크샵", 게시판: "Q&A", id, 날짜: "2026-11-12 09:00", 상품명: "핑크로켓 상품", 문의: "[교환/반품] 재입고 문의" });
+  const res = g.post({ action: "ingest", token: COLLECTOR, rows: [good("m1"), good("m2"), good("m3")], snapshot: { ...snap, collectedAt: "2026-11-12 11:00" } });
+  assert.equal(res.repaired, 2, "고른 m2 빼고 2줄 고침");
+  const m1 = keyOf("m1");
+  assert.equal(m1.product, "핑크로켓 상품", "상품명 갱신");
+  assert.equal(JSON.stringify(m1.drafts.map((d) => d.text)), JSON.stringify(["고친 뒤 답변 하나입니다", "고친 뒤 답변 둘입니다"]), "깨진 답변안 비우고 새로 · 잘린 배열도 하나하나");
+  assert.equal(keyOf("m2").drafts[0].text, "새 추천 답변 하나입니다", "고른 줄 답변안은 그대로");
+  assert.equal(keyOf("m2").product, "핑크로켓 상품", "고른 줄도 상품명은 갱신");
+  // 깨짐 없던 줄은 다시 들어와도 답변안 그대로
+  const before = JSON.stringify(keyOf("m1").drafts);
+  assert.equal(g.post({ action: "ingest", token: COLLECTOR, rows: [good("m1")], snapshot: { ...snap, collectedAt: "2026-11-12 12:00" } }).repaired, 0);
+  assert.equal(JSON.stringify(keyOf("m1").drafts), before);
+  console.log("csBoard.mock.test (v28 makeshop mojibake): OK");
 }

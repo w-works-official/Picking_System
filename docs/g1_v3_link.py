@@ -139,8 +139,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.26 (2026-11-11)"
-LINK_NOTE = "메이크샵 Q&A 등 게시판 답변 자동 등록 (간편답변과 같은 길 · 이미 답변 있으면 건너뜀)"
+LINK_VER = "1.27 (2026-11-12)"
+LINK_NOTE = "메이크샵 글자 깨짐 고침 (메이크샵 화면이 새 글자 방식 UTF-8 로 바뀜 — 자동 판단해서 읽음)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -635,8 +635,29 @@ def ss_reviews_core(G, br, cfg, now=None):
             pass
 
 
+# ───────── 1.27 (2026-11-12) 메이크샵 글자 깨짐 ─────────
+# 수집기의 메이크샵 수집 JS(MS_JS · MS_BOARDS_JS)는 관리자 화면을 늘 EUC-KR 로 풀어 읽음
+# → 메이크샵이 화면을 UTF-8 로 바꾼 뒤 '교환/반품' 이 '援먰솚/諛섑뭹' 처럼 깨져 들어옴 (11/12 확인)
+# → 먼저 UTF-8 로 엄격하게 풀어 보고, 안 되면 EUC-KR (예전 화면도 그대로 읽힘). 수집기 파일은 그대로, 여기서만 바꿔 끼움
+MS_DEC_OLD = "const dec = async u => new TextDecoder('euc-kr').decode(await (await fetch(u, {credentials:'include'})).arrayBuffer());"
+MS_DEC_NEW = ("const dec = async u => { const b = await (await fetch(u, {credentials:'include'})).arrayBuffer(); "
+              "try { return new TextDecoder('utf-8', {fatal: true}).decode(b); } catch (e) { return new TextDecoder('euc-kr').decode(b); } };")
+
+
+def patch_makeshop_charset(G):
+    done = []
+    for name in ("MS_JS", "MS_BOARDS_JS"):
+        js = getattr(G, name, None)
+        if isinstance(js, str) and MS_DEC_OLD in js:
+            setattr(G, name, js.replace(MS_DEC_OLD, MS_DEC_NEW))
+            done.append(name)
+    G._v3_ms_charset = done
+    return done
+
+
 def patch_review_collectors(G):
     G._v3_review_patch = True
+    patch_makeshop_charset(G)
     orig_ss = getattr(G, "collect_reviews_smartstore", None)
     if getattr(G, "collect_reviews_zigzag", None) and hasattr(G, "kst"):
         def collect_reviews_zigzag(br, cfg):

@@ -3,7 +3,7 @@
 //    kakao_order_send 가 만든 '업체명_MMDD.jpg'(·_2) 를 끌어다 놓아도 됨 (파일명 업체명 기준)
 //  · 업체명 ↔ 슬롯 메모로 짝 → [🖼 사진적용] = 짝 맞은 창마다 붙여넣기 (보내기는 사람이: 카톡 미리보기 창 [전송])
 //  · 그림은 이 브라우저 안에서만 만들고, 카톡 창으로만 갑니다 (어디에도 올리지 않음)
-import { groupByVendor, matchSlot, normName, readOrderSheet, vendorFromFileName } from "../domain/orderSheet.mjs?v=20261106-urgent1";
+import { groupByVendor, matchSlot, normName, readOrderSheet, vendorFromFileName } from "../domain/orderSheet.mjs?v=20261112-color1";
 
 const MEMO_KEY = "system_v3_cs_vendor_memo";
 export const DEFAULT_ORDER_MEMO = "• 전달된 실수량 꼭 필요 부탁드립니다\n• 단가 다를시 꼭 말씀 부탁드립니다\n감사합니다 ☺";
@@ -38,6 +38,41 @@ function wrap(g, text, width, maxLines) {
   return out;
 }
 
+// 11-12 대표님: 매입가가 0 이면 분홍칠 + "가격 확인 부탁드립니다"
+export const ZERO_PRICE_BG = "#FFC7CE";
+export const ZERO_PRICE_TEXT = "가격 확인\n부탁드립니다";
+export function isZeroPrice(v) {
+  const t = String(v ?? "").replace(/[\s,₩원]/g, "");
+  return t !== "" && /^0+(\.0+)?$/.test(t);
+}
+
+// 칠한 색 위 글자색 고르기 (11-12)
+function rgbOf(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ""));
+  return m ? m.slice(1).map((h) => parseInt(h, 16)) : null;
+}
+const lum = (c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+export function isDark(hex) {
+  const c = rgbOf(hex);
+  return !!c && lum(c) < 140;
+}
+// 11-12 대표님: 어두운 색은 연분홍(#FFC7CE) 정도 밝기까지만 흰색을 섞음 (밝은 색은 원본 그대로)
+export const MIN_LUM = 210;   // 연분홍(#FFC7CE) 정도의 밝기
+export function softColor(hex) {
+  const c = rgbOf(hex);
+  if (!c || lum(c) >= MIN_LUM) return c ? `#${c.map((v) => v.toString(16).padStart(2, "0")).join("").toUpperCase()}` : "";
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 20; i += 1) {
+    const t = (lo + hi) / 2;
+    if (lum(c.map((v) => v + (255 - v) * t)) >= MIN_LUM) hi = t; else lo = t;
+  }
+  return `#${c.map((v) => Math.round(v + (255 - v) * hi).toString(16).padStart(2, "0")).join("").toUpperCase()}`;
+}
+export function isReddish(hex) {
+  const c = rgbOf(hex);
+  return !!c && c[0] >= 0xc0 && c[0] - Math.max(c[1], c[2]) >= 0x40;
+}
+
 async function bitmapOf(blob) {
   try { return await createImageBitmap(blob); } catch { return null; }
 }
@@ -68,6 +103,9 @@ export async function renderVendorTable(document, { vendor, lines, memo = "", im
     if (r % 2) { g.fillStyle = "#f9fafb"; g.fillRect(pad, y, width - pad * 2, rowH); }
     x = pad;
     for (const col of COLS) {
+      const zero = col.key === "price" && isZeroPrice(line.price);   // 11-12: 매입가 0 → 분홍칠 + 가격 확인 문구
+      const bg = zero ? ZERO_PRICE_BG : softColor(line.colors?.[col.key] || "");   // 11-12: 엑셀에서 칠한 칸 색 그대로 (금액 변동 빨강 등)
+      if (bg) { g.fillStyle = bg; g.fillRect(x, y, col.w, rowH); }
       if (col.key === "photo") {
         const img = line.images?.[0] ? await image(line.images[0]) : null;
         const bmp = img ? await bitmapOf(new Blob([img.data], { type: img.mime })) : null;
@@ -81,10 +119,11 @@ export async function renderVendorTable(document, { vendor, lines, memo = "", im
         if (qty && line.urgent) { g.fillStyle = "#ffff00"; g.fillRect(x + 1, y + 1, col.w - 2, rowH - 2); }   // 급한 상품 (엑셀 노랑 그대로)
         const small = col.key === "price" || col.key === "code" || col.key === "no";
         g.font = qty ? `900 26px ${FONT}` : col.key === "no" ? `800 18px ${FONT}` : col.key === "extra" ? `800 16px ${FONT}` : small ? `500 15px ${FONT}` : `500 16px ${FONT}`;
-        g.fillStyle = qty ? "#111827" : col.key === "extra" ? "#dc2626" : "#111827";
+        g.fillStyle = qty ? "#111827" : col.key === "extra" && !isReddish(bg) ? "#dc2626" : "#111827";
         g.textAlign = qty || small ? "center" : "left";
         const tx = g.textAlign === "center" ? x + col.w / 2 : x + 8;
-        const parts = wrap(g, line[col.key], col.w - 16, 5);
+        if (zero) g.font = `800 13px ${FONT}`;
+        const parts = wrap(g, zero ? ZERO_PRICE_TEXT : line[col.key], col.w - (zero ? 6 : 16), 5);
         parts.forEach((t, i) => g.fillText(t, tx, y + rowH / 2 + (i - (parts.length - 1) / 2) * 22));
       }
       x += col.w;

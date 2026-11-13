@@ -432,6 +432,11 @@ const els = {
   toast: document.getElementById("toast"),
 };
 
+// 11-13 대표님 요청: 수량 2개 이상은 눈에 띄게 (핑크 바탕 · 빨강 굵은 글씨)
+function qtyMultiClass(item) {
+  return (Number(item?.quantity) || 1) >= 2 ? " qty-multi" : "";
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -3591,7 +3596,7 @@ function renderTray() {
                   <strong>${escapeHtml(item.ownCode || "-")}</strong>
                   <small>${escapeHtml(cleanOptionName(item.optionName, item.ownCode) || item.productName || "-")}</small>
                 </span>
-                <span class="tray-item-qty">${Number(item.quantity) || 1}개</span>
+                <span class="tray-item-qty${qtyMultiClass(item)}">${Number(item.quantity) || 1}개</span>
                 <span class="tray-item-state">${escapeHtml(meta.label)}</span>
               </button>`;
             })
@@ -3879,7 +3884,7 @@ function renderGoldInvoiceItem(invoice, item, invoiceIndex = 0, itemIndex = 0) {
       <small>${escapeHtml(item.ownCode || "-")} · ${productNameHtml(item.productName || "")}</small>
       ${renderPickingCustomOrderControls(invoice, item, { compact: true })}
     </div>
-    <span class="gold-item-qty">${Number(item.quantity) || 1}개</span>
+    <span class="gold-item-qty${qtyMultiClass(item)}">${Number(item.quantity) || 1}개</span>
     <div class="shortage-control gold-shortage-control">
       ${shortageQtyInput(invoice, item, shortage, "compact")}
     </div>
@@ -4330,7 +4335,7 @@ function renderShortageInvoiceItems(invoice) {
           <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "?ъ쭊"}</div>
           <strong>${escapeHtml(item.ownCode || "-")}</strong>
           <em class="${optionHasBarChange(item) ? "option-change" : ""}">${escapeHtml(cleanOptionName(item.optionName, item.ownCode) || item.productName || "-")}</em>
-          <b>${Number(item.quantity) || 1}개</b>
+          <b class="${qtyMultiClass(item).trim()}">${Number(item.quantity) || 1}개</b>
           <small>${itemCancelled ? "취소" : shortage > 0 ? `미송 ${shortage}` : "정상"}</small>
           <span class="shortage-invoice-action">${openShortageRow ? `<button class="btn primary mini shortage-invoice-complete-btn" data-action="shortage-repicked" data-shortage-inline-complete data-shortage-key="${escapeHtml(openShortageKey)}" type="button" ${completeDisabled}>미송피킹완료</button>` : ""}</span>
         </div>`;
@@ -4725,7 +4730,7 @@ function renderInspectionPanels(options = {}) {
             ${selectedLabelTarget ? `<span class="workflow-label-cell">${escapeHtml(labelNo)}</span>` : ""}
             <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
             <em class="${optionClass(item, "workflow-option-cell")}">${shipmentMemberBadge(item)}${escapeHtml(option)}</em>
-            <b>${Number(item.quantity) || 1}</b>
+            <b class="${qtyMultiClass(item).trim()}">${Number(item.quantity) || 1}</b>
             <strong class="workflow-product-cell">${productNameHtml(product)}</strong>
             <span class="workflow-amount-cell">${escapeHtml(formatAmount(item.itemSalesAmount))}</span>
             <div class="workflow-code-stack">
@@ -5205,7 +5210,7 @@ function renderLegacyCsInvoicePanels() {
             <span class="workflow-seq-cell">${itemSequenceNo(item, index)}${barChangeMemoHtml(item, sellpiaOrderMemo)}</span>
             <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
             <em class="${optionClass(item, "workflow-option-cell")}">${escapeHtml(option)}</em>
-            <b>${Number(item.quantity) || 1}</b>
+            <b class="${qtyMultiClass(item).trim()}">${Number(item.quantity) || 1}</b>
             <strong class="workflow-product-cell">${productNameHtml(product)}</strong>
             <span class="workflow-amount-cell">${escapeHtml(formatAmount(item.itemSalesAmount))}</span>
             <strong class="workflow-code-cell">${escapeHtml(item.ownCode || "-")}</strong>
@@ -5310,7 +5315,7 @@ function renderCompletedPanels() {
             <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
             <strong>${escapeHtml(item.ownCode || "-")}</strong>
             <em class="${optionHasBarChange(item) ? "option-change" : ""}">${escapeHtml(cleanOptionName(item.optionName, item.ownCode) || item.productName || "-")}</em>
-            <b>${Number(item.quantity) || 1}개</b>
+            <b class="${qtyMultiClass(item).trim()}">${Number(item.quantity) || 1}개</b>
             ${rowClass ? '<small>미송피킹 완료</small>' : "<small>전체상품</small>"}
           </div>`;
         })
@@ -5397,7 +5402,7 @@ function renderPickingRow(invoice, item, invoiceIndex = 0, itemIndex = 0) {
         ${renderPickingCustomOrderControls(invoice, item)}
       </div>
       <div class="picking-controls">
-        <div class="qty-tile">${Number(item.quantity) || 1}개</div>
+        <div class="qty-tile${qtyMultiClass(item)}">${Number(item.quantity) || 1}개</div>
         ${renderInvoiceSlots(invoiceIndex, item, itemIndex)}
         <div class="shortage-control">
           <button data-action="shortage" data-delta="-1" data-order-group="${escapeHtml(invoice.orderGroupNo)}" data-item-no="${escapeHtml(item.sellpiaItemNo)}" ${itemIsEffectivelyCancelled(invoice, item) ? "disabled" : ""}>−</button>

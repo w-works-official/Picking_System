@@ -1280,7 +1280,27 @@ _G127 = types.SimpleNamespace(
 assert L.patch_makeshop_charset(_G127) == ["MS_JS", "MS_BOARDS_JS"]
 assert L.MS_DEC_OLD not in _G127.MS_JS and "TextDecoder('utf-8', {fatal: true})" in _G127.MS_JS and "TextDecoder('euc-kr')" in _G127.MS_JS
 assert L.patch_makeshop_charset(_G127) == [], "두 번 바꾸지 않음"
-assert L.LINK_VER.startswith("1.28") and "사진 보기" in L.LINK_NOTE
+assert L.LINK_VER >= "1.28"
 # 수집기 원본(11/12 드라이브 g1_cs_collector.py)의 줄과 글자 하나 다르지 않게 맞춰 둔 것
 assert L.MS_DEC_OLD == "const dec = async u => new TextDecoder('euc-kr').decode(await (await fetch(u, {credentials:'include'})).arrayBuffer());"
 print("g1V3Link makeshop charset (1.27): OK")
+
+# 1.29 에이블리 문의(채팅방): 목록 sno · 대화 member_type → 상담톡 대화 · 게시판 줄
+assert L.ably_list_urls("https://api.a-bly.com/seller/contact_rooms/?start_date=2026-10-13&order=-x&status%5B%5D=1&status%5B%5D=2")[1] == "https://api.a-bly.com/seller/contact_rooms/?start_date=2026-10-13&order=-x&status%5B%5D=3"
+assert L.ABLY_LIST_RE.search("https://api.a-bly.com/seller/contact_rooms/?a=1") and not L.ABLY_LIST_RE.search("https://api.a-bly.com/seller/contact_rooms/12/")
+_room = {"sno": 98179046, "status": 2, "member": {"name": "가나다"}, "goods": {"sno": 5, "name": "나비 바벨"}, "created_at": "2026-11-12T15:10:00", "updated_latest_message_at": "2026-11-12T17:50:00"}
+_det = {"contact_room": {"get_status_display": "진행중", "parent_category_display": "주문", "child_category_display": "기타 (주문)",
+        "order_item": {"goods": {"name": "나비 바벨", "image": "https://img/x.jpg"}, "total_price": 8200}},
+        "contact_messages": [{"member_type": "USER", "type": 3, "content": None, "order_item": {"goods": {"name": "나비 바벨"}}, "created_at": "2026-11-12T15:10:00"},
+                             {"member_type": "SELLER", "type": 5, "content": None, "card": {"title": "안녕하세요"}, "created_at": "2026-11-12T15:10:01"},
+                             {"member_type": "USER", "type": 1, "content": "귀걸이침으로 변경 후 배송해주세요", "created_at": "2026-11-12T15:11:00"},
+                             {"member_type": "SELLER", "type": 1, "content": "지운 글", "deleted_at": "2026-11-12", "created_at": "2026-11-12T15:12:00"}]}
+_c = L.ably_conv(_room, _det)
+assert _c["id"] == "98179046" and _c["name"] == "가나다" and _c["tag"] == "주문 / 기타 (주문)" and _c["unread"] == 1
+assert [m["who"] for m in _c["messages"]] == ["c", "s", "c"] and _c["messages"][0]["text"] == "[주문 상품] 나비 바벨" and _c["messages"][1]["text"] == "안녕하세요"
+assert _c["preview"].startswith("귀걸이침") and _c["aux"]["items"][0]["name"] == "나비 바벨" and _c["aux"]["items"][0]["price"] == "8200"
+_r = L.ably_board_row(type("G", (), {"kst": staticmethod(lambda x: x)}), _room, _c)
+assert _r["업체"] == "에이블리" and _r["게시판"] == "문의방" and _r["id"] == "98179046" and _r["문의"].startswith("귀걸이침") and "member" not in _r["원본"]
+assert L.ably_conv({"sno": 1, "status": 3}, {"contact_room": {"get_status_display": "완료"}, "contact_messages": [{"member_type": "USER", "content": "감사"}]})["unread"] == 0
+assert L.LINK_VER.startswith("1.29")
+print("g1V3Link ably chat (1.29): OK")

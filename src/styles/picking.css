@@ -7048,3 +7048,7 @@ button.photo-viewer-star:hover { background: rgba(15, 23, 42, .85); color: #facc
 .photo-change-btn.is-requested { border-color: #d1d5db; color: #6b7280; background: #f3f4f6; }
 .photo-change-btn[hidden] { display: none; }
 .photo-change-badge { display: inline-block; margin-top: 2px; padding: 0 6px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 800; }
+
+/* 2026-11-13 대표님 요청: 수량 2개 이상 강조 — 핑크 바탕 · 빨강 굵은 글씨 (피킹 · 검품 · 트레이 · 골드) */
+.qty-multi { color: #e11d48 !important; font-weight: 1000 !important; background: #ffe4e6; border-radius: 6px; box-shadow: inset 0 0 0 1.5px #fda4af; padding: 0 5px; }
+.qty-tile.qty-multi { background: #e11d48; color: #ffffff !important; border-color: #be123c; box-shadow: 0 0 0 3px #fecdd3; padding: 0; }

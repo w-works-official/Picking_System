@@ -11,7 +11,7 @@ export const MSN_PANELS = {};
 // 2026-11-05: 수집기 PC 웹연결 1.10 의 "메신저 창 도우미" (이 PC 안 127.0.0.1) — 카톡 창을 슬롯에 붙이기·항상 위·일괄 정렬
 export const MSN_HELPER_URL = "http://127.0.0.1:47811/msn";
 // 11-09: 이 버전보다 낮은 창 도우미는 화면이 알아서 새 버전으로 바꿈 (1.25 부터 스스로 업데이트 /msn/update)
-export const MSN_HELPER_MIN = "1.25";
+export const MSN_HELPER_MIN = "1.28";   // 11-13: 1.28 = 카톡 대화창만 붙임 (사진 보기 창 자유 · 네이트온 뺌)
 export const MSN_HELPER_INSTALLER = "../tools/msn_helper.bat";
 const verNums = (v) => (String(v || "").split(" ")[0].match(/\d+/g) || []).slice(0, 3).map(Number);
 export function helperOutdated(ver, min = MSN_HELPER_MIN) {
@@ -289,7 +289,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
         else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
         st.helper.perm = perm;
       });
-      el.title = on ? `창 도우미 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡·네이트온 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "이 PC에 창 도우미가 켜져 있어야 합니다 (처음이면 💬 메신저 탭 → 💻 이 PC 에서 메신저 쓰기). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
+      el.title = on ? `창 도우미 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "이 PC에 창 도우미가 켜져 있어야 합니다 (처음이면 💬 메신저 탭 → 💻 이 PC 에서 메신저 쓰기). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
     }
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
     const cta = $("[data-msn-cta]");
@@ -476,7 +476,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       const list = r.windows || [];
       const ok = list.filter((w) => w.ok);
       const lines = list.map((w) => `${w.ok ? "✓" : "✕"} ${w.exe} · ${w.title || "(제목 없음)"} · ${w.w}×${w.h}${w.tool ? " · 도구창" : ""}${w.min ? " · 최소화" : ""}`);
-      say(`창 도우미가 찾은 대화창 ${ok.length}개 (✓ = 붙일 수 있음)${lines.length ? `\n${lines.join("\n")}` : " — 카톡·네이트온 창이 하나도 안 보입니다"}`, ok.length ? "is-ok" : "is-bad");
+      say(`창 도우미가 찾은 대화창 ${ok.length}개 (✓ = 붙일 수 있음)${lines.length ? `\n${lines.join("\n")}` : " — 카톡 창이 하나도 안 보입니다"}`, ok.length ? "is-ok" : "is-bad");
     } catch (error) { say(`진단 실패: ${error?.message || error} — [🖥 화면 연결]을 다시 눌러 주세요`, "is-bad"); }
   }
 
@@ -505,7 +505,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
       }
       const zw = zoomWarn();
       if (zw) { say(zw, "is-bad"); pingHelper(); return; }
-      say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위)${named ? ` — 그중 ${named}개는 메모 이름으로` : ""}.` : vendor ? "메모 이름과 맞는 카톡 창이 없습니다 — 업체 대화창을 먼저 열고, 슬롯 메모에 카톡방 이름(일부)을 적어 주세요." : "열린 카톡·네이트온 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
+      say(r.placed ? `열린 대화창 ${r.placed}개를 슬롯에 같은 크기로 맞췄습니다 (항상 위)${named ? ` — 그중 ${named}개는 메모 이름으로` : ""}.` : vendor ? "메모 이름과 맞는 카톡 창이 없습니다 — 업체 대화창을 먼저 열고, 슬롯 메모에 카톡방 이름(일부)을 적어 주세요." : "열린 카톡 대화창이 없습니다 — 대화창을 먼저 열어 주세요.", r.placed ? "is-ok" : "is-bad");
       pingHelper();
     } catch (error) { say(`일괄 붙이기 실패: ${error?.message || error}`, "is-bad"); }
   }

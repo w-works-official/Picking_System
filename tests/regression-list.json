@@ -95,5 +95,6 @@
   "shipMemo.mock.test.mjs",
   "vendorMent.mock.test.mjs",
   "shipOrderMatch.mock.test.mjs",
-  "pickingNotice.mock.test.mjs"
+  "pickingNotice.mock.test.mjs",
+  "qtyMultiStyle.contract.test.mjs"
 ]

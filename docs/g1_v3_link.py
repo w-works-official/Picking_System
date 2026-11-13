@@ -132,6 +132,11 @@
 1.25 (2026-11-09) 메신저 전용 PC 창 도우미 스스로 업데이트
   · POST /msn/update: GitHub main 의 이 파일을 받아 문법·버전 확인 → 더 새 버전이면 바꿔 쓰고(전 버전은 .bak) 스스로 다시 켬
   · V3 화면이 창 도우미 버전이 낮으면 알아서 부름 — 사람이 끄고 켤 일 없음 · 수집기(마스터) PC 는 기존 [업데이트]로만
+
+1.28 (2026-11-13) 메신저 창 붙이기 = 카톡 대화창만
+  · 카톡에서 사진을 열면 사진 보기 창까지 슬롯 틀에 붙어 비율이 망가지고 다시 못 펼치던 문제 → 메시지 입력칸이 있는 대화창만 붙임. 사진 보기 창 등은 자유롭게
+  · 이미 붙어 버린 사진 창은 '항상 위'를 풀고 놓아 줌
+  · 네이트온은 정리(붙이기·일괄 붙이기) 대상에서 뺌 (진단 목록에는 보임)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -139,8 +144,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.27 (2026-11-12)"
-LINK_NOTE = "메이크샵 글자 깨짐 고침 (메이크샵 화면이 새 글자 방식 UTF-8 로 바뀜 — 자동 판단해서 읽음)"
+LINK_VER = "1.28 (2026-11-13)"
+LINK_NOTE = "메신저 창 붙이기 = 카톡 대화창만 (사진 보기 창은 자유롭게 · 네이트온 뺌)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -2141,7 +2146,7 @@ def log_file():
 # 이 PC 안(127.0.0.1)에서만 받고, System V3 화면(w-works-official.github.io)에서 온 요청만 따름. 카톡 창 위치·크기만 바꿈(내용은 안 봄)
 MSN_PORT = 47811
 MSN_ORIGINS = ("https://w-works-official.github.io",)
-MSN_PROCS = ("kakaotalk", "nateon")                          # 프로그램 이름 앞부분 (1.11: NateOnMain.exe 등 네이트온 여러 이름)
+MSN_PROCS = ("kakaotalk",)                                   # 프로그램 이름 앞부분 (1.28: 네이트온은 정리 대상에서 뺌)
 MSN_SKIP_TITLES = ("카카오톡", "kakaotalk", "네이트온", "nateon")   # 친구 목록(본 창)은 붙이지 않음
 MSN_SNAP_PX = 90          # 창 왼쪽 위 모서리가 슬롯 왼쪽 위에서 이만큼(px) 안이면 붙임 (창 가운데가 슬롯 안이어도 붙임)
 MSN_TICK = 0.15
@@ -2157,6 +2162,11 @@ def msn_is_messenger(exe, title):
     t = str(title or "").strip()
     e = str(exe or "").lower()
     return e.endswith(".exe") and e.startswith(MSN_PROCS) and bool(t) and t.lower() not in MSN_SKIP_TITLES
+
+
+def msn_is_chat(classes):
+    """1.28: 카톡 대화창인가 — 메시지 입력칸(RICHEDIT…)이 있는 창만. 사진 보기 창·이미지 전송 창 등은 입력칸이 없어 빠짐"""
+    return any(str(c or "").lower().startswith("richedit") for c in (classes or ()))
 
 
 MSN_SLOTS_MAX = 30
@@ -2309,7 +2319,7 @@ class MsnHelper:
             alive = {h for h, _, _ in wins}
             for h in list(self.managed):
                 if h not in alive:
-                    self.managed.pop(h, None)
+                    self._release(h)                # 1.28: 대화창이 아닌 창(사진 보기 등)은 '항상 위'를 풀고 놓아 줌
             for h in list(self.last):
                 if h not in alive:
                     self.last.pop(h, None)
@@ -2572,6 +2582,8 @@ class MsnWin:
                 l, t, r, b = self._visible(hwnd)
                 if r - l < 200 or b - t < 200:      # 알림 팝업 같은 작은 창 제외
                     return True
+                if not self._is_chat(hwnd):         # 1.28: 사진 보기 창 등 입력칸 없는 창 제외
+                    return True
                 out.append((int(hwnd), title, (l, t, r, b)))
             except Exception:
                 pass
@@ -2581,6 +2593,37 @@ class MsnWin:
 
     def mouse_down(self):
         return bool(self.u.GetAsyncKeyState(0x01) & 0x8000)
+
+    def _child_classes(self, hwnd, limit=400):
+        """창 안 모든 하위 창의 클래스 이름"""
+        c, W = self.c, self.W
+        if not hasattr(self, "_ecw"):
+            self.u.EnumChildWindows.argtypes = [W.HWND, c.WINFUNCTYPE(W.BOOL, W.HWND, W.LPARAM), W.LPARAM]
+            self.u.GetClassNameW.argtypes, self.u.GetClassNameW.restype = [W.HWND, W.LPWSTR, c.c_int], c.c_int
+            self._ecw = True
+        out = []
+
+        def cb(h, _):
+            buf = c.create_unicode_buffer(128)
+            self.u.GetClassNameW(h, buf, 128)
+            out.append(buf.value)
+            return len(out) < limit
+        self.u.EnumChildWindows(hwnd, c.WINFUNCTYPE(W.BOOL, W.HWND, W.LPARAM)(cb), 0)
+        return out
+
+    def _is_chat(self, hwnd):
+        """1.28: 메시지 입력칸이 있는 대화창인가 (창마다 한 번 보고 기억)"""
+        if not hasattr(self, "_chat"):
+            self._chat = {}
+        k = int(hwnd)
+        if k not in self._chat:
+            if len(self._chat) > 500:
+                self._chat.clear()
+            try:
+                self._chat[k] = msn_is_chat(self._child_classes(hwnd))
+            except Exception:
+                self._chat[k] = False
+        return self._chat[k]
 
     def scan(self):
         """진단: 보이는 창 중 카톡·네이트온 프로그램 창 목록 (이 PC 화면에만 보여 줌)"""
@@ -2599,7 +2642,7 @@ class MsnWin:
                 l, t, r, b = self._visible(hwnd)
                 out.append({"exe": exe, "title": buf.value.strip()[:40], "w": r - l, "h": b - t,
                             "tool": bool(self.u.GetWindowLongW(hwnd, -20) & 0x80), "min": bool(self.u.IsIconic(hwnd)),
-                            "ok": msn_is_messenger(exe, buf.value) and r - l >= 200 and b - t >= 200})
+                            "ok": msn_is_messenger(exe, buf.value) and r - l >= 200 and b - t >= 200 and self._is_chat(hwnd)})
             except Exception:
                 pass
             return len(out) < 30

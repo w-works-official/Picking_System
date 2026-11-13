@@ -25,5 +25,5 @@ for (const t of ["🧪 테스트용", "🧪 가상셋팅", "cs-sample-toggle", "
 const guide = readFileSync(new URL("../src/app/csSetupGuide.mjs", import.meta.url), "utf8");
 assert.ok(!guide.includes("🧪 테스트용"));
 const chat = readFileSync(new URL("../src/app/chatTalkPanel.mjs", import.meta.url), "utf8");
-assert.match(chat, /function useSample[^}]*st\.data = \{ smart: \[\], kakao: \[\] \}/, "상담톡 예시 대화 안 보여 줌");
+assert.match(chat, /function useSample[^}]*st\.data = perZone\(\(\) => \[\]\)/, "상담톡 예시 대화 안 보여 줌");
 console.log("pickingNotice.mock.test: OK");

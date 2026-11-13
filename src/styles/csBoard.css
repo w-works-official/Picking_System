@@ -2327,13 +2327,20 @@ a.cs-btn {
 .cs-left-tab.tab-chat { background: #ede9fe; color: #6d28d9; }
 .cs-left-tab.tab-chat.active { background: #7c3aed; color: #ffffff; }
 .cs-right-panel[data-right-panel="chat"] { grid-template-rows: minmax(0, 1fr); }
-.ct { position: relative; min-height: 560px; height: calc(100dvh - 124px); display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 6px 10px 10px; min-width: 0; box-sizing: border-box; }
+.ct { position: relative; min-height: 840px; height: calc(100dvh - 124px); display: grid; grid-auto-rows: minmax(0, 1fr); gap: 8px; padding: 6px 10px 10px; min-width: 0; box-sizing: border-box; }
 .ct-msg { position: absolute; z-index: 5; top: 8px; left: 50%; transform: translateX(-50%); margin: 0; padding: 4px 12px; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .18); font-size: 12.5px; font-weight: 700; color: #be123c; }
 .ct-msg:empty { display: none; }
 .ct-msg.is-ok { color: #047857; }
 /* 11-11 넓으면 메시지 창은 최대 폭 · 보조내용은 바로 옆 · 남는 건 오른쪽 여백 */
 .ct-zone { --ct-c: #03c75a; --ct-soft: #e8f9ef; --ct-me: #03c75a; --ct-me-ink: #fff; --ct-talk-bg: #f4f6f8; min-height: 0; width: fit-content; max-width: 100%; box-sizing: border-box; display: grid; grid-template-columns: 230px minmax(0, max-content) 240px; border: 2px solid var(--ct-c); border-radius: 10px; overflow: hidden; background: #fff; }
 .ct-zone.ct-kakao { --ct-c: #f2c500; --ct-soft: #fffbe0; --ct-me: #fee500; --ct-me-ink: #191919; --ct-talk-bg: #b2c7da; }
+/* 11-13 에이블리 문의 (앱 채팅방 — 판매자 말은 파랑) · 구역 머리 ⠿ 끌어서 순서 바꾸기 */
+.ct-zone.ct-ably { --ct-c: #111111; --ct-soft: #f4f4f5; --ct-me: #2f6bff; --ct-me-ink: #fff; --ct-talk-bg: #f8fafc; }
+.ct-list-head[draggable="true"] { cursor: grab; user-select: none; }
+.ct-list-head[draggable="true"]:active { cursor: grabbing; }
+.ct-grip { color: #94a3b8; font-size: 14px; line-height: 1; letter-spacing: -1px; }
+.ct-zone.is-dragging { opacity: .45; }
+.ct-zone.is-drop { outline: 3px dashed #7c3aed; outline-offset: 2px; }
 .ct-list { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border-right: 1px solid #e2e8f0; background: #fff; }
 .ct-list-head, .ct-aux-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: var(--ct-soft); border-bottom: 1px solid #e2e8f0; font-size: 13px; }
 .ct-list-head small { color: #64748b; font-weight: 700; font-size: 11.5px; }

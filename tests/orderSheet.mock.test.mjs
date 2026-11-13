@@ -1,7 +1,7 @@
 // 📦 거래처 메신저 — 주문서(PT-LIST xlsx) 읽기·업체 묶기·슬롯 메모 짝 (2026-11-05)
 import assert from "node:assert/strict";
 import { deflateRawSync } from "node:zlib";
-import { groupByVendor, isYellow, matchSlot, normName, readOrderSheet, vendorFromFileName, vendorName, yellowStyles, zipEntries } from "../src/domain/orderSheet.mjs";
+import { colorOf, fillStyles, groupByVendor, isYellow, themeColors, matchSlot, normName, readOrderSheet, vendorFromFileName, vendorName, yellowStyles, zipEntries } from "../src/domain/orderSheet.mjs";
 
 assert.equal(vendorName("0-세븐피어싱 [ 1 ]"), "세븐피어싱");
 assert.equal(vendorName("0-스콜피온 (마그마) [ 12 ]"), "스콜피온 (마그마)");
@@ -71,4 +71,34 @@ assert.deepEqual([img.mime, Buffer.from(img.data).toString("hex")], ["image/jpeg
 assert.deepEqual(groupByVendor(r.lines).map((g) => [g.vendor, g.lines.length]), [["세븐피어싱", 2], ["수진사", 1]], "업체별 (주문서 순서)");
 await assert.rejects(readOrderSheet(Buffer.from("not a zip")), /xlsx/);
 await assert.rejects(readOrderSheet(zip({ "xl/workbook.xml": [`<workbook><sheets><sheet r:id="rId1"/></sheets></workbook>`, 0], "xl/_rels/workbook.xml.rels": [`<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>`, 0], "xl/worksheets/sheet1.xml": [`<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>아무거나</t></is></c></row></sheetData></worksheet>`, 0] })), /머리줄/);
+
+// 11-12: 칠한 색 그대로 — rgb · 테마(+tint) · indexed, 줄 전체 서식(row s), 흰색은 칠 없음
+{
+  const theme = themeColors(`<a:theme><a:themeElements><a:clrScheme name="Office"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1><a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1><a:dk2><a:srgbClr val="44546A"/></a:dk2><a:lt2><a:srgbClr val="E7E6E6"/></a:lt2><a:accent1><a:srgbClr val="4472C4"/></a:accent1><a:accent2><a:srgbClr val="ED7D31"/></a:accent2><a:accent3><a:srgbClr val="A5A5A5"/></a:accent3><a:accent4><a:srgbClr val="FFC000"/></a:accent4><a:accent5><a:srgbClr val="5B9BD5"/></a:accent5><a:accent6><a:srgbClr val="70AD47"/></a:accent6></a:clrScheme></a:themeElements></a:theme>`);
+  assert.deepEqual(theme.slice(0, 5), ["FFFFFF", "000000", "E7E6E6", "44546A", "4472C4"], "테마 순서 lt1·dk1·lt2·dk2·accent1");
+  assert.equal(colorOf(`<fgColor rgb="FFFF0000"/>`, theme), "#FF0000");
+  assert.equal(colorOf(`<fgColor theme="5" tint="0.79998168889431442"/>`, theme), "#FBE5D6", "테마 + 밝게");
+  assert.equal(colorOf(`<fgColor indexed="10"/>`), "#FF0000");
+  assert.equal(colorOf(`<fgColor auto="1"/>`), "");
+  const st = `<styleSheet><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFF0000"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/></patternFill></fill></fills><cellXfs count="5"><xf fillId="0"/><xf fillId="2" applyFill="1"/><xf fillId="3" applyFill="1"/><xf fillId="4" applyFill="1"/><xf fillId="1"/></cellXfs></styleSheet>`;
+  assert.deepEqual([...fillStyles(st)], [[1, "#FF0000"], [3, "#FFC7CE"]], "흰색·회색무늬 빼고");
+  const sh = `<worksheet><sheetData>
+<row r="1"><c r="A1" t="inlineStr"><is><t>순번</t></is></c><c r="C1" t="inlineStr"><is><t>옵션명</t></is></c><c r="D1" t="inlineStr"><is><t>발주량</t></is></c><c r="H1" t="inlineStr"><is><t>매입처</t></is></c></row>
+<row r="2"><c r="A2" s="1"><v>1</v></c><c r="C2" s="1" t="inlineStr"><is><t>금액변동</t></is></c><c r="D2" s="1"><v>3</v></c><c r="H2" s="1" t="inlineStr"><is><t>0-어썸 [ 4 ]</t></is></c></row>
+<row r="3" s="3" customFormat="1"><c r="A3"><v>2</v></c><c r="C3" s="2" t="inlineStr"><is><t>흰칸</t></is></c><c r="D3"><v>1</v></c><c r="H3" t="inlineStr"><is><t>0-어썸 [ 4 ]</t></is></c></row>
+<row r="4"><c r="A4"><v>3</v></c><c r="D4"><v>5</v></c><c r="H4" t="inlineStr"><is><t>0-어썸 [ 4 ]</t></is></c></row>
+</sheetData></worksheet>`;
+  const xx = zip({
+    "xl/workbook.xml": [`<workbook><sheets><sheet r:id="rId1"/></sheets></workbook>`, 0],
+    "xl/_rels/workbook.xml.rels": [`<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>`, 0],
+    "xl/worksheets/sheet1.xml": [sh, 8],
+    "xl/styles.xml": [st, 8],
+  });
+  const rr = await readOrderSheet(xx);
+  assert.deepEqual(rr.lines.map((l) => l.colors), [
+    { no: "#FF0000", option: "#FF0000", qty: "#FF0000", vendor: "#FF0000" },
+    { no: "#FFC7CE", qty: "#FFC7CE", vendor: "#FFC7CE" },
+    {},
+  ], "칸 색 · 줄 전체 색(칸 서식 없는 칸) · 흰칸은 칠 없음 · 안 칠한 줄은 빈 값");
+}
 console.log("orderSheet.mock.test: OK");

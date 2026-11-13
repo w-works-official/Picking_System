@@ -661,6 +661,6 @@ if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]"
   document.querySelectorAll("[data-msn-panel]").forEach((root) => {
     const inst = mountMsnSlots({ document, window, storage, root });
     if (inst?.group === "vendor") import("./vendorMent.mjs?v=20261111-ment2").then((m) => m.mountVendorMent({ document, window, storage, root: root.querySelector("[data-vendor-ment]"), slotsRoot: root })).catch((e) => inst.say(`전체 멘트를 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
-    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261110-seq1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
+    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261112-color1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
   });
 }

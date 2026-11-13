@@ -840,10 +840,11 @@ L.run_login_job, L.run_collect_job, L._G = keep_login, keep_collect, keep_G
 # 2026-11-05 (1.10): 메신저 창 도우미 — 끌어 가까이 놓으면 슬롯에 딱 맞춤 · 항상 위 · 일괄 정렬 · 127.0.0.1 + System V3 화면만
 assert L.msn_origin_ok("https://w-works-official.github.io") and L.msn_origin_ok("http://127.0.0.1:5173")
 assert not L.msn_origin_ok("https://evil.example") and not L.msn_origin_ok("")
-assert L.msn_is_messenger("KakaoTalk.exe", "고객 A") and L.msn_is_messenger("NateOn.exe", "거래처 김대리"), "카톡·네이트온 대화창"
+assert L.msn_is_messenger("KakaoTalk.exe", "고객 A") and not L.msn_is_messenger("NateOn.exe", "거래처 김대리"), "1.28: 카톡 대화창만 (네이트온 뺌)"
 assert not L.msn_is_messenger("NateOn.exe", "네이트온") and not L.msn_is_messenger("KakaoTalk.exe", "카카오톡"), "본 창(친구 목록)은 제외"
 assert not L.msn_is_messenger("chrome.exe", "고객 A") and not L.msn_is_messenger("nateon.exe", "  ")
-assert L.msn_is_messenger("NateOnMain.exe", "김대리") and L.msn_is_messenger("nateonmsg.exe", "대화"), "1.11: 네이트온 여러 프로그램 이름"
+assert not L.msn_is_messenger("NateOnMain.exe", "김대리") and not L.msn_is_messenger("nateonmsg.exe", "대화"), "1.28: 네이트온 정리 대상 아님"
+assert L.msn_is_chat(["EVA_VH_ListControl_Dblclk", "RICHEDIT50W"]) and not L.msn_is_chat(["EVA_Window", "EVA_VH_ListControl"]) and not L.msn_is_chat([]), "1.28: 입력칸 있는 대화창만 (사진 보기 창 제외)"
 assert L.msn_clean_slots([{"x": 10, "y": 20, "w": 400, "h": 560}, {"x": "a"}, {"x": 0, "y": 0, "w": 50, "h": 50}]) == [(10, 20, 400, 560)]
 S3 = [(100, 200, 400, 560), (520, 200, 400, 560), (940, 200, 400, 560)]
 assert L.msn_snap_target((560, 240, 900, 700), S3) == 1, "왼쪽 위 모서리가 가까우면 그 슬롯"
@@ -930,7 +931,7 @@ mh.tick()                                                      # (실제로는 �
 fa.down = True; fa.wins[22] = ("고객 B", (140, 210, 540, 770)); mh.tick(); fa.down = False; mh.tick()
 assert mh.managed == {22: 0} and fa.top[11] is False, "같은 슬롯에 새 창을 붙이면 원래 창은 항상 위만 풀림"
 del fa.wins[22]; mh.tick()
-assert mh.managed == {}, "닫힌 창은 잊음"
+assert mh.managed == {} and fa.top[22] is False, "닫힌 창·대화창이 아닌 창(1.28 사진 보기)은 잊고 항상 위 풀림"
 assert mh.release_all()["ok"]
 assert L.MsnHelper(fa).arrange()["ok"] is False, "슬롯 위치를 못 받았으면 정렬 안 함"
 assert L.msn_helper_start(print) is None or os.name == "nt", "Windows 가 아니면 켜지 않음"
@@ -1279,7 +1280,7 @@ _G127 = types.SimpleNamespace(
 assert L.patch_makeshop_charset(_G127) == ["MS_JS", "MS_BOARDS_JS"]
 assert L.MS_DEC_OLD not in _G127.MS_JS and "TextDecoder('utf-8', {fatal: true})" in _G127.MS_JS and "TextDecoder('euc-kr')" in _G127.MS_JS
 assert L.patch_makeshop_charset(_G127) == [], "두 번 바꾸지 않음"
-assert L.LINK_VER.startswith("1.27") and "깨짐" in L.LINK_NOTE
+assert L.LINK_VER.startswith("1.28") and "사진 보기" in L.LINK_NOTE
 # 수집기 원본(11/12 드라이브 g1_cs_collector.py)의 줄과 글자 하나 다르지 않게 맞춰 둔 것
 assert L.MS_DEC_OLD == "const dec = async u => new TextDecoder('euc-kr').decode(await (await fetch(u, {credentials:'include'})).arrayBuffer());"
 print("g1V3Link makeshop charset (1.27): OK")

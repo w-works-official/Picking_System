@@ -4,13 +4,30 @@
 //  · 보내기는 사람이: 입력창에서 Enter = 매체 창에 붙이고 발송 (11-11 사장님 요청 · Shift+Enter = 줄바꿈)
 //    매체 창에 붙이는 일은 수집기 PC(2단계)가 함 — 그 전까지 Enter = 복사만 (매체 창에서 Ctrl+V → Enter)
 //  · 수집기 PC 가 대화를 넣기 전에는 예시 대화로 화면만 보여 줌
+//  · 11-13 에이블리 문의(앱 채팅방)도 한 구역 — 구역 3개는 머리(⠿)를 끌어서 위아래 순서를 바꿈 (이 기기에 기억)
 //  · 11-11 보조내용에 상담 상품 카드 (사진 · 상품명 · 옵션 · 주문) — 톡톡 오른쪽 상품 정보를 수집기가 읽어 옴 (시트 v21)
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const CHAT_SLOT_CHOICES = [4, 6, 8, 10];
 export const CHAT_ZONES = [
   { key: "smart", title: "스마트스토어 톡톡", icon: "N", auxTitle: "스마트요약 · 구매이력" },
   { key: "kakao", title: "카카오 해피톡", icon: "K", auxTitle: "고객정보" },
+  { key: "ably", title: "에이블리 문의", icon: "A", auxTitle: "상담 정보" },
 ];
+const ZONE_KEYS = CHAT_ZONES.map((z) => z.key);
+const perZone = (fn) => Object.fromEntries(ZONE_KEYS.map((k) => [k, fn(k)]));
+// 11-13 구역 순서: 기억한 순서(아는 것만) + 새로 생긴 구역은 뒤에
+export function zoneOrder(saved = []) {
+  const known = (Array.isArray(saved) ? saved : []).filter((k, i, a) => ZONE_KEYS.includes(k) && a.indexOf(k) === i);
+  return [...known, ...ZONE_KEYS.filter((k) => !known.includes(k))];
+}
+// 끌어 놓기: from 구역을 to 구역 자리로 (to 의 앞 · 아래로 끌면 뒤)
+export function moveZone(order, from, to) {
+  if (!from || !to || from === to || !order.includes(from) || !order.includes(to)) return order;
+  const out = order.filter((k) => k !== from);
+  const down = order.indexOf(from) < order.indexOf(to);
+  out.splice(out.indexOf(to) + (down ? 1 : 0), 0, from);
+  return out;
+}
 const STORE_KEY = "system_v3_chat_talk";
 const REFRESH_MS = 20000;
 
@@ -70,22 +87,24 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
   if (!root) return null;
   const saved = readStore(window);
   const st = {
-    data: { smart: [], kakao: [] }, sample: true, loaded: false, loading: false, error: "",
-    counts: { smart: CHAT_SLOT_CHOICES.includes(saved.counts?.smart) ? saved.counts.smart : 4, kakao: CHAT_SLOT_CHOICES.includes(saved.counts?.kakao) ? saved.counts.kakao : 4 },
-    slots: { smart: saved.slots?.smart || [], kakao: saved.slots?.kakao || [] },
-    selected: { smart: "", kakao: "" },
+    data: perZone(() => []), sample: true, loaded: false, loading: false, error: "",
+    counts: perZone((k) => (CHAT_SLOT_CHOICES.includes(saved.counts?.[k]) ? saved.counts[k] : 4)),
+    slots: perZone((k) => saved.slots?.[k] || []),
+    selected: perZone(() => ""),
+    order: zoneOrder(saved.order),
     ai: new Map(),       // `${zone}:${id}` → { list: [], idx, busy, error }
     drafts: new Map(),   // `${zone}:${id}` → 입력창 글
     timer: 0,
   };
   const keyOf = (zone, id) => `${zone}:${id}`;
-  const remember = () => writeStore(window, { counts: st.counts, slots: st.slots });
+  const remember = () => writeStore(window, { counts: st.counts, slots: st.slots, order: st.order });
 
   if (side) side.innerHTML = `
     <fieldset class="cs-box ct-side">
       <legend>💬 상담톡</legend>
       <ol class="cs-note cs-install-steps">
-        <li>위는 <b>스마트스토어 톡톡</b>, 아래는 <b>카카오 해피톡</b>. 구역마다 슬롯 수(4·6·8·10)를 고릅니다.</li>
+        <li><b>스마트스토어 톡톡</b> · <b>카카오 해피톡</b> · <b>에이블리 문의</b> 3구역. 구역마다 슬롯 수(4·6·8·10)를 고릅니다.</li>
+        <li>구역 머리의 <b>⠿</b> 를 끌어 다른 구역에 놓으면 위아래 순서가 바뀝니다 (이 기기에 기억).</li>
         <li>왼쪽 목록에서 대화를 누르면 고른 슬롯에 열립니다. 슬롯을 누르면 오른쪽에 보조내용이 뜹니다.</li>
         <li><b>AI</b> 를 누를 때마다 답변 후보 5개를 새로 만들고, <b>&lt;&lt; &gt;&gt;</b> 로 앞뒤를 봅니다.</li>
         <li>후보는 입력창에서 고쳐 쓴 뒤 <b>📋 복사</b> → 매체 창에 붙여넣고 직접 전송합니다.</li>
@@ -93,12 +112,10 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
       </ol>
     </fieldset>`;
 
-  root.innerHTML = `
-    <p class="ct-msg" data-ct-msg></p>
-    ${CHAT_ZONES.map((z) => `
+  const zoneHtml = (z, first) => `
     <section class="ct-zone ct-${z.key}" data-ct-zone="${z.key}" aria-label="${esc(z.title)}">
       <aside class="ct-list">
-        <header class="ct-list-head"><b class="ct-logo">${z.icon}</b><b>${esc(z.title)}</b><span class="cs-flex"></span><small data-ct-count="${z.key}"></small></header>
+        <header class="ct-list-head" draggable="true" data-ct-drag="${z.key}" title="끌어서 구역 순서 바꾸기"><span class="ct-grip" aria-hidden="true">⠿</span><b class="ct-logo">${z.icon}</b><b>${esc(z.title)}</b><span class="cs-flex"></span><small data-ct-count="${z.key}"></small></header>
         <div class="ct-list-body" data-ct-list="${z.key}"></div>
       </aside>
       <div class="ct-mid">
@@ -106,12 +123,16 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
           <span class="ct-seg" role="group" aria-label="슬롯 수">${CHAT_SLOT_CHOICES.map((n) => `<button type="button" data-ct-n="${n}" data-ct-nzone="${z.key}">${n}</button>`).join("")}</span>
           <small class="ct-hint" data-ct-hint="${z.key}"></small>
           <span class="cs-flex"></span>
-          ${z.key === "smart" ? `<button type="button" class="cs-btn ct-reload" data-ct-reload>⟳ 새로고침</button>` : ""}
+          ${first ? `<button type="button" class="cs-btn ct-reload" data-ct-reload>⟳ 새로고침</button>` : ""}
         </div>
         <div class="ct-slots" data-ct-slots="${z.key}"></div>
       </div>
       <aside class="ct-aux" data-ct-aux="${z.key}"></aside>
-    </section>`).join("")}`;
+    </section>`;
+  function build() {
+    root.innerHTML = `<p class="ct-msg" data-ct-msg></p>${st.order.map((k, i) => zoneHtml(CHAT_ZONES.find((z) => z.key === k), i === 0)).join("")}`;
+  }
+  build();
   const $ = (s) => root.querySelector(s);
   let msgTimer = 0;   // 알림은 6초 뒤 사라짐 (위 칸을 가리지 않게)
   const msg = (t, tone = "") => { const el = $("[data-ct-msg]"); el.textContent = t || ""; el.className = `ct-msg ${tone}`; window.clearTimeout(msgTimer); if (t) msgTimer = window.setTimeout(() => { el.textContent = ""; }, 6000); };
@@ -123,8 +144,8 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
     st.loading = true;
     try {
       const js = await post({ action: "chatList" });
-      const has = (js.smart?.length || 0) + (js.kakao?.length || 0) > 0;
-      if (has) { st.data = { smart: js.smart || [], kakao: js.kakao || [] }; st.sample = false; }
+      const has = ZONE_KEYS.some((k) => js[k]?.length);
+      if (has) { st.data = perZone((k) => js[k] || []); st.sample = false; }
       else useSample(false);
       st.loaded = true; st.error = "";
     } catch (error) {
@@ -136,7 +157,7 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
   }
   // 11-11 예시 대화(가상)는 안 보여 줌 — 대화가 없으면 빈 목록
   function useSample(paint = true) {
-    st.data = { smart: [], kakao: [] }; st.sample = false; st.loaded = true;
+    st.data = perZone(() => []); st.sample = false; st.loaded = true;
     if (paint) render();
   }
   function start() { stop(); st.timer = setInterval(() => { if (!document.hidden && isLive() && root.offsetParent !== null) load(); }, REFRESH_MS); }
@@ -319,6 +340,33 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
     const id = e.target.closest("[data-ct-slot]")?.dataset.ctId;
     if (zone && id) st.drafts.set(keyOf(zone, id), e.target.value);
   });
+  // 11-13 구역 순서 바꾸기: 머리(⠿)를 끌어 다른 구역 위에 놓기
+  let dragZone = "";
+  root.addEventListener("dragstart", (e) => {
+    const h = e.target.closest?.("[data-ct-drag]");
+    if (!h) return;
+    dragZone = h.dataset.ctDrag;
+    try { e.dataTransfer.setData("text/plain", dragZone); e.dataTransfer.effectAllowed = "move"; } catch { /* 일부 브라우저 */ }
+    h.closest("[data-ct-zone]")?.classList.add("is-dragging");
+  });
+  root.addEventListener("dragover", (e) => {
+    const box = e.target.closest?.("[data-ct-zone]");
+    if (!dragZone || !box) return;
+    e.preventDefault();
+    root.querySelectorAll("[data-ct-zone]").forEach((el) => el.classList.toggle("is-drop", el === box && box.dataset.ctZone !== dragZone));
+  });
+  root.addEventListener("drop", (e) => {
+    const box = e.target.closest?.("[data-ct-zone]");
+    if (!dragZone || !box) return;
+    e.preventDefault();
+    const next = moveZone(st.order, dragZone, box.dataset.ctZone);
+    dragZone = "";
+    if (next.join() !== st.order.join()) { st.order = next; remember(); build(); render(); msg("구역 순서를 바꿨습니다 (이 기기에 기억)", "is-ok"); }
+  });
+  root.addEventListener("dragend", () => {
+    dragZone = "";
+    root.querySelectorAll(".is-dragging, .is-drop").forEach((el) => el.classList.remove("is-dragging", "is-drop"));
+  });
   render();
-  return { load, start, stop, send, state: st };
+  return { load, start, stop, send, state: st, setOrder: (o) => { st.order = zoneOrder(o); remember(); build(); render(); } };
 }

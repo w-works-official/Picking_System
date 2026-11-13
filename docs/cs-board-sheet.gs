@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-12 v28: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-13 v29: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -1893,7 +1893,7 @@ function shipRenamePending_(files, known) {
 //  · 답변 후보: chatSuggest — 대화 글자를 AI 에 보내 5개 (이미 본 후보는 피함). 보내기는 사람이 (붙여넣기만)
 var CHAT_SHEET = '상담톡';
 var CHAT_HEADER = ['매체', '대화ID', '바뀐 시각', '이름', '안 읽음', '내용'];
-var CHAT_PLATFORMS = ['smart', 'kakao'];
+var CHAT_PLATFORMS = ['smart', 'kakao', 'ably'];   // v29: 에이블리 문의(채팅방)
 var CHAT_KEEP = 200;   // 매체마다 남길 대화 수 (오래된 것부터 지움 — 이 탭은 화면용 임시 저장)
 
 function chatSheet_() {
@@ -1919,7 +1919,7 @@ function chatItems_(list) {
 }
 function chatIngest_(body) {
   var platform = String(body && body.platform || '');
-  if (CHAT_PLATFORMS.indexOf(platform) < 0) return { ok: false, error: '매체는 smart · kakao 만' };
+  if (CHAT_PLATFORMS.indexOf(platform) < 0) return { ok: false, error: '매체는 smart · kakao · ably 만' };
   var convs = (Array.isArray(body.convs) ? body.convs : []).slice(0, 60);
   var sheet = chatSheet_();
   var n = sheet.getLastRow() - 1;
@@ -1950,7 +1950,7 @@ function chatIngest_(body) {
 function chatList_(body) {
   var sheet = chatSheet_();
   var n = sheet.getLastRow() - 1;
-  var out = { smart: [], kakao: [] };
+  var out = { smart: [], kakao: [], ably: [] };
   if (n > 0) sheet.getRange(2, 1, n, CHAT_HEADER.length).getValues().forEach(function (r) {
     if (!out[r[0]]) return;
     var v = parse_(String(r[5] || ''), null);
@@ -1959,9 +1959,9 @@ function chatList_(body) {
     out[r[0]].push(v);
   });
   CHAT_PLATFORMS.forEach(function (p) { out[p].sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; }); out[p] = out[p].slice(0, 60); });
-  return { ok: true, smart: out.smart, kakao: out.kakao };
+  return { ok: true, smart: out.smart, kakao: out.kakao, ably: out.ably };
 }
-var CHAT_RULES = '\n\n상담톡(스마트스토어 톡톡 · 카카오 해피톡) 대화일 때\n' +
+var CHAT_RULES = '\n\n상담톡(스마트스토어 톡톡 · 카카오 해피톡 · 에이블리 문의) 대화일 때\n' +
   '- 대화 글은 [고객] / [우리] 로 표시됩니다. 마지막 고객 말에 바로 보낼 짧은 채팅 답장을 만듭니다 (게시판 답변보다 짧게, 1~3문장)\n' +
   '- 보조내용(구매이력 · 고객정보)이 있으면 참고하되, 주소·전화번호 같은 개인정보는 답장에 되풀이하지 않습니다\n' +
   '- 모르는 사실(재고 · 발송일 · 환불 여부)은 지어내지 않고 "확인 후 안내드리겠습니다" 처럼 씁니다';
@@ -1974,7 +1974,7 @@ function chatSuggest_(body) {
   var quota = withLock_(function () { return reserveAi_(1); });
   if (!quota.allow) return { ok: false, error: '오늘 AI 사용 한도(' + quota.limit + '회)를 다 썼습니다.' };
   var model = prop_('CLAUDE_MODEL') || DEFAULT_MODEL;
-  var text = '매체: ' + (body.platform === 'kakao' ? '카카오 해피톡' : '스마트스토어 톡톡') + (body.name ? ' / 고객: ' + plain_(clean_(body.name, 40)) : '') + '\n\n대화:\n' +
+  var text = '매체: ' + (body.platform === 'kakao' ? '카카오 해피톡' : body.platform === 'ably' ? '에이블리 문의(앱 채팅)' : '스마트스토어 톡톡') + (body.name ? ' / 고객: ' + plain_(clean_(body.name, 40)) : '') + '\n\n대화:\n' +
     msgs.map(function (m) { return (m && m.who === 's' ? '[우리] ' : '[고객] ') + body_(m && m.text, 800); }).join('\n');
   var aux = body.aux && Array.isArray(body.aux.lines) ? body.aux.lines.slice(0, 20).map(function (l) { return body_(l, 200); }).join('\n') : '';
   var items = body.aux ? chatItems_(body.aux.items) : [];

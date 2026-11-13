@@ -108,6 +108,65 @@ export function yellowStyles(stylesXml = "") {
   return out;
 }
 
+// ---------- 칸 색 전체 (11-12: 대표님이 칠한 색 그대로 표 그림에 — 금액 변동 빨강 등) ----------
+// 엑셀 기본 색표(indexed 0~63)
+const INDEXED = ("000000,FFFFFF,FF0000,00FF00,0000FF,FFFF00,FF00FF,00FFFF,000000,FFFFFF,FF0000,00FF00,0000FF,FFFF00,FF00FF,00FFFF," +
+  "800000,008000,000080,808000,800080,008080,C0C0C0,808080,9999FF,993366,FFFFCC,CCFFFF,660066,FF8080,0066CC,CCCCFF," +
+  "000080,FF00FF,FFFF00,00FFFF,800080,800000,008080,0000FF,00CCFF,CCFFFF,CCFFCC,FFFF99,99CCFF,FF99CC,CC99FF,FFCC99," +
+  "3366FF,33CCCC,99CC00,FFCC00,FF9900,FF6600,666699,969696,003366,339966,003300,333300,993300,993366,333399,333333").split(",");
+
+// theme1.xml → 테마 색 10개 (엑셀 순서: lt1·dk1·lt2·dk2·accent1~6 — 파일엔 dk1·lt1·dk2·lt2 순)
+export function themeColors(themeXml = "") {
+  const scheme = /<a:clrScheme\b[^>]*>([\s\S]*?)<\/a:clrScheme>/.exec(themeXml)?.[1] || "";
+  const pick = (name) => {
+    const m = new RegExp(`<a:${name}>([\\s\\S]*?)<\\/a:${name}>`).exec(scheme)?.[1] || "";
+    return (/srgbClr val="([0-9A-Fa-f]{6})"/.exec(m) || /lastClr="([0-9A-Fa-f]{6})"/.exec(m))?.[1]?.toUpperCase() || "";
+  };
+  const [dk1, lt1, dk2, lt2] = ["dk1", "lt1", "dk2", "lt2"].map(pick);
+  return [lt1 || "FFFFFF", dk1 || "000000", lt2 || "E7E6E6", dk2 || "44546A", ...[1, 2, 3, 4, 5, 6].map((i) => pick(`accent${i}`))];
+}
+
+// 밝기 조절(tint): 엑셀 방식 — 0보다 크면 흰색 쪽, 작으면 검정 쪽
+function applyTint(hex, tint) {
+  if (!tint) return hex;
+  return hex.match(/../g).map((h) => {
+    const v = parseInt(h, 16);
+    const n = tint < 0 ? v * (1 + tint) : v + (255 - v) * tint;
+    return Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+  }).join("").toUpperCase();
+}
+
+// <fgColor rgb|theme|indexed tint> → "#RRGGBB" (못 읽으면 "")
+export function colorOf(tag = "", theme = []) {
+  if (!tag) return "";
+  let hex = "";
+  const rgb = attr(tag, "rgb"), th = attr(tag, "theme"), ix = attr(tag, "indexed");
+  if (/^[0-9a-f]{6,8}$/i.test(rgb)) hex = rgb.slice(-6).toUpperCase();
+  else if (th !== "" && theme[Number(th)]) hex = theme[Number(th)];
+  else if (ix !== "" && INDEXED[Number(ix)]) hex = INDEXED[Number(ix)];
+  if (!hex) return "";
+  const tint = Number(attr(tag, "tint") || 0);
+  return `#${applyTint(hex, Number.isFinite(tint) ? tint : 0)}`;
+}
+
+// styles.xml → 셀 서식 번호(s) → 칠한 색 "#RRGGBB" (흰색·칠 없음은 빼고)
+export function fillStyles(stylesXml = "", theme = []) {
+  const fillsXml = /<fills\b[^>]*>([\s\S]*?)<\/fills>/.exec(stylesXml)?.[1] || "";
+  const fillColor = [...fillsXml.matchAll(/<fill\b[^>]*>([\s\S]*?)<\/fill>|<fill\b[^>]*\/>/g)].map((m) => {
+    const body = m[1] || "";
+    if (!/patternType="solid"/.test(body)) return "";
+    const c = colorOf(/<fgColor\b[^>]*>/.exec(body)?.[0] || "", theme);
+    return c && c !== "#FFFFFF" ? c : "";
+  });
+  const xfsXml = /<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/.exec(stylesXml)?.[1] || "";
+  const out = new Map();
+  [...xfsXml.matchAll(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)].forEach((m, i) => {
+    const fid = Number(attr(m[0].replace(/>[\s\S]*$/, ">"), "fillId"));
+    if (fillColor[fid]) out.set(i, fillColor[fid]);
+  });
+  return out;
+}
+
 // ---------- 업체명 ----------
 // '0-세븐피어싱 [ 1 ]' → '세븐피어싱'
 export function vendorName(raw) {
@@ -151,8 +210,16 @@ export async function readOrderSheet(bytes) {
   const ss = await readText(zip, "xl/sharedStrings.xml");
   for (const m of ss.matchAll(/<si>([\s\S]*?)<\/si>/g)) shared.push(unxml([...m[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((t) => t[1]).join("")));
   const sheet = await readText(zip, sheetPath);
-  const yellowXf = yellowStyles(await readText(zip, "xl/styles.xml"));   // 11-06: 노랑 칠한 칸 = 급한 상품
+  const stylesXml = await readText(zip, "xl/styles.xml");
+  const yellowXf = yellowStyles(stylesXml);   // 11-06: 노랑 칠한 칸 = 급한 상품
+  const colorXf = fillStyles(stylesXml, themeColors(await readText(zip, "xl/theme/theme1.xml")));   // 11-12: 칠한 색 전부
   const fills = new Map();              // "줄,칸" → 노랑이면 true
+  const colors = new Map();             // "줄,칸" → "#RRGGBB" (칠한 색)
+  const rowColor = new Map();           // 줄 → 줄 전체를 칠한 색 (<row s=… customFormat=1>)
+  for (const m of sheet.matchAll(/<row\b([^>]*)>/g)) {
+    const r = Number(attr(m[1], "r")), xf = attr(m[1], "s");
+    if (r && xf && attr(m[1], "customFormat") === "1" && colorXf.has(Number(xf))) rowColor.set(r, colorXf.get(Number(xf)));
+  }
   const grid = new Map();               // 줄(1부터) → { 칸(0부터): 값 }
   const cellImage = new Map();          // "줄,칸" → vm (칸 안 그림)
   for (const m of sheet.matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
@@ -163,6 +230,7 @@ export async function readOrderSheet(bytes) {
     if (vm) cellImage.set(`${row},${col}`, Number(vm));
     const xf = attr(m[1], "s");
     if (xf && yellowXf.has(Number(xf))) fills.set(`${row},${col}`, true);
+    if (xf !== "") colors.set(`${row},${col}`, colorXf.get(Number(xf)) || "");   // 칸에 서식이 있으면 그 색(없으면 "" = 칠 없음)
     const body = m[2] || "";
     let v = /<v>([\s\S]*?)<\/v>/.exec(body)?.[1];
     if (t === "inlineStr") v = [...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map((x) => x[1]).join("");
@@ -203,6 +271,16 @@ export async function readOrderSheet(bytes) {
       add(Number(key.split(",")[0]), path);
     }
   }
+  // 11-12: 칸마다 칠한 색 { no, photo, option, … } — 칸 서식이 없으면 줄 서식 색
+  const cellColors = (r) => {
+    const out = {};
+    for (const [k, c] of Object.entries(cols)) {
+      const key = `${r},${c}`;
+      const color = colors.has(key) ? colors.get(key) : rowColor.get(r) || "";
+      if (color) out[k] = color;
+    }
+    return out;
+  };
   const lines = [];
   for (const r of rowsSorted) {
     if (r <= headRow) continue;
@@ -212,7 +290,8 @@ export async function readOrderSheet(bytes) {
     if (!vendorRaw && !get("option") && !get("qty")) continue;
     lines.push({ row: r, no: get("no"), option: get("option"), qty: get("qty"), extra: get("extra"), price: get("price"), code: get("code"),
       vendorRaw, vendor: vendorName(vendorRaw), product: get("product"), images: images.get(r) || [],
-      urgent: cols.qty !== undefined && fills.has(`${r},${cols.qty}`) });
+      urgent: cols.qty !== undefined && fills.has(`${r},${cols.qty}`),
+      colors: cellColors(r) });
   }
   return {
     lines,

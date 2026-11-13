@@ -7,7 +7,7 @@
   --cs-line: #e1e4ea;
   --cs-line-soft: #eef0f4;
   --cs-text: #111827;
-  --cs-sub: #667085;
+  --cs-sub: #475467;   /* 11-13 진하게 (예전 #667085) */
   --cs-pink: #be185d;
   --cs-blue: #2563eb;
   --cs-blue-dark: #1d4ed8;
@@ -208,7 +208,7 @@ body.cs-board-workspace {
 }
 
 .cs-fold:hover {
-  background: #6b7280;
+  background: #4b5563;
 }
 
 .cs-main.left-folded .cs-fold {
@@ -249,12 +249,12 @@ body.cs-board-workspace {
 .cs-left-tab.tab-board { background: #dbeafe; color: #2563eb; }
 .cs-left-tab.tab-review { background: #ffe8d1; color: #ff7a00; }
 .cs-left-tab.tab-msn { background: #d5f9e3; color: #00b84a; }
-.cs-left-tab.tab-settings { background: #e9edf2; color: #64748b; }
+.cs-left-tab.tab-settings { background: #e9edf2; color: #334155; }
 .cs-left-tab.tab-main.active { background: #e11d74; color: #ffffff; }
 .cs-left-tab.tab-board.active { background: #2563eb; color: #ffffff; }
 .cs-left-tab.tab-review.active { background: #ff7a00; color: #ffffff; }
 .cs-left-tab.tab-msn.active { background: #00b84a; color: #ffffff; }
-.cs-left-tab.tab-settings.active { background: #64748b; color: #ffffff; }
+.cs-left-tab.tab-settings.active { background: #334155; color: #ffffff; }
 
 .cs-left-body {
   min-height: 0;
@@ -1293,7 +1293,7 @@ body.cs-board-workspace {
 .cs-job.is-실행중 .cs-job-status { background: #dbeafe; color: #1d4ed8; }
 .cs-job.is-완료 .cs-job-status { background: #dcfce7; color: #15803d; }
 .cs-job.is-실패 .cs-job-status { background: #fee2e2; color: #b91c1c; }
-.cs-job.is-취소 .cs-job-status { background: #e5e7eb; color: #6b7280; }
+.cs-job.is-취소 .cs-job-status { background: #e5e7eb; color: #4b5563; }
 
 .cs-reg-badge {
   padding: 2px 8px;
@@ -2005,7 +2005,7 @@ a.cs-btn {
 .cs-conn-card:focus-visible { outline: 3px solid #111827; outline-offset: 1px; }
 .cs-conn-hint { font-size: 9.5px; font-weight: 700; opacity: 0.75; margin-top: -2px; }
 .cs-vendor-card .cs-btn.cs-conn-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 1px 6px; text-align: left; }
-.cs-conn-tag { font-size: 9px; font-weight: 700; color: #6b7280; letter-spacing: -0.02em; }
+.cs-conn-tag { font-size: 9px; font-weight: 700; color: #4b5563; letter-spacing: -0.02em; }
 .cs-conn-state { font-size: 10.5px; }
 .cs-conn-tag { font-size: 11px; line-height: 1; color: inherit; }
 
@@ -2086,7 +2086,7 @@ a.cs-btn {
 .vo-msg.is-bad { color: #b91c1c; font-weight: 700; }
 .vo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; margin: 8px 0 0; padding: 0; list-style: none; }
 .vo-item { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--cs-line); border-radius: 8px; background: #ffffff; font-size: 13px; }
-.vo-item.is-nomatch { background: #f9fafb; color: #6b7280; }
+.vo-item.is-nomatch { background: #f9fafb; color: #4b5563; }
 .vo-item.is-off { opacity: 0.6; }
 .vo-slot { color: #0f766e; font-weight: 700; }
 .vo-item.is-nomatch .vo-slot { color: #b45309; }
@@ -2116,7 +2116,7 @@ a.cs-btn {
 .cs-master > summary::before { content: "▸ "; color: #6366f1; }
 .cs-master[open] > summary::before { content: "▾ "; }
 .cs-master:not([open]) { padding-bottom: 10px; background: #f8fafc; border-color: #e2e8f0; }
-.cs-master:not([open]) > summary { color: #64748b; }
+.cs-master:not([open]) > summary { color: #334155; }
 .cs-master[open] > summary { margin-bottom: 6px; }
 /* 접힌 [🖥 마스터 PC 설정] 버튼은 설정 칸 하단에 붙어 있음 (스크롤해도 아래에 고정) */
 .cs-master:not([open]) { position: sticky; bottom: 0; z-index: 2; margin-top: 6px; box-shadow: 0 -6px 12px rgba(255, 255, 255, 0.9); }
@@ -2177,7 +2177,7 @@ a.cs-btn {
 [data-msn-panel="vendor"] .msn-slot.is-pick .msn-no,
 [data-msn-panel="vendor"] .msn-slot.is-skip .msn-no { cursor: pointer; border-radius: 6px; padding: 0 4px; }
 [data-msn-panel="vendor"] .msn-slot.is-pick .msn-no { background: #16a34a; color: #fff; }
-[data-msn-panel="vendor"] .msn-slot.is-skip .msn-no { background: #e5e7eb; color: #6b7280; }
+[data-msn-panel="vendor"] .msn-slot.is-skip .msn-no { background: #e5e7eb; color: #4b5563; }
 [data-msn-panel="vendor"] .msn-slot.is-skip .msn-frame-pic { opacity: .35; }
 .msn-vo-state { position: absolute; right: 10px; top: 10px; z-index: 3; padding: 3px 9px; border-radius: 999px; background: #f3f4f6; color: #374151; font-size: 12px; font-weight: 800; box-shadow: 0 1px 4px rgba(0, 0, 0, .15); }
 .msn-vo-state.is-ok { background: #dcfce7; color: #15803d; }
@@ -2247,21 +2247,21 @@ a.cs-btn {
 .cs-btn.sp-delbtn:not(:disabled) { color: #b91c1c; border-color: #fca5a5; }
 .cs-btn.sp-delbtn.is-armed, .cs-btn.sp-delbtn.is-armed:hover { background: #dc2626; color: #fff; border-color: #dc2626; font-weight: 700; }
 .sp-seg { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
-.sp-seg button { border: 0; background: #fff; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 800; color: #64748b; cursor: pointer; }
+.sp-seg button { border: 0; background: #fff; padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 800; color: #334155; cursor: pointer; }
 .sp-seg button.is-on { background: #0891b2; color: #fff; }
 .sp-find { display: inline-flex; align-items: center; gap: 6px; }
 .sp-search { width: 220px; height: 32px; padding: 0 10px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; font-size: 14px; }
 .sp-msg:empty { display: none; }
 .sp-msg { margin: 0; font-size: 12.5px; font-weight: 700; color: #0e7490; }
 .sp-list { display: grid; gap: 10px; }
-.sp-empty { margin: 16px 4px; font-size: 13px; font-weight: 700; color: #64748b; }
+.sp-empty { margin: 16px 4px; font-size: 13px; font-weight: 700; color: #334155; }
 .sp-empty.is-bad { color: #b91c1c; }
 .sp-group { border: 1px solid #a5f3fc; border-radius: 10px; background: #fff; overflow: hidden; }
 .sp-group.is-before { border-color: #e2e8f0; background: #f8fafc; }
 .sp-group > header { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #ecfeff; border-bottom: 1px solid #cffafe; }
 .sp-group.is-before > header { background: #f1f5f9; border-color: #e2e8f0; }
 .sp-group > header b { font-size: 14px; }
-.sp-group > header small { color: #64748b; font-weight: 700; }
+.sp-group > header small { color: #334155; font-weight: 700; }
 .sp-files { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
 .sp-file { position: relative; display: grid; gap: 2px; width: 150px; padding: 4px; border: 2px solid transparent; border-radius: 8px; cursor: pointer; }
 .sp-file.is-picked { border-color: #16a34a; background: #f0fdf4; }
@@ -2272,7 +2272,7 @@ a.cs-btn {
 .sp-play { position: absolute; inset: 0; display: grid; place-items: center; font-size: 30px; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, .6); }
 .sp-badge { position: absolute; right: 4px; bottom: 4px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #fff; font-size: 11px; font-weight: 900; }
 .sp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 11.5px; }
-.sp-meta { color: #64748b; font-size: 11px; }
+.sp-meta { color: #334155; font-size: 11px; }
 .sp-progress:empty, .sp-counts:empty { display: none; }
 .sp-progress { color: #0e7490; font-weight: 800; }
 @media (max-width: 600px) { .sp-file { width: calc(50% - 4px); } .sp-search { width: 150px; } }
@@ -2300,15 +2300,15 @@ a.cs-btn {
 .rt-msg { margin: 0; font-size: 12.5px; font-weight: 700; color: #be123c; }
 .rt-msg:empty { display: none; }
 .rt-msg.is-ok { color: #047857; }
-.rt-count { margin: 0; font-size: 12px; font-weight: 700; color: #64748b; }
-.rt-empty { margin: 16px 4px; font-size: 13px; font-weight: 700; color: #64748b; }
+.rt-count { margin: 0; font-size: 12px; font-weight: 700; color: #334155; }
+.rt-empty { margin: 16px 4px; font-size: 13px; font-weight: 700; color: #334155; }
 .rt-empty.is-bad { color: #b91c1c; }
 .rt-card { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid #fecdd3; border-left: 4px solid #e11d48; border-radius: 10px; background: #fff; }
-.rt-card.is-done { border-left-color: #94a3b8; background: #f8fafc; }
+.rt-card.is-done { border-left-color: #64748b; background: #f8fafc; }
 .rt-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rt-status { padding: 2px 8px; border-radius: 999px; background: #ffe4e6; color: #be123c; font-size: 12px; }
 .rt-card.is-done .rt-status { background: #e2e8f0; color: #475569; }
-.rt-head small { color: #64748b; font-size: 11.5px; }
+.rt-head small { color: #334155; font-size: 11.5px; }
 .rt-state { color: #0f766e !important; font-weight: 700; }
 .rt-del { border: 0; background: none; cursor: pointer; font-size: 15px; opacity: .6; }
 .rt-del:hover { opacity: 1; }
@@ -2338,12 +2338,12 @@ a.cs-btn {
 .ct-zone.ct-ably { --ct-c: #111111; --ct-soft: #f4f4f5; --ct-me: #2f6bff; --ct-me-ink: #fff; --ct-talk-bg: #f8fafc; }
 .ct-list-head[draggable="true"] { cursor: grab; user-select: none; }
 .ct-list-head[draggable="true"]:active { cursor: grabbing; }
-.ct-grip { color: #94a3b8; font-size: 14px; line-height: 1; letter-spacing: -1px; }
+.ct-grip { color: #64748b; font-size: 14px; line-height: 1; letter-spacing: -1px; }
 .ct-zone.is-dragging { opacity: .45; }
 .ct-zone.is-drop { outline: 3px dashed #7c3aed; outline-offset: 2px; }
 .ct-list { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); border-right: 1px solid #e2e8f0; background: #fff; }
 .ct-list-head, .ct-aux-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; background: var(--ct-soft); border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-.ct-list-head small { color: #64748b; font-weight: 700; font-size: 11.5px; }
+.ct-list-head small { color: #334155; font-weight: 700; font-size: 11.5px; }
 .ct-logo { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; background: var(--ct-c); color: #fff; font-size: 12px; }
 .ct-kakao .ct-logo { color: #3c1e1e; }
 .ct-list-body { min-height: 0; overflow-y: auto; }
@@ -2354,12 +2354,12 @@ a.cs-btn {
 .ct-ava { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #e2e8f0; color: #475569; font-weight: 800; font-size: 13px; }
 .ct-item-main { min-width: 0; display: grid; }
 .ct-item-main b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ct-item-main small, .ct-item-side small { font-size: 11.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-item-main small, .ct-item-side small { font-size: 11.5px; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ct-item-side { display: grid; justify-items: end; gap: 2px; }
 .ct-item-side i { font-style: normal; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 800; text-align: center; }
 .ct-mid { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); background: #f8fafc; }
 .ct-mid-bar { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-bottom: 1px solid #e2e8f0; }
-.ct-hint { font-size: 11.5px; font-weight: 700; color: #94a3b8; }
+.ct-hint { font-size: 11.5px; font-weight: 700; color: #64748b; }
 .ct-reload { padding: 3px 10px; font-size: 12px; }
 .ct-seg { display: inline-flex; border: 1px solid #cbd5e1; border-radius: 7px; overflow: hidden; }
 .ct-seg button { border: 0; background: #fff; padding: 3px 10px; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; }
@@ -2370,16 +2370,16 @@ a.cs-btn {
 .ct-slot { min-height: 0; min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; overflow: hidden; cursor: pointer; }
 .ct-slot.is-sel { border-color: var(--ct-c); box-shadow: 0 0 0 2px var(--ct-c); }
 .ct-slot.is-empty { display: grid; place-items: center; border-style: dashed; background: transparent; cursor: default; }
-.ct-slot.is-empty p { margin: 0; padding: 8px; font-size: 12px; color: #94a3b8; text-align: center; }
+.ct-slot.is-empty p { margin: 0; padding: 8px; font-size: 12px; color: #64748b; text-align: center; }
 .ct-slot-head { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-bottom: 1px solid #e2e8f0; font-size: 12.5px; min-width: 0; }
 .ct-slot-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ct-slot-head small { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+.ct-slot-head small { font-size: 11px; color: #64748b; white-space: nowrap; }
 .ct-tag { padding: 0 5px; border-radius: 4px; background: var(--ct-soft); color: #334155; font-size: 11px; font-weight: 700; white-space: nowrap; }
-.ct-x { border: 0; background: none; color: #94a3b8; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.ct-x { border: 0; background: none; color: #64748b; font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; }
 .ct-talk { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; padding: 6px; background: var(--ct-talk-bg); }
 .ct-b { max-width: 85%; display: flex; align-items: flex-end; gap: 4px; }
 .ct-b p { margin: 0; padding: 5px 8px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
-.ct-b small { font-size: 10px; color: #64748b; white-space: nowrap; }
+.ct-b small { font-size: 10px; color: #334155; white-space: nowrap; }
 .ct-kakao .ct-b small { color: #475569; }
 .ct-b.is-cu { align-self: flex-start; }
 .ct-b.is-cu p { background: #fff; border: 1px solid #e2e8f0; border-top-left-radius: 2px; }
@@ -2393,34 +2393,34 @@ a.cs-btn {
 .ct-ai button { border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; padding: 2px 8px; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; }
 .ct-ai button:disabled { opacity: .4; cursor: default; }
 .ct-ai .ct-ai-go { min-width: 44px; background: #7c3aed; border-color: #7c3aed; color: #fff; }
-.ct-ai small { min-width: 34px; font-size: 11px; color: #64748b; font-weight: 700; }
+.ct-ai small { min-width: 34px; font-size: 11px; color: #334155; font-weight: 700; }
 .ct-ai .is-bad { color: #be123c; }
 .ct-aux { min-height: 0; overflow-y: auto; border-left: 1px solid #e2e8f0; background: #fff; }
 .ct-aux-head { font-weight: 800; position: sticky; top: 0; }
 .ct-aux-name { margin: 8px 10px 4px; font-size: 13px; }
 .ct-aux ul { margin: 0; padding: 0 10px 10px 26px; display: grid; gap: 4px; font-size: 12.5px; color: #334155; }
-.ct-none { margin: 10px; font-size: 12px; color: #94a3b8; }
+.ct-none { margin: 10px; font-size: 12px; color: #64748b; }
 /* 상담톡 보조내용 — 상담 상품 카드 (11-11) */
 .ct-items { display: grid; gap: 6px; padding: 4px 8px 8px; }
 .ct-card { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; align-items: start; padding: 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
 .ct-card img, .ct-noimg { width: 64px; height: 64px; border-radius: 6px; object-fit: cover; background: #f1f5f9; }
-.ct-noimg { display: grid; place-items: center; font-size: 11px; color: #94a3b8; }
+.ct-noimg { display: grid; place-items: center; font-size: 11px; color: #64748b; }
 .ct-card-main { min-width: 0; display: grid; gap: 1px; }
 .ct-card-main b { font-size: 12.5px; line-height: 1.35; }
-.ct-card-main small { font-size: 11.5px; color: #64748b; }
-.ct-order { color: #94a3b8 !important; }
+.ct-card-main small { font-size: 11.5px; color: #334155; }
+.ct-order { color: #64748b !important; }
 /* 🚚 배송기록 주문별 메모 (11-11) */
 /* 11-11 메모는 사진·동영상 오른쪽 (좁으면 아래로) */
 .sp-body { display: flex; flex-wrap: wrap; align-items: stretch; }
 /* 11-11 줄 맞춤: 사진 칸은 늘 2칸 폭(송장 + 동영상) — 메모가 묶음마다 같은 자리에서 시작 · 3개 넘으면 아래로 */
 .sp-body > .sp-files { flex: 0 0 352px; width: 352px; box-sizing: border-box; align-content: flex-start; }
 .sp-file.sp-file-empty { cursor: default; }
-.sp-file-empty .sp-thumb { display: grid; place-items: center; border: 2px dashed #cbd5e1; background: #f8fafc; color: #94a3b8; font-size: 12px; font-weight: 800; text-align: center; line-height: 1.4; box-sizing: border-box; }
+.sp-file-empty .sp-thumb { display: grid; place-items: center; border: 2px dashed #cbd5e1; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 800; text-align: center; line-height: 1.4; box-sizing: border-box; }
 @media (max-width: 600px) { .sp-body > .sp-files { flex-basis: 100%; width: 100%; } }
 .sp-memo { flex: 1 1 460px; display: flex; flex-direction: column; flex-wrap: nowrap; align-items: flex-start; align-content: flex-start; gap: 6px 10px; padding: 10px 12px; border-left: 1px dashed #a5f3fc; background: #f8fdff; }
 .sp-memo-t { align-self: flex-start; margin-top: 23px; font-size: 13px; color: #0e7490; }
 .sp-mf { display: grid; gap: 2px; }
-.sp-mf > span { font-size: 11px; font-weight: 800; color: #64748b; text-align: center; }   /* 11-11 항목 이름은 입력칸 가운데 */
+.sp-mf > span { font-size: 11px; font-weight: 800; color: #334155; text-align: center; }   /* 11-11 항목 이름은 입력칸 가운데 */
 .sp-mf input { height: 30px; box-sizing: border-box; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; font-size: 13px; background: #fff; }
 .sp-mf input:focus { outline: 2px solid #0891b2; outline-offset: -1px; border-color: #0891b2; }
 .sp-mf-name input { width: 110px; }
@@ -2429,11 +2429,11 @@ a.cs-btn {
 .sp-ml { display: flex; align-items: flex-end; gap: 6px; width: 100%; box-sizing: border-box; }
 .sp-mf-qty input { width: 52px; }
 .sp-mdel, .sp-madd { height: 30px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font: inherit; font-size: 12px; font-weight: 800; color: #475569; cursor: pointer; padding: 0 8px; }
-.sp-mdel { padding: 0 6px; color: #94a3b8; }
+.sp-mdel { padding: 0 6px; color: #64748b; }
 .sp-madd { color: #0e7490; border-color: #a5f3fc; }
 .sp-mf-etc { flex: 0 1 280px; min-width: 0; }   /* 11-11 기타 칸 (칸이 늘어 280) */
 .sp-mf-etc input { width: 100%; }
-.sp-mstate { align-self: center; font-size: 11.5px; font-weight: 700; color: #64748b; white-space: nowrap; }
+.sp-mstate { align-self: center; font-size: 11.5px; font-weight: 700; color: #334155; white-space: nowrap; }
 /* 📦 거래처 › 💬 전체 멘트 (11-11) — 주문서 올리기 옆 */
 .vo-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin: 8px 12px 4px; }
 .vo-row > .vo-box { margin: 0; flex: 1 1 520px; min-width: 0; }
@@ -2489,7 +2489,7 @@ a.cs-btn {
 .sp-cand-msg.is-bad { color: #be123c; }
 .sp-cand { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid #a5f3fc; border-radius: 7px; background: #fff; font-size: 12.5px; }
 .sp-cand-score { min-width: 40px; color: #0e7490; }
-.sp-cand small { color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.sp-cand small { color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 
 /* 11-11 ⬆ 수집기 PC 업데이트 — 설정 탭 맨 위 · 잘 보이게 */
 .cs-update-box { border: 2px solid #2563eb; background: #eff6ff; }
@@ -2499,3 +2499,12 @@ a.cs-btn {
 .cs-update-vers b.is-new { color: #16a34a; }
 .cs-update-what { font-weight: 700; color: #15803d; }
 .cs-update-run { font-size: 15px; padding: 8px 16px; }
+
+/* ---------- 2026-11-13 대표님 요청: CS 관리 인상이 약하고 글씨가 희미함 → 굵고 진하게 · 핑크 바탕에 빨강 글씨 ---------- */
+body.cs-board-workspace { font-weight: 500; -webkit-font-smoothing: antialiased; color: #0b1220; }
+.cs-main { --tab-color: #e11d48 !important; }   /* 화면이 탭마다 넣는 색 대신 한 가지 핑크·빨강 */
+.cs-main > .cs-left-tabs .cs-left-tab[class*="tab-"] { background: #ffe4e6; color: #e11d48; font-weight: 900; box-shadow: inset 0 0 0 1px #fecdd3; }
+.cs-main > .cs-left-tabs .cs-left-tab[class*="tab-"]:hover { background: #fecdd3; color: #be123c; }
+.cs-main > .cs-left-tabs .cs-left-tab[class*="tab-"].active { background: #e11d48; color: #ffffff; box-shadow: none; }
+.cs-box legend { color: #be123c; font-weight: 900; }
+.cs-brand p { color: #e11d48; font-weight: 800; }

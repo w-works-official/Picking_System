@@ -137,6 +137,11 @@
   · 카톡에서 사진을 열면 사진 보기 창까지 슬롯 틀에 붙어 비율이 망가지고 다시 못 펼치던 문제 → 메시지 입력칸이 있는 대화창만 붙임. 사진 보기 창 등은 자유롭게
   · 이미 붙어 버린 사진 창은 '항상 위'를 풀고 놓아 줌
   · 네이트온은 정리(붙이기·일괄 붙이기) 대상에서 뺌 (진단 목록에는 보임)
+
+1.29 (2026-11-13) 에이블리 문의(채팅방) 수집
+  · 에이블리 문의 화면이 채팅방 모양으로 바뀌면서 방 번호가 id 가 아니라 sno 로 와서 수집기가 방을 0개로 읽고 있었음
+  · 문의 화면이 보내는 목록 요청(로그인 머리말 포함)을 잡아 같은 방식으로 방마다 대화를 다시 받음 — 진행중 방 + 최근 완료 방
+  · 게시판(문의방) 줄은 예전처럼, 대화는 V3 CS 관리 › 💬 상담톡 의 '에이블리' 칸으로 (시트 chatIngest platform=ably)
 """
 import os, sys, json, time, glob, socket, datetime, traceback, threading, base64, hashlib, secrets, re, shutil
 
@@ -144,8 +149,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.28 (2026-11-13)"
-LINK_NOTE = "메신저 창 붙이기 = 카톡 대화창만 (사진 보기 창은 자유롭게 · 네이트온 뺌)"
+LINK_VER = "1.29 (2026-11-13)"
+LINK_NOTE = "에이블리 문의(채팅방) 수집 고침 — 게시판 + 💬 상담톡 에이블리 칸"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -660,9 +665,192 @@ def patch_makeshop_charset(G):
     return done
 
 
+# ───────── 1.29 (2026-11-13) 에이블리 문의 = 채팅방 ─────────
+# 문의 화면(seller-admin.a-bly.com/inquiry)은 GET api.a-bly.com/seller/contact_rooms/?… 로 방 목록(contact_rooms[].sno)을,
+# GET …/contact_rooms/{sno}/ 로 대화(contact_messages[] — member_type USER|SELLER, type 1 글 · 3 주문 · 5 안내 카드)를 받음
+# → 화면이 보낸 목록 요청의 머리말(로그인)을 그대로 써서 방마다 대화를 다시 받음 (값은 이 PC 브라우저 안에서만 씀)
+ABLY_LIST_RE = re.compile(r"api\.a-bly\.com/seller/contact_rooms/(\?|$)")
+ABLY_MAX_ROOMS = 30
+ABLY_CHAT = []                          # 수집 뒤 시트 상담톡(chatIngest)으로 보낼 대화 — 연결 루프가 보냄
+
+ABLY_FETCH_JS = r"""
+async ({listUrls, headers, max}) => {
+  const out = {rooms: [], details: {}, errors: []}; const seen = new Set();
+  for (const u of listUrls) {
+    try {
+      const r = await fetch(u, {headers: headers, credentials: 'include'}); const j = await r.json();
+      for (const x of (j && j.contact_rooms) || []) { if (x && x.sno && !seen.has(x.sno) && out.rooms.length < max) { seen.add(x.sno); out.rooms.push(x); } }
+    } catch (e) { out.errors.push('목록 ' + String(e).slice(0, 120)); }
+  }
+  for (const x of out.rooms) {
+    try {
+      const r = await fetch('https://api.a-bly.com/seller/contact_rooms/' + x.sno + '/', {headers: headers, credentials: 'include'});
+      if (r.ok) out.details[x.sno] = await r.json(); else out.errors.push(x.sno + ' HTTP ' + r.status);
+    } catch (e) { out.errors.push(x.sno + ' ' + String(e).slice(0, 120)); }
+  }
+  return out;
+}
+"""
+
+
+def ably_list_urls(url):
+    """화면이 보낸 목록 주소 → [진행중(화면 그대로), 완료(status=3)] — 날짜·정렬은 화면 그대로"""
+    base = re.sub(r"&?status%5B%5D=\d+|&?status\[\]=\d+", "", url)
+    sep = "&" if "?" in base else "?"
+    return [url, base + sep + "status%5B%5D=3"]
+
+
+def _ably_text(m):
+    """대화 한 줄 글 — 글(1) · 주문(3) · 안내 카드(5) · 사진"""
+    c = m.get("content")
+    if isinstance(c, str) and c.strip():
+        return c.strip()
+    oi = m.get("order_item") or {}
+    if isinstance(oi, dict) and oi.get("goods"):
+        g = oi.get("goods") or {}
+        return f"[주문 상품] {g.get('name', '')}".strip()
+    g = m.get("goods")
+    if isinstance(g, dict) and g.get("name"):
+        return f"[상품] {g.get('name')}"
+    card = m.get("card")
+    if isinstance(card, dict):
+        parts = [str(v).strip() for k, v in card.items() if isinstance(v, str) and v.strip() and k in ("title", "text", "description", "content", "message", "body")]
+        if parts:
+            return " ".join(parts)[:300]
+    if m.get("image_url") or m.get("transformed_image_url"):
+        return "(사진)"
+    return ""
+
+
+def ably_conv(room, detail):
+    """에이블리 방 + 대화 → 상담톡 대화 { id, name, tag, time, preview, unread, messages, aux }"""
+    detail = detail or {}
+    cr = detail.get("contact_room") or room or {}
+    msgs = []
+    for m in detail.get("contact_messages") or []:
+        if not isinstance(m, dict) or m.get("deleted_at"):
+            continue
+        t = _ably_text(m)
+        if not t:
+            continue
+        msgs.append({"who": "c" if str(m.get("member_type") or "").upper() == "USER" else "s", "text": t[:2000], "time": str(m.get("created_at") or "")[:19].replace("T", " ")})
+    member = (room or {}).get("member") or cr.get("member") or {}
+    tag = " / ".join(x for x in (cr.get("parent_category_display"), cr.get("child_category_display")) if x)
+    status = str(cr.get("get_status_display") or "")
+    items = []
+    goods = (room or {}).get("goods") or cr.get("goods")
+    oi = cr.get("order_item") or (room or {}).get("order_item")
+    if isinstance(oi, dict) and isinstance(oi.get("goods"), dict):
+        g = oi["goods"]
+        items.append({"img": g.get("image") or "", "name": g.get("name") or "", "option": str(oi.get("option_name") or oi.get("options") or "")[:120] if not isinstance(oi.get("options"), (list, dict)) else "",
+                      "price": str(oi.get("total_price") or ""), "status": str(oi.get("status_display") or oi.get("get_status_display") or ""), "order": str(oi.get("order_number") or oi.get("sno") or "")})
+    elif isinstance(goods, dict) and goods.get("name"):
+        items.append({"img": goods.get("image") or "", "name": goods.get("name") or "", "option": "", "price": "", "status": "", "order": ""})
+    last = msgs[-1] if msgs else {}
+    return {"id": str((room or {}).get("sno") or cr.get("sno") or ""), "name": str(member.get("name") or "고객")[:60], "tag": tag[:30],
+            "time": str((room or {}).get("updated_latest_message_at") or cr.get("updated_latest_message_at") or "")[:19].replace("T", " "),
+            "preview": str(last.get("text") or "")[:200], "unread": 1 if (last.get("who") == "c" and status != "완료") else 0,
+            "messages": msgs[-60:], "aux": {"title": f"에이블리 문의 · {status}" if status else "에이블리 문의", "lines": [x for x in (tag, status) if x], "items": items}}
+
+
+def ably_board_row(G, room, conv):
+    """에이블리 진행중 방 → 수집기 게시판 줄 (예전 collect_ably 와 같은 칸)"""
+    rid = conv["id"]
+    g = (room or {}).get("goods") or {}
+    gsno = str(g.get("sno") or "") if isinstance(g, dict) else ""
+    msgs = conv["messages"]
+    kst = getattr(G, "kst", lambda x: x)
+    return dict(업체="에이블리", 게시판="문의방", id=rid, 날짜=kst(room.get("created_at") or room.get("updated_latest_message_at") or ""),
+                상품명=(g.get("name") or "") if isinstance(g, dict) else "", 상품ID=gsno, 상품링크=(f"https://m.a-bly.com/goods/{gsno}" if gsno else ""),
+                관리링크=(f"https://seller-admin.a-bly.com/goods/{gsno}?iframe=true" if gsno else ""),
+                글링크=f"https://seller-admin.a-bly.com/inquiry/{rid}?iframe=true",
+                문의=(msgs[-1]["text"] if msgs else ""), 유형=conv.get("tag", ""),
+                맥락=[{"구분": "고객" if m["who"] == "c" else "판매자", "날짜": m["time"], "내용": m["text"], "사진URL": []} for m in msgs[:-1]][-12:],
+                사진URL=[], 원본={k: v for k, v in (room or {}).items() if k not in ("member",)})
+
+
+def ably_inquiry_core(G, br, cfg):
+    pg = br.page()
+    cap = {}
+
+    def on_req(req):
+        try:
+            if req.method == "GET" and ABLY_LIST_RE.search(req.url) and not cap:
+                cap["url"] = req.url
+                cap["headers"] = {k: v for k, v in (req.headers or {}).items()
+                                  if k.lower() not in SS_HEADER_SKIP and not k.lower().startswith("sec-") and not k.startswith(":")}
+        except Exception:
+            pass
+    pg.on("request", on_req)
+    note = ""
+    try:
+        pg.goto("https://my.a-bly.com/inquiry", wait_until="domcontentloaded", timeout=60000)   # 껍데기를 거쳐야 로그인이 넘어감
+        pg.wait_for_timeout(4000)
+        if "login" in pg.url or pg.locator("input[type=password]").count() > 0:
+            note = G.ably_autologin(pg) if hasattr(G, "ably_autologin") else ""
+            pg.goto("https://my.a-bly.com/inquiry", wait_until="domcontentloaded", timeout=60000)
+            pg.wait_for_timeout(4000)
+            if "login" in pg.url or pg.locator("input[type=password]").count() > 0:
+                return "로그인 필요", [], note or "에이블리 로그인 필요"
+        cap.clear()
+        pg.goto("https://seller-admin.a-bly.com/inquiry?iframe=true", wait_until="domcontentloaded", timeout=60000)
+        for _ in range(30):
+            if cap:
+                break
+            pg.wait_for_timeout(500)
+        if "login" in pg.url:
+            return "로그인 필요", [], "에이블리 로그인 필요"
+        if not cap:
+            return "오류", [], "문의 화면의 목록 요청을 찾지 못함"
+        test = bool(cfg.get("test"))
+        mx = int(cfg.get("test_limit", 3)) if test else ABLY_MAX_ROOMS
+        res = pg.evaluate(ABLY_FETCH_JS, {"listUrls": ably_list_urls(cap["url"]), "headers": cap["headers"], "max": mx})
+    finally:
+        try:
+            pg.close()
+        except Exception:
+            pass
+    rows, convs = [], []
+    for room in res.get("rooms") or []:
+        conv = ably_conv(room, (res.get("details") or {}).get(str(room.get("sno"))) or (res.get("details") or {}).get(room.get("sno")))
+        if not conv["id"]:
+            continue
+        convs.append(conv)
+        if room.get("status") != 3 or test:          # 게시판에는 진행중 방만 (예전과 같음)
+            rows.append(ably_board_row(G, room, conv))
+    ABLY_CHAT[:] = convs
+    err = res.get("errors") or []
+    msg = (f"{note} / " if note else "") + f"진행중 방 {len(rows)}개 · 상담톡 {len(convs)}개" + (f" · 확인 필요 {len(err)}건 ({err[0]})" if err else "")
+    return "ok", rows, msg
+
+
+def push_ably_chat(link, say=print):
+    """1.29: 수집 때 읽은 에이블리 대화 → 시트 상담톡 (platform=ably)"""
+    if not ABLY_CHAT:
+        return 0
+    convs = list(ABLY_CHAT)
+    try:
+        js = link.call("chatIngest", platform="ably", convs=convs)
+        ABLY_CHAT.clear()
+        say(f"💬 에이블리 상담톡 {len(convs)}개 보냄 (새 {js.get('added', 0)} · 바뀜 {js.get('changed', 0)})")
+        return len(convs)
+    except Exception as e:
+        say(f"⚠ 에이블리 상담톡 보내기 실패 (다음에 다시): {e}"[:200])
+        return 0
+
+
 def patch_review_collectors(G):
     G._v3_review_patch = True
     patch_makeshop_charset(G)
+    if getattr(G, "collect_ably", None):                  # 1.29 에이블리 문의(채팅방)
+        G._v3_orig_ably = G.collect_ably
+
+        def collect_ably(br, cfg):
+            try:
+                return ably_inquiry_core(G, br, cfg)
+            except Exception as e:
+                return "오류", [], f"에이블리 문의 수집 실패: {e}"[:300]
+        G.collect_ably = collect_ably
     orig_ss = getattr(G, "collect_reviews_smartstore", None)
     if getattr(G, "collect_reviews_zigzag", None) and hasattr(G, "kst"):
         def collect_reviews_zigzag(br, cfg):
@@ -3124,6 +3312,7 @@ def _loop(G, say, beat, once, bg):
                 finally:
                     beat.set("idle", "웹 요청 기다리는 중")
             push_new_files(link, cfg["out_dir"], d, say)
+            push_ably_chat(link, say)               # 1.29
             save_link(d)
             js = link.call("poll", pc=pc, version=f"{G.VER} / 연결 {LINK_VER}{' · 창 없이' if bg else ''}", busy=False,
                            setup=setup_info(cfg, bg, d, nxt))

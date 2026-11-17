@@ -1467,5 +1467,82 @@ assert su33["toss"] == "own" and "IP 미등록" in su33["toss_note"] and su33["t
 fn5 = os.path.join(tmp, "수집_toss5.json"); json.dump({"rows": []}, open(fn5, "w", encoding="utf-8"))
 L._toss_req = fake_req2
 assert L.add_toss_to_result(fn5, {"vendors": {}}, print) == 1, "웹 키가 있으면 고른 적 없어도 토스 수집"
-assert L.LINK_VER.startswith("1.33")
+assert L.LINK_VER >= "1.33"
 print("g1V3Link toss key (1.33): OK")
+
+# ── 1.34 토스 상품 Q&A · 리뷰 = 판매자센터 화면 (화면이 받은 응답 · 머리말을 그대로) ──
+QURL = "https://api-public.toss.im/api-public/v3/shopping-chat/product-qna?tab=ALL"
+RURL = "https://api-public.toss.im/api-public/v1/shopping-review/product/reviews?page=0&pageSize=20"
+class TReq:
+    def __init__(self, url): self.url, self.method, self.headers = url, "GET", {"x-merchant-id": "87481", "cookie": "secret", "sec-ch-ua": "x"}
+class TResp:
+    def __init__(self, url, status, js): self.url, self.status, self._js, self.request = url, status, js, TReq(url)
+    def json(self): return self._js
+class TPage:
+    def __init__(self, logged=True, reviews=None):
+        self.url, self.h, self.logged, self.reviews, self.evals, self.closed = "about:blank", None, logged, reviews, [], False
+    def on(self, ev, fn): self.h = fn
+    def goto(self, u, **k):
+        self.url = u if self.logged else "https://shopping-seller.toss.im/login"
+        if not self.logged: return
+        if u.endswith("/product-qna"): self.h(TResp(QURL, 200, {"resultType": "SUCCESS", "success": {"items": []}}))
+        if u.endswith("/product-reviews"): self.h(TResp(RURL, 200, {"resultType": "SUCCESS", "success": self.reviews or {"reviews": [], "totalCount": 0}}))
+    def wait_for_timeout(self, ms): pass
+    def is_closed(self): return False
+    def locator(self, sel):
+        class Lc:
+            def count(s): return 0
+        return Lc()
+    def evaluate(self, js, arg):
+        self.evals.append(arg)
+        return {"items": [{"qnaId": 11, "productName": "써지컬 바", "contentPreview": "한 쌍?", "answered": False, "regDt": "2026-11-16T20:35:43"},
+                          {"qnaId": 12, "productName": "B", "contentPreview": "끝", "answered": True}],
+                "details": {"11": {"product": {"productId": 5, "productName": "써지컬 바", "productItemName": "실버", "thumbnailUrl": "https://img/x.jpg"},
+                                   "question": {"customerName": "김*", "content": "한 쌍 인가요?", "regDt": "2026-11-16T20:35:43"}, "answers": []}}, "errors": []}
+    def close(self): self.closed = True
+class TBr:
+    def __init__(self, page): self.p = page
+    def page(self): return self.p
+tp = TPage(reviews={"reviews": [{"reviewId": 7, "productName": "링", "rating": 5, "content": "좋아요", "regDt": "2099-01-01T10:00:00", "attachments": [{"url": "https://img/r.jpg"}]},
+                                {"reviewId": 8, "productName": "링", "rating": 4, "content": "답함", "regDt": "2099-01-01T10:00:00", "reply": {"content": "감사"}}]})
+res = L.toss_screen_core(G, TBr(tp), {"days": 30}, qna=True, reviews=True)
+st, rows, note = res["qna"]
+assert st == "ok" and len(rows) == 1 and rows[0]["id"] == "qna-11" and rows[0]["업체"] == "토스" and rows[0]["게시판"] == "상품Q&A", res
+assert rows[0]["문의"] == "한 쌍 인가요?" and rows[0]["옵션"] == "실버" and rows[0]["날짜"] == "2026-11-16 20:35" and rows[0]["상품이미지"] == "https://img/x.jpg"
+ev = tp.evals[0]
+assert ev["headers"] == {"x-merchant-id": "87481"} and ev["waitingOnly"] is True and ev["listUrl"] == QURL, "쿠키·sec- 머리말은 빼고 판매자 번호만"
+rst, rrows, rnote = res["review"]
+assert rst == "ok" and [r["id"] for r in rrows] == ["7"] and rrows[0]["별점"] == 5 and rrows[0]["사진URL"] == ["https://img/r.jpg"] and rrows[0]["답글불가"], res["review"]
+assert tp.closed
+res0 = L.toss_screen_core(G, TBr(TPage(reviews={"reviews": []})), {"days": 30}, qna=False, reviews=True)
+assert res0 == {"review": ("ok", [], "등록된 리뷰 없음")}, res0
+resL = L.toss_screen_core(G, TBr(TPage(logged=False)), {}, qna=True, reviews=True)
+assert resL["qna"][0] == "로그인 필요" and resL["review"][0] == "로그인 필요"
+assert L.toss_screen_on({"vendors": {"토스": True}}, "qna") and not L.toss_screen_on({"vendors": {}}, "qna")
+assert L.toss_screen_on({"vendors": {}, "toss_login_ok": True}, "review") and not L.toss_screen_on({"vendors": {"토스": False}, "toss_login_ok": True}, "qna")
+assert L.toss_screen_on({"vendors": {"토스": False}, "review_vendors": {"토스": True}}, "review")
+# 결과 파일에 덧붙임 — 문의방(API) 결과와 합침
+class TBrowser:
+    def __init__(self, show=False): pass
+    def __enter__(self): return TBr(TPage(reviews={"reviews": [{"reviewId": 9, "content": "굿", "regDt": "2099-01-01T00:00:00"}]}))
+    def __exit__(self, *a): return False
+G.Browser = TBrowser
+fn6 = os.path.join(tmp, "수집_toss6.json")
+json.dump({"rows": [{"업체": "토스", "게시판": "문의방"}], "업체결과": {"토스": {"상태": "ok", "건수": 1, "메모": "방 1개"}}}, open(fn6, "w", encoding="utf-8"))
+assert L.add_toss_screen_to_result(G, fn6, {"vendors": {"토스": True}}, print) == 2
+d6 = json.load(open(fn6, encoding="utf-8"))
+assert d6["업체결과"]["토스"]["건수"] == 2 and "상품 Q&A" in d6["업체결과"]["토스"]["메모"] and d6["리뷰결과"]["토스"]["건수"] == 1 and d6["리뷰"][0]["게시판"] == "리뷰"
+assert store.get("toss_login_ok") is True
+assert L.add_toss_screen_to_result(G, fn6, {"vendors": {"토스": False}}, print) == 0, "끄면 건너뜀"
+assert "토스" in L.LOGIN_URL and "토스" in L.MANUAL_LOGIN
+tl = TPage()
+assert L.toss_login(tl, print, print)["state"] == "ok"
+clock34 = {"t": 0.0}
+_tt = L.time.time
+L.time.time = lambda: clock34.__setitem__("t", clock34["t"] + 5) or clock34["t"]
+try:
+    assert L.toss_login(TPage(logged=False), print, print, wait_sec=20)["state"] == "manual_fail"
+finally:
+    L.time.time = _tt
+assert L.LINK_VER.startswith("1.34")
+print("g1V3Link toss screen (1.34): OK")

@@ -4,7 +4,7 @@
 //  · 업체명 ↔ 슬롯 메모로 짝 → [🖼 사진적용] = 짝 맞은 창마다 붙여넣기 (보내기는 사람이: 카톡 미리보기 창 [전송])
 //  · 그림은 이 브라우저 안에서만 만들고, 카톡 창으로만 갑니다 (어디에도 올리지 않음)
 import { groupByVendor, matchSlot, normName, readOrderSheet, vendorFromFileName } from "../domain/orderSheet.mjs?v=20261112-color1";
-import { mountVendorRead, isStockFile } from "./vendorReadPanel.mjs?v=20261117-read1";
+import { mountVendorRead, isStockFile } from "./vendorReadPanel.mjs?v=20261117-read2";
 
 const MEMO_KEY = "system_v3_cs_vendor_memo";
 export const DEFAULT_ORDER_MEMO = "• 전달된 실수량 꼭 필요 부탁드립니다\n• 단가 다를시 꼭 말씀 부탁드립니다\n감사합니다 ☺";

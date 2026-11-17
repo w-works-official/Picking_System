@@ -11,7 +11,7 @@ export const MSN_PANELS = {};
 // 2026-11-05: 수집기 PC 웹연결 1.10 의 "메신저 창 도우미" (이 PC 안 127.0.0.1) — 카톡 창을 슬롯에 붙이기·항상 위·일괄 정렬
 export const MSN_HELPER_URL = "http://127.0.0.1:47811/msn";
 // 11-09: 이 버전보다 낮은 창 도우미는 화면이 알아서 새 버전으로 바꿈 (1.25 부터 스스로 업데이트 /msn/update)
-export const MSN_HELPER_MIN = "1.28";   // 11-13: 1.28 = 카톡 대화창만 붙임 (사진 보기 창 자유 · 네이트온 뺌)
+export const MSN_HELPER_MIN = "1.30";   // 11-17: 1.30 = 오늘 CS 리포트 카톡 보내기 (/msn/text) · 11-13   // 11-13: 1.28 = 카톡 대화창만 붙임 (사진 보기 창 자유 · 네이트온 뺌)
 export const MSN_HELPER_INSTALLER = "../tools/msn_helper.bat";
 const verNums = (v) => (String(v || "").split(" ")[0].match(/\d+/g) || []).slice(0, 3).map(Number);
 export function helperOutdated(ver, min = MSN_HELPER_MIN) {

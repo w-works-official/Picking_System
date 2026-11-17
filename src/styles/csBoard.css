@@ -540,6 +540,9 @@ body.cs-board-workspace {
 .cs-vendor-card.cs-soon-card { opacity: 0.55; cursor: not-allowed; }
 .cs-soon-note { font-size: 10.5px; font-weight: 700; opacity: 0.9; line-height: 1.3; }
 .cs-vendor-status.cs-soon-status { color: #94a3b8; font-size: 11px; text-align: center; }
+.cs-toss-box { border-color: #f9a8d4; }
+.cs-toss-box legend { color: #be185d; }
+#cs-toss-state.is-bad { color: #be123c; font-weight: 700; }
 .cs-vendor-grid.cs-vendor-grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cs-vendor-grid-6 > div:nth-of-type(-n+3) { order: 0; }
 .cs-vendor-grid-6 > span:nth-of-type(-n+3) { order: 1; }

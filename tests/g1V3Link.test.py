@@ -1302,5 +1302,36 @@ assert _c["preview"].startswith("귀걸이침") and _c["aux"]["items"][0]["name"
 _r = L.ably_board_row(type("G", (), {"kst": staticmethod(lambda x: x)}), _room, _c)
 assert _r["업체"] == "에이블리" and _r["게시판"] == "문의방" and _r["id"] == "98179046" and _r["문의"].startswith("귀걸이침") and "member" not in _r["원본"]
 assert L.ably_conv({"sno": 1, "status": 3}, {"contact_room": {"get_status_display": "완료"}, "contact_messages": [{"member_type": "USER", "content": "감사"}]})["unread"] == 0
-assert L.LINK_VER.startswith("1.29")
 print("g1V3Link ably chat (1.29): OK")
+
+# 1.30 오늘 CS 리포트: 이름이 똑같은 카톡 대화창에 글 하나씩 붙여넣기 + Enter
+assert L.msn_clean_texts(["a\r\nb", "", None, "x" * 5000] + ["y"] * 9) == ["a\nb", "x" * 4000, "y", "y", "y"]
+assert L.msn_clean_texts("글") == []
+fr = FakeMsnApi()
+fr.wins = {1: ("CS 리포트방 외", (0, 0, 400, 600)), 2: ("고객 A", (0, 0, 400, 600))}
+fr.order = [1, 2]
+clips, sends, opened = [], [], []
+fr.set_clip_text = lambda t: clips.append(t)
+fr.send = lambda h, enter=True: sends.append((h, enter, clips[-1]))
+def _open(name):
+    opened.append(name); fr.wins[9] = ("CS 리포트방", (0, 0, 400, 600)); fr.order.append(9); return True
+fr.open_chat = _open
+said = []
+mr = L.MsnHelper(fr, said.append)
+r = mr.send_texts("CS 리포트방", ["1/3 리뷰", "2/3 상담톡", "3/3 게시판"], sleep=lambda s: None)
+assert r == {"ok": True, "sent": 3, "title": "CS 리포트방", "opened": True}, r
+assert opened == ["CS 리포트방"], "이름이 조금 다른 방(…외)에는 안 보내고 카톡 검색으로 정확한 방을 엶"
+assert [x[0] for x in sends] == [9, 9, 9] and [x[2] for x in sends] == ["1/3 리뷰", "2/3 상담톡", "3/3 게시판"] and all(x[1] for x in sends)
+assert any("리포트 3건" in m for m in said)
+sends.clear(); opened.clear()
+assert mr.send_texts("CS 리포트방", ["다시"], sleep=lambda s: None)["opened"] is False and not opened, "이미 열려 있으면 그 창에"
+fr.wins[10] = ("CS 리포트방", (0, 0, 400, 600)); fr.order.append(10)
+r = mr.send_texts("CS 리포트방", ["x"], sleep=lambda s: None)
+assert r["ok"] is False and "2개" in r["error"] and len(sends) == 1, "같은 이름 창이 여러 개면 안 보냄"
+assert mr.send_texts("가", ["x"])["ok"] is False and mr.send_texts("CS 리포트방", [""])["ok"] is False
+fn = FakeMsnApi(); fn.open_chat = lambda name: None; fn.set_clip_text = lambda t: None
+assert "카톡 PC" in L.MsnHelper(fn).send_texts("없는방", ["x"], sleep=lambda s: None)["error"]
+fm = FakeMsnApi(); fm.open_chat = lambda name: True; fm.set_clip_text = lambda t: None
+assert "못 찾았습니다" in L.MsnHelper(fm).send_texts("없는방", ["x"], sleep=lambda s: None)["error"]
+assert L.LINK_VER.startswith("1.30")
+print("g1V3Link daily report text (1.30): OK")

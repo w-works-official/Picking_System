@@ -1387,7 +1387,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openReport() {
     if (report) return;
     report = {};
-    import("./csDailyReportPanel.mjs?v=20261117-toss1")
+    import("./csDailyReportPanel.mjs?v=20261118-rp24")
       .then((m) => { report = m.mountDailyReport({ document, window, root: $("[data-report-box]"), post: postRaw, isLive: () => state.connected && !state.sample, storage: (() => { try { return window.localStorage; } catch { return null; } })() }) || {}; })
       .catch((error) => { report = null; toast(`오늘 CS 리포트 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }

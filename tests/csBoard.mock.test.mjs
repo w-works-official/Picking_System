@@ -158,6 +158,11 @@ assert.deepEqual(csRegisterPayload(cand.auto, "희진"), { action: "request", ki
 assert.deepEqual(csRequestPayload("reviews", { vendors: ["지그재그", "지그재그", ""], reviewDays: 14 }), { action: "request", kind: "reviews", options: { vendors: ["지그재그"], reviewDays: 14 }, editor: "" });
 assert.deepEqual(csRequestPayload("collect", { vendors: ["에이블리"], reviewDays: 14 }).options, { vendors: ["에이블리"] }, "days only for reviews");
 assert.deepEqual(csRequestPayload("collect", { vendors: ["스마트스토어", "지그재그", "에이블리", "메이크샵", "토스"] }).options.vendors.at(-1), "토스", "11-17 업체 5곳 모두 (토스가 빠지지 않게)");
+{
+  const { csPcPayload: pcp } = await import("../src/domain/csBoard.mjs");
+  assert.deepEqual(pcp("tossKey", { access: "A", secret: "S" }).options, { access: "A", secret: "S" });
+  assert.deepEqual(pcp("tossKey", {}).options, {}, "빈 값 = 연결 시험만");
+}
 assert.throws(() => csRequestPayload("register"));
 assert.throws(() => csRequestPayload("rm -rf"));
 const t0 = Date.parse("2026-10-29T05:00:00Z");

@@ -542,7 +542,11 @@ body.cs-board-workspace {
 .cs-vendor-status.cs-soon-status { color: #94a3b8; font-size: 11px; text-align: center; }
 .cs-toss-box { border-color: #f9a8d4; }
 .cs-toss-box legend { color: #be185d; }
-#cs-toss-state.is-bad { color: #be123c; font-weight: 700; }
+/* 11-17 토스 연결 상태 크게 */
+#cs-toss-state { margin: 6px 0; padding: 10px 12px; border: 2px solid #f9a8d4; border-radius: 8px; background: #fdf2f8; color: #9d174d; font-size: 16px; font-weight: 800; line-height: 1.35; }
+#cs-toss-state.is-ok { border-color: #34d399; background: #ecfdf5; color: #047857; }
+#cs-toss-state.is-bad { border-color: #fda4af; background: #fff1f2; color: #be123c; }
+#cs-toss-result { font-size: 14px; font-weight: 700; color: #334155; }
 .cs-vendor-grid.cs-vendor-grid-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cs-vendor-grid-6 > div:nth-of-type(-n+3) { order: 0; }
 .cs-vendor-grid-6 > span:nth-of-type(-n+3) { order: 1; }

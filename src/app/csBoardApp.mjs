@@ -1340,7 +1340,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openReport() {
     if (report) return;
     report = {};
-    import("./csDailyReportPanel.mjs?v=20261117-rooms1")
+    import("./csDailyReportPanel.mjs?v=20261117-auto1")
       .then((m) => { report = m.mountDailyReport({ document, window, root: $("[data-report-box]"), post: postRaw, isLive: () => state.connected && !state.sample, storage: (() => { try { return window.localStorage; } catch { return null; } })() }) || {}; })
       .catch((error) => { report = null; toast(`오늘 CS 리포트 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }
@@ -1798,6 +1798,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   function bind() {
     $$("[data-left-tab]").forEach((b) => b.addEventListener("click", () => showLeft(b.dataset.leftTab)));
+    try { if (JSON.parse(window.localStorage.getItem("system_v3_cs_report") || "{}").auto === true) openReport(); } catch { /* ⏰ 자동 보내기를 켠 PC 면 화면을 열 때부터 시간 확인 */ }
     $("#cs-fold")?.addEventListener("click", () => {
       const folded = !$("#cs-main").classList.contains("left-folded");
       if (!AUTO_FOLD.includes(leftTab)) foldState.folded = folded;   // 메신저·거래처 탭에서 편 것은 그 탭에서만

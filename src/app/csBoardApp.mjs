@@ -60,7 +60,7 @@ import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
 import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261103-loginmemo1";
 
-const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
+const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵", "토스"];   // 11-17 토스 (API 키 · 읽기만) · 쿠팡 칸은 준비 중(고를 수 없음)
 const REVIEW_VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
 const CS_MANUAL_LOGIN = ["스마트스토어"];   // 웹연결 1.6: 네이버는 자동 입력하면 퀴즈·2단계 인증에 막혀 사람이 직접 로그인
 const REVIEW_DEFAULT = ["지그재그", "에이블리", "메이크샵"];   // 스마트스토어 리뷰는 직접 로그인이 필요해 처음엔 꺼 둠 (2026-11-03)
@@ -137,7 +137,8 @@ function readVendorSel(storage) {
   try {
     const raw = JSON.parse(storage?.getItem(VENDOR_KEY) || "{}");
     return {
-      board: new Set(Array.isArray(raw.board) ? raw.board.filter((v) => VENDORS.includes(v)) : VENDORS),
+      // 11-17 새로 생긴 업체(토스)는 전에 고른 적이 없으면 켠 상태로
+      board: new Set(Array.isArray(raw.board) ? [...raw.board.filter((v) => VENDORS.includes(v)), ...VENDORS.filter((v) => !(raw.known || ["스마트스토어", "지그재그", "에이블리", "메이크샵"]).includes(v))] : VENDORS),
       review: new Set(Array.isArray(raw.review) ? raw.review.filter((v) => REVIEW_VENDORS.includes(v)) : REVIEW_DEFAULT),
     };
   } catch {
@@ -1331,7 +1332,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openChat() {
     if (chat) { chat.load(); chat.start?.(); return; }
     chat = { load() {}, start() {}, stop() {} };
-    import("./chatTalkPanel.mjs?v=20261117-toss1")
+    import("./chatTalkPanel.mjs?v=20261117-toss2")
       .then((m) => { chat = m.mountChatTalk({ document, window, root: $("[data-chat]"), side: $("[data-chat-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); chat.load(); chat.start(); })
       .catch((error) => { chat = null; toast(`상담톡 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }
@@ -1789,7 +1790,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (set.has(card.dataset.vendor)) set.delete(card.dataset.vendor);
     else set.add(card.dataset.vendor);
     try {
-      storage?.setItem(VENDOR_KEY, JSON.stringify({ board: [...state.vendorSel.board], review: [...state.vendorSel.review] }));
+      storage?.setItem(VENDOR_KEY, JSON.stringify({ board: [...state.vendorSel.board], review: [...state.vendorSel.review], known: VENDORS }));
     } catch {
       // 이 기기에 기억 못 해도 이번 화면에는 적용
     }

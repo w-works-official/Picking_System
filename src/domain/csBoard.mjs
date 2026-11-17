@@ -501,6 +501,7 @@ export function csAdminLink(row) {
     return /^[A-Za-z0-9_-]+$/.test(row.id) ? `https://seller-admin.a-bly.com/inquiry/${row.id}?iframe=true` : "https://my.a-bly.com/inquiry";
   }
   if (row.vendor === "지그재그") return "https://partners.kakaostyle.com/";
+  if (row.vendor === "토스") return "https://shopping-seller.toss.im";
   return "";
 }
 

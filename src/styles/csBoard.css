@@ -2336,6 +2336,9 @@ a.cs-btn {
 .ct-zone.ct-kakao { --ct-c: #f2c500; --ct-soft: #fffbe0; --ct-me: #fee500; --ct-me-ink: #191919; --ct-talk-bg: #b2c7da; }
 /* 11-13 에이블리 문의 (앱 채팅방 — 판매자 말은 파랑) · 구역 머리 ⠿ 끌어서 순서 바꾸기 */
 .ct-zone.ct-ably { --ct-c: #111111; --ct-soft: #f4f4f5; --ct-me: #2f6bff; --ct-me-ink: #fff; --ct-talk-bg: #f8fafc; }
+/* 11-17 토스쇼핑 문의 (토스 파랑) · 4구역이 되어 한 구역 최소 높이 300px (화면이 낮으면 아래로 내려 봄) */
+.ct-zone.ct-toss { --ct-c: #3182f6; --ct-soft: #e8f3ff; --ct-me: #3182f6; --ct-me-ink: #fff; --ct-talk-bg: #f2f4f6; }
+.ct { grid-auto-rows: minmax(300px, 1fr); }
 .ct-list-head[draggable="true"] { cursor: grab; user-select: none; }
 .ct-list-head[draggable="true"]:active { cursor: grabbing; }
 .ct-grip { color: #64748b; font-size: 14px; line-height: 1; letter-spacing: -1px; }

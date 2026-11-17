@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  normalizeReportSettings, sendRooms, reportDue, autoLabel, kstClock, kstDay, dayOf, reviewStars, pickReviews, chatItems, boardItems, fallbackLines,
+  normalizeReportSettings, markResultLine, RESULT_MARK, sendRooms, reportDue, autoLabel, kstClock, kstDay, dayOf, reviewStars, pickReviews, chatItems, boardItems, fallbackLines,
   reviewMessage, summaryMessage, reportHead,
 } from "../src/domain/csDailyReport.mjs";
 import { normalizeCsRow } from "../src/domain/csBoard.mjs";
@@ -65,9 +65,20 @@ const ci = chatItems(chats, T);
 assert.deepEqual(ci.map((c) => [c.src, c.done, c.a]), [["톡톡", true, "품절입니다"], ["해피톡", false, ""]]);
 const fl = fallbackLines(ci, 1);
 assert.equal(fl.length, 1);
-assert.match(fl[0], /^\[해피톡\] 언제 와요\? → 미답 \(외 1건\)$/, "미답부터 · 남은 건수");
-const cm = summaryMessage(T, 2, "💬 상담톡", "상담", ci, ["사이즈 문의 → 품절 안내", "배송 문의 → 미답"]);
-assert.equal(cm, "📊 11/17(화) CS 리포트 2/3 · 💬 상담톡\n오늘 상담 2건 (톡톡 1 · 해피톡 1) · 답변 1 · 미답 1\n\n▪ 사이즈 문의 → 품절 안내\n▪ 배송 문의 → 미답");
+assert.match(fl[0], /^\[해피톡\] 언제 와요\? → 답변 X \(외 1건\)$/, "답변 X 부터 · 남은 건수");
+const cm = summaryMessage(T, 2, "💬 상담톡", "상담", ci, ["사이즈 문의 → 답변함", "배송 문의 → 미답"]);
+assert.equal(cm, "📊 11/17(화) CS 리포트 2/3 · 💬 상담톡\n오늘 상담 2건 (톡톡 1 · 해피톡 1) · 답변 O 1 · 답변 X 1\n\n▪ 사이즈 문의 → 답변 O\n▪ 배송 문의 → 답변 X");
+// 11-17 답변 O · X · △(보류)
+assert.equal(markResultLine("바두께 변경 문의 → 답변 보류"), "바두께 변경 문의 → 답변 △");
+assert.equal(markResultLine("재입고 문의 (3건) → 미답변"), "재입고 문의 (3건) → 답변 X");
+assert.equal(markResultLine("교환 문의 → 답변 O"), "교환 문의 → 답변 O");
+const held = boardItems([raw({ id: "h1", kind: "문의", board: "Q&A", vendor: "메이크샵", q: "보류 문의" })].map((r) => ({ ...r, choice: { ...r.choice, hold: true } })), T, () => "");
+assert.equal(held[0].hold, true);
+const hm = summaryMessage(T, 3, "📋 게시판", "문의", [...bi, ...held], ["x → 보류"]);
+assert.match(hm, /답변 O 1 · 답변 X 1 · 답변 △ 1/);
+assert.match(hm, /▪ x → 답변 △$/);
+assert.match(fallbackLines([...held, ...bi], 3).join("|"), /^\[스마트스토어\][^|]*→ 답변 X\|\[메이크샵\] 보류 문의 → 답변 △\|\[메이크샵\][^|]*→ 답변 O$/);
+assert.equal(RESULT_MARK.hold, "답변 △");
 assert.match(summaryMessage(T, 3, "📋 게시판", "문의", [], []), /3\/3 · 📋 게시판\n오늘 들어온 문의가 없습니다\.$/);
 assert.match(summaryMessage(T, 2, "💬 상담톡", "상담", [], []), /오늘 들어온 상담이 없습니다\.$/);
 assert.equal(reportHead("2026-11-16", 1, "x"), "📊 11/16(월) CS 리포트 1/3 · x");
@@ -79,10 +90,10 @@ assert.equal(helperTooOld(""), true);
 // 화면 연결: ⚙ 설정 맨 위 한 곳 · 시트 v30 · 웹연결 1.30
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
 assert.match(html, /data-left-panel="settings" hidden>\s*<!-- 📊 오늘 CS 리포트[^>]*-->\s*<div data-report-box><\/div>/);
-assert.match(html, /csBoardApp\.mjs\?v=20261117-auto2/);
+assert.match(html, /csBoardApp\.mjs\?v=20261117-oxt1/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "settings"\) openReport\(\);/);
-assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-auto2"\)/);
+assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-oxt1"\)/);
 const panel = readFileSync(new URL("../src/app/csDailyReportPanel.mjs", import.meta.url), "utf8");
 assert.match(panel, /data-rp-room="\$\{i\}"/);
 assert.match(panel, /for \(const \[i, room\] of rooms\.entries\(\)\)/);
@@ -92,6 +103,7 @@ assert.match(gs, /if \(action === 'reportSummary'\) return reportSummary_\(body\
 const staff = gs.match(/var staff = \[([^\]]+)\]/)[1];
 assert.match(staff, /'reportData'/, "직원 요청 목록에 없으면 '알 수 없는 요청'으로 막힘");
 assert.match(staff, /'reportSummary'/);
+assert.match(gs, /it\.hold \? '답변 △\(보류\)' : it\.done \? '답변 O' : '답변 X'/);
 const py = readFileSync(new URL("../docs/g1_v3_link.py", import.meta.url), "utf8");
 assert.match(py, /LINK_VER = "1\.30 /);
 assert.match(py, /if p == "\/msn\/text":/);

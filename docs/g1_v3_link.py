@@ -172,7 +172,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.34 (2026-11-17)"
+LINK_VER = "1.35 (2026-11-17)"
 LINK_NOTE = "게시판 수집 업체에 토스 추가 + 💬 상담톡 토스 칸 (읽기만, 키 C:\\Users\\Public\\toss_api.txt)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
@@ -3444,7 +3444,10 @@ class MsnHelper:
         for t in texts:
             self.api.set_clip_text(t)
             sleep(0.15)
-            self.api.send(h, True)
+            try:                                       # 1.35 입력칸에 남아 있던 글(예: 'ㄱ로')을 지우고 붙여넣기 — 리포트 앞에 엉뚱한 글자가 붙던 것
+                self.api.send(h, True, clear=True)
+            except TypeError:
+                self.api.send(h, True)
             sent += 1
             sleep(0.9)
         self.say(f"📊 오늘 CS 리포트 {sent}건 → 카톡 '{title}'")
@@ -3718,7 +3721,7 @@ class MsnWin:
                 pass
         return found
 
-    def send(self, hwnd, enter=True):
+    def send(self, hwnd, enter=True, clear=False):
         """메신저 창에 붙여넣기(Ctrl+V) + Enter → 원래 앞에 있던 창(System V3)으로 커서 되돌림. 클립보드는 웹이 미리 넣어 둠
            1.23: Enter 없이 붙여넣기(그림)면 새로 뜬 카톡 창(클립보드 이미지 전송)을 이 대화창 것으로 기억"""
         prev = self.u.GetForegroundWindow()
@@ -3726,6 +3729,10 @@ class MsnWin:
         before = set(self._proc_windows(pid)) if pid else set()
         self._activate(hwnd)
         time.sleep(0.18)
+        if clear:                                        # 1.35 리포트: 입력칸 비우기 (전체 선택 → 지움 · Esc 는 카톡 창이 닫혀서 쓰지 않음)
+            self._key(0x11); self._key(0x41); self._key(0x41, True); self._key(0x11, True)   # Ctrl+A
+            self._key(0x2E); self._key(0x2E, True)       # Delete
+            time.sleep(0.08)
         self._key(0x11); self._key(0x56); self._key(0x56, True); self._key(0x11, True)   # Ctrl+V
         time.sleep(0.12)
         if enter:

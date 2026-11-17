@@ -54,15 +54,15 @@ import {
   csPointPayload,
   CS_POINT_DEFAULT,
   csShotPoint,
-} from "../domain/csBoard.mjs?v=20261117-toss5";
+} from "../domain/csBoard.mjs?v=20261117-toss7";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261111-nosample1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
 import { csExcelChanges, csExcelSheet } from "../domain/csExcel.mjs?v=20261103-loginmemo1";
 
 const VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵", "토스"];   // 11-17 토스 (API 키 · 읽기만) · 쿠팡 칸은 준비 중(고를 수 없음)
-const REVIEW_VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
-const CS_MANUAL_LOGIN = ["스마트스토어"];   // 웹연결 1.6: 네이버는 자동 입력하면 퀴즈·2단계 인증에 막혀 사람이 직접 로그인
+const REVIEW_VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵", "토스"];   // 11-17 토스 리뷰 (판매자센터 화면 읽기)
+const CS_MANUAL_LOGIN = ["스마트스토어", "토스"];   // 웹연결 1.6: 네이버는 자동 입력하면 퀴즈·2단계 인증에 막혀 사람이 직접 로그인
 const REVIEW_DEFAULT = ["지그재그", "에이블리", "메이크샵"];   // 스마트스토어 리뷰는 직접 로그인이 필요해 처음엔 꺼 둠 (2026-11-03)
 const VENDOR_KEY = "system_v3_cs_board_vendors";
 
@@ -139,7 +139,7 @@ function readVendorSel(storage) {
     return {
       // 11-17 새로 생긴 업체(토스)는 전에 고른 적이 없으면 켠 상태로
       board: new Set(Array.isArray(raw.board) ? [...raw.board.filter((v) => VENDORS.includes(v)), ...VENDORS.filter((v) => !(raw.known || ["스마트스토어", "지그재그", "에이블리", "메이크샵"]).includes(v))] : VENDORS),
-      review: new Set(Array.isArray(raw.review) ? raw.review.filter((v) => REVIEW_VENDORS.includes(v)) : REVIEW_DEFAULT),
+      review: new Set(Array.isArray(raw.review) ? [...raw.review.filter((v) => REVIEW_VENDORS.includes(v)), ...REVIEW_VENDORS.filter((v) => !(raw.knownReview || ["스마트스토어", "지그재그", "에이블리", "메이크샵"]).includes(v))] : REVIEW_DEFAULT),
     };
   } catch {
     return { board: new Set(VENDORS), review: new Set(REVIEW_DEFAULT) };
@@ -651,7 +651,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   async function requestConn(vendor, part) {
     if (!vendor) return;
     if (part === "board" && vendor === "스마트스토어") { await requestPc("apiTest", {}, "스마트스토어 게시판(커머스 API) 연결 확인을 요청했습니다"); return; }
-    const manual = CS_MANUAL_LOGIN.includes(vendor) ? " — 막히면 수집기 PC 크롬 창에서 직접 로그인 (되면 창 자동으로 닫힘)" : "";
+    const manual = vendor === "토스" ? " — 수집기 PC에 뜬 창에서 토스 앱으로 인증해 주세요 (되면 창 자동으로 닫힘)" : CS_MANUAL_LOGIN.includes(vendor) ? " — 막히면 수집기 PC 크롬 창에서 직접 로그인 (되면 창 자동으로 닫힘)" : "";
     const what = part === "all" ? "전체연결(로그인 → 게시판 → 리뷰 수집)" : part === "board" ? "게시판 연결(로그인)" : "리뷰 연결(로그인)";
     await requestPc("login", { vendors: [vendor], creds: {}, collectAfter: part === "all" }, `${vendor} ${what} 요청을 보냈습니다${manual}`);
   }
@@ -1071,14 +1071,14 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
         </div>
         <div class="cs-login-detail" data-login-detail${open ? "" : " hidden"}>
         <span class="cs-note${st.ok === false && !apiOnly ? " cs-login-bad" : ""}" data-login-state>${apiOnly ? "✓ 문의는 커머스 API 사용 중 (로그인 필요 없음) · 리뷰 수집만 판매자센터 로그인 필요" : escapeHtml(st.changed ? st.note : st.text)}${saved && !manual ? " · PC에 저장된 비밀번호 ✓" : ""}</span>
-        ${manual ? `<p class="cs-note" data-login-manual>🙋 <b>자동 한 번 → 막히면 직접 로그인</b> — 수집기 PC에 <b>일반 크롬 창</b>이 뜨고 저장된 아이디·비밀번호로 한 번 로그인해 봅니다. 막히면 그 창에서 평소처럼 직접 로그인(퀴즈·2단계 인증 포함, 최대 5분)하시면, 로그인되는 순간 <b>창은 자동으로 닫힙니다</b>. 수집기 PC 앞에 계실 때 누르세요.</p>` : ""}<details${pick.includes(v) && !done && !manual ? " open" : ""}><summary>새 아이디·비밀번호 넣기${manual ? " (자동 시도용 — 처음 한 번)" : apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
+        ${v === "토스" ? `<p class="cs-note" data-login-manual>🙋 <b>토스 앱 인증 — 직접 로그인</b> — 수집기 PC에 토스 판매자센터 창이 뜹니다. 그 창에서 휴대폰 토스 앱으로 인증(최대 5분)하시면 로그인되는 순간 <b>창은 자동으로 닫힙니다</b>. 문의방(💬 상담톡)은 API 키라 로그인 없이, <b>상품 Q&A · 리뷰</b>만 이 로그인으로 읽습니다.</p>` : manual ? `<p class="cs-note" data-login-manual>🙋 <b>자동 한 번 → 막히면 직접 로그인</b> — 수집기 PC에 <b>일반 크롬 창</b>이 뜨고 저장된 아이디·비밀번호로 한 번 로그인해 봅니다. 막히면 그 창에서 평소처럼 직접 로그인(퀴즈·2단계 인증 포함, 최대 5분)하시면, 로그인되는 순간 <b>창은 자동으로 닫힙니다</b>. 수집기 PC 앞에 계실 때 누르세요.</p>` : ""}${v === "토스" ? "" : `<details${pick.includes(v) && !done && !manual ? " open" : ""}><summary>새 아이디·비밀번호 넣기${manual ? " (자동 시도용 — 처음 한 번)" : apiOnly ? " (지금은 필요 없음)" : done ? " (바뀌었을 때만)" : ""}</summary>
           ${canLock ? `<div class="cs-form cs-login-creds">
             ${v === "메이크샵" ? `<label class="cs-check"><input type="checkbox" data-login-sub${readShop() ? " checked" : ""}> <span>부운영자로 로그인 <small>(운영자와 따로 로그인 — 동시 로그인으로 튕기지 않음)</small></span></label>
             <label data-login-shop-wrap${readShop() ? "" : " hidden"}>상점 URL <input type="text" data-login-shop autocomplete="off" placeholder="예: pinkrocket.co.kr" value="${escapeHtml(readShop())}"></label>` : ""}
             <label>아이디 <input type="text" data-login-id autocomplete="off"></label>
             <label>비밀번호 <input type="password" data-login-pw autocomplete="new-password"></label>
           </div>` : `<p class="cs-note">수집기 PC 웹연결 1.3 이상이 켜져 있어야 비밀번호를 잠가 보낼 수 있습니다.</p>`}
-        </details>
+        </details>`}
         </div>
       </div>`;
     }).join("");
@@ -1836,7 +1836,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (set.has(card.dataset.vendor)) set.delete(card.dataset.vendor);
     else set.add(card.dataset.vendor);
     try {
-      storage?.setItem(VENDOR_KEY, JSON.stringify({ board: [...state.vendorSel.board], review: [...state.vendorSel.review], known: VENDORS }));
+      storage?.setItem(VENDOR_KEY, JSON.stringify({ board: [...state.vendorSel.board], review: [...state.vendorSel.review], known: VENDORS, knownReview: REVIEW_VENDORS }));
     } catch {
       // 이 기기에 기억 못 해도 이번 화면에는 적용
     }

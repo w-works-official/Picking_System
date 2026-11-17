@@ -54,7 +54,7 @@ import {
   csPointPayload,
   CS_POINT_DEFAULT,
   csShotPoint,
-} from "../domain/csBoard.mjs?v=20261111-msqa1";
+} from "../domain/csBoard.mjs?v=20261117-toss3";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261111-nosample1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";

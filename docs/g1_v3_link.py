@@ -143,6 +143,13 @@
   · 이름이 정확히 같은 방만 (다른 방에 잘못 보내지 않게) · 같은 이름 방이 여러 개 열려 있으면 보내지 않음
   · 글은 이 프로그램이 클립보드에 직접 넣음 (웹 V3 ⚙ 설정 › 오늘 CS 리포트 [📨 카톡 3건 보내기])
 
+1.31 (2026-11-17) 토스쇼핑 문의(채팅방) 읽기 — 조회만
+  · 토스 문의는 게시판이 아니라 채팅방 → 토스쇼핑 API(상품 등록에 쓰는 키 C:\\Users\\Public\\toss_api.txt)로 3분마다 방 목록 · 대화를 읽어
+    V3 CS 관리 › 💬 상담톡 의 '토스쇼핑 문의' 칸으로 (시트 chatIngest platform=toss)
+  · 읽기(GET)만 함 — 답변 보내기(POST)는 아직 없음 (보낸 답은 고칠 수 없어서, 확인 단계를 만든 뒤에)
+  · 토큰은 1년짜리 → 이 폴더 _toss_token.json 에 두고 다시 씀 (부를 때마다 새로 받지 않음 · 401 이면 한 번만 새로)
+  · 키 파일이 없거나 권한·IP 가 막히면 기록(v3link_log)에 이유를 남기고 30분 뒤 다시
+
 1.29 (2026-11-13) 에이블리 문의(채팅방) 수집
   · 에이블리 문의 화면이 채팅방 모양으로 바뀌면서 방 번호가 id 가 아니라 sno 로 와서 수집기가 방을 0개로 읽고 있었음
   · 문의 화면이 보내는 목록 요청(로그인 머리말 포함)을 잡아 같은 방식으로 방마다 대화를 다시 받음 — 진행중 방 + 최근 완료 방
@@ -154,8 +161,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.30 (2026-11-17)"
-LINK_NOTE = "에이블리 문의(채팅방) 수집 고침 — 게시판 + 💬 상담톡 에이블리 칸"
+LINK_VER = "1.31 (2026-11-17)"
+LINK_NOTE = "토스쇼핑 문의(채팅방) 읽기 — 💬 상담톡 토스 칸 (조회만, 키 C:\\Users\\Public\\toss_api.txt)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -841,6 +848,265 @@ def push_ably_chat(link, say=print):
         return len(convs)
     except Exception as e:
         say(f"⚠ 에이블리 상담톡 보내기 실패 (다음에 다시): {e}"[:200])
+        return 0
+
+
+# ───────── 1.31 (2026-11-17) 토스쇼핑 문의 = 채팅방 (API · 읽기만) ─────────
+# 문서: shopping-docs.toss.im › 문의 API — GET /business-chat/rooms · GET /business-chat/rooms/{roomId}/messages
+# 토큰: POST https://oauth2.cert.toss.im/token (client_credentials, scope toss-shopping-fep:write) — 약 1년, 자주 새로 받으면 막힐 수 있음
+# 응답은 성공·실패 모두 HTTP 200 → resultType 으로 판단
+TOSS_KEY_FILE = r"C:\Users\Public\toss_api.txt"
+TOSS_API = "https://shopping-fep.toss.im/api/v3/shopping-fep"
+TOSS_TOKEN_URL = "https://oauth2.cert.toss.im/token"
+TOSS_EVERY = 180                 # 3분마다
+TOSS_RETRY = 1800                # 키 없음 · 막힘이면 30분 뒤
+TOSS_MAX_ROOMS = 40
+TOSS_STATE = {"next": 0.0, "note": ""}
+TOSS_INQ = {"PRODUCT": "상품 문의", "DELIVERY": "배송 문의", "EXCHANGE": "교환 문의", "RETURN": "반품 문의", "CANCEL": "취소 문의", "OTHER": "기타 문의"}
+
+
+def toss_token_path():
+    return os.path.join(HERE, "_toss_token.json")
+
+
+def toss_keys(text):
+    """키 파일 글 → {access, secret, token} — JSON · 이름=값 · 이름: 값 · 줄 두 개(키 / 시크릿) 모두 받음"""
+    text = (text or "").strip().lstrip("\ufeff")
+    out = {"access": "", "secret": "", "token": ""}
+    pairs = []
+    try:
+        js = json.loads(text)
+        def walk(o):
+            if isinstance(o, dict):
+                for k, v in o.items():
+                    if isinstance(v, (dict, list)):
+                        walk(v)
+                    elif v is not None:
+                        pairs.append((str(k), str(v).strip()))
+            elif isinstance(o, list):
+                for v in o:
+                    walk(v)
+        walk(js)
+    except Exception:
+        for line in text.splitlines():
+            m = re.match(r"\s*([A-Za-z_\-\. 가-힣]+?)\s*[=:]\s*(\S.*?)\s*$", line)
+            if m and not line.strip().startswith("#"):
+                pairs.append((m.group(1), m.group(2).strip().strip('"').strip("'")))
+    for k, v in pairs:
+        kk = re.sub(r"[^a-z가-힣]", "", k.lower())
+        if not v:
+            continue
+        if "secret" in kk or "시크릿" in kk:
+            out["secret"] = out["secret"] or v
+        elif "token" in kk or "토큰" in kk:
+            out["token"] = out["token"] or v
+        elif "access" in kk or "client" in kk or "apikey" in kk or kk in ("key", "id", "키", "액세스키"):
+            out["access"] = out["access"] or v
+    if not out["access"] and not out["token"]:
+        bare = [x.strip() for x in text.splitlines() if x.strip() and not x.strip().startswith("#") and not re.search(r"[=:]", x)]
+        if len(bare) == 1 and bare[0].startswith("eyJ"):
+            out["token"] = bare[0]
+        elif len(bare) >= 2:
+            out["access"], out["secret"] = bare[0], bare[1]
+    return out
+
+
+def _toss_req(url, data=None, headers=None, timeout=20):
+    import urllib.request, urllib.error
+    req = urllib.request.Request(url, data=data, headers=headers or {}, method="POST" if data is not None else "GET")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+
+
+def toss_token(keys, fresh=False):
+    """토큰 — 저장해 둔 것을 쓰고, 없거나 끝났거나 fresh 면 새로 받음"""
+    if keys.get("token") and not keys.get("access"):
+        return keys["token"]
+    p = toss_token_path()
+    if not fresh:
+        try:
+            with open(p, encoding="utf-8") as f:
+                t = json.load(f)
+            if t.get("access") == hashlib.sha256(keys["access"].encode()).hexdigest()[:16] and t.get("exp", 0) > time.time() + 3600 and t.get("token"):
+                return t["token"]
+        except Exception:
+            pass
+    if not keys.get("access") or not keys.get("secret"):
+        raise RuntimeError("키 파일에서 Access Key · Secret Key 를 찾지 못함")
+    import urllib.parse
+    body = urllib.parse.urlencode({"grant_type": "client_credentials", "client_id": keys["access"], "client_secret": keys["secret"],
+                                   "scope": "toss-shopping-fep:write"}).encode()
+    code, txt = _toss_req(TOSS_TOKEN_URL, body, {"Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json; charset=UTF-8"})
+    try:
+        js = json.loads(txt)
+    except Exception:
+        js = {}
+    tok = js.get("access_token") or (js.get("success") or {}).get("accessToken") if isinstance(js, dict) else ""
+    if code != 200 or not tok:
+        raise RuntimeError(f"토큰 발급 실패 (HTTP {code}) {str(js.get('error_description') or js.get('error') or txt)[:160]}")
+    try:
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump({"access": hashlib.sha256(keys["access"].encode()).hexdigest()[:16], "token": tok,
+                       "exp": time.time() + float(js.get("expires_in") or 86400) - 60}, f)
+    except Exception:
+        pass
+    return tok
+
+
+def toss_get(keys, path, params=None):
+    """GET → success 묶음 (실패면 RuntimeError) · 401 이면 토큰을 한 번만 새로 받아 다시"""
+    import urllib.parse
+    url = TOSS_API + path + ("?" + urllib.parse.urlencode(params) if params else "")
+    for fresh in (False, True):
+        tok = toss_token(keys, fresh)
+        code, txt = _toss_req(url, headers={"Authorization": f"Bearer {tok}", "Accept": "application/json"})
+        if code == 401 and not fresh and keys.get("access"):
+            continue
+        try:
+            js = json.loads(txt)
+        except Exception:
+            raise RuntimeError(f"HTTP {code} {txt[:160]}")
+        if code != 200 or js.get("resultType") != "SUCCESS":
+            err = js.get("error") or {}
+            raise RuntimeError(f"HTTP {code} {err.get('errorCode') or js.get('resultType') or ''} {str(err.get('reason') or txt)[:160]}".strip())
+        return js.get("success") or {}
+    raise RuntimeError("인증 실패 (401) — 키 권한 · 호출 IP 등록 확인")
+
+
+def _toss_time(v):
+    """'2026-11-17T05:08:03Z' 등 → 한국 시각 'YYYY-MM-DD HH:MM:SS'"""
+    s = str(v or "")
+    try:
+        d = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        if d.tzinfo:
+            d = d.astimezone(datetime.timezone(datetime.timedelta(hours=9)))
+        return d.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return s[:19].replace("T", " ")
+
+
+def _toss_card_text(card):
+    ri = (card or {}).get("renderInfo") or {}
+    t = " · ".join(str(x) for x in (TOSS_INQ.get(str((card or {}).get("inquiryType") or ""), ""), ri.get("title"), ri.get("subtitle")) if x)
+    return f"[문의 카드] {t}" if t else ""
+
+
+def toss_conv(room, msgs):
+    """토스 방 + 메시지 → 상담톡 대화 { id, name, tag, time, preview, unread, messages, aux }"""
+    room = room or {}
+    rcv = room.get("receiver") or {}
+    cust = str(rcv.get("tossUserNo") or "")
+    sess = room.get("lastSession") or {}
+    card = sess.get("startCard") or {}
+    out = []
+    for m in sorted(msgs or [], key=lambda x: (str(x.get("sentAt") or ""), int(x.get("messageId") or 0))):
+        c = m.get("content") or {}
+        t = str(c.get("text") or "").strip()
+        if not t and c.get("card"):
+            t = _toss_card_text(c.get("card"))
+        imgs = [u for u in (c.get("imageUrls") or []) if isinstance(u, str)]
+        if imgs:
+            t = (t + " " if t else "") + f"(사진 {len(imgs)}장)"
+        if not t:
+            continue
+        st = str(m.get("senderType") or "").upper()
+        if cust and str(m.get("senderId") or "") == cust:
+            who = "c"
+        elif st and re.search(r"USER|CUSTOMER|BUYER|CONSUMER", st):
+            who = "c"
+        else:
+            who = "s"
+        out.append({"who": who, "text": t[:2000], "time": _toss_time(m.get("sentAt"))})
+    if not out and room.get("lastMessage"):
+        lm = room["lastMessage"]
+        txt = str(lm.get("content") or "").strip()
+        if txt:
+            out.append({"who": "c" if re.search(r"USER|CUSTOMER|BUYER|CONSUMER", str(lm.get("senderType") or "").upper()) else "s", "text": txt[:2000], "time": _toss_time(lm.get("sentAt"))})
+    ri = card.get("renderInfo") or {}
+    inq = TOSS_INQ.get(str(card.get("inquiryType") or ""), "")
+    status = "진행중" if str(room.get("sessionStatus") or sess.get("status") or "").upper() == "ACTIVE" else "종료"
+    items = []
+    if ri.get("title") or ri.get("thumbnail"):
+        ids = card.get("entryRefIds") or {}
+        order = " ".join(f"{v}" for k, v in ids.items() if v not in (None, "")) if isinstance(ids, dict) else str(ids)
+        items.append({"img": str(ri.get("thumbnail") or ""), "name": str(ri.get("title") or ""), "option": str(ri.get("subtitle") or ""),
+                      "price": "", "status": str(ri.get("badge") or ""), "order": order[:40]})
+    last = out[-1] if out else {}
+    lm = room.get("lastMessage") or {}
+    return {"id": str(room.get("roomId") or ""), "name": str(rcv.get("name") or "고객")[:60], "tag": inq[:30],
+            "time": _toss_time(lm.get("sentAt") or sess.get("startedAt")),
+            "preview": str(last.get("text") or lm.get("content") or "")[:200],
+            "unread": int(room.get("unreadCount") or 0),
+            "messages": out[-60:], "aux": {"title": f"토스쇼핑 문의 · {status}", "lines": [x for x in (inq, status, str(ri.get("title") or "")) if x], "items": items}}
+
+
+def toss_collect(keys, max_rooms=TOSS_MAX_ROOMS):
+    rooms, page = [], 0
+    while len(rooms) < max_rooms and page < 5:
+        js = toss_get(keys, "/business-chat/rooms", {"filter": "ALL", "page": page, "size": min(100, max_rooms)})
+        rooms += js.get("rooms") or []
+        if not js.get("hasNext"):
+            break
+        page += 1
+    convs, errs = [], []
+    for room in rooms[:max_rooms]:
+        rid = room.get("roomId")
+        if rid in (None, ""):
+            continue
+        try:
+            js = toss_get(keys, f"/business-chat/rooms/{rid}/messages", {"before": 0, "limit": 40})
+            msgs = js.get("messages") or []
+        except Exception as e:
+            msgs = []
+            errs.append(f"{rid} {e}"[:120])
+        conv = toss_conv(room, msgs)
+        if conv["id"]:
+            convs.append(conv)
+    return convs, errs
+
+
+def push_toss_chat(link, say=print, now=None, key_file=None):
+    """1.31: 3분마다 토스 문의 방을 읽어 시트 상담톡 (platform=toss) — 읽기만"""
+    now = time.time() if now is None else now
+    if now < TOSS_STATE["next"]:
+        return 0
+    path = key_file or TOSS_KEY_FILE
+    if not os.path.exists(path):
+        TOSS_STATE["next"] = now + TOSS_RETRY
+        if TOSS_STATE["note"] != "nokey":
+            TOSS_STATE["note"] = "nokey"
+            say(f"토스 문의: 키 파일이 없어 건너뜀 ({path}) — 30분마다 다시 봄")
+        return 0
+    try:
+        try:
+            text = open(path, encoding="utf-8-sig").read()
+        except UnicodeDecodeError:
+            text = open(path, encoding="cp949").read()
+        convs, errs = toss_collect(toss_keys(text))
+    except Exception as e:
+        TOSS_STATE["next"] = now + TOSS_RETRY
+        note = f"{e}"[:200]
+        if TOSS_STATE["note"] != note:
+            TOSS_STATE["note"] = note
+            say(f"⚠ 토스 문의 읽기 실패 (30분 뒤 다시): {note}")
+        return 0
+    TOSS_STATE["next"] = now + TOSS_EVERY
+    if TOSS_STATE["note"] != "ok":
+        TOSS_STATE["note"] = "ok"
+        say(f"💬 토스 문의 읽기 됨 — 방 {len(convs)}개" + (f" · 확인 필요 {len(errs)}건 ({errs[0]})" if errs else ""))
+    if not convs:
+        return 0
+    try:
+        js = link.call("chatIngest", platform="toss", convs=convs)
+        if js.get("added") or js.get("changed"):
+            say(f"💬 토스 상담톡 {len(convs)}개 보냄 (새 {js.get('added', 0)} · 바뀜 {js.get('changed', 0)})")
+        return len(convs)
+    except Exception as e:
+        TOSS_STATE["next"] = now + 60
+        say(f"⚠ 토스 상담톡 보내기 실패 (1분 뒤 다시): {e}"[:200])
         return 0
 
 
@@ -3397,6 +3663,7 @@ def _loop(G, say, beat, once, bg):
                     beat.set("idle", "웹 요청 기다리는 중")
             push_new_files(link, cfg["out_dir"], d, say)
             push_ably_chat(link, say)               # 1.29
+            push_toss_chat(link, say)               # 1.31 토스 문의 (3분마다 · 읽기만)
             save_link(d)
             js = link.call("poll", pc=pc, version=f"{G.VER} / 연결 {LINK_VER}{' · 창 없이' if bg else ''}", busy=False,
                            setup=setup_info(cfg, bg, d, nxt))

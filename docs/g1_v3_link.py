@@ -143,6 +143,12 @@
   · 이름이 정확히 같은 방만 (다른 방에 잘못 보내지 않게) · 같은 이름 방이 여러 개 열려 있으면 보내지 않음
   · 글은 이 프로그램이 클립보드에 직접 넣음 (웹 V3 ⚙ 설정 › 오늘 CS 리포트 [📨 카톡 3건 보내기])
 
+1.33 (2026-11-17) 토스 API 키를 웹에서 한 번 넣으면 끝 (키 파일 복사 필요 없음)
+  · V3 CS 관리 › ⚙ 설정 › 🖥 마스터 PC 설정 › 🩷 토스쇼핑 API 에 Access Key · Secret Key → 수집기 PC 공개키로 잠가 보냄
+    → 이 PC 설정에 Windows 암호화로 저장 (시트·화면에는 안 남음) → 바로 연결 시험(방 목록 1개 읽기)
+  · 키를 찾는 순서: 웹에서 저장한 키 → 키 파일 C:\\Users\\Public\\toss_api.txt
+  · 토스 연결 상태(저장된 키 · 마지막 읽기 결과)를 웹 설정 칸에 보여 줌
+
 1.32 (2026-11-17) [게시판 수집] 업체에 토스
   · 웹 게시판 탭 [수집할 업체]에서 토스를 켜면, 게시판 수집 때 토스 문의 중 진행중이고 고객이 마지막에 말한 방을 게시판 줄로 (업체=토스, 게시판=문의방)
   · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
@@ -166,7 +172,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.32 (2026-11-17)"
+LINK_VER = "1.33 (2026-11-17)"
 LINK_NOTE = "게시판 수집 업체에 토스 추가 + 💬 상담톡 토스 칸 (읽기만, 키 C:\\Users\\Public\\toss_api.txt)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
@@ -1102,13 +1108,40 @@ def toss_board_row(room, conv):
                 사진URL=[], 원본={"roomId": conv["id"], "sessionStatus": (room or {}).get("sessionStatus"), "unreadCount": (room or {}).get("unreadCount"), "startCard": card})
 
 
+def toss_keys_saved(cfg=None):
+    """1.33: 웹에서 저장한 토스 키 (이 PC 설정에 암호화) — 없으면 None"""
+    try:
+        G = _G()
+        c = cfg if cfg and cfg.get("toss_access") else G.load_cfg()
+        if c.get("toss_access") and c.get("toss_secret_enc"):
+            return {"access": c["toss_access"], "secret": G.dec_secret(c["toss_secret_enc"]), "token": ""}
+    except Exception:
+        pass
+    return None
+
+
+def toss_find_keys(key_file=None, cfg=None):
+    """키 찾기: 웹에서 저장한 키 → 키 파일. 없으면 None"""
+    k = toss_keys_saved(cfg)
+    if k:
+        return k
+    path = key_file or TOSS_KEY_FILE
+    return toss_read_keys(path) if os.path.exists(path) else None
+
+
+def toss_source(key_file=None, cfg=None):
+    if toss_keys_saved(cfg):
+        return "own"
+    return "file" if os.path.exists(key_file or TOSS_KEY_FILE) else ""
+
+
 def toss_board_collect(cfg, key_file=None):
     """게시판 수집용: (상태, 줄, 메모) — 진행중 + 고객이 마지막에 말한 방 (테스트면 최근 n개)"""
-    path = key_file or TOSS_KEY_FILE
-    if not os.path.exists(path):
-        return "키 없음", [], f"토스 API 키 파일이 없습니다 ({path})"
+    keys = toss_find_keys(key_file, cfg)
+    if not keys:
+        return "키 없음", [], "토스 API 키가 없습니다 — ⚙ 설정 › 🩷 토스쇼핑 API 에 넣어 주세요"
     test = bool(cfg.get("test"))
-    pairs, errs = toss_collect_pairs(toss_read_keys(path))
+    pairs, errs = toss_collect_pairs(keys)
     rows = []
     for room, conv in pairs:
         active = str((room or {}).get("sessionStatus") or "").upper() == "ACTIVE"
@@ -1123,7 +1156,7 @@ def toss_board_collect(cfg, key_file=None):
 def add_toss_to_result(fn, cfg, say=print, key_file=None):
     """1.32: 게시판 수집 결과 파일에 토스 줄 덧붙임 (토스가 켜져 있을 때만)"""
     on = (cfg.get("vendors") or {}).get("토스")
-    if not fn or on is False or (on is None and not os.path.exists(key_file or TOSS_KEY_FILE)):
+    if not fn or on is False or (on is None and not toss_source(key_file, cfg)):
         return 0                      # 끔 · 또는 아직 고른 적 없고 키 파일도 없으면 조용히 건너뜀
     try:
         d = json.load(open(fn, encoding="utf-8"))
@@ -1144,20 +1177,55 @@ def add_toss_to_result(fn, cfg, say=print, key_file=None):
     return len(rows)
 
 
+def run_toss_key_job(job, cfg, say, d):
+    """1.33: 웹에서 잠가 보낸 토스 Access Key · Secret Key 저장 (비었으면 시험만) → 방 목록 1개 읽어 연결 확인"""
+    G = _G()
+    body = job.get("body") or {}
+    if body.get("access") and body.get("secret"):
+        key = rsa_key(d)
+        acc, sec = rsa_decrypt(key, body["access"]).strip(), rsa_decrypt(key, body["secret"]).strip()
+        if not acc or not sec:
+            return False, "Access Key · Secret Key 가 비어 있습니다", {}
+        c = G.load_cfg(); c["toss_access"] = acc; c["toss_secret_enc"] = G.enc_secret(sec); G.save_cfg(c)
+        try:
+            os.remove(toss_token_path())          # 키가 바뀌면 토큰도 새로
+        except Exception:
+            pass
+        saved = "토스 키 저장 · "
+    else:
+        saved = ""
+    _SETUP_CACHE["info"] = None
+    keys = toss_find_keys()
+    if not keys:
+        return False, saved + "키가 없습니다 — Access Key · Secret Key 를 넣고 [저장]", {"toss": {"ok": False}}
+    try:
+        js = toss_get(keys, "/business-chat/rooms", {"filter": "ALL", "page": 0, "size": 1})
+    except Exception as e:
+        TOSS_STATE["note"] = f"{e}"[:200]
+        return False, saved + f"❌ 연결 실패: {e}"[:300] + " (토스 파트너센터 › 자체 개발: 키 · 호출 IP 확인)", {"toss": {"ok": False}}
+    TOSS_STATE.update(next=0.0, note="ok")           # 바로 상담톡 읽기
+    n = len(js.get("rooms") or [])
+    return True, saved + f"✅ 토스 문의 API 연결됨 (문의방 {'있음' if n else '없음'})", {"toss": {"ok": True}}
+
+
 def push_toss_chat(link, say=print, now=None, key_file=None):
     """1.31: 3분마다 토스 문의 방을 읽어 시트 상담톡 (platform=toss) — 읽기만"""
     now = time.time() if now is None else now
     if now < TOSS_STATE["next"]:
         return 0
     path = key_file or TOSS_KEY_FILE
-    if not os.path.exists(path):
+    try:
+        keys = toss_find_keys(key_file)
+    except Exception:
+        keys = None
+    if not keys:
         TOSS_STATE["next"] = now + TOSS_RETRY
         if TOSS_STATE["note"] != "nokey":
             TOSS_STATE["note"] = "nokey"
-            say(f"토스 문의: 키 파일이 없어 건너뜀 ({path}) — 30분마다 다시 봄")
+            say(f"토스 문의: 키가 없어 건너뜀 (웹 ⚙ 설정 › 토스쇼핑 API 또는 {path}) — 30분마다 다시 봄")
         return 0
     try:
-        convs, errs = toss_collect(toss_read_keys(path))
+        convs, errs = toss_collect(keys)
     except Exception as e:
         TOSS_STATE["next"] = now + TOSS_RETRY
         note = f"{e}"[:200]
@@ -2587,6 +2655,8 @@ def handle(link, job, cfg, say, d=None):
             ok, msg, data = run_api_test(cfg)
         elif kind == "apiKey":
             ok, msg, data = run_api_key_job(job, cfg, say, d)
+        elif kind == "tossKey":                                       # 1.33
+            ok, msg, data = run_toss_key_job(job, cfg, say, d)
         elif kind == "ip":
             ip = public_ip(); ok, msg, data = True, f"이 PC 공인 IP: {ip} — 커머스API센터 > 애플리케이션 > API 호출 IP 에 추가", {"ip": ip}
         elif kind == "files":
@@ -2634,7 +2704,9 @@ _SETUP_CACHE = {"at": 0, "info": None, "lnk": None}
 def setup_info(cfg, bg=False, d=None, nxt=None):
     """수집기 PC 준비 상태 요약 (비밀값은 보내지 않음 — 있다/없다만). 1분에 한 번만 다시 계산"""
     extra = dict(bg=bool(bg), auto_on=bool(cfg.get("auto_on")), next_auto=(f"{nxt:%m-%d %H:%M}" if nxt else ""),
-                 saved_logins=saved_logins(d or {}), pub_key=(rsa_public(_RSA["key"]) if _RSA.get("key") else ""))
+                 saved_logins=saved_logins(d or {}), pub_key=(rsa_public(_RSA["key"]) if _RSA.get("key") else ""),
+                 toss=toss_source(cfg=cfg), toss_note=("" if TOSS_STATE["note"] in ("", "ok", "nokey") else TOSS_STATE["note"])[:200],
+                 toss_ok=TOSS_STATE["note"] == "ok")
     if _SETUP_CACHE["info"] is not None and time.time() - _SETUP_CACHE["at"] < 60:
         return dict(_SETUP_CACHE["info"], **extra)
     G = _G()
@@ -3785,7 +3857,7 @@ def _loop(G, say, beat, once, bg):
 
 
 JOB_LABEL = {"collect": "게시판 수집", "test": "테스트 수집", "reviews": "리뷰 수집", "testReviews": "리뷰 테스트", "register": "📤 등록",
-             "login": "🔑 로그인", "settings": "설정 저장", "apiTest": "API 테스트", "apiKey": "API 키 저장", "ip": "공인 IP", "files": "파일 목록",
+             "login": "🔑 로그인", "settings": "설정 저장", "apiTest": "API 테스트", "apiKey": "API 키 저장", "tossKey": "토스 API 키", "ip": "공인 IP", "files": "파일 목록",
              "update": "웹연결 업데이트"}
 
 

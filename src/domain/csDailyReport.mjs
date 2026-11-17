@@ -9,7 +9,7 @@ export const REPORT_SENT_KEY = "system_v3_cs_report_sent";   // 자동 보내기
 export const REPORT_AUTO_WINDOW_MIN = 180;                    // 예약 시각이 지나고 3시간 안에 화면이 열려 있으면 보냄 (늦게 켜도 한 번)
 export const REPORT_MAX_ROOMS = 3;   // 11-17: 받는 사람(카톡방) 3곳까지
 export const REPORT_LIMITS = Object.freeze({ reviewN: [1, 10], chatLines: [1, 15], boardLines: [1, 15] });
-const CHAT_SRC = { smart: "톡톡", kakao: "해피톡", ably: "에이블리" };
+const CHAT_SRC = { smart: "톡톡", kakao: "해피톡", ably: "에이블리", toss: "토스" };
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
 
 const str = (v) => String(v ?? "");

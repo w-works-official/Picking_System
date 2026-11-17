@@ -62,6 +62,8 @@ assert.match(mr[0].mark, /표시 없음/);
 assert.match(mr[2].mark, /주문보다 많음/);
 assert.equal(mergeReply(lines, { replyFound: false, items: [] }).every((r) => !r.sure && r.qty === Number(r.order)), true);
 assert.equal(mergeReply([{ no: "1", qty: "2" }], { items: [{ no: "1", qty: null, sure: true }] })[0].sure, false, "숫자를 못 읽으면 노랑");
+const pos = mergeReply([{ no: "1", qty: "3" }, { no: "2", qty: "5" }, { no: "3", qty: "1" }], { items: [{ no: "1", qty: 3, sure: true, img: 0, y: 0.081 }, { no: "2", qty: 5, sure: true, img: 1, y: 1.4 }, { no: "3", qty: 0, sure: true, img: null, y: null }] });
+assert.deepEqual(pos.map((r) => [r.img, r.y]), [[0, 0.081], [null, null], [null, null]], "사진 속 자리: 0~1 밖이나 없으면 null");
 assert.deepEqual(saveUpdates(mr, m), [{ row: 2, qty: 3 }, { row: 3, qty: 0 }], "짝 없는 줄은 저장 안 함");
 assert.equal(pickStockFile([{ name: "F_2", main: [] }, { name: "F_1", main: rows }], lines, matchStockRows).file.name, "F_1");
 
@@ -100,4 +102,5 @@ assert.match(slots, /const api = \{ slotImage, sheetAuth,/);
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");
 assert.match(gs.match(/var staff = \[([^\]]+)\]/)[1], /'vendorRead'/);
 assert.match(gs, /if \(action === 'vendorRead'\) return vendorRead_\(body\);/);
+assert.match(gs, /img = 그 줄이 보이는 그림 번호/, "AI 규칙에 줄 자리 요청");
 console.log("vendorRead: OK");

@@ -304,6 +304,7 @@ export function normalizeCollectorSetup(raw) {
     autostart: flag(raw.autostart), bg: flag(raw.bg), collector: line(raw.collector, 40), link: line(raw.link, 40),
     pubKey: /^[A-Za-z0-9_-]{300,800}$/.test(String(raw.pubKey || "")) ? String(raw.pubKey) : "",
     autoOn: flag(raw.autoOn), nextAuto: line(raw.nextAuto, 20), savedLogins: list(raw.savedLogins),
+    toss: line(raw.toss, 10), tossOk: flag(raw.tossOk), tossNote: line(raw.tossNote, 200),   // 11-17 토스 키 상태 (시트 v38)
   };
 }
 

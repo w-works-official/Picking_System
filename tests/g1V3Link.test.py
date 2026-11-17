@@ -135,7 +135,7 @@ assert [b["snapshot"] is None for a, b in link.sent] == [True, True, False]
 cfg = {"out_dir": out_dir, "vendors": dict(G.DEFAULT_CFG["vendors"]), "review_vendors": {"지그재그": True, "에이블리": True, "메이크샵": True}}
 ok, msg, n = L.run_collect_job({"kind": "collect", "body": {"vendors": ["지그재그"]}}, cfg, say)
 c = calls[-1][1]
-assert ok and n == 1 and c["no_reviews"] is True and c["vendors"] == {"스마트스토어": False, "지그재그": True, "에이블리": False, "메이크샵": False}
+assert ok and n == 1 and c["no_reviews"] is True and c["vendors"] == {"스마트스토어": False, "지그재그": True, "에이블리": False, "메이크샵": False, "토스": False}
 assert "에이블리: 로그인 필요" in msg, msg
 assert cfg["vendors"]["에이블리"] is True, "collector settings are not changed"
 L.run_collect_job({"kind": "test", "body": {}}, cfg, say)
@@ -1397,5 +1397,36 @@ L._toss_req = lambda url, data=None, headers=None, timeout=20: (200, json.dumps(
 L.TOSS_STATE["next"] = 0; said.clear()
 assert L.push_toss_chat(fl, said.append, now=5000, key_file=kf) == 0 and L.TOSS_STATE["next"] == 5000 + L.TOSS_RETRY
 assert any("권한 없음" in m for m in said)
-assert L.LINK_VER.startswith("1.31")
 print("g1V3Link toss chat (1.31): OK")
+
+# ── 1.32 게시판 수집에 토스 ──
+_room2 = dict(_room, roomId=78, sessionStatus="CLOSED")
+_room3 = dict(_room, roomId=79)
+def fake_req2(url, data=None, headers=None, timeout=20):
+    if url == L.TOSS_TOKEN_URL:
+        return 200, json.dumps({"access_token": "TOK", "expires_in": 31535999})
+    if "/messages" in url:
+        rid = int(url.split("/rooms/")[1].split("/")[0])
+        ms = _msgs if rid != 79 else _msgs + [{"messageId": 9, "senderType": "PARTNER", "senderId": 9, "content": {"text": "보내드렸어요", "imageUrls": []}, "sentAt": "2026-11-17T06:00:00Z"}]
+        return 200, json.dumps({"resultType": "SUCCESS", "success": {"hasMore": False, "messages": ms}})
+    return 200, json.dumps({"resultType": "SUCCESS", "success": {"hasNext": False, "rooms": [_room, _room2, _room3]}})
+L._toss_req = fake_req2
+fn2 = os.path.join(tmp, "수집_toss.json")
+json.dump({"업체결과": {"메이크샵": {"상태": "ok", "건수": 0}}, "rows": []}, open(fn2, "w", encoding="utf-8"))
+said = []
+assert L.add_toss_to_result(fn2, {"vendors": {"토스": True}}, said.append, key_file=kf) == 1
+d2 = json.load(open(fn2, encoding="utf-8"))
+assert d2["업체결과"]["토스"]["상태"] == "ok" and [r["id"] for r in d2["rows"]] == ["77"], "진행중 + 고객이 마지막 말한 방만 (78 종료 · 79 우리가 답함)"
+r0 = d2["rows"][0]
+assert r0["업체"] == "토스" and r0["게시판"] == "문의방" and r0["문의"] == "언제 와요?" and r0["상품명"] == "14K 볼 피어싱" and r0["유형"] == "배송 문의"
+assert len(r0["맥락"]) == 2 and r0["날짜"] == "2026-11-17 14:00:00"
+assert L.add_toss_to_result(fn2, {"vendors": {"토스": False}}, said.append, key_file=kf) == 0, "끄면 안 함"
+assert L.add_toss_to_result(fn2, {"vendors": {}}, said.append, key_file=os.path.join(tmp, "none.txt")) == 0, "고른 적 없고 키 없으면 조용히"
+fn3 = os.path.join(tmp, "수집_toss3.json"); json.dump({"rows": []}, open(fn3, "w", encoding="utf-8"))
+L.add_toss_to_result(fn3, {"vendors": {"토스": True}}, said.append, key_file=os.path.join(tmp, "none.txt"))
+assert json.load(open(fn3, encoding="utf-8"))["업체결과"]["토스"]["상태"] == "키 없음"
+fn4 = os.path.join(tmp, "수집_toss4.json"); json.dump({"rows": []}, open(fn4, "w", encoding="utf-8"))
+L.add_toss_to_result(fn4, {"vendors": {"토스": True}, "test": True, "test_limit": 2}, said.append, key_file=kf)
+assert len(json.load(open(fn4, encoding="utf-8"))["rows"]) == 2 and all(r.get("가상") for r in json.load(open(fn4, encoding="utf-8"))["rows"]), "테스트 = 최근 n개 가상"
+assert L.LINK_VER.startswith("1.32")
+print("g1V3Link toss board (1.32): OK")

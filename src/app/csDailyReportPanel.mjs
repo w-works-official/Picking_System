@@ -4,9 +4,9 @@
 //  · 미리보기 글은 고쳐 쓸 수 있음 → [📨 카톡 3건 보내기] = 이 PC 창 도우미(웹연결 1.30+)가 그 카톡방에 3개를 차례로 보냄
 import { normalizeCsRow, pickedText } from "../domain/csBoard.mjs?v=20261111-msqa1";
 import {
-  REPORT_STORE_KEY, REPORT_SENT_KEY, REPORT_LIMITS, REPORT_MAX_ROOMS, normalizeReportSettings, sendRooms, reportDue, autoLabel, kstClock, kstDay, pickReviews, chatItems, boardItems,
+  REPORT_STORE_KEY, REPORT_SENT_KEY, REPORT_LIMITS, REPORT_MAX_ROOMS, normalizeReportSettings, sendRooms, reportDue, autoLabel, kstClock, kstDay, reportPeriod, pickReviews, chatItems, boardItems,
   fallbackLines, reviewMessage, summaryMessage,
-} from "../domain/csDailyReport.mjs?v=20261117-toss1";
+} from "../domain/csDailyReport.mjs?v=20261118-rp24";
 
 export const REPORT_HELPER_URL = "http://127.0.0.1:47811/msn";
 export const REPORT_HELPER_MIN = "1.30";
@@ -28,7 +28,7 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
   root.innerHTML = `
     <fieldset class="cs-box cs-report-box">
       <legend>📊 오늘 CS 리포트 (카톡 3건)</legend>
-      <p class="cs-note">리뷰 · 상담톡 · 게시판을 오늘 것만 모아 카톡 메시지 <b>3개</b>로 보냅니다. 설정은 여기 한 곳에서 (이 기기에 기억).</p>
+      <p class="cs-note">리뷰 · 상담톡 · 게시판을 <b>예약 시각까지 지난 24시간</b> 것만 모아 카톡 메시지 <b>3개</b>로 보냅니다 (예약 시각 19:00 이면 어제 19:00 ~ 오늘 19:00). 설정은 여기 한 곳에서 (이 기기에 기억).</p>
       <div class="cs-report-set">
         <label>⭐ 리뷰 <input type="number" data-rp="reviewN" min="${REPORT_LIMITS.reviewN[0]}" max="${REPORT_LIMITS.reviewN[1]}" class="cs-input-num"> 개씩 <small>(별5 · 별1 각각 · 보통 평가는 뺌)</small></label>
         <label>💬 상담톡 <input type="number" data-rp="chatLines" min="${REPORT_LIMITS.chatLines[0]}" max="${REPORT_LIMITS.chatLines[1]}" class="cs-input-num"> 줄 요약</label>
@@ -103,7 +103,7 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
       try { data = await post({ action: "reportData" }); }
       catch (error) { throw new Error(`시트에서 오늘 내용을 못 받았습니다 (${error?.message || error}) — 시트 v31 [배포]가 안 됐으면 먼저 배포해 주세요`); }
       if (!Array.isArray(data.rows)) throw new Error("시트가 리포트 요청을 모릅니다 — 시트 v31 [배포]가 필요합니다");
-      const today = kstDay(data.serverTime ? new Date(data.serverTime) : new Date());
+      const today = reportPeriod(data.serverTime ? new Date(data.serverTime) : new Date(), cfg.time);   // 11-18~ 예약 시각까지 지난 24시간
       const rows = data.rows.map((raw) => normalizeCsRow(raw));
       const reviews = pickReviews(rows, today, cfg.reviewN);
       const chats = chatItems({ smart: data.smart, kakao: data.kakao, ably: data.ably, toss: data.toss }, today);

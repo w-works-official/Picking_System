@@ -97,5 +97,6 @@
   "shipOrderMatch.mock.test.mjs",
   "pickingNotice.mock.test.mjs",
   "qtyMultiStyle.contract.test.mjs",
-  "csDailyReport.mock.test.mjs"
+  "csDailyReport.mock.test.mjs",
+  "vendorRead.mock.test.mjs"
 ]

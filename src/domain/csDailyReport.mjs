@@ -96,6 +96,52 @@ export function isRowToday(row, today) {
   return (d || dayOf(row?.collectedAt, today)) === today;
 }
 
+// ── 11-17 리포트 기간: 기준 시각(자동 보내기 예약 시각, 예 19:00)까지 지난 24시간 — 11-18 리포트부터 ──
+export const REPORT_WINDOW_FROM_DAY = "2026-11-18";
+const KST_MS = 9 * 3600 * 1000;
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// 날짜·시각 → ms (시각이 있는 것만). ISO · 밀리초 숫자 · '2026-11-16 20:35' · '2026.11.17 10:22' (한국 시각)
+export function timeOf(value) {
+  if (typeof value === "number") return Number.isFinite(value) && value > 1e11 ? value : null;
+  const s = oneLine(value);
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) { const t = new Date(s).getTime(); return Number.isFinite(t) ? t : null; }
+  const m = s.match(/(\d{4})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})\D+?(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) - KST_MS;
+}
+
+// 리포트 기간 {day, from, to, label} — 기준 시각이 지났으면 그날 기준 시각까지, 아직이면 지금까지 24시간. 11-18 전이면 '오늘'(날짜) 그대로
+export function reportPeriod(now = new Date(), cutoff = "19:00") {
+  const { day, min } = kstClock(now);
+  if (day < REPORT_WINDOW_FROM_DAY) return day;
+  const [h, mm] = (/^\d{2}:\d{2}$/.test(str(cutoff)) ? cutoff : "19:00").split(":").map(Number);
+  const [y, mo, d] = day.split("-").map(Number);
+  const cut = Date.UTC(y, mo - 1, d, h, mm) - KST_MS;
+  const to = min >= h * 60 + mm ? cut : now.getTime();
+  const from = to - 24 * 3600 * 1000;
+  const f = (t) => { const k = new Date(t + KST_MS); return `${k.getUTCMonth() + 1}/${k.getUTCDate()} ${pad2(k.getUTCHours())}:${pad2(k.getUTCMinutes())}`; };
+  return { day, from, to, label: `${f(from)} ~ ${f(to)}` };
+}
+const periodDay = (p) => (typeof p === "string" ? p : p?.day || "");
+const inSpan = (t, p) => t > p.from && t <= p.to;
+
+// 이 글이 리포트 기간 것인가 — 글 시각 → (날짜만이면) 수집 시각 → 날짜
+export function inPeriod(row, p) {
+  if (typeof p === "string") return isRowToday(row, p);
+  const t = timeOf(row?.date);
+  if (t) return inSpan(t, p);
+  const fromDay = kstDay(new Date(p.from));
+  const d = dayOf(row?.date, p.day);
+  const c = timeOf(row?.collectedAt);
+  if (d && c) return d >= fromDay && inSpan(c, p);
+  if (d) return d === p.day;
+  return c ? inSpan(c, p) : false;
+}
+const atInPeriod = (at, p) => (typeof p === "string" ? dayOf(at, p) === p : (() => { const t = timeOf(at); return t ? inSpan(t, p) : dayOf(at, p.day) === p.day; })());
+const periodWord = (p) => (typeof p === "string" ? "오늘" : "지난 24시간");
+
 // 리뷰 별점 (1~5) — '별점 5' · '5점' · '★★★★★' · '4.5' · 10점 만점(10 → 5)
 export function reviewStars(row) {
   const s = `${str(row?.type)} ${str(row?.title)}`;
@@ -113,7 +159,7 @@ const reviewText = (row) => oneLine(row?.question || row?.title);
 
 // 오늘 리뷰 → 별5 N개 · 별1 N개 (내용이 긴 것부터 — 자세한 리뷰가 먼저)
 export function pickReviews(rows = [], today, n = REPORT_DEFAULTS.reviewN) {
-  const list = rows.filter((r) => r?.kind === "리뷰" && isRowToday(r, today));
+  const list = rows.filter((r) => r?.kind === "리뷰" && inPeriod(r, today));
   const byLen = (a, b) => reviewText(b).length - reviewText(a).length;
   const good = list.filter((r) => reviewStars(r) >= 5).sort(byLen);
   const bad = list.filter((r) => { const s = reviewStars(r); return s > 0 && s <= 1; }).sort(byLen);
@@ -125,7 +171,7 @@ export function chatItems(chats = {}, today) {
   const out = [];
   for (const key of Object.keys(CHAT_SRC)) {
     for (const conv of Array.isArray(chats?.[key]) ? chats[key] : []) {
-      if (dayOf(conv?.at, today) !== today) continue;
+      if (!atInPeriod(conv?.at, today)) continue;
       const msgs = (Array.isArray(conv.messages) ? conv.messages : []).filter((m) => oneLine(m?.text));
       const ours = msgs.filter((m) => m.who === "s");
       const theirs = msgs.filter((m) => m.who !== "s");
@@ -144,7 +190,7 @@ export function chatItems(chats = {}, today) {
 // 오늘 게시판 문의 → 요약용 항목 (리뷰 · 에이블리 문의방 제외)
 export function boardItems(rows = [], today, answerOf = () => "") {
   return rows
-    .filter((r) => r?.kind === "문의" && !(r.vendor === "에이블리" && r.board === "문의방") && isRowToday(r, today))
+    .filter((r) => r?.kind === "문의" && !(r.vendor === "에이블리" && r.board === "문의방") && inPeriod(r, today))
     .map((r) => {
       const a = oneLine(r.reg?.text || answerOf(r));
       return {
@@ -192,20 +238,22 @@ export function josaIga(word) {
 }
 
 export function reportHead(today, part, title) {
-  const [y, mo, d] = today.split("-").map(Number);
+  const [y, mo, d] = periodDay(today).split("-").map(Number);
   const wd = WEEK[new Date(Date.UTC(y, mo - 1, d)).getUTCDay()];
-  return `📊 ${mo}/${d}(${wd}) CS 리포트 ${part}/3 · ${title}`;
+  const span = typeof today === "object" && today?.label ? `\n(${today.label})` : "";   // 11-18~ 기간 표시
+  return `📊 ${mo}/${d}(${wd}) CS 리포트 ${part}/3 · ${title}${span}`;
 }
 
 function reviewLine(r, i) {
   const where = [r.vendor, cut(r.product, 24)].filter(Boolean).join(" · ");
-  return `${i + 1}. ${where ? `[${where}]` : "리뷰"}\n   "${cut(reviewText(r), 80)}"`;
+  const body = cut(reviewText(r), 80);   // 11-17 글 없이 별점만 남긴 리뷰는 빈 따옴표 대신
+  return `${i + 1}. ${where ? `[${where}]` : "리뷰"}\n   ${body ? `"${body}"` : "(글 없이 별점만)"}`;
 }
 
 export function reviewMessage(today, picked) {
   const head = reportHead(today, 1, "⭐ 리뷰");
-  if (!picked.total) return `${head}\n오늘 들어온 리뷰가 없습니다.`;
-  const lines = [head, `오늘 리뷰 ${picked.total}건 (별5 ${picked.goodCount} · 별1 ${picked.badCount} · 보통 평가는 뺌)`, ""];
+  if (!picked.total) return `${head}\n${periodWord(today)} 들어온 리뷰가 없습니다.`;
+  const lines = [head, `${periodWord(today)} 리뷰 ${picked.total}건 (별5 ${picked.goodCount} · 별1 ${picked.badCount} · 보통 평가는 뺌)`, ""];
   lines.push(`👍 아주 좋은 리뷰 (별5) ${picked.good.length}개`);
   lines.push(...(picked.good.length ? picked.good.map(reviewLine) : ["   없음"]));
   lines.push("", `👎 아주 나쁜 리뷰 (별1) ${picked.bad.length}개`);
@@ -215,9 +263,9 @@ export function reviewMessage(today, picked) {
 
 export function summaryMessage(today, part, title, unit, items, lines) {
   const head = reportHead(today, part, title);
-  if (!items.length) return `${head}\n오늘 들어온 ${unit}${josaIga(unit)} 없습니다.`;
+  if (!items.length) return `${head}\n${periodWord(today)} 들어온 ${unit}${josaIga(unit)} 없습니다.`;
   const n = (k) => items.filter((it) => resultOf(it) === k).length;
   const hold = n("hold");
   const tally = `${RESULT_MARK.done} ${n("done")} · ${RESULT_MARK.open} ${n("open")}${hold ? ` · ${RESULT_MARK.hold} ${hold}` : ""}`;
-  return [head, `오늘 ${unit} ${items.length}건 (${countBy(items)}) · ${tally}`, "", ...lines.map((l) => `▪ ${markResultLine(l)}`)].join("\n");
+  return [head, `${periodWord(today)} ${unit} ${items.length}건 (${countBy(items)}) · ${tally}`, "", ...lines.map((l) => `▪ ${markResultLine(l)}`)].join("\n");
 }

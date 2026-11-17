@@ -225,7 +225,7 @@ export function normalizeCsJob(raw = {}) {
     message: line(result.message, 300),
     progress: result.progress === true,
     count: Number(raw.body?.count ?? (raw.body?.items || []).length) || 0,
-    vendors: Array.isArray(raw.body?.vendors) ? raw.body.vendors.map((v) => line(v, 20)).slice(0, 4) : [],
+    vendors: Array.isArray(raw.body?.vendors) ? raw.body.vendors.map((v) => line(v, 20)).slice(0, 6) : [],
     data: result.data && typeof result.data === "object" ? result.data : null,
   };
 }
@@ -307,7 +307,7 @@ export function normalizeCollectorSetup(raw) {
 
 export function csRequestPayload(kind, { vendors = [], reviewDays = 0 } = {}, editor = "") {
   if (!Object.hasOwn(CS_JOB_KINDS, kind) || kind === "register") throw new Error("알 수 없는 요청입니다.");
-  const options = { vendors: [...new Set(vendors.map((v) => line(v, 20)).filter(Boolean))].slice(0, 4) };
+  const options = { vendors: [...new Set(vendors.map((v) => line(v, 20)).filter(Boolean))].slice(0, 6) };
   const days = Math.trunc(Number(reviewDays));
   if ((kind === "reviews" || kind === "testReviews") && days >= 1 && days <= 365) options.reviewDays = days;
   return { action: "request", kind, options, editor: line(editor, 40) };

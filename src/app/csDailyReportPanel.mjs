@@ -4,9 +4,9 @@
 //  · 미리보기 글은 고쳐 쓸 수 있음 → [📨 카톡 3건 보내기] = 이 PC 창 도우미(웹연결 1.30+)가 그 카톡방에 3개를 차례로 보냄
 import { normalizeCsRow, pickedText } from "../domain/csBoard.mjs?v=20261111-msqa1";
 import {
-  REPORT_STORE_KEY, REPORT_LIMITS, normalizeReportSettings, kstDay, pickReviews, chatItems, boardItems,
+  REPORT_STORE_KEY, REPORT_LIMITS, REPORT_MAX_ROOMS, normalizeReportSettings, sendRooms, kstDay, pickReviews, chatItems, boardItems,
   fallbackLines, reviewMessage, summaryMessage,
-} from "../domain/csDailyReport.mjs?v=20261117-report1";
+} from "../domain/csDailyReport.mjs?v=20261117-rooms1";
 
 export const REPORT_HELPER_URL = "http://127.0.0.1:47811/msn";
 export const REPORT_HELPER_MIN = "1.30";
@@ -33,7 +33,10 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
         <label>⭐ 리뷰 <input type="number" data-rp="reviewN" min="${REPORT_LIMITS.reviewN[0]}" max="${REPORT_LIMITS.reviewN[1]}" class="cs-input-num"> 개씩 <small>(별5 · 별1 각각 · 보통 평가는 뺌)</small></label>
         <label>💬 상담톡 <input type="number" data-rp="chatLines" min="${REPORT_LIMITS.chatLines[0]}" max="${REPORT_LIMITS.chatLines[1]}" class="cs-input-num"> 줄 요약</label>
         <label>📋 게시판 <input type="number" data-rp="boardLines" min="${REPORT_LIMITS.boardLines[0]}" max="${REPORT_LIMITS.boardLines[1]}" class="cs-input-num"> 줄 요약</label>
-        <label>받는 카톡방 <input type="text" data-rp="room" maxlength="40" placeholder="카톡 대화방 이름 그대로 (예: 나와의 채팅 = 내 이름)"></label>
+      </div>
+      <div class="cs-report-rooms">
+        <b>📨 받는 사람 (카톡방 · 3곳까지)</b>
+        ${Array.from({ length: REPORT_MAX_ROOMS }, (_, i) => `<label>${i + 1} <input type="text" data-rp-room="${i}" maxlength="40" placeholder="${i ? "비워 두면 안 보냄" : "카톡 대화방 이름 그대로 (예: 나와의 채팅 = 내 이름)"}"></label>`).join("")}
       </div>
       <div class="cs-row">
         <button type="button" class="cs-btn cs-btn-white" data-rp-act="preview">👀 미리보기 만들기</button>
@@ -41,7 +44,7 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
       </div>
       <p class="cs-note cs-report-state" data-rp-state>[👀 미리보기 만들기] → 확인·수정 → [📨 카톡 3건 보내기]</p>
       <div class="cs-report-msgs" data-rp-msgs hidden></div>
-      <p class="cs-note">보내기는 <b>이 PC</b>의 카톡으로 합니다 (카톡 PC 켜 두기 · 창 도우미 웹연결 1.30 이상). 대화방 이름이 <b>똑같은</b> 방에만 보냅니다.</p>
+      <p class="cs-note">보내기는 <b>이 PC</b>의 카톡으로 합니다 (카톡 PC 켜 두기 · 창 도우미 웹연결 1.30 이상). 받는 사람마다 대화방 이름이 <b>똑같은</b> 방에만 차례로 보냅니다.</p>
     </fieldset>`;
   const $ = (sel) => root.querySelector(sel);
   const state = $("[data-rp-state]");
@@ -49,15 +52,19 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
   const sendBtn = $('[data-rp-act="send"]');
   const say = (text, cls = "") => { state.textContent = text; state.className = `cs-note cs-report-state ${cls}`.trim(); };
 
-  function fill() { for (const el of root.querySelectorAll("[data-rp]")) el.value = cfg[el.dataset.rp]; }
+  function fill() {
+    for (const el of root.querySelectorAll("[data-rp]")) el.value = cfg[el.dataset.rp];
+    for (const el of root.querySelectorAll("[data-rp-room]")) el.value = cfg.rooms[Number(el.dataset.rpRoom)] || "";
+  }
   function save() {
-    const raw = {};
+    const raw = { rooms: [] };
     for (const el of root.querySelectorAll("[data-rp]")) raw[el.dataset.rp] = el.value;
+    for (const el of root.querySelectorAll("[data-rp-room]")) raw.rooms[Number(el.dataset.rpRoom)] = el.value;
     cfg = normalizeReportSettings(raw);
     try { storage?.setItem(REPORT_STORE_KEY, JSON.stringify(cfg)); } catch { /* 저장 못 해도 이번엔 씀 */ }
   }
   fill();
-  root.addEventListener("change", (e) => { if (e.target.closest("[data-rp]")) { save(); fill(); } });
+  root.addEventListener("change", (e) => { if (e.target.closest("[data-rp], [data-rp-room]")) { save(); fill(); } });
 
   async function summarize(kind, items, lines) {
     if (!items.length) return { lines: [], ai: false };
@@ -115,7 +122,8 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
   async function send() {
     if (busy) return;
     save();
-    if (!cfg.room || cfg.room.length < 2) { say("받는 카톡방 이름을 먼저 적어 주세요.", "is-bad"); root.querySelector('[data-rp="room"]')?.focus(); return; }
+    const rooms = sendRooms(cfg.rooms);
+    if (!rooms.length) { say("받는 카톡방 이름을 먼저 적어 주세요 (2글자 이상).", "is-bad"); root.querySelector('[data-rp-room="0"]')?.focus(); return; }
     const texts = [...root.querySelectorAll("[data-rp-msg]")].map((t) => t.value.trim()).filter(Boolean);
     if (!texts.length) { say("먼저 [👀 미리보기 만들기]를 눌러 주세요.", "is-bad"); return; }
     busy = true; sendBtn.disabled = true;
@@ -133,9 +141,14 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
         }
         throw new Error("창 도우미를 새 버전으로 바꿨습니다 — 10초쯤 뒤에 [📨 카톡 3건 보내기]를 다시 눌러 주세요");
       }
-      say(`카톡 '${cfg.room}' 에 ${texts.length}건 보내는 중… (카톡 창이 잠깐 앞으로 나옵니다)`);
-      const r = await helper("/text", { room: cfg.room, texts }, 30000);
-      say(`✅ 카톡 '${r.title}' 에 ${r.sent}건 보냈습니다.`, "is-ok");
+      const done = [], fail = [];
+      for (const [i, room] of rooms.entries()) {   // 한 방씩 차례로 (카톡 창이 겹치지 않게)
+        say(`카톡 ${i + 1}/${rooms.length} '${room}' 에 ${texts.length}건 보내는 중… (카톡 창이 잠깐 앞으로 나옵니다)`);
+        try { const r = await helper("/text", { room, texts }, 30000); done.push(`${r.title} ${r.sent}건`); }
+        catch (error) { fail.push(`${room}: ${error?.message || error}`); }
+      }
+      if (fail.length) say(`${done.length ? `✅ ${done.join(" · ")} 보냄\n` : ""}⚠ 못 보냄 — ${fail.join(" / ")}`, done.length ? "is-warn" : "is-bad");
+      else say(`✅ ${rooms.length}곳에 보냈습니다 — ${done.join(" · ")}`, "is-ok");
     } catch (error) {
       say(String(error?.message || error), "is-bad");
     } finally { busy = false; sendBtn.disabled = false; }

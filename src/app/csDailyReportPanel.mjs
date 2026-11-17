@@ -6,7 +6,7 @@ import { normalizeCsRow, pickedText } from "../domain/csBoard.mjs?v=20261111-msq
 import {
   REPORT_STORE_KEY, REPORT_SENT_KEY, REPORT_LIMITS, REPORT_MAX_ROOMS, normalizeReportSettings, sendRooms, reportDue, autoLabel, kstClock, kstDay, pickReviews, chatItems, boardItems,
   fallbackLines, reviewMessage, summaryMessage,
-} from "../domain/csDailyReport.mjs?v=20261117-auto1";
+} from "../domain/csDailyReport.mjs?v=20261117-oxt1";
 
 export const REPORT_HELPER_URL = "http://127.0.0.1:47811/msn";
 export const REPORT_HELPER_MIN = "1.30";

@@ -2541,8 +2541,32 @@ body.cs-board-workspace { font-weight: 500; -webkit-font-smoothing: antialiased;
 .vr-card header b { font-size: 17px; color: #be123c; }
 .vr-file { font-size: 12px; color: #475467; font-weight: 700; }
 .vr-x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; }
-.vr-main { display: grid; grid-template-columns: minmax(220px, 34%) 1fr; gap: 10px; padding: 10px 14px; overflow: hidden; min-height: 0; flex: 1 1 auto; }
-.vr-imgs { overflow: auto; display: grid; gap: 8px; align-content: start; }
+.vr-main { display: grid; grid-template-columns: minmax(360px, 58%) 1fr; gap: 12px; padding: 10px 14px; overflow: hidden; min-height: 0; flex: 1 1 auto; }
+.vr-imgs { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.vr-tabs { display: flex; align-items: center; gap: 4px; padding-bottom: 6px; flex-wrap: wrap; }
+.vr-tab { border: 1px solid #fecdd3; background: #fff; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 800; color: #9f1239; cursor: pointer; }
+.vr-tab.is-on { background: #e11d48; color: #fff; border-color: #be123c; }
+.vr-tab-x { border: 0; background: none; color: #94a3b8; cursor: pointer; font-size: 12px; margin-right: 4px; }
+.vr-zoom { width: 26px; height: 24px; border: 1px solid #e5e7eb; background: #fff; border-radius: 6px; cursor: pointer; font-weight: 900; }
+.vr-zoom-n { font-size: 12px; color: #475467; min-width: 38px; text-align: center; }
+.vr-stage { overflow: auto; flex: 1 1 auto; min-height: 0; border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc; }
+.vr-shot { position: relative; display: grid; grid-template-columns: 1fr 112px; min-width: 300px; }
+.vr-shot img { display: block; width: 100%; height: auto; background: #fff; }
+.vr-gutter { position: relative; background: #fff1f2; border-left: 2px solid #fda4af; }
+.vr-pin { position: absolute; left: 6px; right: 4px; height: var(--pin-h, 32px); display: flex; align-items: center; gap: 2px; padding: 0 2px; background: #fff; border: 1.5px solid #fda4af; border-radius: 6px; box-sizing: border-box; }
+.vr-pin::before { content: ""; position: absolute; left: -9px; top: 50%; margin-top: -6px; border: 6px solid transparent; border-right-color: #fda4af; border-left: 0; }
+.vr-pin input { width: 100%; min-width: 0; height: 100%; text-align: center; font-size: calc(var(--pin-h, 32px) * .72); font-weight: 900; color: #e11d48; border: 0; background: transparent; padding: 0; -moz-appearance: textfield; }
+.vr-pin input::-webkit-inner-spin-button, .vr-pin input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.vr-pin input:focus { outline: none; }
+.vr-pin button { display: none; flex: 0 0 20px; height: calc(var(--pin-h, 32px) - 6px); min-height: 14px; border: 1px solid #fecdd3; background: #fff; border-radius: 4px; font-weight: 900; cursor: pointer; padding: 0; color: #9f1239; line-height: 1; }
+.vr-pin:hover button, .vr-pin:focus-within button { display: block; }
+.vr-pin.is-unsure { background: #fde047; border-color: #ca8a04; }
+.vr-pin.is-unsure::before { border-right-color: #ca8a04; }
+.vr-pin.is-unsure input { color: #713f12; }
+.vr-pin.is-hot, .vr-table tr.is-hot td { outline: 2px solid #2563eb; outline-offset: -1px; }
+.vr-pin.is-hot { z-index: 2; }
+.vr-table tr[data-vr-row] { cursor: pointer; }
+.vr-nopos { padding: 6px 2px; font-size: 12px; }
 .vr-imgs figure { margin: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
 .vr-imgs img { display: block; width: 100%; height: auto; }
 .vr-imgs figcaption { font-size: 11px; padding: 3px 6px; color: #475467; background: #f8fafc; }

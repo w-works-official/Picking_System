@@ -138,6 +138,11 @@
   · 이미 붙어 버린 사진 창은 '항상 위'를 풀고 놓아 줌
   · 네이트온은 정리(붙이기·일괄 붙이기) 대상에서 뺌 (진단 목록에는 보임)
 
+1.30 (2026-11-17) 📊 오늘 CS 리포트 카톡 보내기
+  · POST /msn/text {room, texts}: 카톡방 이름이 똑같은 대화창을 찾고(없으면 카톡 검색으로 열고) 글을 하나씩 붙여넣기 + Enter
+  · 이름이 정확히 같은 방만 (다른 방에 잘못 보내지 않게) · 같은 이름 방이 여러 개 열려 있으면 보내지 않음
+  · 글은 이 프로그램이 클립보드에 직접 넣음 (웹 V3 ⚙ 설정 › 오늘 CS 리포트 [📨 카톡 3건 보내기])
+
 1.29 (2026-11-13) 에이블리 문의(채팅방) 수집
   · 에이블리 문의 화면이 채팅방 모양으로 바뀌면서 방 번호가 id 가 아니라 sno 로 와서 수집기가 방을 0개로 읽고 있었음
   · 문의 화면이 보내는 목록 요청(로그인 머리말 포함)을 잡아 같은 방식으로 방마다 대화를 다시 받음 — 진행중 방 + 최근 완료 방
@@ -149,7 +154,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.29 (2026-11-13)"
+LINK_VER = "1.30 (2026-11-17)"
 LINK_NOTE = "에이블리 문의(채팅방) 수집 고침 — 게시판 + 💬 상담톡 에이블리 칸"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
@@ -2378,6 +2383,16 @@ def msn_clean_names(raw):
     return [str(x or "").strip()[:40] for x in (raw if isinstance(raw, list) else [])[:MSN_SLOTS_MAX]]
 
 
+def msn_clean_texts(raw):
+    """1.30 리포트 글: 문자열 5개까지 · 하나에 4000자까지 · 빈 글 뺌"""
+    out = []
+    for t in raw if isinstance(raw, list) else []:
+        t = str(t or "").replace("\r\n", "\n").strip()
+        if t:
+            out.append(t[:4000])
+    return out[:5]
+
+
 def msn_norm_name(s):
     """메모·업체 이름 비교용: 앞 '0-' · 끝 '[ 1 ]' · 띄어쓰기 빼고 소문자"""
     s = re.sub(r"\[\s*\d+\s*\]\s*$", "", str(s or "").strip())
@@ -2653,6 +2668,40 @@ class MsnHelper:
             return {"ok": False, "error": f"슬롯 {i + 1} 에 붙은 대화창이 없음 — 창을 슬롯에 끌어다 놓거나 [📐 일괄 정렬]"}
         self.api.send(h, enter)
         return {"ok": True, "slot": i}
+
+    def send_texts(self, room, texts, sleep=time.sleep):
+        """1.30 오늘 CS 리포트: 이름이 똑같은 카톡 대화창에 글을 하나씩 붙여넣기 + Enter (없으면 카톡 검색으로 열기)"""
+        k = msn_norm_name(room)
+        texts = msn_clean_texts(texts)
+        if len(k) < 2:
+            return {"ok": False, "error": "받는 카톡방 이름을 ⚙ 설정에 적어 주세요 (2글자 이상)"}
+        if not texts:
+            return {"ok": False, "error": "보낼 글이 없습니다"}
+        hits = lambda: [(h, t) for h, t, _ in self.api.windows() if msn_norm_name(t) == k]
+        found, opened = hits(), False
+        if not found:
+            if not hasattr(self.api, "open_chat") or self.api.open_chat(room) is None:
+                return {"ok": False, "error": "카톡 PC 본 창(친구·채팅 목록)이 안 보입니다 — 카톡을 켜 두고 다시 눌러 주세요"}
+            opened = True
+            for _ in range(10):
+                sleep(0.4)
+                found = hits()
+                if found:
+                    break
+        if not found:
+            return {"ok": False, "error": f"'{room}' 대화방을 못 찾았습니다 — 카톡 대화방 이름이 설정과 똑같은지 확인해 주세요"}
+        if len(found) > 1:
+            return {"ok": False, "error": f"'{room}' 이름의 대화창이 {len(found)}개 열려 있어 보내지 않았습니다 — 하나만 남기고 닫아 주세요"}
+        h, title = found[0]
+        sent = 0
+        for t in texts:
+            self.api.set_clip_text(t)
+            sleep(0.15)
+            self.api.send(h, True)
+            sent += 1
+            sleep(0.9)
+        self.say(f"📊 오늘 CS 리포트 {sent}건 → 카톡 '{title}'")
+        return {"ok": True, "sent": sent, "title": title, "opened": opened}
 
     def capture(self, i):
         """슬롯 i 에 붙은 대화창 그림 (PNG base64) — 웹이 AI 추천에 씀. 이 PC 안에서만 주고받음"""
@@ -2950,6 +2999,39 @@ class MsnWin:
             self._activate(prev)
         return True
 
+    def set_clip_text(self, text):
+        """1.30 클립보드에 글 넣기 (CF_UNICODETEXT) — 리포트 보내기용"""
+        c, W, u, k = self.c, self.W, self.u, self.k
+        if not hasattr(self, "_clip"):
+            u.OpenClipboard.argtypes, u.OpenClipboard.restype = [W.HWND], W.BOOL
+            u.EmptyClipboard.argtypes, u.EmptyClipboard.restype = [], W.BOOL
+            u.CloseClipboard.argtypes, u.CloseClipboard.restype = [], W.BOOL
+            u.SetClipboardData.argtypes, u.SetClipboardData.restype = [W.UINT, W.HANDLE], W.HANDLE
+            k.GlobalAlloc.argtypes, k.GlobalAlloc.restype = [W.UINT, c.c_size_t], W.HGLOBAL
+            k.GlobalLock.argtypes, k.GlobalLock.restype = [W.HGLOBAL], c.c_void_p
+            k.GlobalUnlock.argtypes, k.GlobalUnlock.restype = [W.HGLOBAL], W.BOOL
+            k.GlobalFree.argtypes, k.GlobalFree.restype = [W.HGLOBAL], W.HGLOBAL
+            self._clip = True
+        data = (str(text).replace("\r\n", "\n").replace("\n", "\r\n") + "\0").encode("utf-16-le")
+        for _ in range(20):
+            if u.OpenClipboard(None):
+                break
+            time.sleep(0.05)
+        else:
+            raise RuntimeError("클립보드를 열지 못했습니다 (다른 프로그램이 쓰는 중)")
+        try:
+            u.EmptyClipboard()
+            mem = k.GlobalAlloc(0x0002, len(data))
+            ptr = k.GlobalLock(mem)
+            c.memmove(ptr, data, len(data))
+            k.GlobalUnlock(mem)
+            if not u.SetClipboardData(13, mem):
+                k.GlobalFree(mem)
+                raise RuntimeError("클립보드에 글을 넣지 못했습니다")
+        finally:
+            u.CloseClipboard()
+        return True
+
     def _kakao_search_edit(self):
         """카톡 PC 본 창(친구·채팅 목록)의 검색칸 — 채팅 목록 쪽 먼저. 없으면 None"""
         c, W = self.c, self.W
@@ -3096,7 +3178,7 @@ def msn_server(helper, port=MSN_PORT):
         def do_POST(self):
             if not msn_origin_ok(self.headers.get("Origin", "")):   # 다른 사이트가 이 PC 창을 건드리지 못하게
                 return self._json({"ok": False, "error": "origin"}, 403)
-            n = min(int(self.headers.get("Content-Length") or 0), 20000)
+            n = min(int(self.headers.get("Content-Length") or 0), 60000)   # 1.30 리포트 글 3개
             try:
                 body = json.loads(self.rfile.read(n) or b"{}")
             except Exception:
@@ -3122,6 +3204,8 @@ def msn_server(helper, port=MSN_PORT):
                     return self._json(helper.release_all())
                 if p == "/msn/capture":
                     return self._json(helper.capture(int(body.get("slot", -1))))
+                if p == "/msn/text":                                     # 1.30 오늘 CS 리포트
+                    return self._json(helper.send_texts(str(body.get("room") or ""), body.get("texts")))
                 if p == "/msn/send":
                     return self._json(helper.send(int(body.get("slot", -1)), body.get("enter", True) is not False))
             except Exception as e:

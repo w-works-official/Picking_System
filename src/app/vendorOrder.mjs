@@ -4,6 +4,7 @@
 //  · 업체명 ↔ 슬롯 메모로 짝 → [🖼 사진적용] = 짝 맞은 창마다 붙여넣기 (보내기는 사람이: 카톡 미리보기 창 [전송])
 //  · 그림은 이 브라우저 안에서만 만들고, 카톡 창으로만 갑니다 (어디에도 올리지 않음)
 import { groupByVendor, matchSlot, normName, readOrderSheet, vendorFromFileName } from "../domain/orderSheet.mjs?v=20261112-color1";
+import { mountVendorRead, isStockFile } from "./vendorReadPanel.mjs?v=20261117-read1";
 
 const MEMO_KEY = "system_v3_cs_vendor_memo";
 export const DEFAULT_ORDER_MEMO = "• 전달된 실수량 꼭 필요 부탁드립니다\n• 단가 다를시 꼭 말씀 부탁드립니다\n감사합니다 ☺";
@@ -168,8 +169,10 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   // 11-06: 미리보기 목록 대신 슬롯에서 바로 — 짝 맞은 슬롯 = 초록 테두리(보냄 대상) · 슬롯 번호를 누르면 빼기/넣기
   //  · 슬롯 틀에 그 업체 주문 그림 · 오른쪽 위 작은 표시 = 붙여넣음 / 보냄 / 창 없음 …
   const urlOf = (v) => { if (!v.url && v.blobs?.[0]) v.url = URL.createObjectURL(v.blobs[0]); return v.url || ""; };
+  // 11-17 📥 회신 읽기: 입고 리스트(F_1·F_2 .xlsm) + 슬롯 업체명 옆 [읽기]
+  const reader = mountVendorRead({ document, window, panel, onChange: (note) => { renderList(); if (note) say(note, "is-bad"); } });
   function decorateSlots(nm) {
-    panel.root.querySelectorAll(".msn-frame-pic, .msn-vo-state").forEach((el) => el.remove());
+    panel.root.querySelectorAll(".msn-frame-pic, .msn-vo-state, .msn-vo-read").forEach((el) => el.remove());
     panel.root.querySelectorAll("[data-msn-slot]").forEach((el) => { el.classList.remove("is-pick", "is-skip"); delete el.dataset.voK; });
     st.vendors.forEach((v, k) => {
       const slot = slotOf(v, nm);
@@ -179,6 +182,13 @@ export function mountVendorOrder({ document, window, storage, panel }) {
       el.dataset.voK = String(k);
       const no = el.querySelector(".msn-no");
       if (no) no.title = v.off ? "빠짐 — 누르면 다시 넣기" : "보냄 대상 — 누르면 빼기";
+      const nameEl = el.querySelector("[data-msn-name]");
+      if (nameEl && v.lines?.length) {                    // 11-17: 업체명 옆 [읽기] = 회신 사진·메시지 → 입고 수량
+        const rb = document.createElement("button");
+        rb.type = "button"; rb.className = "cs-btn cs-btn-mini msn-vo-read"; rb.dataset.voRead = String(k);
+        rb.textContent = "읽기"; rb.title = "이 업체 회신(표시한 주문서 사진·메시지)을 읽어 입고 수량으로 — 확인 후 [저장] = F 리스트 메인 탭 S열";
+        nameEl.insertAdjacentElement("afterend", rb);
+      }
       const frame = el.querySelector("[data-msn-frame]");
       const url = urlOf(v);
       if (frame && url) {
@@ -220,12 +230,24 @@ export function mountVendorOrder({ document, window, storage, panel }) {
     const toSend = st.vendors.filter((v) => v.pasted && !v.sent && !v.off).length;
     const sendAll = panel.root.querySelector("[data-vo-act=sendall]");
     if (sendAll) { sendAll.disabled = st.busy || !toSend; sendAll.textContent = st.busy ? "📨 보내는 중…" : `📨 선택 보내기${toSend ? ` (${toSend}곳)` : ""}`; }
+    const fst = $("[data-vo-stock]");
+    if (fst) fst.textContent = reader.statusText();
+    const rs = $("[data-vo-act=restore]");
+    if (rs) rs.hidden = !reader.state.files.some((f) => f.saved && f.handle);
     $("[data-vo-summary]").textContent = st.vendors.length ? `${st.file} · 업체 ${st.vendors.length}곳 · 짝 맞음 ${st.vendors.length - nomatch.length}곳${nomatch.length ? ` · 짝 없음: ${nomatch.join(", ")} (슬롯 메모에 업체명을 적으면 짝)` : ""}` : "주문서(.xlsx)나 업체 사진(업체명_MMDD.jpg)을 여기로 끌어다 놓으세요";
   }
 
-  async function loadFiles(files) {
-    const list = [...(files || [])];
-    if (!list.length) return;
+  async function loadFiles(files, handles = []) {
+    const all = [...(files || [])];
+    if (!all.length) return;
+    // 11-17: 입고 리스트(F_1·F_2 .xlsm) 는 따로 — 파일 자리(핸들)를 기억해 [저장] 때 그 파일에 씀
+    const stockIdx = all.map((f, i) => (isStockFile(f.name) ? i : -1)).filter((i) => i >= 0);
+    if (stockIdx.length) {
+      try { await reader.addStockFiles(stockIdx.map((i) => all[i]), stockIdx.map((i) => handles[i] || null)); }
+      catch (error) { say(`입고 리스트를 읽지 못했습니다: ${error?.message || error}`, "is-bad"); }
+    }
+    const list = all.filter((f) => !isStockFile(f.name));
+    if (!list.length) { renderList(); return; }
     st.busy = true; renderList();
     try {
       const xlsx = list.filter((f) => /\.xlsx$/i.test(f.name));
@@ -329,12 +351,26 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   const input = $("[data-vo-file]");
   drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("is-over"); });
   drop.addEventListener("dragleave", () => drop.classList.remove("is-over"));
-  drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("is-over"); loadFiles(e.dataTransfer?.files); });
+  drop.addEventListener("drop", async (e) => {
+    e.preventDefault(); drop.classList.remove("is-over");
+    const files = [...(e.dataTransfer?.files || [])];
+    const hs = [...(e.dataTransfer?.items || [])].filter((it) => it.kind === "file").map((it) => (it.getAsFileSystemHandle ? it.getAsFileSystemHandle().catch(() => null) : null));   // 끌어다 놓은 파일 자리 (같은 순서)
+    loadFiles(files, await Promise.all(hs));
+  });
+  // 11-17: [📥 주문서업로드] = 크롬 파일 고르기 창 (고른 파일 자리를 기억 → F 리스트에 바로 저장)
+  async function pick() {
+    if (!window.showOpenFilePicker) { input.click(); return; }
+    try {
+      const hs = await window.showOpenFilePicker({ multiple: true, types: [{ description: "주문서 · 입고 리스트 · 사진", accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"], "application/vnd.ms-excel.sheet.macroEnabled.12": [".xlsm"], "image/*": [".jpg", ".jpeg", ".png"] } }] });
+      loadFiles(await Promise.all(hs.map((h) => h.getFile())), hs);
+    } catch (error) { if (error?.name !== "AbortError") input.click(); }
+  }
   input.addEventListener("change", () => { loadFiles(input.files); input.value = ""; });
   box.addEventListener("click", (e) => {
     const b = e.target.closest("[data-vo-act]");
     if (!b) return;
-    if (b.dataset.voAct === "upload") input.click();
+    if (b.dataset.voAct === "upload") pick();
+    else if (b.dataset.voAct === "restore") { if (window.confirm("이 화면에서 F 리스트에 넣은 입고를 모두 취소하고, 처음 올린 파일 그대로 되돌립니다. 되돌릴까요?")) reader.restore().catch((error) => say(`되돌리지 못했습니다: ${error?.message || error} — 엑셀에서 파일을 닫고 다시`, "is-bad")); }
     else if (b.dataset.voAct === "apply") apply();
     else if (b.dataset.voAct === "pickall" || b.dataset.voAct === "picknone") {   // 전체 선택 / 선택 해제
       const off = b.dataset.voAct === "picknone";
@@ -345,6 +381,8 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   });
   // 슬롯 번호를 누르면 그 업체를 빼기/넣기 (초록 테두리 = 보냄 대상)
   panel.root.addEventListener("click", (e) => {
+    const rd = e.target.closest("[data-vo-read]");
+    if (rd) { const v = st.vendors[Number(rd.dataset.voRead)]; if (v) reader.open(v, slotOf(v, names())); return; }
     const no = e.target.closest(".msn-no");
     const slot = no?.closest("[data-msn-slot]");
     if (!slot || slot.dataset.voK === undefined || st.busy) return;
@@ -376,5 +414,5 @@ export function mountVendorOrder({ document, window, storage, panel }) {
   panel.root.addEventListener("input", (e) => { if (e.target.matches("[data-msn-name]")) renderList(); });   // 메모를 고치면 짝 다시
   panel.root.addEventListener("change", (e) => { if (e.target.matches("[data-msn-count]")) renderList(); });
   renderList();
-  return { loadFiles, apply, sendAll, clearAll, state: st, renderList };
+  return { loadFiles, apply, sendAll, clearAll, state: st, renderList, reader };
 }

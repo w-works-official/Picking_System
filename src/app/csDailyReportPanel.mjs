@@ -4,9 +4,9 @@
 //  · 미리보기 글은 고쳐 쓸 수 있음 → [📨 카톡 3건 보내기] = 이 PC 창 도우미(웹연결 1.30+)가 그 카톡방에 3개를 차례로 보냄
 import { normalizeCsRow, pickedText } from "../domain/csBoard.mjs?v=20261111-msqa1";
 import {
-  REPORT_STORE_KEY, REPORT_LIMITS, REPORT_MAX_ROOMS, normalizeReportSettings, sendRooms, kstDay, pickReviews, chatItems, boardItems,
+  REPORT_STORE_KEY, REPORT_SENT_KEY, REPORT_LIMITS, REPORT_MAX_ROOMS, normalizeReportSettings, sendRooms, reportDue, autoLabel, kstClock, kstDay, pickReviews, chatItems, boardItems,
   fallbackLines, reviewMessage, summaryMessage,
-} from "../domain/csDailyReport.mjs?v=20261117-rooms1";
+} from "../domain/csDailyReport.mjs?v=20261117-auto1";
 
 export const REPORT_HELPER_URL = "http://127.0.0.1:47811/msn";
 export const REPORT_HELPER_MIN = "1.30";
@@ -38,13 +38,19 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
         <b>📨 받는 사람 (카톡방 · 3곳까지)</b>
         ${Array.from({ length: REPORT_MAX_ROOMS }, (_, i) => `<label>${i + 1} <input type="text" data-rp-room="${i}" maxlength="40" placeholder="${i ? "비워 두면 안 보냄" : "카톡 대화방 이름 그대로 (예: 나와의 채팅 = 내 이름)"}"></label>`).join("")}
       </div>
+      <div class="cs-report-auto">
+        <label class="cs-report-auto-on"><input type="checkbox" data-rp-chk="auto"> ⏰ 자동 보내기</label>
+        <label>예약 시각 <input type="time" data-rp="time" step="60"></label>
+        <label><input type="checkbox" data-rp-chk="weekend"> 주말 포함</label>
+        <p class="cs-note" data-rp-auto-note></p>
+      </div>
       <div class="cs-row">
         <button type="button" class="cs-btn cs-btn-white" data-rp-act="preview">👀 미리보기 만들기</button>
         <button type="button" class="cs-btn cs-btn-primary" data-rp-act="send" disabled>📨 카톡 3건 보내기</button>
       </div>
       <p class="cs-note cs-report-state" data-rp-state>[👀 미리보기 만들기] → 확인·수정 → [📨 카톡 3건 보내기]</p>
       <div class="cs-report-msgs" data-rp-msgs hidden></div>
-      <p class="cs-note">보내기는 <b>이 PC</b>의 카톡으로 합니다 (카톡 PC 켜 두기 · 창 도우미 웹연결 1.30 이상). 받는 사람마다 대화방 이름이 <b>똑같은</b> 방에만 차례로 보냅니다.</p>
+      <p class="cs-note">자동 보내기는 <b>이 PC 에서 CS 관리 화면이 열려 있을 때</b> 예약 시각에 하루 한 번 보냅니다 (켠 PC 에서만 · 늦게 켜도 3시간 안이면 보냄). 보내기는 <b>이 PC</b>의 카톡으로 합니다 (카톡 PC 켜 두기 · 창 도우미 웹연결 1.30 이상). 받는 사람마다 대화방 이름이 <b>똑같은</b> 방에만 차례로 보냅니다.</p>
     </fieldset>`;
   const $ = (sel) => root.querySelector(sel);
   const state = $("[data-rp-state]");
@@ -52,19 +58,24 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
   const sendBtn = $('[data-rp-act="send"]');
   const say = (text, cls = "") => { state.textContent = text; state.className = `cs-note cs-report-state ${cls}`.trim(); };
 
+  const sentDay = () => { try { return storage?.getItem(REPORT_SENT_KEY) || ""; } catch { return ""; } };
   function fill() {
     for (const el of root.querySelectorAll("[data-rp]")) el.value = cfg[el.dataset.rp];
+    for (const el of root.querySelectorAll("[data-rp-chk]")) el.checked = cfg[el.dataset.rpChk] === true;
+    const note = $("[data-rp-auto-note]");
+    if (note) note.textContent = autoLabel(cfg) + (cfg.auto && sentDay() === kstClock().day ? " · 오늘 보냄 ✓" : "");
     for (const el of root.querySelectorAll("[data-rp-room]")) el.value = cfg.rooms[Number(el.dataset.rpRoom)] || "";
   }
   function save() {
     const raw = { rooms: [] };
     for (const el of root.querySelectorAll("[data-rp]")) raw[el.dataset.rp] = el.value;
     for (const el of root.querySelectorAll("[data-rp-room]")) raw.rooms[Number(el.dataset.rpRoom)] = el.value;
+    for (const el of root.querySelectorAll("[data-rp-chk]")) raw[el.dataset.rpChk] = el.checked;
     cfg = normalizeReportSettings(raw);
     try { storage?.setItem(REPORT_STORE_KEY, JSON.stringify(cfg)); } catch { /* 저장 못 해도 이번엔 씀 */ }
   }
   fill();
-  root.addEventListener("change", (e) => { if (e.target.closest("[data-rp], [data-rp-room]")) { save(); fill(); } });
+  root.addEventListener("change", (e) => { if (e.target.closest("[data-rp], [data-rp-room], [data-rp-chk]")) { save(); fill(); } });
 
   async function summarize(kind, items, lines) {
     if (!items.length) return { lines: [], ai: false };
@@ -82,15 +93,16 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
   }
 
   async function preview() {
-    if (busy) return;
-    if (!isLive()) { say("시트에 연결된 뒤에 만들 수 있습니다 (🏠 메인보드 › 웹 연결).", "is-bad"); return; }
+    if (busy) return false;
+    if (!isLive()) { say("시트에 연결된 뒤에 만들 수 있습니다 (🏠 메인보드 › 웹 연결).", "is-bad"); return false; }
     busy = true; save();
     say("오늘 리뷰·상담톡·게시판을 모으는 중…");
+    let ok = false;
     try {
       let data;
       try { data = await post({ action: "reportData" }); }
-      catch (error) { throw new Error(`시트에서 오늘 내용을 못 받았습니다 (${error?.message || error}) — 시트 v30 [배포]가 안 됐으면 먼저 배포해 주세요`); }
-      if (!Array.isArray(data.rows)) throw new Error("시트가 리포트 요청을 모릅니다 — 시트 v30 [배포]가 필요합니다");
+      catch (error) { throw new Error(`시트에서 오늘 내용을 못 받았습니다 (${error?.message || error}) — 시트 v31 [배포]가 안 됐으면 먼저 배포해 주세요`); }
+      if (!Array.isArray(data.rows)) throw new Error("시트가 리포트 요청을 모릅니다 — 시트 v31 [배포]가 필요합니다");
       const today = kstDay(data.serverTime ? new Date(data.serverTime) : new Date());
       const rows = data.rows.map((raw) => normalizeCsRow(raw));
       const reviews = pickReviews(rows, today, cfg.reviewN);
@@ -104,10 +116,12 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
         summaryMessage(today, 3, "📋 게시판", "문의", boards, b.lines),
       ]);
       const plain = [c, b].filter((x, i) => [chats, boards][i].length && !x.ai);
+      ok = true;
       say(plain.length ? `미리보기 완료 — AI 요약이 안 돼서 간단 요약으로 넣었습니다${plain[0].note ? ` (${plain[0].note})` : ""}. 고쳐 쓰고 보내도 됩니다.` : "미리보기 완료 — 고쳐 쓸 수 있습니다. 확인 후 [📨 카톡 3건 보내기]", plain.length ? "is-warn" : "is-ok");
     } catch (error) {
       say(String(error?.message || error), "is-bad");
     } finally { busy = false; }
+    return ok;
   }
 
   async function helper(path, body, ms = 4000) {
@@ -154,10 +168,22 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
     } finally { busy = false; sendBtn.disabled = false; }
   }
 
+  // ⏰ 자동 보내기: 30초마다 확인 → 때가 되면 미리보기 만들고 그대로 보냄 (오늘 보냄 표시를 먼저 남겨 두 번 안 보냄)
+  async function tick(now = new Date()) {
+    if (busy || !isLive() || !reportDue(cfg, now, sentDay())) return false;
+    try { storage?.setItem(REPORT_SENT_KEY, kstClock(now).day); } catch { /* 표시 못 남겨도 이번엔 보냄 */ }
+    fill();
+    if (!(await preview())) { say(`⏰ 자동 보내기 실패 (미리보기) — ${state.textContent}`, "is-bad"); return false; }
+    await send();
+    say(`⏰ 자동 보내기 ${cfg.time} — ${state.textContent}`, state.className.includes("is-ok") ? "is-ok" : "is-warn");
+    return true;
+  }
+  const timer = window.setInterval?.(() => { tick(); }, 30000);
+
   root.addEventListener("click", (e) => {
     const act = e.target.closest("[data-rp-act]")?.dataset.rpAct;
     if (act === "preview") preview();
     else if (act === "send") send();
   });
-  return { preview, send, get settings() { return cfg; } };
+  return { preview, send, tick, stop() { window.clearInterval?.(timer); }, get settings() { return cfg; } };
 }

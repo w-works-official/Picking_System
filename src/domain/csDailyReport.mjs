@@ -4,7 +4,9 @@
 //  · 게시판: 상담톡과 같음 (에이블리 문의방은 상담톡에 있으므로 뺌, 리뷰도 뺌)
 //  · 설정(N개 · N줄 · 받는 카톡방 3곳까지)은 ⚙ 설정에서 한 번에 — 이 기기에 기억
 export const REPORT_STORE_KEY = "system_v3_cs_report";
-export const REPORT_DEFAULTS = Object.freeze({ reviewN: 3, chatLines: 5, boardLines: 5, rooms: Object.freeze(["", "", ""]) });
+export const REPORT_DEFAULTS = Object.freeze({ reviewN: 3, chatLines: 5, boardLines: 5, rooms: Object.freeze(["", "", ""]), auto: false, time: "18:00", weekend: false });
+export const REPORT_SENT_KEY = "system_v3_cs_report_sent";   // 자동 보내기: 그날 보냈는지 (이 기기)
+export const REPORT_AUTO_WINDOW_MIN = 180;                    // 예약 시각이 지나고 3시간 안에 화면이 열려 있으면 보냄 (늦게 켜도 한 번)
 export const REPORT_MAX_ROOMS = 3;   // 11-17: 받는 사람(카톡방) 3곳까지
 export const REPORT_LIMITS = Object.freeze({ reviewN: [1, 10], chatLines: [1, 15], boardLines: [1, 15] });
 const CHAT_SRC = { smart: "톡톡", kakao: "해피톡", ably: "에이블리" };
@@ -22,7 +24,33 @@ export function normalizeReportSettings(raw = {}) {
     chatLines: clampInt(r.chatLines, REPORT_LIMITS.chatLines, REPORT_DEFAULTS.chatLines),
     boardLines: clampInt(r.boardLines, REPORT_LIMITS.boardLines, REPORT_DEFAULTS.boardLines),
     rooms: reportRooms(r),
+    auto: r.auto === true,
+    time: /^([01]\d|2[0-3]):[0-5]\d$/.test(str(r.time)) ? str(r.time) : REPORT_DEFAULTS.time,
+    weekend: r.weekend === true,
   };
+}
+
+// 한국 시각: 날짜 · 분(0~1439) · 요일(0=일)
+export function kstClock(when = new Date()) {
+  const k = new Date(when.getTime() + 9 * 3600 * 1000);
+  return { day: k.toISOString().slice(0, 10), min: k.getUTCHours() * 60 + k.getUTCMinutes(), wd: k.getUTCDay() };
+}
+
+// ⏰ 지금 자동으로 보낼 때인가 — 켜짐 · 받는 사람 있음 · 평일(주말 포함이면 매일) · 예약 시각 ~ 3시간 안 · 오늘 아직 안 보냄
+export function reportDue(cfg, now = new Date(), sentDay = "") {
+  if (!cfg?.auto || !sendRooms(cfg.rooms).length) return false;
+  const { day, min, wd } = kstClock(now);
+  if (sentDay === day) return false;
+  if (!cfg.weekend && (wd === 0 || wd === 6)) return false;
+  const [h, m] = str(cfg.time).split(":").map(Number);
+  const at = h * 60 + m;
+  return min >= at && min < at + REPORT_AUTO_WINDOW_MIN;
+}
+
+// 자동 보내기 안내 한 줄
+export function autoLabel(cfg) {
+  if (!cfg?.auto) return "⏰ 자동 보내기 꺼짐 — 버튼으로만 보냅니다";
+  return `⏰ ${cfg.weekend ? "매일" : "평일(월~금)"} ${cfg.time} 에 자동으로 보냅니다${sendRooms(cfg.rooms).length ? "" : " — 받는 사람을 적어 주세요"}`;
 }
 
 // 받는 카톡방 칸 3개 (빈칸 그대로 자리 유지 · 예전 설정 room 한 개도 1번 칸으로)

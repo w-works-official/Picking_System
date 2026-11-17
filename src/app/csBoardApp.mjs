@@ -439,6 +439,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (tab === "ship") openShip();
     if (tab === "chat") openChat(); else chat?.stop?.();
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
+    if (tab === "settings") openReport();
   }
 
   const RIGHT_TITLES = { board: "📋 게시판 답변", review: "⭐ 리뷰 답글", msn: "💬 메신저 답변", vendor: "📦 거래처 메신저", ship: "🚚 배송기록", chat: "💬 상담톡" };
@@ -1333,6 +1334,15 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     import("./chatTalkPanel.mjs?v=20261113-ably1")
       .then((m) => { chat = m.mountChatTalk({ document, window, root: $("[data-chat]"), side: $("[data-chat-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); chat.load(); chat.start(); })
       .catch((error) => { chat = null; toast(`상담톡 화면을 불러오지 못했습니다: ${error?.message || error}`); });
+  }
+  // ---------- 📊 오늘 CS 리포트 (11-17): ⚙ 설정을 처음 열 때 ----------
+  let report = null;
+  function openReport() {
+    if (report) return;
+    report = {};
+    import("./csDailyReportPanel.mjs?v=20261117-report1")
+      .then((m) => { report = m.mountDailyReport({ document, window, root: $("[data-report-box]"), post: postRaw, isLive: () => state.connected && !state.sample, storage: (() => { try { return window.localStorage; } catch { return null; } })() }) || {}; })
+      .catch((error) => { report = null; toast(`오늘 CS 리포트 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }
   async function postRaw(body) {
     const response = await doFetch(state.endpoint, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ ...body, token: state.token }) });

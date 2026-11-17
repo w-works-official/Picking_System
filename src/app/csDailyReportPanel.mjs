@@ -171,6 +171,12 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
   // ⏰ 자동 보내기: 30초마다 확인 → 때가 되면 미리보기 만들고 그대로 보냄 (오늘 보냄 표시를 먼저 남겨 두 번 안 보냄)
   async function tick(now = new Date()) {
     if (busy || !isLive() || !reportDue(cfg, now, sentDay())) return false;
+    // 같은 PC 에 CS 화면 탭이 여러 개(아침 7시 예약으로 또 열림 등)여도 한 탭만: 내 표시를 남기고 잠깐 뒤 그대로면 내가 보냄
+    const me = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    try { storage?.setItem(`${REPORT_SENT_KEY}_lock`, me); } catch { /* 없으면 그냥 */ }
+    await new Promise((r) => window.setTimeout(r, 1500));
+    try { if (storage && storage.getItem(`${REPORT_SENT_KEY}_lock`) !== me) return false; } catch { /* 읽기 실패면 그냥 */ }
+    if (!reportDue(cfg, now, sentDay())) return false;
     try { storage?.setItem(REPORT_SENT_KEY, kstClock(now).day); } catch { /* 표시 못 남겨도 이번엔 보냄 */ }
     fill();
     if (!(await preview())) { say(`⏰ 자동 보내기 실패 (미리보기) — ${state.textContent}`, "is-bad"); return false; }

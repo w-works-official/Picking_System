@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261113-mnav1">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261117-auto1">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261117-read1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -517,10 +517,12 @@
                 <div class="vo-drop" data-vo-drop>
                   <button type="button" class="cs-btn cs-btn-primary" data-vo-act="upload">📥 주문서업로드</button>
                   <span class="vo-summary" data-vo-summary>주문서(.xlsx)나 업체 사진(업체명_MMDD.jpg)을 여기로 끌어다 놓으세요</span>
+                  <span class="vo-stock" data-vo-stock></span>
+                  <button type="button" class="cs-btn cs-btn-mini" data-vo-act="restore" hidden title="이 화면에서 F 리스트에 넣은 입고를 모두 취소">↩ 입고 되돌리기</button>
                   <span class="vo-picked" data-vo-picked></span>
                   <button type="button" class="cs-btn cs-btn-green" data-vo-act="pickall" disabled>☑ 전체 선택</button>
                   <button type="button" class="cs-btn" data-vo-act="picknone" disabled>☐ 선택 해제</button>
-                  <input type="file" data-vo-file accept=".xlsx,.jpg,.jpeg,.png" multiple hidden>
+                  <input type="file" data-vo-file accept=".xlsx,.xlsm,.jpg,.jpeg,.png" multiple hidden>
                 </div>
                 <p class="vo-msg" data-vo-msg hidden></p>
               </div>
@@ -573,6 +575,6 @@
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261029-cs-switch1"></script>
     <script type="module" src="../src/app/csBoardApp.mjs?v=20261117-oxt1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
-    <script type="module" src="../src/app/msnSlots.mjs?v=20261113-chat1"></script>
+    <script type="module" src="../src/app/msnSlots.mjs?v=20261117-read1"></script>
   </body>
 </html>

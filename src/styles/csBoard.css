@@ -2508,3 +2508,16 @@ body.cs-board-workspace { font-weight: 500; -webkit-font-smoothing: antialiased;
 .cs-main > .cs-left-tabs .cs-left-tab[class*="tab-"].active { background: #e11d48; color: #ffffff; box-shadow: none; }
 .cs-box legend { color: #be123c; font-weight: 900; }
 .cs-brand p { color: #e11d48; font-weight: 800; }
+
+/* 2026-11-17 📊 오늘 CS 리포트 (⚙ 설정 맨 위) */
+.cs-report-box .cs-report-set { display: grid; gap: 6px; margin: 6px 0 8px; }
+.cs-report-box .cs-report-set label { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-weight: 700; }
+.cs-report-box .cs-report-set input[type="text"] { flex: 1 1 180px; min-width: 0; }
+.cs-report-box .cs-report-set small { color: #64748b; font-weight: 500; }
+.cs-report-state.is-ok { color: #047857; font-weight: 700; }
+.cs-report-state.is-warn { color: #b45309; font-weight: 700; }
+.cs-report-state.is-bad { color: #be123c; font-weight: 700; }
+.cs-report-msgs { display: grid; gap: 8px; margin-top: 8px; }
+.cs-report-msg { display: grid; gap: 3px; }
+.cs-report-msg > span { font-weight: 900; color: #be123c; }
+.cs-report-msg textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; line-height: 1.45; field-sizing: content; min-height: 4.5em; max-height: 460px; padding: 6px 8px; border: 1px solid #fecdd3; border-radius: 8px; resize: vertical; white-space: pre-wrap; }

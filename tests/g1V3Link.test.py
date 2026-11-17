@@ -1333,5 +1333,69 @@ fn = FakeMsnApi(); fn.open_chat = lambda name: None; fn.set_clip_text = lambda t
 assert "카톡 PC" in L.MsnHelper(fn).send_texts("없는방", ["x"], sleep=lambda s: None)["error"]
 fm = FakeMsnApi(); fm.open_chat = lambda name: True; fm.set_clip_text = lambda t: None
 assert "못 찾았습니다" in L.MsnHelper(fm).send_texts("없는방", ["x"], sleep=lambda s: None)["error"]
-assert L.LINK_VER.startswith("1.30")
 print("g1V3Link daily report text (1.30): OK")
+
+# ── 1.31 토스쇼핑 문의(채팅방) — 읽기만 ──
+k = L.toss_keys("ACCESS_KEY=ak123\nSECRET_KEY = sk456\n")
+assert k["access"] == "ak123" and k["secret"] == "sk456"
+k = L.toss_keys(json.dumps({"toss": {"accessKey": "a1", "secretKey": "s1"}}))
+assert k["access"] == "a1" and k["secret"] == "s1"
+k = L.toss_keys("a2\ns2\n")
+assert (k["access"], k["secret"]) == ("a2", "s2")
+assert L.toss_keys("eyJhbGciOi.x.y")["token"].startswith("eyJ")
+_room = {"roomId": 77, "receiver": {"tossUserNo": 501, "name": "토스고객"}, "unreadCount": 2, "sessionStatus": "ACTIVE",
+         "lastMessage": {"messageId": 3, "content": "언제 와요?", "senderType": "USER", "sentAt": "2026-11-17T05:00:00Z"},
+         "lastSession": {"sessionId": 9, "status": "ACTIVE", "startedAt": "2026-11-17T04:50:00Z",
+                         "startCard": {"inquiryType": "DELIVERY", "entryRefType": "ORDER_PRODUCT", "entryRefIds": {"orderId": "O-1"},
+                                       "renderInfo": {"title": "14K 볼 피어싱", "subtitle": "골드 3mm", "thumbnail": "https://x/t.jpg", "badge": "배송중"}}}}
+_msgs = [{"messageId": 3, "senderType": "USER", "senderId": 501, "messageType": "NORMAL", "content": {"text": "언제 와요?", "imageUrls": []}, "sentAt": "2026-11-17T05:00:00Z"},
+         {"messageId": 1, "senderType": "USER", "senderId": 501, "messageType": "CUSTOM", "content": {"imageUrls": [], "card": _room["lastSession"]["startCard"]}, "sentAt": "2026-11-17T04:50:00Z"},
+         {"messageId": 2, "senderType": "PARTNER", "senderId": 9, "messageType": "NORMAL", "content": {"text": "확인해 볼게요", "imageUrls": ["https://x/1.jpg"]}, "sentAt": "2026-11-17T04:55:00Z"}]
+c = L.toss_conv(_room, _msgs)
+assert c["id"] == "77" and c["name"] == "토스고객" and c["tag"] == "배송 문의" and c["unread"] == 2
+assert [m["who"] for m in c["messages"]] == ["c", "s", "c"], "보낸 시각 순서 · 고객 = receiver.tossUserNo"
+assert c["messages"][0]["text"].startswith("[문의 카드] 배송 문의") and "(사진 1장)" in c["messages"][1]["text"]
+assert c["messages"][2]["time"] == "2026-11-17 14:00:00", "한국 시각"
+assert c["aux"]["items"][0]["name"] == "14K 볼 피어싱" and c["aux"]["items"][0]["order"] == "O-1" and "진행중" in c["aux"]["title"]
+# 키 파일 없으면 건너뜀 · 30분 뒤 · 기록 한 번만
+said = []
+L.TOSS_STATE.update(next=0.0, note="")
+assert L.push_toss_chat(None, said.append, now=1000, key_file=os.path.join(tmp, "no_toss.txt")) == 0 and L.TOSS_STATE["next"] == 1000 + L.TOSS_RETRY
+L.TOSS_STATE["next"] = 0
+L.push_toss_chat(None, said.append, now=1001, key_file=os.path.join(tmp, "no_toss.txt"))
+assert len([m for m in said if "키 파일" in m]) == 1
+# 읽기 → chatIngest(platform=toss) · 3분 간격 · GET 만
+kf = os.path.join(tmp, "toss_api.txt"); open(kf, "w", encoding="utf-8").write("access_key=A\nsecret_key=S\n")
+reqs = []
+def fake_req(url, data=None, headers=None, timeout=20):
+    reqs.append(("POST" if data is not None else "GET", url))
+    if url == L.TOSS_TOKEN_URL:
+        return 200, json.dumps({"access_token": "TOK", "expires_in": 31535999})
+    assert headers.get("Authorization") == "Bearer TOK"
+    if "/rooms/77/messages" in url:
+        return 200, json.dumps({"resultType": "SUCCESS", "success": {"hasMore": False, "messages": _msgs}})
+    if "/business-chat/rooms" in url:
+        return 200, json.dumps({"resultType": "SUCCESS", "success": {"hasNext": False, "rooms": [_room]}})
+    raise AssertionError(url)
+L._toss_req = fake_req
+class FakeLink:
+    def __init__(self): self.calls = []
+    def call(self, action, **kw): self.calls.append((action, kw)); return {"ok": True, "added": 1}
+fl = FakeLink(); said.clear(); L.TOSS_STATE.update(next=0.0, note="")
+L.HERE = tmp
+assert L.push_toss_chat(fl, said.append, now=2000, key_file=kf) == 1
+assert fl.calls[0][0] == "chatIngest" and fl.calls[0][1]["platform"] == "toss" and fl.calls[0][1]["convs"][0]["id"] == "77"
+assert [m for m, u in reqs if u != L.TOSS_TOKEN_URL] == ["GET", "GET"], "토스에는 읽기(GET)만"
+assert L.TOSS_STATE["next"] == 2000 + L.TOSS_EVERY
+n = len(reqs)
+assert L.push_toss_chat(fl, said.append, now=2001, key_file=kf) == 0 and len(reqs) == n, "3분 안에는 다시 안 부름"
+L.TOSS_STATE["next"] = 0
+L.push_toss_chat(fl, said.append, now=3000, key_file=kf)
+assert sum(1 for m, u in reqs if u == L.TOSS_TOKEN_URL) == 1, "토큰은 저장해 두고 다시 씀"
+# 실패(resultType FAIL) → 30분 뒤
+L._toss_req = lambda url, data=None, headers=None, timeout=20: (200, json.dumps({"access_token": "TOK", "expires_in": 9})) if url == L.TOSS_TOKEN_URL else (200, json.dumps({"resultType": "FAIL", "error": {"errorCode": "REQUEST_FAILED", "reason": "권한 없음"}}))
+L.TOSS_STATE["next"] = 0; said.clear()
+assert L.push_toss_chat(fl, said.append, now=5000, key_file=kf) == 0 and L.TOSS_STATE["next"] == 5000 + L.TOSS_RETRY
+assert any("권한 없음" in m for m in said)
+assert L.LINK_VER.startswith("1.31")
+print("g1V3Link toss chat (1.31): OK")

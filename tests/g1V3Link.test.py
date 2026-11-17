@@ -1363,7 +1363,7 @@ L.TOSS_STATE.update(next=0.0, note="")
 assert L.push_toss_chat(None, said.append, now=1000, key_file=os.path.join(tmp, "no_toss.txt")) == 0 and L.TOSS_STATE["next"] == 1000 + L.TOSS_RETRY
 L.TOSS_STATE["next"] = 0
 L.push_toss_chat(None, said.append, now=1001, key_file=os.path.join(tmp, "no_toss.txt"))
-assert len([m for m in said if "키 파일" in m]) == 1
+assert len([m for m in said if "키가 없어" in m]) == 1
 # 읽기 → chatIngest(platform=toss) · 3분 간격 · GET 만
 kf = os.path.join(tmp, "toss_api.txt"); open(kf, "w", encoding="utf-8").write("access_key=A\nsecret_key=S\n")
 reqs = []
@@ -1428,5 +1428,44 @@ assert json.load(open(fn3, encoding="utf-8"))["업체결과"]["토스"]["상태"
 fn4 = os.path.join(tmp, "수집_toss4.json"); json.dump({"rows": []}, open(fn4, "w", encoding="utf-8"))
 L.add_toss_to_result(fn4, {"vendors": {"토스": True}, "test": True, "test_limit": 2}, said.append, key_file=kf)
 assert len(json.load(open(fn4, encoding="utf-8"))["rows"]) == 2 and all(r.get("가상") for r in json.load(open(fn4, encoding="utf-8"))["rows"]), "테스트 = 최근 n개 가상"
-assert L.LINK_VER.startswith("1.32")
 print("g1V3Link toss board (1.32): OK")
+
+# ── 1.33 토스 키를 웹에서 (잠가서) 저장 ──
+L._RSA.clear()
+d33 = {}
+k33 = L.rsa_key(d33)
+JS33 = """
+const [n, text] = process.argv.slice(1);
+const k = await crypto.subtle.importKey("jwk", { kty: "RSA", n, e: "AQAB", alg: "RSA-OAEP-256", ext: true }, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["encrypt"]);
+const c = new Uint8Array(await crypto.subtle.encrypt({ name: "RSA-OAEP" }, k, new TextEncoder().encode(text)));
+console.log(Buffer.from(c).toString("base64url"));
+"""
+def lock(text):
+    return subprocess.run(["node", "--input-type=module", "-e", JS33, L.rsa_public(k33), text], capture_output=True, text=True, check=True).stdout.strip()
+store = {"vendors": {}}
+G.load_cfg = lambda: json.loads(json.dumps(store))
+G.save_cfg = lambda c: store.update(c)
+L.TOSS_KEY_FILE = os.path.join(tmp, "no_public_key.txt")
+assert L.toss_source() == "" and L.toss_find_keys() is None
+L._toss_req = fake_req2
+try:
+    os.remove(L.toss_token_path())
+except Exception:
+    pass
+ok, msg, data = L.run_toss_key_job({"body": {"access": lock("ACC-1"), "secret": lock("SEC-1")}}, store, print, d33)
+assert ok and "연결됨" in msg and store["toss_access"] == "ACC-1" and store["toss_secret_enc"] == "enc:SEC-1", msg
+assert "SEC-1" not in json.dumps({k: v for k, v in store.items() if k != "toss_secret_enc"})
+assert L.toss_source() == "own" and L.toss_find_keys()["secret"] == "SEC-1"
+assert L.TOSS_STATE["note"] == "ok" and L.TOSS_STATE["next"] == 0.0
+ok2, msg2, _ = L.run_toss_key_job({"body": {"test": True}}, store, print, d33)
+assert ok2 and not msg2.startswith("토스 키 저장"), "빈 값 = 시험만"
+L._toss_req = lambda url, data=None, headers=None, timeout=20: (200, json.dumps({"access_token": "TOK", "expires_in": 9})) if url == L.TOSS_TOKEN_URL else (200, json.dumps({"resultType": "FAIL", "error": {"errorCode": "REQUEST_FAILED", "reason": "IP 미등록"}}))
+ok3, msg3, _ = L.run_toss_key_job({"body": {}}, store, print, d33)
+assert not ok3 and "IP 미등록" in msg3
+su33 = L.setup_info(store, d=d33)
+assert su33["toss"] == "own" and "IP 미등록" in su33["toss_note"] and su33["toss_ok"] is False
+fn5 = os.path.join(tmp, "수집_toss5.json"); json.dump({"rows": []}, open(fn5, "w", encoding="utf-8"))
+L._toss_req = fake_req2
+assert L.add_toss_to_result(fn5, {"vendors": {}}, print) == 1, "웹 키가 있으면 고른 적 없어도 토스 수집"
+assert L.LINK_VER.startswith("1.33")
+print("g1V3Link toss key (1.33): OK")

@@ -162,6 +162,7 @@ assert.deepEqual(csRequestPayload("collect", { vendors: ["스마트스토어", "
   const { csPcPayload: pcp } = await import("../src/domain/csBoard.mjs");
   assert.deepEqual(pcp("tossKey", { access: "A", secret: "S" }).options, { access: "A", secret: "S" });
   assert.deepEqual(pcp("tossKey", {}).options, {}, "빈 값 = 연결 시험만");
+  assert.deepEqual(pcp("login", { vendors: ["토스"] }).options.vendors, ["토스"], "11-17 토스 로그인(상품 Q&A · 리뷰 화면 읽기)");
 }
 assert.throws(() => csRequestPayload("register"));
 assert.throws(() => csRequestPayload("rm -rf"));

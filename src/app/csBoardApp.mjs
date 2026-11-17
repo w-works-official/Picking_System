@@ -54,7 +54,7 @@ import {
   csPointPayload,
   CS_POINT_DEFAULT,
   csShotPoint,
-} from "../domain/csBoard.mjs?v=20261117-toss4";
+} from "../domain/csBoard.mjs?v=20261117-toss5";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261111-nosample1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
@@ -867,10 +867,13 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (apiState) apiState.textContent = !su ? "저장된 키: 수집기 PC 연결 후 확인" : su.api === "own" ? "저장된 키: ✓ 수집기 PC에 저장된 키 사용 중" : su.api === "e1" ? "저장된 키: E_1 스마트스토어 API 설정 사용 중 (여기서 새로 저장하면 그 키를 씁니다)" : "저장된 키: 없음 — 아래에 넣고 [저장]";
     const tossState = $("#cs-toss-state");
     if (tossState) {
-      tossState.textContent = !su ? "토스 키: 수집기 PC 연결 후 확인"
-        : su.toss === "own" ? `토스 키: ✓ 웹에서 저장한 키 사용 중${su.tossOk ? " · 연결됨" : su.tossNote ? ` · ⚠ ${su.tossNote}` : ""}`
-          : su.toss === "file" ? `토스 키: 키 파일(C:\\Users\\Public\\toss_api.txt) 사용 중${su.tossOk ? " · 연결됨" : su.tossNote ? ` · ⚠ ${su.tossNote}` : ""}`
-            : "토스 키: 없음 — 아래에 넣고 [저장] (수집기 PC 웹연결 1.33 이상)";
+      // 11-17 크게: 연결됨 = 초록 · 키 없음/오류 = 빨강 · 확인 중 = 핑크
+      const where = su?.toss === "own" ? "웹에서 저장한 키" : "키 파일(C:\\Users\\Public\\toss_api.txt)";
+      tossState.textContent = !su ? "⏳ 수집기 PC 연결 후 확인"
+        : !su.toss ? "❌ 토스 키 없음 — 아래에 넣고 [저장]"
+          : su.tossNote ? `⚠ 연결 안 됨 — ${su.tossNote}`
+            : su.tossOk ? `✅ 토스 연결됨 — ${where} 사용 중` : `⏳ ${where} 저장됨 — 연결 확인 중 (몇 분 안에)`;
+      tossState.classList.toggle("is-ok", !!su?.toss && !!su.tossOk && !su.tossNote);
       tossState.classList.toggle("is-bad", !!su && (!su.toss || !!su.tossNote));
     }
     const tossResult = $("#cs-toss-result");

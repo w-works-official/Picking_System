@@ -2521,3 +2521,7 @@ body.cs-board-workspace { font-weight: 500; -webkit-font-smoothing: antialiased;
 .cs-report-msg { display: grid; gap: 3px; }
 .cs-report-msg > span { font-weight: 900; color: #be123c; }
 .cs-report-msg textarea { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13px; line-height: 1.45; field-sizing: content; min-height: 4.5em; max-height: 460px; padding: 6px 8px; border: 1px solid #fecdd3; border-radius: 8px; resize: vertical; white-space: pre-wrap; }
+.cs-report-box .cs-report-rooms { display: grid; gap: 5px; margin: 2px 0 8px; padding: 8px; border: 1px dashed #fda4af; border-radius: 8px; background: #fff1f2; }
+.cs-report-box .cs-report-rooms label { display: flex; align-items: center; gap: 6px; font-weight: 800; color: #be123c; }
+.cs-report-box .cs-report-rooms input { flex: 1 1 auto; min-width: 0; }
+.cs-report-state { white-space: pre-line; }

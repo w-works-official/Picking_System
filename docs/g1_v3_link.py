@@ -172,7 +172,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.33 (2026-11-17)"
+LINK_VER = "1.34 (2026-11-17)"
 LINK_NOTE = "게시판 수집 업체에 토스 추가 + 💬 상담톡 토스 칸 (읽기만, 키 C:\\Users\\Public\\toss_api.txt)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
@@ -1250,6 +1250,260 @@ def push_toss_chat(link, say=print, now=None, key_file=None):
         return 0
 
 
+# ───────── 1.34 (2026-11-17) 토스쇼핑 상품 Q&A · 상품 리뷰 = 판매자센터 화면 (읽기만) ─────────
+# 공식 API 에 상품 Q&A · 리뷰가 없음 → 수집기 브라우저로 판매자센터를 열고, 화면이 스스로 받는 목록 응답을 그대로 읽음 (에이블리와 같은 방식)
+#  · 상품 Q&A 목록: GET api-public.toss.im/…/shopping-chat/product-qna?tab=… → items[{qnaId, productName, productItemName, contentPreview, customerName, regDt, answered}]
+#    상세: …/product-qna/{qnaId} → {product{productId, productName, productItemName, thumbnailUrl}, question{customerName, content, regDt}, answers[{content, regDt}]}
+#    상세·답변대기 목록은 화면이 보낸 요청의 머리말(판매자 번호 등)을 그대로 써서 이 PC 브라우저 안에서만 다시 받음
+#  · 리뷰 목록: GET api-public.toss.im/…/shopping-review/product/reviews → 화면이 받은 응답에서 리뷰처럼 보이는 항목을 읽음
+#  · 로그인은 토스 앱 인증이라 사람이 직접 (메인보드 › 로그인 현황 › 토스 [연결])
+TOSS_SELLER = "https://shopping-seller.toss.im"
+TOSS_QNA_RE = re.compile(r"api-public\.toss\.im/.*/shopping-chat/product-qna(\?|$)")
+TOSS_REVIEW_RE = re.compile(r"api-public\.toss\.im/.*/shopping-review/.*reviews")
+TOSS_QNA_MAX = 40
+
+TOSS_QNA_JS = r"""
+async ({listUrl, headers, max, waitingOnly}) => {
+  const out = {items: [], details: {}, errors: []};
+  const urls = [];
+  try { const u = new URL(listUrl); if (waitingOnly) u.searchParams.set('tab', 'WAITING_ANSWER'); urls.push(u.toString()); } catch (e) { urls.push(listUrl); }
+  const seen = new Set();
+  for (let u of urls) {
+    for (let page = 0; page < 5 && u && out.items.length < max; page++) {
+      try {
+        const r = await fetch(u, {headers: headers, credentials: 'include'});
+        if (!r.ok) { out.errors.push('목록 HTTP ' + r.status); break; }
+        const j = await r.json(); const d = (j && j.success) || j || {};
+        for (const x of d.items || []) { if (x && x.qnaId != null && !seen.has(x.qnaId) && out.items.length < max) { seen.add(x.qnaId); out.items.push(x); } }
+        const nc = d.paging && d.paging.nextCursor;
+        if (!nc) break;
+        const nu = new URL(u); nu.searchParams.set('cursor', nc); u = nu.toString();
+      } catch (e) { out.errors.push('목록 ' + String(e).slice(0, 120)); break; }
+    }
+  }
+  for (const x of out.items) {
+    try {
+      const base = listUrl.split('?')[0];
+      const r = await fetch(base + '/' + x.qnaId, {headers: headers, credentials: 'include'});
+      if (r.ok) { const j = await r.json(); out.details[x.qnaId] = (j && j.success) || j; } else out.errors.push(x.qnaId + ' HTTP ' + r.status);
+    } catch (e) { out.errors.push(x.qnaId + ' ' + String(e).slice(0, 120)); }
+  }
+  return out;
+}
+"""
+
+
+def _toss_dt(v):
+    """'2026-11-16T20:35:43' · 밀리초 숫자 → '2026-11-16 20:35'"""
+    if isinstance(v, (int, float)) and v > 1e11:
+        return datetime.datetime.fromtimestamp(v / 1000).strftime("%Y-%m-%d %H:%M")
+    return str(v or "")[:16].replace("T", " ")
+
+
+def _toss_payload(js):
+    """토스 응답 껍데기 {resultType, success:{…}} 벗기기"""
+    if isinstance(js, dict) and isinstance(js.get("success"), (dict, list)):
+        return js["success"]
+    return js
+
+
+def toss_qna_row(item, detail):
+    """토스 상품 Q&A 1건 → 수집기 게시판 줄 (업체=토스, 게시판=상품Q&A)"""
+    detail = detail if isinstance(detail, dict) else {}
+    p = detail.get("product") or {}
+    q = detail.get("question") or {}
+    ans = [a for a in (detail.get("answers") or []) if isinstance(a, dict)]
+    qid = str(item.get("qnaId") or detail.get("qnaId") or "")
+    맥락 = [{"구분": "판매자", "날짜": _toss_dt(a.get("regDt")), "내용": str(a.get("content") or ""), "사진URL": []} for a in ans]
+    return dict(업체="토스", 게시판="상품Q&A", id=f"qna-{qid}", 날짜=_toss_dt(q.get("regDt") or item.get("regDt")),
+                상품명=str(p.get("productName") or item.get("productName") or ""), 상품ID=str(p.get("productId") or ""),
+                옵션=str(p.get("productItemName") or item.get("productItemName") or ""), 상품링크="", 상품이미지=str(p.get("thumbnailUrl") or ""),
+                관리링크=f"{TOSS_SELLER}/product-qna", 글링크=f"{TOSS_SELLER}/product-qna",
+                문의=str(q.get("content") or item.get("contentPreview") or ""), 작성자=str(q.get("customerName") or item.get("customerName") or ""),
+                유형="상품 Q&A", 답변여부=bool(item.get("answered") or ans), 맥락=맥락[-12:], 사진URL=[],
+                원본={"qnaId": item.get("qnaId"), "answered": item.get("answered"), "read": item.get("read")})
+
+
+def _toss_review_items(js):
+    """리뷰 응답에서 리뷰처럼 보이는 항목 (필드 이름이 정해지지 않아 넓게)"""
+    out = []
+
+    def walk(o, depth=0):
+        if depth > 6:
+            return
+        if isinstance(o, dict):
+            keys = set(o)
+            if (keys & {"reviewId", "id", "productReviewId"}) and (keys & {"content", "contents", "reviewContent", "text"}):
+                out.append(o)
+                return
+            for v in o.values():
+                walk(v, depth + 1)
+        elif isinstance(o, list):
+            for v in o:
+                walk(v, depth + 1)
+    walk(_toss_payload(js))
+    return out
+
+
+def toss_review_row(it):
+    """토스 리뷰 1건 → 수집기 리뷰 줄 (답글은 아직 읽기만)"""
+    g = lambda *ks: next((it[k] for k in ks if it.get(k) not in (None, "")), "")
+    p = it.get("product") if isinstance(it.get("product"), dict) else {}
+    rating = g("rating", "score", "starRating", "star", "reviewScore")
+    imgs = []
+    for k in ("attachments", "images", "imageUrls", "photos", "files", "medias"):
+        for x in it.get(k) or []:
+            u = x if isinstance(x, str) else (x.get("url") or x.get("imageUrl") or x.get("thumbnailUrl") or "") if isinstance(x, dict) else ""
+            if u:
+                imgs.append(u)
+    reply = g("reply", "answer", "comment", "sellerReply")
+    reply_txt = reply.get("content", "") if isinstance(reply, dict) else str(reply or "")
+    return dict(업체="토스", 게시판="리뷰", id=str(g("reviewId", "productReviewId", "id")), 날짜=_toss_dt(g("regDt", "createdAt", "createdDt", "writtenAt", "reviewDt")),
+                상품명=str(g("productName") or p.get("productName") or ""), 상품ID=str(g("productId") or p.get("productId") or ""),
+                옵션=str(g("productItemName", "optionName", "itemName") or p.get("productItemName") or ""), 상품링크="",
+                상품이미지=str(g("thumbnailUrl", "productImageUrl") or p.get("thumbnailUrl") or ""),
+                별점=rating, 내용=str(g("content", "contents", "reviewContent", "text")), 답글=reply_txt, 답글여부=bool(reply_txt), 답글불가=True,
+                사진URL=imgs[:10], 원본={k: v for k, v in it.items() if k not in ("customer", "member")})
+
+
+def toss_screen_core(G, br, cfg, qna=True, reviews=True):
+    """수집기 브라우저로 토스 판매자센터를 열어 Q&A · 리뷰 읽기 → {"qna": (상태, 줄, 메모), "review": (…)}"""
+    pg = br.page()
+    cap = {"qna": None, "rv": []}
+
+    def heads(req):
+        return {k: v for k, v in (req.headers or {}).items() if k.lower() not in SS_HEADER_SKIP and not k.lower().startswith("sec-") and not k.startswith(":")}
+
+    def on_resp(resp):
+        try:
+            req = resp.request
+            if req.method != "GET":
+                return
+            if TOSS_QNA_RE.search(resp.url) and resp.status == 200 and cap["qna"] is None:
+                cap["qna"] = {"url": resp.url, "headers": heads(req)}
+            elif TOSS_REVIEW_RE.search(resp.url):
+                cap["rv"].append((resp.status, resp.json() if resp.status == 200 else None))
+        except Exception:
+            pass
+    pg.on("response", on_resp)
+    out, test = {}, bool(cfg.get("test"))
+    lim = int(cfg.get("test_limit", 3))
+    need_login = ("로그인 필요", [], "토스 판매자센터 로그인 필요 — 메인보드 › 로그인 현황 › 토스 [연결] (토스 앱 인증, 수집기 PC 앞에서)")
+    try:
+        pg.goto(f"{TOSS_SELLER}/product-qna", wait_until="domcontentloaded", timeout=60000)
+        for _ in range(30):
+            if cap["qna"]:
+                break
+            pg.wait_for_timeout(500)
+        u = (pg.url or "").lower()
+        if not cap["qna"] and ("shopping-seller.toss.im/product-qna" not in u or any(k in u for k in ("login", "signin", "sign-in"))):
+            return {k: need_login for k, on in (("qna", qna), ("review", reviews)) if on}
+        if qna:
+            if not cap["qna"]:
+                out["qna"] = ("오류", [], "Q&A 화면의 목록 요청을 찾지 못함")
+            else:
+                res = pg.evaluate(TOSS_QNA_JS, {"listUrl": cap["qna"]["url"], "headers": cap["qna"]["headers"],
+                                                "max": lim if test else TOSS_QNA_MAX, "waitingOnly": not test})
+                det = res.get("details") or {}
+                rows = [toss_qna_row(it, det.get(str(it.get("qnaId"))) or det.get(it.get("qnaId"))) for it in res.get("items") or []]
+                rows = [r for r in rows if test or not r["답변여부"]]
+                err = res.get("errors") or []
+                out["qna"] = ("ok", rows, f"답변 대기 Q&A {len(rows)}건" + (f" · 확인 필요 {len(err)}건 ({err[0]})" if err else ""))
+        if reviews:
+            cap["rv"].clear()
+            pg.goto(f"{TOSS_SELLER}/product-reviews", wait_until="domcontentloaded", timeout=60000)
+            for _ in range(30):
+                if cap["rv"]:
+                    break
+                pg.wait_for_timeout(500)
+            pg.wait_for_timeout(1500)
+            oks = [js for st, js in cap["rv"] if st == 200 and js is not None]
+            if not cap["rv"]:
+                out["review"] = ("오류", [], "리뷰 화면의 목록 응답을 찾지 못함")
+            elif not oks:
+                out["review"] = ("오류", [], f"리뷰 목록 HTTP {cap['rv'][0][0]}")
+            else:
+                cutoff = (datetime.datetime.now() - datetime.timedelta(days=int(cfg.get("review_days", cfg.get("days", 30))))).strftime("%Y-%m-%d")
+                seen, rows = set(), []
+                for js in oks:
+                    for it in _toss_review_items(js):
+                        r = toss_review_row(it)
+                        if not r["id"] or r["id"] in seen:
+                            continue
+                        seen.add(r["id"])
+                        if test or ((not r["날짜"] or r["날짜"][:10] >= cutoff) and not r["답글여부"]):
+                            rows.append(r)
+                if test:
+                    rows = rows[:lim]
+                out["review"] = ("ok", rows, f"리뷰 {len(seen)}건 확인 · 이번 {len(rows)}건 (토스 리뷰 답글은 아직 읽기만)" if seen else "등록된 리뷰 없음")
+    finally:
+        try:
+            pg.close()
+        except Exception:
+            pass
+    return out
+
+
+def toss_screen_on(cfg, part):
+    """토스 화면 수집을 할지: 웹·수집기에서 토스를 켰을 때만 (아직 고른 적 없으면 로그인 성공한 적 있을 때)"""
+    V = cfg.get("vendors") or {}
+    if part == "review":
+        V = {**V, **(cfg.get("review_vendors") or {})}
+    on = V.get("토스")
+    return on is True or (on is None and bool(cfg.get("toss_login_ok")))
+
+
+def add_toss_screen_to_result(G, fn, cfg, say=print, qna=True, reviews=True):
+    """1.34: 결과 파일에 토스 상품 Q&A(게시판) · 리뷰 덧붙임"""
+    qna = qna and toss_screen_on(cfg, "qna")
+    reviews = reviews and toss_screen_on(cfg, "review")
+    if not fn or not (qna or reviews):
+        return 0
+    try:
+        d = json.load(open(fn, encoding="utf-8"))
+    except Exception:
+        return 0
+    say("토스 판매자센터 화면 읽는 중… (" + " · ".join(x for x, on in (("상품 Q&A", qna), ("리뷰", reviews)) if on) + ", 읽기만)")
+    try:
+        with G.Browser(cfg.get("show_browser")) as br:
+            res = toss_screen_core(G, br, cfg, qna=qna, reviews=reviews)
+    except Exception as e:
+        res = {k: ("오류", [], f"브라우저 실행 실패: {e}"[:300]) for k, on in (("qna", qna), ("review", reviews)) if on}
+    n = 0
+    if "qna" in res:
+        st, rows, note = res["qna"]
+        if cfg.get("test"):
+            for r in rows:
+                r["가상"] = True
+        vr = d.setdefault("업체결과", {})
+        prev = vr.get("토스")
+        if prev:                                   # 문의방(API) 결과와 합침 — 하나라도 문제면 그 상태
+            vr["토스"] = {"상태": prev.get("상태") if prev.get("상태") != "ok" else st, "건수": int(prev.get("건수") or 0) + len(rows),
+                         "메모": f"{prev.get('메모') or prev.get('메시지') or ''} / 상품 Q&A: {note}"[:300]}
+        else:
+            vr["토스"] = {"상태": st, "건수": len(rows), "메모": f"상품 Q&A: {note}"[:300]}
+        d["rows"] = (d.get("rows") or []) + rows
+        n += len(rows)
+        say(f"  → 토스 상품 Q&A: {st} {len(rows)}건 ({note})"[:200])
+    if "review" in res:
+        st, rows, note = res["review"]
+        for r in rows:
+            r["게시판"] = "리뷰"
+            if cfg.get("test"):
+                r["가상"] = True
+        d.setdefault("리뷰결과", {})["토스"] = {"상태": st, "건수": len(rows), "메모": note[:300]}
+        d["리뷰"] = (d.get("리뷰") or []) + rows
+        n += len(rows)
+        say(f"  → 토스 리뷰: {st} {len(rows)}건 ({note})"[:200])
+    if any(x[0] == "ok" for x in res.values()):
+        try:
+            c = G.load_cfg(); c["toss_login_ok"] = True; G.save_cfg(c)
+        except Exception:
+            pass
+    json.dump(d, open(fn, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    return n
+
+
 def patch_review_collectors(G):
     G._v3_review_patch = True
     if getattr(G, "run_collect", None) and not getattr(G, "_v3_orig_run_collect", None):   # 1.32 게시판 수집에 토스
@@ -1261,8 +1515,25 @@ def patch_review_collectors(G):
                 add_toss_to_result(fn, cfg, say)
             except Exception as e:
                 say(f"⚠ 토스 수집 실패: {e}"[:200])
+            try:                                          # 1.34 상품 Q&A (+ 리뷰) — 판매자센터 화면
+                add_toss_screen_to_result(G, fn, cfg, say, qna=True, reviews=not cfg.get("no_reviews"))
+            except Exception as e:
+                say(f"⚠ 토스 화면 수집 실패: {e}"[:200])
             return fn
         G.run_collect = run_collect
+    if getattr(G, "run_reviews", None) and not getattr(G, "_v3_orig_run_reviews", None):   # 1.34 리뷰 수집에 토스
+        G._v3_orig_run_reviews = G.run_reviews
+
+        def run_reviews(cfg, say):
+            fn = G._v3_orig_run_reviews(cfg, say)
+            try:
+                c = dict(cfg); c["vendors"] = {**cfg.get("vendors", {}), **cfg.get("review_vendors", {})}
+                c["days"] = int(cfg.get("review_days", cfg.get("days", 30)))
+                add_toss_screen_to_result(G, fn, c, say, qna=False, reviews=True)
+            except Exception as e:
+                say(f"⚠ 토스 리뷰 수집 실패: {e}"[:200])
+            return fn
+        G.run_reviews = run_reviews
     patch_makeshop_charset(G)
     if getattr(G, "collect_ably", None):                  # 1.29 에이블리 문의(채팅방)
         G._v3_orig_ably = G.collect_ably
@@ -1428,7 +1699,7 @@ def run_collect_job(job, cfg, say):
     if review:
         base = {**cfg.get("vendors", {}), **cfg.get("review_vendors", {})}
         if vendors:
-            base = {v: (v in vendors) for v in base}
+            base = {v: (v in vendors) for v in list(base) + ["토스"]}      # 1.34 토스 리뷰
         c["review_vendors"] = base
         if body.get("reviewDays"):
             c["review_days"] = int(body["reviewDays"])
@@ -1969,10 +2240,11 @@ LOGIN_URL = {
     "지그재그": "https://partners.kakaostyle.com/",
     "메이크샵": "https://www.makeshop.co.kr/newmakeshop/home/admin_link.html",
     "에이블리": "https://my.a-bly.com/inquiry",
+    "토스": "https://shopping-seller.toss.im/product-qna",     # 1.34 상품 Q&A · 리뷰는 판매자센터 화면으로
 }
 LOGIN_WAIT_SEC = 300                     # 1.8: 3분 → 5분 (자동이 막히면 사람이 이어서 로그인할 시간)
 LOGIN_MANUAL_SEC = 300                  # 직접 로그인: 사람이 수집기 PC 앞에서 아이디·비밀번호·퀴즈·2단계 인증까지 (1.6)
-MANUAL_LOGIN = ("스마트스토어",)         # 네이버는 자동 입력하면 퀴즈(자동입력 방지)·2단계 인증에서 막힘 → 항상 직접 로그인
+MANUAL_LOGIN = ("스마트스토어", "토스")         # 네이버는 자동 입력하면 퀴즈(자동입력 방지)·2단계 인증에서 막힘 → 항상 직접 로그인
 NATIVE_LOGIN = ("스마트스토어",)         # 1.7: 자동화 창이 아니라 일반 크롬 창으로 (네이버가 자동화 창을 막음)
 NATIVE_AUTO_SEC = 40                     # 1.8: 자동 로그인을 이만큼 기다려 보고 안 되면 사람에게 넘김 (창은 그대로)
 HUMAN_HINT_SEC = 30                      # 자동화 창 업체도 이만큼 안 되면 "사람이 직접" 안내
@@ -2212,7 +2484,11 @@ def page_logged_in(pg):
         if pg.is_closed():
             return True
         u = (pg.url or "").lower()
-        if any(k in u for k in ("login", "nid.naver", "accounts.", "signin")) or u.startswith("about:"):
+        if any(k in u for k in ("login", "nid.naver", "accounts.", "signin", "sign-in")) or u.startswith("about:"):
+            return False
+        if "toss.im" in u and "shopping-seller.toss.im" not in u:        # 1.34 토스: 판매자센터 밖(토스 인증 화면)이면 아직
+            return False
+        if "shopping-seller.toss.im" in u and pg.locator("text=로그인").count() > 0 and pg.locator("text=상품 Q&A").count() == 0:
             return False
         pw = pg.locator("input[type=password]")
         return not any(pw.nth(i).is_visible() for i in range(min(pw.count(), 3)))
@@ -2399,6 +2675,51 @@ def manual_login(pg, v, progress, say, wait_sec=None, step_ms=3000):
     return dict(state="manual_fail", note=f"{mins}분 안에 로그인이 끝나지 않음 — 수집기 PC 앞에서 다시 [🔑 로그인]")
 
 
+def toss_login(pg, progress, say, wait_sec=None):
+    """1.34 토스 로그인: 토스 앱 인증이라 사람이 직접. 판매자센터 Q&A 화면이 목록을 받아 오면(200) 로그인된 것으로 봄"""
+    wait_sec = LOGIN_MANUAL_SEC if wait_sec is None else wait_sec
+    ok = [False]
+
+    def on_resp(r):
+        try:
+            if TOSS_QNA_RE.search(r.url) and r.status == 200:
+                ok[0] = True
+        except Exception:
+            pass
+    pg.on("response", on_resp)
+    pg.goto(f"{TOSS_SELLER}/product-qna", wait_until="domcontentloaded", timeout=60000)
+    for _ in range(16):
+        if ok[0]:
+            return dict(state="ok", note="이미 로그인됨")
+        pg.wait_for_timeout(500)
+    try:
+        pg.bring_to_front()
+    except Exception:
+        pass
+    mins = max(1, round(wait_sec / 60))
+    progress(f"토스: 수집기 PC 화면에 뜬 창에서 직접 로그인해 주세요 (토스 앱 인증, 최대 {mins}분). 로그인되면 창은 자동으로 닫힙니다")
+    say(f"🔑 토스: 직접 로그인 기다리는 중 (최대 {mins}분)")
+    t0, last_try = time.time(), time.time()
+    while time.time() - t0 < wait_sec:
+        pg.wait_for_timeout(3000)
+        if ok[0]:
+            pg.wait_for_timeout(2000)
+            return dict(state="ok", note="직접 로그인됨")
+        u = (pg.url or "").lower()
+        try:
+            typing = pg.locator("input:visible").count() > 0
+        except Exception:
+            typing = True
+        # 로그인 칸이 없는 판매자센터 화면(로그인 뒤 첫 화면 등)이면 Q&A 화면을 다시 열어 확인 — 입력 중일 땐 건드리지 않음
+        if "shopping-seller.toss.im" in u and not any(k in u for k in ("login", "signin", "sign-in", "auth")) and not typing and time.time() - last_try > 12:
+            last_try = time.time()
+            try:
+                pg.goto(f"{TOSS_SELLER}/product-qna", wait_until="domcontentloaded", timeout=60000)
+            except Exception:
+                pass
+    return dict(state="manual_fail", note=f"{mins}분 안에 로그인이 끝나지 않음 — 수집기 PC 앞에서 다시 토스 [연결]")
+
+
 def run_login_job(job, cfg, say, progress, d):
     G = _G()
     body = job.get("body") or {}
@@ -2434,6 +2755,9 @@ def run_login_job(job, cfg, say, progress, d):
                 try:
                     pg.goto(LOGIN_URL[v], wait_until="domcontentloaded", timeout=60000)
                     pg.wait_for_timeout(2500)
+                    if v == "토스":                               # 1.34 토스 앱 인증 — 직접 로그인 (판정은 Q&A 목록 응답)
+                        out[v] = toss_login(pg, progress, say)
+                        continue
                     if page_logged_in(pg):
                         out[v] = dict(state="ok", note="이미 로그인됨"); say(f"🔑 {v}: 이미 로그인됨"); continue
                     if v in manual:
@@ -2483,6 +2807,8 @@ def run_login_job(job, cfg, say, progress, d):
     finally:
         G.RUN_LOCK.release()
     ok_all = all(x["state"] == "ok" for x in out.values())
+    if (out.get("토스") or {}).get("state") == "ok":         # 1.34 이 뒤 수집에 토스 Q&A · 리뷰 화면 읽기
+        c = G.load_cfg(); c["toss_login_ok"] = True; G.save_cfg(c)
     if ok_all:
         c = G.load_cfg(); c["login_ok"] = True; G.save_cfg(c)
     label = {"ok": "✓", "captcha": "PC 앞 입력 필요", "need_password": "비밀번호 필요", "fail": "실패", "manual_fail": "직접 로그인 안 됨"}

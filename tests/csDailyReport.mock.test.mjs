@@ -2,15 +2,15 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  normalizeReportSettings, sendRooms, kstDay, dayOf, reviewStars, pickReviews, chatItems, boardItems, fallbackLines,
+  normalizeReportSettings, sendRooms, reportDue, autoLabel, kstClock, kstDay, dayOf, reviewStars, pickReviews, chatItems, boardItems, fallbackLines,
   reviewMessage, summaryMessage, reportHead,
 } from "../src/domain/csDailyReport.mjs";
 import { normalizeCsRow } from "../src/domain/csBoard.mjs";
 import { helperTooOld } from "../src/app/csDailyReportPanel.mjs";
 
 const T = "2026-11-17";
-assert.deepEqual(normalizeReportSettings({}), { reviewN: 3, chatLines: 5, boardLines: 5, rooms: ["", "", ""] });
-assert.deepEqual(normalizeReportSettings({ reviewN: "99", chatLines: 0, boardLines: "7", room: "  CS  리포트 " }), { reviewN: 10, chatLines: 5, boardLines: 7, rooms: ["CS 리포트", "", ""] }, "예전 설정(방 1개)은 1번 칸으로");
+assert.deepEqual(normalizeReportSettings({}), { reviewN: 3, chatLines: 5, boardLines: 5, rooms: ["", "", ""], auto: false, time: "18:00", weekend: false });
+assert.deepEqual(normalizeReportSettings({ reviewN: "99", chatLines: 0, boardLines: "7", room: "  CS  리포트 " }), { reviewN: 10, chatLines: 5, boardLines: 7, rooms: ["CS 리포트", "", ""], auto: false, time: "18:00", weekend: false }, "예전 설정(방 1개)은 1번 칸으로");
 assert.deepEqual(normalizeReportSettings({ rooms: ["", " 김실장 ", "박대리", "넷째"] }).rooms, ["", "김실장", "박대리"], "3곳까지 · 빈칸 자리 유지");
 assert.deepEqual(sendRooms(["가", "김실장", "김 실장", "", "박대리"]), ["김실장", "박대리"], "2글자 이상 · 같은 이름 한 번만");
 assert.equal(kstDay(new Date("2026-11-16T16:30:00Z")), T, "UTC 16:30 = 한국 다음날 01:30");
@@ -79,19 +79,43 @@ assert.equal(helperTooOld(""), true);
 // 화면 연결: ⚙ 설정 맨 위 한 곳 · 시트 v30 · 웹연결 1.30
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
 assert.match(html, /data-left-panel="settings" hidden>\s*<!-- 📊 오늘 CS 리포트[^>]*-->\s*<div data-report-box><\/div>/);
-assert.match(html, /csBoardApp\.mjs\?v=20261117-rooms1/);
+assert.match(html, /csBoardApp\.mjs\?v=20261117-auto1/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "settings"\) openReport\(\);/);
-assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-rooms1"\)/);
+assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-auto1"\)/);
 const panel = readFileSync(new URL("../src/app/csDailyReportPanel.mjs", import.meta.url), "utf8");
 assert.match(panel, /data-rp-room="\$\{i\}"/);
 assert.match(panel, /for \(const \[i, room\] of rooms\.entries\(\)\)/);
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");
 assert.match(gs, /if \(action === 'reportData'\) return reportData_\(body\);/);
 assert.match(gs, /if \(action === 'reportSummary'\) return reportSummary_\(body\);/);
+const staff = gs.match(/var staff = \[([^\]]+)\]/)[1];
+assert.match(staff, /'reportData'/, "직원 요청 목록에 없으면 '알 수 없는 요청'으로 막힘");
+assert.match(staff, /'reportSummary'/);
 const py = readFileSync(new URL("../docs/g1_v3_link.py", import.meta.url), "utf8");
 assert.match(py, /LINK_VER = "1\.30 /);
 assert.match(py, /if p == "\/msn\/text":/);
 const slots = readFileSync(new URL("../src/app/msnSlots.mjs", import.meta.url), "utf8");
 assert.match(slots, /MSN_HELPER_MIN = "1\.30"/);
+// ⏰ 자동 보내기: 평일만(기본) · 주말 포함 · 예약 시각~3시간 · 하루 한 번
+const at = (iso) => new Date(iso);   // 한국 시각 = UTC + 9
+const A = normalizeReportSettings({ auto: true, time: "18:00", rooms: ["나와의 채팅"] });
+assert.equal(A.weekend, false);
+assert.equal(normalizeReportSettings({ time: "25:00" }).time, "18:00");
+assert.equal(reportDue(A, at("2026-11-17T09:00:00Z")), true, "화 18:00");
+assert.equal(reportDue(A, at("2026-11-17T08:59:00Z")), false, "17:59 는 아직");
+assert.equal(reportDue(A, at("2026-11-17T11:59:00Z")), true, "20:59 — 3시간 안이면 늦게 켜도 보냄");
+assert.equal(reportDue(A, at("2026-11-17T12:00:00Z")), false, "21:00 넘으면 안 보냄");
+assert.equal(reportDue(A, at("2026-11-17T09:30:00Z"), "2026-11-17"), false, "오늘 이미 보냄");
+assert.equal(reportDue(A, at("2026-11-21T09:00:00Z")), false, "토요일은 기본으로 안 보냄");
+assert.equal(reportDue({ ...A, weekend: true }, at("2026-11-21T09:00:00Z")), true, "주말 포함이면 토요일도");
+assert.equal(reportDue({ ...A, auto: false }, at("2026-11-17T09:00:00Z")), false);
+assert.equal(reportDue({ ...A, rooms: ["", "", ""] }, at("2026-11-17T09:00:00Z")), false, "받는 사람 없으면 안 보냄");
+assert.deepEqual(kstClock(at("2026-11-16T15:30:00Z")), { day: "2026-11-17", min: 30, wd: 2 });
+assert.equal(autoLabel(A), "⏰ 평일(월~금) 18:00 에 자동으로 보냅니다");
+assert.equal(autoLabel({ ...A, weekend: true, time: "09:30" }), "⏰ 매일 09:30 에 자동으로 보냅니다");
+assert.match(autoLabel({ auto: false }), /꺼짐/);
+assert.match(panel, /data-rp-chk="weekend"/);
+assert.match(panel, /type="time" data-rp="time"/);
+assert.match(app, /\.auto === true\) openReport\(\)/, "자동 켠 PC 는 화면을 열 때부터 시간 확인");
 console.log("csDailyReport: OK");

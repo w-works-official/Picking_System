@@ -651,7 +651,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     return r.group === group && Array.isArray(r.used) ? r.used.map(Number) : [];
   }
 
-  const api = { connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, slotsMax, group, root, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose, suggest, toggleStar, pasteImage, usedSlots, setNames, confirmSend, resetWindows, say };
+  const api = { slotImage, sheetAuth, connect, disconnect, fit, tick, state: st, prefs, limits: MSN_LIMITS, slotsMax, group, root, arrange, release, syncSlots, pingHelper, slotScreenRects, send, focusSlot, diagnose, suggest, toggleStar, pasteImage, usedSlots, setNames, confirmSend, resetWindows, say };
   MSN_PANELS[group] = api;
   return api;
 }
@@ -661,6 +661,6 @@ if (typeof document !== "undefined" && document.querySelector("[data-msn-panel]"
   document.querySelectorAll("[data-msn-panel]").forEach((root) => {
     const inst = mountMsnSlots({ document, window, storage, root });
     if (inst?.group === "vendor") import("./vendorMent.mjs?v=20261111-ment2").then((m) => m.mountVendorMent({ document, window, storage, root: root.querySelector("[data-vendor-ment]"), slotsRoot: root })).catch((e) => inst.say(`전체 멘트를 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
-    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261112-color1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
+    if (inst?.group === "vendor") import("./vendorOrder.mjs?v=20261117-read1").then((m) => m.mountVendorOrder({ document, window, storage, panel: inst })).catch((e) => inst.say(`주문서 기능을 불러오지 못했습니다: ${e?.message || e}`, "is-bad"));
   });
 }

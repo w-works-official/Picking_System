@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-17 v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-17 v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -210,7 +210,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot', 'chatIngest'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -250,6 +250,7 @@ function route_(body) {
   if (action === 'chatSuggest') return chatSuggest_(body);
   if (action === 'reportData') return reportData_(body);
   if (action === 'reportSummary') return reportSummary_(body);
+  if (action === 'vendorRead') return vendorRead_(body);
   if (action === 'chatIngest') return withLock_(function () { return chatIngest_(body); });
   if (action === 'retSave') return withLock_(function () { return retSave_(body); });
   if (action === 'newPics') return updPics_(body);
@@ -2052,6 +2053,67 @@ function reportSummary_(body) {
   var got = answersFrom_(out, lines).map(function (a) { return plain_(clean_(a, 120)); }).filter(String);
   if (!got.length) return { ok: false, error: 'AI 가 요약을 만들지 못했습니다' };
   return { ok: true, lines: got };
+}
+
+// ---------- v33 📥 거래처 회신 읽기 (2026-11-17) ----------
+// 거래처 탭 [읽기]: 업체 카톡 대화창 그림(+ 사람이 붙여넣은 회신 사진) + 우리가 보낸 주문 줄 → 순번별 입고 수량
+//  · 표시 없는 줄 = 주문 수량대로 출고 · X · / · 품절 · 0 = 0 · 적어 준 숫자 = 그 수량 · 메시지("3번 2개만")도 반영
+//  · 애매하면 가장 비슷한 값 + sure:false (화면이 노랑으로 알림) · 쓰기 없음 (AI 사용량 기록만)
+//  · 손글씨 판독이라 기본 모델 = Sonnet (스크립트 속성 VENDOR_READ_MODEL 로 바꿀 수 있음)
+var VENDOR_READ_RULES =
+  '당신은 액세서리 쇼핑몰의 거래처(도매처) 주문 회신 판독 담당입니다.\n' +
+  '우리는 거래처에 "주문 표 그림"(왼쪽 첫 칸 = 순번, 사진 · 옵션명 · 발주량 · 임의필드 · 매입가 · 상품코드)을 보냈고, 거래처는 그 그림에 펜으로 표시하거나 메시지로 답합니다.\n' +
+  '판독 규칙:\n' +
+  '1. 거래처가 표시한(손글씨·펜·형광펜이 있는) 회신 그림을 찾습니다. 표시가 하나도 없는 원래 주문 그림은 우리가 보낸 것이니 판독 대상이 아닙니다.\n' +
+  '2. 표시가 없는 줄 = 주문 수량대로 출고 (qty = 발주량, sure = true).\n' +
+  '3. X 표시 · 빗금(/) · 줄 긋기 · "품절" · "없음" · 0 = 출고 안 됨 (qty = 0).\n' +
+  '4. 줄 옆에 숫자를 적었으면 그 숫자가 출고 수량입니다. 발주량에 줄을 긋고 숫자를 적은 것도 같습니다.\n' +
+  '5. 대화 메시지도 읽습니다 ("3번 2개만", "5번 품절", "나머지 다 나갑니다" 등). 그림과 메시지가 다르면 나중 것을 따릅니다.\n' +
+  '6. 순번은 그림 왼쪽 첫 칸 숫자로 맞춥니다. 확실하지 않거나 글씨가 안 보이면 가장 비슷한 값을 넣고 sure = false.\n' +
+  '7. 회신 그림도 회신 메시지도 없으면 reply_found = false (이때 모든 줄 sure = false).\n' +
+  '출력은 JSON 하나만, 설명 없이: {"reply_found":true/false,"note":"메시지·특이사항 한두 줄(한국어)","items":[{"no":"순번","qty":숫자,"sure":true/false,"mark":"본 표시(짧게)"}]}';
+
+function vendorRead_(body) {
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키가 없습니다 — 스크립트 속성 CLAUDE_KEY 등록 필요' };
+  var lines = (Array.isArray(body.lines) ? body.lines : []).slice(0, 120).map(function (l) {
+    l = l || {};
+    return { no: plain_(clean_(l.no, 10)), option: plain_(clean_(l.option, 120)), qty: Number(l.qty) || 0, code: plain_(clean_(l.code, 40)), extra: plain_(clean_(l.extra, 120)) };
+  }).filter(function (l) { return l.no; });
+  if (!lines.length) return { ok: false, error: '주문 줄이 없습니다.' };
+  var images = (Array.isArray(body.images) ? body.images : []).slice(0, 3).map(function (im) {
+    im = im || {};
+    var data = String(im.data || '').replace(/^data:[^,]*,/, '');
+    var mime = /^image\/(png|jpeg|webp)$/.test(String(im.mime || '')) ? String(im.mime) : 'image/png';
+    return data.length > 200 && data.length < 6000000 ? { type: 'image', source: { type: 'base64', media_type: mime, data: data } } : null;
+  }).filter(function (x) { return x; });
+  if (!images.length) return { ok: false, error: '회신 그림을 받지 못했습니다 — 대화창을 슬롯에 붙이거나 회신 사진을 붙여넣어 주세요.' };
+  var quota = withLock_(function () { return reserveAi_(1); });
+  if (!quota.allow) return { ok: false, error: '오늘 AI 사용 한도(' + quota.limit + '회)를 다 썼습니다.' };
+  var model = prop_('VENDOR_READ_MODEL') || 'claude-sonnet-5-5';
+  var text = '거래처: ' + plain_(clean_(body.vendor, 40)) + '\n우리가 보낸 주문 줄 (순번 | 옵션명 | 발주량 | 상품코드 | 임의필드):\n' +
+    lines.map(function (l) { return l.no + ' | ' + l.option + ' | ' + l.qty + ' | ' + l.code + ' | ' + l.extra; }).join('\n') +
+    (body.message ? '\n\n사람이 옮겨 적은 거래처 메시지:\n' + body_(body.message, 1500) : '') +
+    '\n\n위 그림(카톡 대화창 · 회신 사진)을 보고 모든 순번의 출고(입고) 수량을 JSON 으로 주세요.';
+  var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', {
+    method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+    headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    payload: JSON.stringify({ model: model, max_tokens: 3000, system: VENDOR_READ_RULES, messages: [{ role: 'user', content: images.concat([{ type: 'text', text: text }]) }] }),
+  });
+  if (response.getResponseCode() !== 200) return { ok: false, error: 'AI 응답 오류 (' + response.getResponseCode() + ')' };
+  var res = parse_(response.getContentText(), {});
+  var out = '';
+  (Array.isArray(res.content) ? res.content : []).forEach(function (c) { if (c && c.type === 'text') out += c.text; });
+  withLock_(function () { recordUsage_(res.usage, model, '거래처 회신'); });
+  var m = out.match(/\{[\s\S]*\}/);
+  var js = m ? parse_(m[0], null) : null;
+  if (!js || !Array.isArray(js.items)) return { ok: false, error: 'AI 가 판독 결과를 만들지 못했습니다 — 다시 눌러 주세요.' };
+  var items = js.items.slice(0, 150).map(function (it) {
+    it = it || {};
+    var q = Math.round(Number(it.qty));
+    return { no: plain_(clean_(it.no, 10)), qty: isFinite(q) && q >= 0 ? q : null, sure: it.sure === true, mark: plain_(clean_(it.mark, 60)) };
+  }).filter(function (it) { return it.no; });
+  return { ok: true, replyFound: js.reply_found !== false, note: plain_(clean_(js.note, 400)), items: items, model: model };
 }
 
 // ---------- v19 반품기록 메모 (2026-11-10) ----------

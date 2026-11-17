@@ -2530,3 +2530,36 @@ body.cs-board-workspace { font-weight: 500; -webkit-font-smoothing: antialiased;
 .cs-report-box .cs-report-auto-on { color: #be123c; }
 .cs-report-box .cs-report-auto input[type="checkbox"] { width: 17px; height: 17px; accent-color: #e11d48; }
 .cs-report-box .cs-report-auto .cs-note { flex-basis: 100%; margin: 0; color: #9f1239; font-weight: 700; }
+
+/* 2026-11-17 📥 거래처 회신 읽기 — 슬롯 [읽기] · 팝업 */
+.msn-vo-read { flex: 0 0 auto; margin-left: 4px; background: #e11d48 !important; color: #fff !important; border-color: #be123c !important; font-weight: 900; }
+.vo-stock { font-size: 12px; font-weight: 700; color: #9f1239; }
+.vr-pop { position: fixed; inset: 0; z-index: 9000; background: rgba(15, 23, 42, .45); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.vr-card { width: min(1180px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; background: #fff; border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,.3); overflow: hidden; }
+.vr-card header, .vr-card footer { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fff1f2; border-bottom: 1px solid #fecdd3; }
+.vr-card footer { border-top: 1px solid #fecdd3; border-bottom: 0; }
+.vr-card header b { font-size: 17px; color: #be123c; }
+.vr-file { font-size: 12px; color: #475467; font-weight: 700; }
+.vr-x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; }
+.vr-main { display: grid; grid-template-columns: minmax(220px, 34%) 1fr; gap: 10px; padding: 10px 14px; overflow: hidden; min-height: 0; flex: 1 1 auto; }
+.vr-imgs { overflow: auto; display: grid; gap: 8px; align-content: start; }
+.vr-imgs figure { margin: 0; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+.vr-imgs img { display: block; width: 100%; height: auto; }
+.vr-imgs figcaption { font-size: 11px; padding: 3px 6px; color: #475467; background: #f8fafc; }
+.vr-body { overflow: auto; }
+.vr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.vr-table th { position: sticky; top: 0; background: #ffe4e6; color: #9f1239; font-weight: 900; padding: 6px; border-bottom: 1px solid #fecdd3; text-align: center; }
+.vr-table td { padding: 5px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.vr-table .vr-no, .vr-table .vr-ord, .vr-table .vr-cur { text-align: center; font-weight: 800; }
+.vr-table .vr-opt small { display: block; color: #64748b; font-size: 11px; }
+.vr-table .vr-qty { white-space: nowrap; text-align: center; }
+.vr-table .vr-qty input { width: 54px; text-align: center; font-size: 16px; font-weight: 900; color: #e11d48; padding: 3px; border: 1.5px solid #fda4af; border-radius: 6px; }
+.vr-table .vr-qty button { width: 26px; height: 28px; border: 1px solid #fecdd3; background: #fff; border-radius: 6px; font-weight: 900; cursor: pointer; }
+.vr-table tr.is-unsure td { background: #fef9c3; }
+.vr-table tr.is-unsure .vr-qty input { background: #fde047; border-color: #ca8a04; }
+.vr-table .vr-mark { font-size: 12px; color: #475467; }
+.vr-note, .vr-msg { margin: 0; padding: 4px 14px; font-size: 13px; font-weight: 700; color: #92400e; }
+.vr-msg.is-bad { color: #be123c; } .vr-msg.is-ok { color: #047857; }
+.vr-hint { font-size: 12px; color: #64748b; }
+.vr-wait { color: #475467; font-weight: 700; padding: 20px; }
+.vo-box [data-vo-act="restore"][hidden] { display: none !important; }

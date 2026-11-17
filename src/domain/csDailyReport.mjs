@@ -153,14 +153,28 @@ export function boardItems(rows = [], today, answerOf = () => "") {
         q: cut([r.title, r.question].filter(Boolean).join(" — "), 300),
         a: cut(a, 200),
         done: r.reg?.state === "완료" || r.closed === true,
+        hold: !(r.reg?.state === "완료" || r.closed === true) && r.choice?.hold === true,
       };
     });
 }
 
-// AI 없이 만드는 N줄 (AI 가 안 될 때) — 미답부터
+// 11-17 결과 표시: 답변함 = 답변 O · 미답 = 답변 X · 답변보류 = 답변 △
+export const RESULT_MARK = Object.freeze({ done: "답변 O", open: "답변 X", hold: "답변 △" });
+export const resultOf = (it) => (it?.hold ? "hold" : it?.done ? "done" : "open");
+const RESULT_ORDER = { open: 0, hold: 1, done: 2 };
+
+// AI 요약 줄 끝 결과를 같은 표시로 (AI 가 '답변함'·'미답'·'보류' 로 써도)
+export function markResultLine(line) {
+  return oneLine(line)
+    .replace(/(→\s*)(?:답변\s*보류|보류(?:\s*중)?|답변\s*△)/g, `$1${RESULT_MARK.hold}`)
+    .replace(/(→\s*)(?:미답변?|답변\s*X|답변\s*안\s*함|미응답)/g, `$1${RESULT_MARK.open}`)
+    .replace(/(→\s*)(?:답변함|답변\s*완료|답변완료|답변\s*O)/g, `$1${RESULT_MARK.done}`);
+}
+
+// AI 없이 만드는 N줄 (AI 가 안 될 때) — 답변 X · 답변 △ 부터
 export function fallbackLines(items = [], n = 5) {
-  const sorted = [...items].sort((a, b) => Number(a.done) - Number(b.done));
-  const lines = sorted.slice(0, n).map((it) => `[${it.src}] ${cut(it.tag || it.q, 26)} → ${it.done ? (cut(it.a, 18) || "답변함") : "미답"}`);
+  const sorted = [...items].sort((a, b) => RESULT_ORDER[resultOf(a)] - RESULT_ORDER[resultOf(b)]);
+  const lines = sorted.slice(0, n).map((it) => `[${it.src}] ${cut(it.tag || it.q, 26)} → ${RESULT_MARK[resultOf(it)]}`);
   if (items.length > n && lines.length) lines[lines.length - 1] += ` (외 ${items.length - n}건)`;
   return lines;
 }
@@ -202,6 +216,8 @@ export function reviewMessage(today, picked) {
 export function summaryMessage(today, part, title, unit, items, lines) {
   const head = reportHead(today, part, title);
   if (!items.length) return `${head}\n오늘 들어온 ${unit}${josaIga(unit)} 없습니다.`;
-  const open = items.filter((it) => !it.done).length;
-  return [head, `오늘 ${unit} ${items.length}건 (${countBy(items)}) · 답변 ${items.length - open} · 미답 ${open}`, "", ...lines.map((l) => `▪ ${oneLine(l)}`)].join("\n");
+  const n = (k) => items.filter((it) => resultOf(it) === k).length;
+  const hold = n("hold");
+  const tally = `${RESULT_MARK.done} ${n("done")} · ${RESULT_MARK.open} ${n("open")}${hold ? ` · ${RESULT_MARK.hold} ${hold}` : ""}`;
+  return [head, `오늘 ${unit} ${items.length}건 (${countBy(items)}) · ${tally}`, "", ...lines.map((l) => `▪ ${markResultLine(l)}`)].join("\n");
 }

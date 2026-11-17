@@ -6,7 +6,7 @@ import { normalizeCsRow, pickedText } from "../domain/csBoard.mjs?v=20261111-msq
 import {
   REPORT_STORE_KEY, REPORT_SENT_KEY, REPORT_LIMITS, REPORT_MAX_ROOMS, normalizeReportSettings, sendRooms, reportDue, autoLabel, kstClock, kstDay, pickReviews, chatItems, boardItems,
   fallbackLines, reviewMessage, summaryMessage,
-} from "../domain/csDailyReport.mjs?v=20261117-oxt1";
+} from "../domain/csDailyReport.mjs?v=20261117-toss1";
 
 export const REPORT_HELPER_URL = "http://127.0.0.1:47811/msn";
 export const REPORT_HELPER_MIN = "1.30";
@@ -106,7 +106,7 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
       const today = kstDay(data.serverTime ? new Date(data.serverTime) : new Date());
       const rows = data.rows.map((raw) => normalizeCsRow(raw));
       const reviews = pickReviews(rows, today, cfg.reviewN);
-      const chats = chatItems({ smart: data.smart, kakao: data.kakao, ably: data.ably }, today);
+      const chats = chatItems({ smart: data.smart, kakao: data.kakao, ably: data.ably, toss: data.toss }, today);
       const boards = boardItems(rows, today, (row) => { try { return pickedText(row); } catch { return ""; } });
       say(`AI 가 요약하는 중… (상담톡 ${chats.length}건 · 게시판 ${boards.length}건)`);
       const [c, b] = await Promise.all([summarize("상담톡", chats, cfg.chatLines), summarize("게시판", boards, cfg.boardLines)]);

@@ -143,6 +143,11 @@
   · 이름이 정확히 같은 방만 (다른 방에 잘못 보내지 않게) · 같은 이름 방이 여러 개 열려 있으면 보내지 않음
   · 글은 이 프로그램이 클립보드에 직접 넣음 (웹 V3 ⚙ 설정 › 오늘 CS 리포트 [📨 카톡 3건 보내기])
 
+1.32 (2026-11-17) [게시판 수집] 업체에 토스
+  · 웹 게시판 탭 [수집할 업체]에서 토스를 켜면, 게시판 수집 때 토스 문의 중 진행중이고 고객이 마지막에 말한 방을 게시판 줄로 (업체=토스, 게시판=문의방)
+  · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
+  · 키 파일이 없으면 업체 결과 '키 없음' 으로 알림
+
 1.31 (2026-11-17) 토스쇼핑 문의(채팅방) 읽기 — 조회만
   · 토스 문의는 게시판이 아니라 채팅방 → 토스쇼핑 API(상품 등록에 쓰는 키 C:\\Users\\Public\\toss_api.txt)로 3분마다 방 목록 · 대화를 읽어
     V3 CS 관리 › 💬 상담톡 의 '토스쇼핑 문의' 칸으로 (시트 chatIngest platform=toss)
@@ -161,8 +166,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.31 (2026-11-17)"
-LINK_NOTE = "토스쇼핑 문의(채팅방) 읽기 — 💬 상담톡 토스 칸 (조회만, 키 C:\\Users\\Public\\toss_api.txt)"
+LINK_VER = "1.32 (2026-11-17)"
+LINK_NOTE = "게시판 수집 업체에 토스 추가 + 💬 상담톡 토스 칸 (읽기만, 키 C:\\Users\\Public\\toss_api.txt)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1044,6 +1049,12 @@ def toss_conv(room, msgs):
 
 
 def toss_collect(keys, max_rooms=TOSS_MAX_ROOMS):
+    pairs, errs = toss_collect_pairs(keys, max_rooms)
+    return [c for _, c in pairs], errs
+
+
+def toss_collect_pairs(keys, max_rooms=TOSS_MAX_ROOMS):
+    """[(방, 상담톡 대화)] · 오류 목록"""
     rooms, page = [], 0
     while len(rooms) < max_rooms and page < 5:
         js = toss_get(keys, "/business-chat/rooms", {"filter": "ALL", "page": page, "size": min(100, max_rooms)})
@@ -1064,8 +1075,73 @@ def toss_collect(keys, max_rooms=TOSS_MAX_ROOMS):
             errs.append(f"{rid} {e}"[:120])
         conv = toss_conv(room, msgs)
         if conv["id"]:
-            convs.append(conv)
+            convs.append((room, conv))
     return convs, errs
+
+
+def toss_read_keys(path=None):
+    path = path or TOSS_KEY_FILE
+    try:
+        text = open(path, encoding="utf-8-sig").read()
+    except UnicodeDecodeError:
+        text = open(path, encoding="cp949").read()
+    return toss_keys(text)
+
+
+def toss_board_row(room, conv):
+    """토스 방 → 수집기 게시판 줄 (에이블리 문의방과 같은 칸)"""
+    card = ((room or {}).get("lastSession") or {}).get("startCard") or {}
+    ri = card.get("renderInfo") or {}
+    msgs = conv["messages"]
+    last_c = next((m for m in reversed(msgs) if m["who"] == "c"), {})
+    return dict(업체="토스", 게시판="문의방", id=conv["id"], 날짜=last_c.get("time") or conv.get("time") or "",
+                상품명=str(ri.get("title") or ""), 상품ID="", 상품링크=str(ri.get("link") or ""),
+                관리링크="https://shopping-seller.toss.im", 글링크="https://shopping-seller.toss.im",
+                문의=last_c.get("text") or conv.get("preview") or "", 유형=conv.get("tag", ""), 옵션=str(ri.get("subtitle") or ""),
+                맥락=[{"구분": "고객" if m["who"] == "c" else "판매자", "날짜": m["time"], "내용": m["text"], "사진URL": []} for m in msgs[:-1]][-12:],
+                사진URL=[], 원본={"roomId": conv["id"], "sessionStatus": (room or {}).get("sessionStatus"), "unreadCount": (room or {}).get("unreadCount"), "startCard": card})
+
+
+def toss_board_collect(cfg, key_file=None):
+    """게시판 수집용: (상태, 줄, 메모) — 진행중 + 고객이 마지막에 말한 방 (테스트면 최근 n개)"""
+    path = key_file or TOSS_KEY_FILE
+    if not os.path.exists(path):
+        return "키 없음", [], f"토스 API 키 파일이 없습니다 ({path})"
+    test = bool(cfg.get("test"))
+    pairs, errs = toss_collect_pairs(toss_read_keys(path))
+    rows = []
+    for room, conv in pairs:
+        active = str((room or {}).get("sessionStatus") or "").upper() == "ACTIVE"
+        waiting = bool(conv["messages"]) and conv["messages"][-1]["who"] == "c"
+        if test or (active and waiting):
+            rows.append(toss_board_row(room, conv))
+        if test and len(rows) >= int(cfg.get("test_limit", 3)):
+            break
+    return "ok", rows, f"방 {len(pairs)}개 중 답할 방 {len(rows)}개" + (f" · 확인 필요 {len(errs)}건 ({errs[0]})" if errs else "")
+
+
+def add_toss_to_result(fn, cfg, say=print, key_file=None):
+    """1.32: 게시판 수집 결과 파일에 토스 줄 덧붙임 (토스가 켜져 있을 때만)"""
+    on = (cfg.get("vendors") or {}).get("토스")
+    if not fn or on is False or (on is None and not os.path.exists(key_file or TOSS_KEY_FILE)):
+        return 0                      # 끔 · 또는 아직 고른 적 없고 키 파일도 없으면 조용히 건너뜀
+    try:
+        d = json.load(open(fn, encoding="utf-8"))
+    except Exception:
+        return 0
+    say("토스 수집 중… (API · 읽기만)")
+    try:
+        st, rows, note = toss_board_collect(cfg, key_file)
+    except Exception as e:
+        st, rows, note = "오류", [], f"{e}"[:300]
+    if cfg.get("test"):
+        for r in rows:
+            r["가상"] = True
+    d.setdefault("업체결과", {})["토스"] = {"상태": st, "건수": len(rows), "메모": note[:300]}
+    d["rows"] = (d.get("rows") or []) + rows
+    json.dump(d, open(fn, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    say(f"  → 토스: {st} {len(rows)}건 ({note})"[:200])
+    return len(rows)
 
 
 def push_toss_chat(link, say=print, now=None, key_file=None):
@@ -1081,11 +1157,7 @@ def push_toss_chat(link, say=print, now=None, key_file=None):
             say(f"토스 문의: 키 파일이 없어 건너뜀 ({path}) — 30분마다 다시 봄")
         return 0
     try:
-        try:
-            text = open(path, encoding="utf-8-sig").read()
-        except UnicodeDecodeError:
-            text = open(path, encoding="cp949").read()
-        convs, errs = toss_collect(toss_keys(text))
+        convs, errs = toss_collect(toss_read_keys(path))
     except Exception as e:
         TOSS_STATE["next"] = now + TOSS_RETRY
         note = f"{e}"[:200]
@@ -1112,6 +1184,17 @@ def push_toss_chat(link, say=print, now=None, key_file=None):
 
 def patch_review_collectors(G):
     G._v3_review_patch = True
+    if getattr(G, "run_collect", None) and not getattr(G, "_v3_orig_run_collect", None):   # 1.32 게시판 수집에 토스
+        G._v3_orig_run_collect = G.run_collect
+
+        def run_collect(cfg, say):
+            fn = G._v3_orig_run_collect(cfg, say)
+            try:
+                add_toss_to_result(fn, cfg, say)
+            except Exception as e:
+                say(f"⚠ 토스 수집 실패: {e}"[:200])
+            return fn
+        G.run_collect = run_collect
     patch_makeshop_charset(G)
     if getattr(G, "collect_ably", None):                  # 1.29 에이블리 문의(채팅방)
         G._v3_orig_ably = G.collect_ably
@@ -1286,7 +1369,7 @@ def run_collect_job(job, cfg, say):
         fn = G.run_reviews(c, say)
     else:
         if vendors:
-            c["vendors"] = {v: (v in vendors) for v in G.DEFAULT_CFG["vendors"]}
+            c["vendors"] = {v: (v in vendors) for v in list(G.DEFAULT_CFG["vendors"]) + ["토스"]}   # 1.32 토스
         c["no_reviews"] = True              # 웹 [게시판 수집] = 게시판만 (수집기 게시판 탭과 같음)
         if kind == "test":
             c["test"] = True; c["test_limit"] = 3

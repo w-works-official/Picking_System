@@ -79,10 +79,10 @@ assert.equal(helperTooOld(""), true);
 // 화면 연결: ⚙ 설정 맨 위 한 곳 · 시트 v30 · 웹연결 1.30
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
 assert.match(html, /data-left-panel="settings" hidden>\s*<!-- 📊 오늘 CS 리포트[^>]*-->\s*<div data-report-box><\/div>/);
-assert.match(html, /csBoardApp\.mjs\?v=20261117-auto1/);
+assert.match(html, /csBoardApp\.mjs\?v=20261117-auto2/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "settings"\) openReport\(\);/);
-assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-auto1"\)/);
+assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-auto2"\)/);
 const panel = readFileSync(new URL("../src/app/csDailyReportPanel.mjs", import.meta.url), "utf8");
 assert.match(panel, /data-rp-room="\$\{i\}"/);
 assert.match(panel, /for \(const \[i, room\] of rooms\.entries\(\)\)/);
@@ -118,4 +118,5 @@ assert.match(autoLabel({ auto: false }), /꺼짐/);
 assert.match(panel, /data-rp-chk="weekend"/);
 assert.match(panel, /type="time" data-rp="time"/);
 assert.match(app, /\.auto === true\) openReport\(\)/, "자동 켠 PC 는 화면을 열 때부터 시간 확인");
+assert.match(panel, /_lock`, me\)/, "탭이 여러 개여도 한 탭만 보냄");
 console.log("csDailyReport: OK");

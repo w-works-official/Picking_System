@@ -864,7 +864,19 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     }
     // API
     const apiState = $("#cs-api-state");
-    if (apiState) apiState.textContent = !su ? "저장된 키: 수집기 PC 연결 후 확인" : su.api === "own" ? "저장된 키: ✓ 수집기 PC에 저장된 키 사용 중" : su.api === "e1" ? "저장된 키: E_1 스마트스토어 API 설정 사용 중 (여기서 새로 저장하면 그 키를 씁니다)" : "저장된 키: 없음 — 아래에 넣고 [저장]";
+    if (apiState) {
+      // 11-17 토스 칸과 같은 크기: 연결됨 초록 · 없음/실패 빨강 (마지막 [저장]·[연결 테스트] 결과로 판단)
+      const lastApi = [latestJob(state.jobs, "apiKey"), latestJob(state.jobs, "apiTest")].filter(Boolean).sort((a, b) => String(b.ended || b.at).localeCompare(String(a.ended || a.at)))[0];
+      const failed = lastApi?.status === "실패";
+      const where = su?.api === "own" ? "수집기 PC에 저장된 키" : "E_1 스마트스토어 API 설정";
+      apiState.textContent = !su ? "⏳ 수집기 PC 연결 후 확인"
+        : !su.api ? "❌ 스마트스토어 API 키 없음 — 아래에 넣고 [저장]"
+          : failed ? `⚠ 연결 안 됨 — ${String(lastApi.message || "").replace(/^❌\s*/, "").slice(0, 160)}`
+            : `✅ 스마트스토어 연결됨 — ${where} 사용 중`;
+      apiState.title = su?.api === "e1" ? "여기서 새로 저장하면 그 키를 씁니다" : "";
+      apiState.classList.toggle("is-ok", !!su?.api && !failed);
+      apiState.classList.toggle("is-bad", !!su && (!su.api || failed));
+    }
     const tossState = $("#cs-toss-state");
     if (tossState) {
       // 11-17 크게: 연결됨 = 초록 · 키 없음/오류 = 빨강 · 확인 중 = 핑크

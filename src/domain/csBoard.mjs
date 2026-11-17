@@ -39,11 +39,11 @@ export const CS_POINT_DEFAULT = { pct: 0, unit: 10, msg: "[PRODUCT_NAME] 리뷰 
 // 웹에서 수집기 PC에 보내는 요청 종류 (시트 JOB_KINDS 와 같음)
 export const CS_JOB_KINDS = {
   collect: "게시판 수집", reviews: "리뷰 수집", test: "테스트 수집", testReviews: "테스트 리뷰 수집", register: "등록",
-  login: "🔑 로그인", settings: "설정 저장", apiTest: "API 연결 테스트", apiKey: "API 키 저장", ip: "공인 IP 확인", files: "수집 파일 목록", auto: "⏰ 자동 수집",
+  login: "🔑 로그인", settings: "설정 저장", apiTest: "API 연결 테스트", apiKey: "API 키 저장", tossKey: "토스 API 키", ip: "공인 IP 확인", files: "수집 파일 목록", auto: "⏰ 자동 수집",
   update: "⬆ 웹연결 업데이트",
 };
 // 수집기 PC에 시키는 일 (수집·등록 말고) — 로그인·설정·API·IP·파일 목록
-export const CS_PC_KINDS = ["login", "settings", "apiTest", "apiKey", "ip", "files", "update"];
+export const CS_PC_KINDS = ["login", "settings", "apiTest", "apiKey", "tossKey", "ip", "files", "update"];
 // 웹연결 업데이트: 이 저장소의 정해진 커밋 파일만 (수집기 PC가 받아서 해시를 다시 확인)
 export const LINK_REPO = "w-works-official/Picking_System";
 export const LINK_FILE = "docs/g1_v3_link.py";
@@ -246,6 +246,8 @@ export function csPcPayload(kind, options = {}, editor = "") {
     out.options = { settings: { ...(options.settings || {}) } };
   } else if (kind === "apiKey") {
     out.options = { clientId: String(options.clientId || ""), secret: String(options.secret || "") };
+  } else if (kind === "tossKey") {             // 11-17 토스: 잠근 키 둘 다 또는 시험만(빈 값)
+    out.options = options.access && options.secret ? { access: String(options.access), secret: String(options.secret) } : {};
   } else if (kind === "update") {
     if (!/^[0-9a-f]{64}$/.test(String(options.sha256 || ""))) throw new Error("업데이트 확인값이 없습니다.");
     out.options = { url: String(options.url || ""), sha256: String(options.sha256), ver: line(options.ver, 40) };

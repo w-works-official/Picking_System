@@ -67,7 +67,7 @@ export function linkVersionNewer(latest, current) {
   }
   return false;
 }
-export const CS_LOGIN_VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵"];
+export const CS_LOGIN_VENDORS = ["스마트스토어", "지그재그", "에이블리", "메이크샵", "토스"];   // 11-17 토스: 상품 Q&A · 리뷰는 판매자센터 로그인(토스 앱 인증)
 
 // 간단 비밀번호로 열기 (2026-11-02, 시트 v6): 20자보다 짧으면 간단 비밀번호로 보고 시트에 긴 키를 받아 옴
 export const CS_UNLOCK_MIN = 6;

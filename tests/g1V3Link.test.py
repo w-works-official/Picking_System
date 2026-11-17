@@ -1333,6 +1333,11 @@ fn = FakeMsnApi(); fn.open_chat = lambda name: None; fn.set_clip_text = lambda t
 assert "카톡 PC" in L.MsnHelper(fn).send_texts("없는방", ["x"], sleep=lambda s: None)["error"]
 fm = FakeMsnApi(); fm.open_chat = lambda name: True; fm.set_clip_text = lambda t: None
 assert "못 찾았습니다" in L.MsnHelper(fm).send_texts("없는방", ["x"], sleep=lambda s: None)["error"]
+# 1.35 리포트는 입력칸을 비우고 붙여넣기 (clear=True) — 예전 도우미 모양(send(h, enter))이어도 그대로 보냄
+fc = FakeMsnApi(); fc.wins = {3: ("CS 리포트방", (0, 0, 400, 600))}; fc.order = [3]; fc.set_clip_text = lambda t: None
+got = []
+fc.send = lambda h, enter=True, clear=False: got.append((h, enter, clear))
+assert L.MsnHelper(fc).send_texts("CS 리포트방", ["a", "b"], sleep=lambda s: None)["sent"] == 2 and got == [(3, True, True), (3, True, True)]
 print("g1V3Link daily report text (1.30): OK")
 
 # ── 1.31 토스쇼핑 문의(채팅방) — 읽기만 ──
@@ -1544,5 +1549,5 @@ try:
     assert L.toss_login(TPage(logged=False), print, print, wait_sec=20)["state"] == "manual_fail"
 finally:
     L.time.time = _tt
-assert L.LINK_VER.startswith("1.34")
+assert L.LINK_VER >= "1.34"
 print("g1V3Link toss screen (1.34): OK")

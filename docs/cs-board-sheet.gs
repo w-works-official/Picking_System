@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-17 v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-17 v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -49,10 +49,10 @@ var COL = { key: 1, vendor: 2, board: 3, id: 4, date: 5, product: 6, status: 7, 
 var JOB_HEADER = ['ID', '종류', '상태', '요청자', '요청시각', '시작시각', '끝시각', '내용', '결과', 'PC'];
 var JOB = { id: 1, kind: 2, status: 3, by: 4, at: 5, started: 6, ended: 7, body: 8, result: 9, pc: 10 };
 var JOB_KINDS = { collect: '게시판 수집', reviews: '리뷰 수집', test: '테스트 수집', testReviews: '테스트 리뷰 수집', register: '등록',
-  login: '로그인', settings: '설정 저장', apiTest: 'API 연결 테스트', apiKey: 'API 키 저장', ip: '공인 IP 확인', files: '수집 파일 목록', auto: '자동 수집',
+  login: '로그인', settings: '설정 저장', apiTest: 'API 연결 테스트', apiKey: 'API 키 저장', tossKey: '토스 API 키', ip: '공인 IP 확인', files: '수집 파일 목록', auto: '자동 수집',
   update: '웹연결 업데이트' };
-var STAFF_KINDS = ['collect', 'reviews', 'test', 'testReviews', 'register', 'login', 'settings', 'apiTest', 'apiKey', 'ip', 'files', 'update'];
-var REPLACE_KINDS = ['login', 'settings', 'apiKey', 'update']; // 대기 중인 같은 종류는 새 요청으로 바꿈
+var STAFF_KINDS = ['collect', 'reviews', 'test', 'testReviews', 'register', 'login', 'settings', 'apiTest', 'apiKey', 'tossKey', 'ip', 'files', 'update'];
+var REPLACE_KINDS = ['login', 'settings', 'apiKey', 'tossKey', 'update']; // 대기 중인 같은 종류는 새 요청으로 바꿈
 // 웹연결 업데이트: 이 저장소의 정해진 커밋 파일만 (주소·해시는 수집기 PC가 다시 확인)
 var UPDATE_URL_RE = /^https:\/\/raw\.githubusercontent\.com\/w-works-official\/Picking_System\/[0-9a-f]{40}\/docs\/g1_v3_link\.py$/;
 var NAME_RULES_SHEET = '상품명 규칙';
@@ -68,7 +68,7 @@ var DEFAULT_NAME_RULES = '당신은 피어싱·귀걸이 쇼핑몰 \'핑크로�
   '- 50자 안팎, 같은 낱말 반복하지 않기\n' +
   '- 키워드에 없는 소재·수치는 지어내지 않기';
 
-var SECRET_KINDS = ['login', 'apiKey'];               // 가져가면 [요청] 탭의 암호문을 지움
+var SECRET_KINDS = ['login', 'apiKey', 'tossKey'];               // 가져가면 [요청] 탭의 암호문을 지움
 var BOARD_VENDORS = ['스마트스토어', '지그재그', '에이블리', '메이크샵', '토스'];   // v36 토스 (API · 로그인 없음)
 var REVIEW_VENDORS = ['지그재그', '에이블리', '메이크샵'];
 var REGISTER_SUPPORTED = { '스마트스토어|상품문의': true, '스마트스토어|고객문의': true, '메이크샵|리뷰': true }; // 스마트스토어 = 수집기 g1_register · 메이크샵 리뷰 = 웹연결 1.14 (v10)
@@ -505,6 +505,7 @@ function cleanSetup_(raw) {
     loginOk: b(raw.login_ok), api: t(raw.api, 10), claude: b(raw.claude), parts: b(raw.parts), icon: b(raw.icon),
     autostart: b(raw.autostart), bg: b(raw.bg), collector: t(raw.collector, 40), link: t(raw.link, 40),
     pubKey: t(raw.pub_key, 800), autoOn: b(raw.auto_on), nextAuto: t(raw.next_auto, 20), savedLogins: list(raw.saved_logins),
+    toss: t(raw.toss, 10), tossOk: b(raw.toss_ok), tossNote: t(raw.toss_note, 200),
   };
 }
 
@@ -821,6 +822,10 @@ function request_(body) {
     var cid = cipher_(options.clientId), sec = cipher_(options.secret);
     if (!cid || !sec) return { ok: false, error: '잠긴(암호화) Client ID·Secret 이 필요합니다. 화면을 새로고침해 주세요.' };
     content = { clientId: cid, secret: sec };
+  } else if (kind === 'tossKey') {                    // v38: 비었으면 연결 시험만
+    var acc = cipher_(options.access), tsec = cipher_(options.secret);
+    if ((options.access || options.secret) && (!acc || !tsec)) return { ok: false, error: '잠긴(암호화) Access Key · Secret Key 가 필요합니다. 화면을 새로고침해 주세요.' };
+    content = acc && tsec ? { access: acc, secret: tsec } : { test: true };
   } else if (kind === 'update') {
     var url = String(options.url || ''), sha = String(options.sha256 || '').toLowerCase(), ver = plain_(clean_(options.ver, 40));
     if (!UPDATE_URL_RE.test(url) || !/^[0-9a-f]{64}$/.test(sha)) return { ok: false, error: '업데이트 파일 주소·확인값이 맞지 않습니다.' };
@@ -879,6 +884,7 @@ function redact_(kind, body) {
   var b = JSON.parse(JSON.stringify(body || {}));
   if (kind === 'login' && b.creds) Object.keys(b.creds).forEach(function (v) { b.creds[v] = '(전달됨)'; });
   if (kind === 'apiKey') { if (b.clientId) b.clientId = '(전달됨)'; if (b.secret) b.secret = '(전달됨)'; }
+  if (kind === 'tossKey') { if (b.access) b.access = '(전달됨)'; if (b.secret) b.secret = '(전달됨)'; }
   return b;
 }
 

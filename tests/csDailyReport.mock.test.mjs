@@ -2,15 +2,17 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  normalizeReportSettings, kstDay, dayOf, reviewStars, pickReviews, chatItems, boardItems, fallbackLines,
+  normalizeReportSettings, sendRooms, kstDay, dayOf, reviewStars, pickReviews, chatItems, boardItems, fallbackLines,
   reviewMessage, summaryMessage, reportHead,
 } from "../src/domain/csDailyReport.mjs";
 import { normalizeCsRow } from "../src/domain/csBoard.mjs";
 import { helperTooOld } from "../src/app/csDailyReportPanel.mjs";
 
 const T = "2026-11-17";
-assert.deepEqual(normalizeReportSettings({}), { reviewN: 3, chatLines: 5, boardLines: 5, room: "" });
-assert.deepEqual(normalizeReportSettings({ reviewN: "99", chatLines: 0, boardLines: "7", room: "  CS  리포트 " }), { reviewN: 10, chatLines: 5, boardLines: 7, room: "CS 리포트" });
+assert.deepEqual(normalizeReportSettings({}), { reviewN: 3, chatLines: 5, boardLines: 5, rooms: ["", "", ""] });
+assert.deepEqual(normalizeReportSettings({ reviewN: "99", chatLines: 0, boardLines: "7", room: "  CS  리포트 " }), { reviewN: 10, chatLines: 5, boardLines: 7, rooms: ["CS 리포트", "", ""] }, "예전 설정(방 1개)은 1번 칸으로");
+assert.deepEqual(normalizeReportSettings({ rooms: ["", " 김실장 ", "박대리", "넷째"] }).rooms, ["", "김실장", "박대리"], "3곳까지 · 빈칸 자리 유지");
+assert.deepEqual(sendRooms(["가", "김실장", "김 실장", "", "박대리"]), ["김실장", "박대리"], "2글자 이상 · 같은 이름 한 번만");
 assert.equal(kstDay(new Date("2026-11-16T16:30:00Z")), T, "UTC 16:30 = 한국 다음날 01:30");
 assert.equal(dayOf("2026-11-16T15:10:00.000Z", T), T);
 assert.equal(dayOf("2026.11.17 10:22", T), T);
@@ -77,10 +79,13 @@ assert.equal(helperTooOld(""), true);
 // 화면 연결: ⚙ 설정 맨 위 한 곳 · 시트 v30 · 웹연결 1.30
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
 assert.match(html, /data-left-panel="settings" hidden>\s*<!-- 📊 오늘 CS 리포트[^>]*-->\s*<div data-report-box><\/div>/);
-assert.match(html, /csBoardApp\.mjs\?v=20261117-report1/);
+assert.match(html, /csBoardApp\.mjs\?v=20261117-rooms1/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "settings"\) openReport\(\);/);
-assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-report1"\)/);
+assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-rooms1"\)/);
+const panel = readFileSync(new URL("../src/app/csDailyReportPanel.mjs", import.meta.url), "utf8");
+assert.match(panel, /data-rp-room="\$\{i\}"/);
+assert.match(panel, /for \(const \[i, room\] of rooms\.entries\(\)\)/);
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");
 assert.match(gs, /if \(action === 'reportData'\) return reportData_\(body\);/);
 assert.match(gs, /if \(action === 'reportSummary'\) return reportSummary_\(body\);/);

@@ -157,6 +157,7 @@ assert.deepEqual(cand.manual.map((r) => r.key), ["지그재그_상품문의_8"])
 assert.deepEqual(csRegisterPayload(cand.auto, "희진"), { action: "request", kind: "register", keys: ["스마트스토어_상품문의_9"], editor: "희진" });
 assert.deepEqual(csRequestPayload("reviews", { vendors: ["지그재그", "지그재그", ""], reviewDays: 14 }), { action: "request", kind: "reviews", options: { vendors: ["지그재그"], reviewDays: 14 }, editor: "" });
 assert.deepEqual(csRequestPayload("collect", { vendors: ["에이블리"], reviewDays: 14 }).options, { vendors: ["에이블리"] }, "days only for reviews");
+assert.deepEqual(csRequestPayload("collect", { vendors: ["스마트스토어", "지그재그", "에이블리", "메이크샵", "토스"] }).options.vendors.at(-1), "토스", "11-17 업체 5곳 모두 (토스가 빠지지 않게)");
 assert.throws(() => csRequestPayload("register"));
 assert.throws(() => csRequestPayload("rm -rf"));
 const t0 = Date.parse("2026-10-29T05:00:00Z");

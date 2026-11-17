@@ -2,9 +2,10 @@
 //  · 리뷰: 보통 평가는 빼고 별5(아주 좋음) N개 · 별1(아주 나쁨) N개 — 내용이 긴(자세한) 것부터
 //  · 상담톡: 오늘 상담 건수 + 문의 & 결과를 N줄(제목처럼)
 //  · 게시판: 상담톡과 같음 (에이블리 문의방은 상담톡에 있으므로 뺌, 리뷰도 뺌)
-//  · 설정(N개 · N줄 · 받는 카톡방)은 ⚙ 설정에서 한 번에 — 이 기기에 기억
+//  · 설정(N개 · N줄 · 받는 카톡방 3곳까지)은 ⚙ 설정에서 한 번에 — 이 기기에 기억
 export const REPORT_STORE_KEY = "system_v3_cs_report";
-export const REPORT_DEFAULTS = Object.freeze({ reviewN: 3, chatLines: 5, boardLines: 5, room: "" });
+export const REPORT_DEFAULTS = Object.freeze({ reviewN: 3, chatLines: 5, boardLines: 5, rooms: Object.freeze(["", "", ""]) });
+export const REPORT_MAX_ROOMS = 3;   // 11-17: 받는 사람(카톡방) 3곳까지
 export const REPORT_LIMITS = Object.freeze({ reviewN: [1, 10], chatLines: [1, 15], boardLines: [1, 15] });
 const CHAT_SRC = { smart: "톡톡", kakao: "해피톡", ably: "에이블리" };
 const WEEK = ["일", "월", "화", "수", "목", "금", "토"];
@@ -20,8 +21,25 @@ export function normalizeReportSettings(raw = {}) {
     reviewN: clampInt(r.reviewN, REPORT_LIMITS.reviewN, REPORT_DEFAULTS.reviewN),
     chatLines: clampInt(r.chatLines, REPORT_LIMITS.chatLines, REPORT_DEFAULTS.chatLines),
     boardLines: clampInt(r.boardLines, REPORT_LIMITS.boardLines, REPORT_DEFAULTS.boardLines),
-    room: oneLine(r.room).slice(0, 40),
+    rooms: reportRooms(r),
   };
+}
+
+// 받는 카톡방 칸 3개 (빈칸 그대로 자리 유지 · 예전 설정 room 한 개도 1번 칸으로)
+export function reportRooms(r = {}) {
+  const src = Array.isArray(r.rooms) ? r.rooms : [r.room];
+  return Array.from({ length: REPORT_MAX_ROOMS }, (_, i) => oneLine(src[i]).slice(0, 40));
+}
+
+// 실제로 보낼 곳: 2글자 이상 · 같은 이름은 한 번만
+export function sendRooms(rooms = []) {
+  const seen = new Set();
+  return rooms.map(oneLine).filter((n) => {
+    const k = n.replace(/\s+/g, "").toLowerCase();
+    if (k.length < 2 || seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
 }
 
 // 한국 시간 날짜 'YYYY-MM-DD'

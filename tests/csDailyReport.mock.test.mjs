@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   normalizeReportSettings, markResultLine, RESULT_MARK, sendRooms, reportDue, autoLabel, kstClock, kstDay, dayOf, reviewStars, pickReviews, chatItems, boardItems, fallbackLines,
-  reviewMessage, summaryMessage, reportHead,
+  reviewMessage, summaryMessage, reportHead, reportPeriod, inPeriod, timeOf,
 } from "../src/domain/csDailyReport.mjs";
 import { normalizeCsRow } from "../src/domain/csBoard.mjs";
 import { helperTooOld } from "../src/app/csDailyReportPanel.mjs";
@@ -90,10 +90,10 @@ assert.equal(helperTooOld(""), true);
 // 화면 연결: ⚙ 설정 맨 위 한 곳 · 시트 v30 · 웹연결 1.30
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
 assert.match(html, /data-left-panel="settings" hidden>\s*<!-- 📊 오늘 CS 리포트[^>]*-->\s*<div data-report-box><\/div>/);
-assert.match(html, /csBoardApp\.mjs\?v=20261117-toss7/);
+assert.match(html, /csBoardApp\.mjs\?v=20261118-rp24/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "settings"\) openReport\(\);/);
-assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261117-toss1"\)/);
+assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261118-rp24"\)/);
 const panel = readFileSync(new URL("../src/app/csDailyReportPanel.mjs", import.meta.url), "utf8");
 assert.match(panel, /data-rp-room="\$\{i\}"/);
 assert.match(panel, /for \(const \[i, room\] of rooms\.entries\(\)\)/);
@@ -131,4 +131,29 @@ assert.match(panel, /data-rp-chk="weekend"/);
 assert.match(panel, /type="time" data-rp="time"/);
 assert.match(app, /\.auto === true\) openReport\(\)/, "자동 켠 PC 는 화면을 열 때부터 시간 확인");
 assert.match(panel, /_lock`, me\)/, "탭이 여러 개여도 한 탭만 보냄");
+// 11-17 요청: 11-18 리포트부터 '당일 19:00 기준 지난 24시간' (그 전날은 오늘 날짜 그대로)
+assert.equal(reportPeriod(new Date("2026-11-17T10:00:00Z"), "19:00"), "2026-11-17", "11-17 은 그대로 오늘");
+const P = reportPeriod(new Date("2026-11-18T10:00:30Z"), "19:00");   // 11-18 19:00:30 KST
+assert.equal(P.day, "2026-11-18");
+assert.equal(P.to, Date.parse("2026-11-18T10:00:00Z"));
+assert.equal(P.from, Date.parse("2026-11-17T10:00:00Z"));
+assert.equal(P.label, "11/17 19:00 ~ 11/18 19:00");
+const early = reportPeriod(new Date("2026-11-18T06:00:00Z"), "19:00");   // 15:00 KST 에 손으로 = 지금까지 24시간
+assert.equal(early.to, Date.parse("2026-11-18T06:00:00Z"));
+assert.equal(timeOf("2026-11-17 20:35"), Date.parse("2026-11-17T11:35:00Z"));
+assert.equal(timeOf("2026-11-17"), null);
+assert.ok(inPeriod({ date: "2026-11-17 20:35" }, P), "어제 19시 뒤");
+assert.ok(!inPeriod({ date: "2026-11-17 18:59" }, P), "어제 19시 전은 뺌");
+assert.ok(!inPeriod({ date: "2026-11-18 19:10" }, P), "기준 시각 뒤는 다음 리포트");
+assert.ok(inPeriod({ date: "2026-11-17", collectedAt: "2026-11-17T12:00:00Z" }, P), "날짜만 → 수집 시각 (11-17 21:00 KST)");
+assert.ok(!inPeriod({ date: "2026-11-17", collectedAt: "2026-11-17T05:00:00Z" }, P), "11-17 14:00 수집은 어제 리포트");
+assert.ok(inPeriod({ date: "2026-11-18" }, P) && !inPeriod({ date: "2026-11-17" }, P), "시각을 모르면 날짜로");
+const prP = pickReviews([raw({ id: "p1", kind: "리뷰", type: "별점 5", q: "", date: "2026-11-18 09:00" })].map((r) => ({ ...r, date: "2026-11-18 09:00" })), P, 3);
+const rmP = reviewMessage(P, prP);
+assert.match(rmP, /\(11\/17 19:00 ~ 11\/18 19:00\)/);
+assert.match(rmP, /지난 24시간 리뷰 1건/);
+assert.match(rmP, /\(글 없이 별점만\)/);
+assert.doesNotMatch(rmP, /""/);
+assert.match(summaryMessage(P, 2, "💬 상담톡", "상담", [], []), /지난 24시간 들어온 상담이 없습니다\.$/);
+assert.equal(chatItems({ smart: [{ at: "2026-11-17T09:00:00Z", messages: [{ who: "c", text: "a" }] }, { at: "2026-11-17T11:00:00Z", messages: [{ who: "c", text: "b" }] }] }, P).length, 1);
 console.log("csDailyReport: OK");

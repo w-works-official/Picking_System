@@ -4,6 +4,7 @@
 //  · 보내기는 사람이: 입력창에서 Enter = 매체 창에 붙이고 발송 (11-11 사장님 요청 · Shift+Enter = 줄바꿈)
 //    매체 창에 붙이는 일은 수집기 PC(2단계)가 함 — 그 전까지 Enter = 복사만 (매체 창에서 Ctrl+V → Enter)
 //  · 수집기 PC 가 대화를 넣기 전에는 예시 대화로 화면만 보여 줌
+//  · 11-17 토스쇼핑 문의(앱 채팅방)도 한 구역 — 수집기 PC 웹연결 1.31 이 토스 API 로 읽어 옴 (읽기만, 답은 복사해서 토스 판매자센터에)
 //  · 11-13 에이블리 문의(앱 채팅방)도 한 구역 — 구역 3개는 머리(⠿)를 끌어서 위아래 순서를 바꿈 (이 기기에 기억)
 //  · 11-11 보조내용에 상담 상품 카드 (사진 · 상품명 · 옵션 · 주문) — 톡톡 오른쪽 상품 정보를 수집기가 읽어 옴 (시트 v21)
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -12,6 +13,7 @@ export const CHAT_ZONES = [
   { key: "smart", title: "스마트스토어 톡톡", icon: "N", auxTitle: "스마트요약 · 구매이력" },
   { key: "kakao", title: "카카오 해피톡", icon: "K", auxTitle: "고객정보" },
   { key: "ably", title: "에이블리 문의", icon: "A", auxTitle: "상담 정보" },
+  { key: "toss", title: "토스쇼핑 문의", icon: "T", auxTitle: "상담 정보" },
 ];
 const ZONE_KEYS = CHAT_ZONES.map((z) => z.key);
 const perZone = (fn) => Object.fromEntries(ZONE_KEYS.map((k) => [k, fn(k)]));
@@ -103,7 +105,7 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
     <fieldset class="cs-box ct-side">
       <legend>💬 상담톡</legend>
       <ol class="cs-note cs-install-steps">
-        <li><b>스마트스토어 톡톡</b> · <b>카카오 해피톡</b> · <b>에이블리 문의</b> 3구역. 구역마다 슬롯 수(4·6·8·10)를 고릅니다.</li>
+        <li><b>스마트스토어 톡톡</b> · <b>카카오 해피톡</b> · <b>에이블리 문의</b> · <b>토스쇼핑 문의</b> 4구역. 구역마다 슬롯 수(4·6·8·10)를 고릅니다.</li>
         <li>구역 머리의 <b>⠿</b> 를 끌어 다른 구역에 놓으면 위아래 순서가 바뀝니다 (이 기기에 기억).</li>
         <li>왼쪽 목록에서 대화를 누르면 고른 슬롯에 열립니다. 슬롯을 누르면 오른쪽에 보조내용이 뜹니다.</li>
         <li><b>AI</b> 를 누를 때마다 답변 후보 5개를 새로 만들고, <b>&lt;&lt; &gt;&gt;</b> 로 앞뒤를 봅니다.</li>

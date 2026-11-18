@@ -1550,4 +1550,9 @@ try:
 finally:
     L.time.time = _tt
 assert L.LINK_VER >= "1.34"
+# 1.36 아트피어스 ↔ 아트피어스14K
+nm = ["아트피어스", "아트피어스14K"]
+assert L.msn_name_slot("0-아트피어스14K", nm) == 1 and L.msn_name_slot("0-아트피어스", nm) == 0
+assert L.msn_name_slot("0-아트피어스14K", nm, skip={1}) is None, "14K 칸이 차 있어도 일반 칸에 안 붙임"
+assert L.msn_name_slot("0-아트피어스", ["아트피어스14K"]) is None
 print("g1V3Link toss screen (1.34): OK")

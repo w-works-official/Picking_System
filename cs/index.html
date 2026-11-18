@@ -14,8 +14,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
-    <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261113-mnav1">
+    <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261118-hdr1">
     <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261118-insp1">
+    <link rel="stylesheet" href="../src/styles/pickingNotice.css?v=20261118-hdr1">
   </head>
   <body class="cs-board-workspace">
     <div id="cs-board-app" class="cs-shell">
@@ -32,6 +33,8 @@
           <a id="workspace-cs-link" class="workspace-link is-current" href="./" aria-current="page">CS 관리</a>
           <a id="workspace-purchase-link" class="workspace-link" href="../purchase/">상품 관리</a>
         </nav>
+        <!-- 2026-11-18: 공지 메모 = 세 화면 같은 자리 (src/app/pickingNoticeBoot.mjs) -->
+        <div id="pk-notice" class="pk-notice" aria-label="공지 메모"></div>
         <div class="cs-toolbar">
           <a class="cs-legacy-link" href="./legacy.html" title="2026-10-29 이전 CS 관리 화면(보관본)">기존 CS 화면</a>
           <span class="cs-legend"><b class="cs-legend-red">흐린 버튼</b> = 아직 작동 안 함 (올리면 이유)</span>
@@ -619,5 +622,6 @@
     <script type="module" src="../src/app/csBoardApp.mjs?v=20261118-insp1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
     <script type="module" src="../src/app/msnSlots.mjs?v=20261118-art1"></script>
+    <script type="module" src="../src/app/pickingNoticeBoot.mjs?v=20261118-hdr1"></script>
   </body>
 </html>

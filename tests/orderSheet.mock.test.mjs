@@ -10,6 +10,13 @@ assert.equal(matchSlot("세븐피어싱", ["", "헤세드", "세븐피어싱"]),
 assert.equal(matchSlot("헤세드", ["0-헤세드 >아트"]), 0, "카톡방 이름 그대로 적어도 짝");
 assert.equal(matchSlot("아트피어스", ["아트", "아트피어스"]), 1, "긴 메모 먼저");
 assert.equal(matchSlot("수진사", ["", "가"]), -1, "한 글자 메모는 짝 안 함");
+// 11-18 아트피어스 ↔ 아트피어스14K 구분 (일괄 붙이기에서 14K 방에 잘못 붙던 것)
+assert.equal(matchSlot("아트피어스", ["아트피어스14K", "아트피어스"]), 1, "이름이 똑같은 칸 먼저");
+assert.equal(matchSlot("0-아트피어스 [ 3 ]", ["0-아트피어스14K", "0-아트피어스"]), 1);
+assert.equal(matchSlot("아트피어스14K", ["아트피어스", "아트피어스14K"]), 1);
+assert.equal(matchSlot("아트피어스", ["아트피어스14K"]), -1, "14K 방만 있으면 짝 안 함 (빈 칸으로 남김)");
+assert.equal(matchSlot("아트피어스14K", ["아트피어스"]), -1, "일반 방에 14K 주문 안 붙임");
+assert.equal(matchSlot("0-아트피어스14K [ 5 ]", ["아트피어스 14k 카톡"]), 0, "14K 끼리는 띄어쓰기·대소문자 상관없이");
 assert.deepEqual(vendorFromFileName("세븐피어싱_1105.jpg"), { vendor: "세븐피어싱", n: 1 });
 assert.deepEqual(vendorFromFileName("C:\\x\\아트피어스_1105_2.JPG"), { vendor: "아트피어스", n: 2 });
 assert.equal(vendorFromFileName("메모.jpg"), null);

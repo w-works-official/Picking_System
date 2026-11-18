@@ -177,14 +177,19 @@ export function normName(s) {
   return vendorName(s).replace(/\s+/g, "").toLowerCase();
 }
 
-// 업체명 ↔ 슬롯 메모: 메모(2글자 이상)가 업체명에 들어 있거나 업체명이 메모에 들어 있으면 짝 (가장 긴 메모 먼저). 없으면 -1
+// 업체명 ↔ 슬롯 메모: 이름이 똑같은 메모가 있으면 그 칸이 먼저.
+// 없으면 메모(2글자 이상)가 업체명에 들어 있거나 업체명이 메모에 들어 있으면 짝 (가장 긴 메모 먼저). 없으면 -1
+// 11-18: '14K · 18K · 10K' 가 붙은 업체는 따로 — 아트피어스 ↔ 아트피어스14K 는 서로 짝이 되지 않음
+const karat = (k) => (k.match(/(?:10|14|18)k/) || [""])[0];
 export function matchSlot(vendor, names = []) {
   const v = normName(vendor);
   if (!v) return -1;
+  const exact = names.findIndex((n) => normName(n) === v);
+  if (exact >= 0) return exact;
   let best = -1, len = 0;
   names.forEach((n, i) => {
     const k = normName(n);
-    if (k.length >= 2 && (v.includes(k) || k.includes(v)) && k.length > len) { best = i; len = k.length; }
+    if (k.length >= 2 && (v.includes(k) || k.includes(v)) && karat(k) === karat(v) && k.length > len) { best = i; len = k.length; }
   });
   return best;
 }

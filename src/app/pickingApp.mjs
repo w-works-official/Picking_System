@@ -43,6 +43,7 @@ import { listSubs, swapMaster } from "../domain/subPhotos.mjs?v=20261107-finder1
 import { PHOTO_REQUEST_ENDPOINT, buildPhotoRequestRecord, normalizePhotoRequestCode, parsePhotoRequestResponse, photoRequestAddPayload, photoRequestClosePayload, photoRequestFillNamesPayload, productCodeFromPhotoUrl, sortPhotoRequests } from "../domain/photoRequests.mjs?v=20261109-photoreq1";
 import { pickKoreanVoice, piercingSpeechText } from "../domain/piercingSpeech.mjs?v=20261027-voice-all1";
 import { comparePickingRowsByRoute } from "../domain/pickingRowSort.mjs?v=20260731-route-row1";
+import { INSPECTION_PC_KEY, invoiceDigits } from "../domain/inspectionReport.mjs?v=20261118-insp1";
 import { buildCurrentShortageExport, buildInventorySurveyExport } from "../domain/inventorySurveyExport.mjs?v=20261001-custom-order-qty1";
 import {
   BARCODE_SCAN_SETTLE_MS,
@@ -529,6 +530,53 @@ function inspectionInvoiceNumbers() {
 
 // 검품: 바코드(숫자 13자리 이상)가 찍히고 나면 입력칸을 전체 선택(Ctrl+A) 상태로 둡니다.
 // 다음 스캔이 앞 번호 뒤에 붙지 않고 덮어씁니다. 목록에 없는 송장번호여도 같습니다(2026-10-28).
+// 11-18 오늘 검품 리포트: 검품 화면에서 송장번호로 조회한 송장을 이 컴퓨터 번호로 기록
+// (같은 날 · 같은 컴퓨터 · 같은 송장은 DB 가 1건으로 막음). 컴퓨터 번호는 처음 조회할 때 자동으로 받음
+let inspectionPcPromise = null;
+function inspectionPcNo() {
+  try { const n = Number(window.localStorage.getItem(INSPECTION_PC_KEY)); if (n > 0) return Promise.resolve(n); } catch { /* 저장소 없음 */ }
+  if (!inspectionPcPromise) {
+    inspectionPcPromise = db.rpc("inspection_pc_register").then(({ data, error }) => {
+      if (error) throw error;
+      const n = Number(data);
+      if (!(n > 0)) throw new Error("컴퓨터 번호를 받지 못했습니다");
+      try { window.localStorage.setItem(INSPECTION_PC_KEY, String(n)); } catch { /* 저장소 없음 */ }
+      renderInspectionPcBadge(n);
+      return n;
+    }).catch((error) => { inspectionPcPromise = null; throw error; });
+  }
+  return inspectionPcPromise;
+}
+function renderInspectionPcBadge(n = null) {
+  const input = els.inspectionSearchInput;
+  if (!input) return;
+  let badge = document.getElementById("inspection-pc-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.id = "inspection-pc-badge";
+    badge.className = "inspection-pc-badge";
+    badge.style.cssText = "margin-left:6px;padding:2px 8px;border-radius:999px;background:#ccfbf1;color:#0f766e;font-size:12px;font-weight:800;white-space:nowrap;align-self:center";
+    input.insertAdjacentElement("afterend", badge);
+  }
+  let no = n;
+  if (!no) { try { no = Number(window.localStorage.getItem(INSPECTION_PC_KEY)) || null; } catch { no = null; } }
+  badge.textContent = no ? `🖥 컴퓨터${no}` : "🖥 컴퓨터 번호: 첫 조회 때";
+  badge.title = "오늘 검품 리포트용 컴퓨터 번호 — 이름은 CS 관리 › ⚙ 설정 › 🖥 마스터 PC 설정 › 🔍 오늘 검품 리포트에서";
+}
+const inspectionLoggedToday = new Set();
+function logInspectionLookup(invoice) {
+  if (!allowWrites || !invoice) return;
+  const inv = invoiceDigits(invoice.invoiceNo);
+  if (!inv) return;
+  const key = `${new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10)}|${inv}`;
+  if (inspectionLoggedToday.has(key)) return;
+  inspectionLoggedToday.add(key);
+  inspectionPcNo()
+    .then((pc) => db.rpc("inspection_lookup_log", { p_pc: pc, p_invoice: inv, p_order_group: invoice.orderGroupNo || "" }))
+    .then((res) => { if (res?.error) throw res.error; })
+    .catch((error) => { inspectionLoggedToday.delete(key); console.warn("검품 조회 기록 실패", error); });
+}
+
 let inspectionScanSelectTimer = 0;
 function selectInspectionScanAfterSettle() {
   clearTimeout(inspectionScanSelectTimer);
@@ -11919,6 +11967,7 @@ function bindEvents() {
     renderInspectionPanels();
     renderSideShortcuts();
   });
+  renderInspectionPcBadge();
   els.inspectionSearchInput?.addEventListener("input", () => {
     state.inspectionSearchText = els.inspectionSearchInput.value;
     state.selectedInspectionGroup = "";
@@ -11929,6 +11978,7 @@ function bindEvents() {
       const row = inspectionSourceInvoices().find((invoice) => onlyDigits(invoice.invoiceNo) === code);
       if (row) {
         state.selectedInspectionGroup = row.orderGroupNo;
+        logInspectionLookup(row);   // 11-18 오늘 검품 리포트
       }
       renderInspectionPanels();
     }, { dedupe: true, extraInvoiceNumbers: inspectionInvoiceNumbers });

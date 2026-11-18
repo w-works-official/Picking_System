@@ -108,7 +108,7 @@ const py = readFileSync(new URL("../docs/g1_v3_link.py", import.meta.url), "utf8
 assert.match(py, /LINK_VER = "1\.3\d /);
 assert.match(py, /if p == "\/msn\/text":/);
 const slots = readFileSync(new URL("../src/app/msnSlots.mjs", import.meta.url), "utf8");
-assert.match(slots, /MSN_HELPER_MIN = "1\.30"/);
+assert.match(slots, /MSN_HELPER_MIN = "1\.3[0-9]"/);   // 1.30 이상 (11-18 1.36)
 // ⏰ 자동 보내기: 평일만(기본) · 주말 포함 · 예약 시각~3시간 · 하루 한 번
 const at = (iso) => new Date(iso);   // 한국 시각 = UTC + 9
 const A = normalizeReportSettings({ auto: true, time: "18:00", rooms: ["나와의 채팅"] });

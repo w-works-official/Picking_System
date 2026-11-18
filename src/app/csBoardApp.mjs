@@ -1382,6 +1382,16 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
       .then((m) => { chat = m.mountChatTalk({ document, window, root: $("[data-chat]"), side: $("[data-chat-side]"), post: postRaw, isLive: () => state.connected && !state.sample }); chat.load(); chat.start(); })
       .catch((error) => { chat = null; toast(`상담톡 화면을 불러오지 못했습니다: ${error?.message || error}`); });
   }
+  // ---------- 🔍 오늘 검품 리포트 (11-18): 마스터 PC 설정 안 · 펼칠 때 처음 불러옴 ----------
+  let insp = null;
+  document.querySelector("[data-insp-box]")?.addEventListener("toggle", (e) => {
+    if (!e.currentTarget.open) return;
+    if (insp) { insp.load?.(); return; }
+    insp = {};
+    import("./inspectionReportPanel.mjs?v=20261118-insp1")
+      .then((m) => { insp = m.mountInspectionReport({ document, window, root: $("[data-insp-root]"), storages: [(() => { try { return window.sessionStorage; } catch { return null; } })(), (() => { try { return window.localStorage; } catch { return null; } })()].filter(Boolean) }) || {}; })
+      .catch((error) => { insp = null; toast(`검품 리포트 화면을 불러오지 못했습니다: ${error?.message || error}`); });
+  });
   // ---------- 📊 오늘 CS 리포트 (11-17): ⚙ 설정을 처음 열 때 ----------
   let report = null;
   function openReport() {

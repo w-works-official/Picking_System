@@ -172,7 +172,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.35 (2026-11-17)"
+LINK_VER = "1.36 (2026-11-18)"
 LINK_NOTE = "게시판 수집 업체에 토스 추가 + 💬 상담톡 토스 칸 (읽기만, 키 C:\\Users\\Public\\toss_api.txt)"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
@@ -3147,13 +3147,21 @@ def msn_norm_name(s):
     return re.sub(r"\s+", "", s).lower()
 
 
+def msn_karat(s):
+    """1.36 '14K · 18K · 10K' 표시 — 아트피어스 ↔ 아트피어스14K 를 서로 다른 업체로 봄"""
+    m = re.search(r"(?:10|14|18)k", str(s or "").lower())
+    return m.group(0) if m else ""
+
+
 def msn_name_slot(title, names, skip=()):
-    """창 제목에 메모 이름이 들어 있는 슬롯 번호 (긴 이름 먼저 — '아트'보다 '아트피어스'). 없으면 None"""
+    """창 제목에 메모 이름이 들어 있는 슬롯 번호 (긴 이름 먼저 — '아트'보다 '아트피어스'). 없으면 None
+    1.36: 14K 가 붙은 창은 14K 메모 칸에만, 14K 없는 창은 14K 메모 칸에 안 붙임"""
     t = re.sub(r"\s+", "", str(title or "")).lower()
+    tk = msn_karat(t)
     best = None
     for i, n in enumerate(names or []):
         k = msn_norm_name(n)
-        if len(k) >= 2 and i not in skip and k in t and (best is None or len(k) > best[1]):
+        if len(k) >= 2 and i not in skip and k in t and msn_karat(k) == tk and (best is None or len(k) > best[1]):
             best = (i, len(k))
     return best[0] if best else None
 

@@ -2,7 +2,7 @@
 //  · 읽기: 메인 탭 A 순번 · B 매입처 · D 상품코드 · Q 발주량 · S 입고 (수식 칸은 엑셀이 저장해 둔 값)
 //  · 쓰기: S 칸만 숫자로 바꾸고 연한 분홍으로 칠함 — 나머지(매크로 vbaProject.bin · 다른 시트 · 수식)는 그대로 복사
 //  · 브라우저·node 공통 (압축 = CompressionStream / DecompressionStream, 추가 부품 없음)
-import { normName, vendorName } from "./orderSheet.mjs?v=20261112-color1";
+import { normName, vendorName } from "./orderSheet.mjs?v=20261118-art1";
 
 export const IN_COL = "S";                 // 메인 탭 '입고'
 export const IN_FILL = "FFFFC7CE";         // 연한 분홍 (주문서 매입가 0 칸과 같은 색)

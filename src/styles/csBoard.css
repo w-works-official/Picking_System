@@ -2611,3 +2611,20 @@ body.cs-board-workspace { font-weight: 500; -webkit-font-smoothing: antialiased;
 .vr-hint { font-size: 12px; color: #64748b; }
 .vr-wait { color: #475467; font-weight: 700; padding: 20px; }
 .vo-box [data-vo-act="restore"][hidden] { display: none !important; }
+
+/* 🔍 오늘 검품 리포트 (11-18, 마스터 PC 설정 안) */
+.cs-insp-box { margin: 0 0 10px; background: #fff; }
+.cs-insp-box > summary { cursor: pointer; list-style: none; }
+.cs-insp-title { font-size: 14px; font-weight: 800; color: #0f766e; }
+.cs-insp-title small { font-size: 12px; color: #14b8a6; font-weight: 700; }
+.cs-insp { margin-top: 8px; }
+.cs-insp-day { width: 150px; }
+.cs-insp-table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+.cs-insp-table td { padding: 4px 6px; border-bottom: 1px solid #e5e7eb; }
+.cs-insp-name { width: 100%; }
+.cs-insp-n { text-align: right; font-weight: 800; font-size: 16px; white-space: nowrap; }
+.cs-insp-sum { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 10px; border-radius: 8px; background: #f0fdfa; font-size: 14px; }
+.cs-insp-sum b { font-size: 17px; }
+.cs-insp-sum .is-bad b { color: #dc2626; }
+.cs-insp-sum .is-ok b { color: #16a34a; }
+.cs-insp-miss { margin: 6px 0; padding-left: 22px; max-height: 240px; overflow: auto; font-size: 13px; }

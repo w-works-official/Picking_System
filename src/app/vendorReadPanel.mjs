@@ -4,7 +4,7 @@
 //  · 팝업: 순번 · 옵션 · 발주량 · 지금 입고 · AI 판독 [− n +] (애매 = 노랑) → [저장] = F 메인 탭 S열 '입고' + 연한 분홍 → 팝업 닫힘
 //  · 엑셀에서 F 파일이 열려 있으면 쓰기가 막힘 → 안내 + [⬇ 파일로 받기]
 //  · (read2) 회신 사진을 크게 띄우고 순번 줄 바로 오른쪽에 판독 숫자를 붙여 보여줌 (AI 가 준 img · y 자리) — 숫자칸에서 바로 고침, 표와 같이 움직임
-import { readStockMain, matchStockRows, writeStockIn } from "../domain/stockSheet.mjs?v=20261117-read2";
+import { readStockMain, matchStockRows, writeStockIn } from "../domain/stockSheet.mjs?v=20261118-art1";
 import { mergeReply, saveUpdates, pickStockFile } from "../domain/vendorReply.mjs?v=20261117-read2";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

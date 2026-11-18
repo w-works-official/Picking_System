@@ -56,7 +56,7 @@ export function mountNotice({ document, window, host, storages = [], fetchImpl =
     const lines = tailLines(st.text, 3);
     if (!cred()) { box.innerHTML = `<span class="is-dim">CS 관리에서 웹 연결한 PC에서 보입니다</span>`; return; }
     if (st.error && !st.loaded) { box.innerHTML = `<span class="is-dim">${esc(st.error)}</span>`; return; }
-    box.innerHTML = lines.length ? lines.map((l) => `<span>${esc(l) || "&nbsp;"}</span>`).join("") : `<span class="is-dim">${st.loaded ? "(비어 있음 — 눌러서 쓰기)" : "불러오는 중…"}</span>`;
+    box.innerHTML = lines.length ? lines.map((l) => `<span>${esc(l) || "&nbsp;"}</span>`).join("") : `<span class="is-dim">${st.loaded ? "공지사항" : "불러오는 중…"}</span>`;
   }
   const meta = () => { $("[data-notice-meta]").textContent = st.editor ? `${st.editor} · ${kst(st.updatedAt)}` : ""; };
   async function load() {

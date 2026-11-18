@@ -17,7 +17,15 @@ const mod = readFileSync(new URL("../src/app/pickingNotice.mjs", import.meta.url
 assert.ok(mod.includes('action: "noticeGet"') && mod.includes('action: "noticeSave"') && mod.includes("base: st.version"));
 assert.ok(mod.includes("ta.scrollTop = ta.scrollHeight"), "창은 맨 아래부터 · 위로 올리면 앞 메모");
 assert.ok(!/confirm\(|alert\(/.test(mod), "확인 창 없음");
-assert.ok(!mod.includes("공지사항"), "공지사항 글씨 없음 (★ 만)");
+// 11-18 대표님 요청: 빈 칸 안내 '(비어 있음 — 눌러서 쓰기)' → '공지사항'
+assert.ok(mod.includes('"공지사항"') && !mod.includes("비어 있음 — 눌러서 쓰기"), "빈 칸은 '공지사항'");
+// 11-18: 세 화면 같은 자리 (상위 메뉴 바로 오른쪽)
+for (const page of ["../cs/index.html", "../purchase/index.html"]) {
+  const h = readFileSync(new URL(page, import.meta.url), "utf8");
+  assert.match(h, /<\/nav>\s*<!--[^>]*-->\s*<div id="pk-notice" class="pk-notice"/, page);
+  assert.match(h, /\.\.\/src\/app\/pickingNoticeBoot\.mjs\?v=/, page);
+  assert.match(h, /\.\.\/src\/styles\/pickingNotice\.css\?v=/, page);
+}
 
 // CS 관리: 가상 데이터 · 테스트 버튼 지움
 const cs = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");

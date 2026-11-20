@@ -280,6 +280,7 @@ def lock(text):
 
 # 15) 로그인: 이미 로그인 / 웹 비밀번호로 로그인→이 PC에 저장 / 저장 비번 없음 / 2단계 인증 대기 안내
 import threading as _th
+_WAIT_BY = dict(L.LOGIN_WAIT_SEC_BY); L.LOGIN_WAIT_SEC_BY.clear()   # 1.38 에이블리 15분 — 시험에선 짧게
 
 
 class FakePage:
@@ -751,6 +752,27 @@ sent2, ans2 = [], [{"answer": "5678", "submit": False}]
 rl2 = L.RemoteLogin(lambda **kw: (sent2.append(kw) or {"answer": ans2.pop(0) if ans2 else None}), "스마트스토어", None, None, clock=lambda: 50)
 assert rl2.step(main_pg) == "정답 넣음" and popup.cap.v == "5678" and main_pg.cap.v == "", "정답은 퀴즈가 있는 창에"
 assert popup.shots == 1 and main_pg.shots == 0 and popup.scrolled == 1, "그 창을 찍고, 퀴즈 칸이 보이게 내림"
+# 1.38 에이블리 로그인 판정 = 판매자 API 응답 (화면만 로그인처럼 보이는 경우를 막음)
+class APage:
+    def __init__(self, statuses, url_after="https://seller-admin.a-bly.com/inquiry?iframe=true"):
+        self.statuses, self.url, self.url_after, self.h, self.gotos = statuses, "https://my.a-bly.com/inquiry", url_after, None, []
+    def on(self, ev, fn): self.h = fn
+    def remove_listener(self, ev, fn): self.h = None
+    def goto(self, u, **k):
+        self.gotos.append(u); self.url = self.url_after if "seller-admin" in u else u
+        for st in self.statuses: self.h and self.h(types.SimpleNamespace(url="https://api.a-bly.com/seller/contact_rooms/?x", status=st))
+    def wait_for_timeout(self, ms): pass
+    def is_closed(self): return False
+    def locator(self, sel): return PLoc([])
+assert L.ably_api_ok(APage([200])) is True
+assert L.ably_api_ok(APage([401])) is False
+assert L.ably_api_ok(APage([], url_after="https://my.a-bly.com/login")) is False
+assert L.ably_api_ok(APage([]), wait_ms=1000) is None
+dead = APage([401])
+assert L.vendor_logged_in(dead, "에이블리") is False and dead.gotos[-1] == L.LOGIN_URL["에이블리"], "풀렸으면 로그인 화면으로 되돌림"
+assert L.vendor_logged_in(APage([200]), "에이블리") is True
+other = APage([401]); assert L.vendor_logged_in(other, "지그재그") is True and other.gotos == [], "다른 업체는 예전처럼 화면만"
+assert _WAIT_BY["에이블리"] == 900
 nocap = RPage(); nocap.locator = lambda sel: PLoc([])
 assert "찾지 못함" in L.apply_remote(nocap, {"answer": "1"})
 L.submit_login = _sub

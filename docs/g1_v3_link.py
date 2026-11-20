@@ -172,8 +172,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.37 (2026-11-20)"
-LINK_NOTE = "원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
+LINK_VER = "1.38 (2026-11-20)"
+LINK_NOTE = "에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -746,7 +746,9 @@ async ({listUrls, headers, max}) => {
   const out = {rooms: [], details: {}, errors: []}; const seen = new Set();
   for (const u of listUrls) {
     try {
-      const r = await fetch(u, {headers: headers, credentials: 'include'}); const j = await r.json();
+      const r = await fetch(u, {headers: headers, credentials: 'include'});
+      if (r.status === 401 || r.status === 403) { out.auth = r.status; out.errors.push('목록 HTTP ' + r.status); continue; }
+      const j = await r.json();
       for (const x of (j && j.contact_rooms) || []) { if (x && x.sno && !seen.has(x.sno) && out.rooms.length < max) { seen.add(x.sno); out.rooms.push(x); } }
     } catch (e) { out.errors.push('목록 ' + String(e).slice(0, 120)); }
   }
@@ -873,6 +875,8 @@ def ably_inquiry_core(G, br, cfg):
         test = bool(cfg.get("test"))
         mx = int(cfg.get("test_limit", 3)) if test else ABLY_MAX_ROOMS
         res = pg.evaluate(ABLY_FETCH_JS, {"listUrls": ably_list_urls(cap["url"]), "headers": cap["headers"], "max": mx})
+        if res.get("auth") and not res.get("rooms"):        # 1.38 화면은 떠도 판매자 API 가 거절 = 로그인 풀림 ('방 0개'로 넘어가지 않게)
+            return "로그인 필요", [], f"에이블리 로그인이 풀림 (목록 HTTP {res.get('auth')}) — 메인보드 › 로그인 현황 › 에이블리 [연결]"
     finally:
         try:
             pg.close()
@@ -2523,6 +2527,57 @@ def native_login(G, v, progress, say, creds=None, d=None, wait_sec=None, auto_se
 
 
 
+# ───────── 1.38 (2026-11-20) 에이블리 로그인 판정 — 에이블리 세션 운영가이드(261120) 반영 ─────────
+#  · 세션이 풀려도 화면(my.a-bly.com 껍데기 · localStorage)은 로그인된 것처럼 보임 → 판매자 API(api.a-bly.com/seller) 응답으로 판정
+#  · 자동 로그인은 1번만 (재시도 반복 = 계정 잠김 위험), 안 되면 사람이 이어서 — 에이블리는 15분 기다림
+LOGIN_WAIT_SEC_BY = {"에이블리": 900}
+ABLY_CHECK_URL = "https://seller-admin.a-bly.com/inquiry?iframe=true"
+
+
+def ably_api_ok(pg, wait_ms=10000):
+    """에이블리 판매자 화면을 열어 판매자 API 응답을 봄 → True(2xx) · False(401·403 · 로그인 화면) · None(모름)"""
+    st = []
+
+    def on_resp(r):
+        try:
+            if "api.a-bly.com/seller" in r.url:
+                st.append(r.status)
+        except Exception:
+            pass
+    pg.on("response", on_resp)
+    try:
+        pg.goto(ABLY_CHECK_URL, wait_until="domcontentloaded", timeout=60000)
+        for _ in range(max(1, wait_ms // 500)):
+            if any(200 <= x < 300 for x in st):
+                return True
+            if any(x in (401, 403) for x in st) or "login" in (pg.url or "").lower():
+                return False
+            pg.wait_for_timeout(500)
+        return None
+    except Exception:
+        return None
+    finally:
+        try:
+            pg.remove_listener("response", on_resp)
+        except Exception:
+            pass
+
+
+def vendor_logged_in(pg, v):
+    """1.38 업체별 로그인 판정: 에이블리는 판매자 API 응답까지 확인, 나머지는 예전처럼 화면으로"""
+    if not page_logged_in(pg):
+        return False
+    if v != "에이블리":
+        return True
+    ok = ably_api_ok(pg)
+    if ok is False:
+        try:
+            pg.goto(LOGIN_URL[v], wait_until="domcontentloaded", timeout=60000)   # 다시 로그인 화면으로 (사람이 이어서)
+        except Exception:
+            pass
+    return ok is not False
+
+
 def page_logged_in(pg):
     """로그인 화면이 아니면 True — 주소에 login/nid.naver 등이 없고 비밀번호 칸이 안 보일 때 (수집기와 같은 판정)"""
     try:
@@ -2803,7 +2858,7 @@ def run_login_job(job, cfg, say, progress, d):
                     if v == "토스":                               # 1.34 토스 앱 인증 — 직접 로그인 (판정은 Q&A 목록 응답)
                         out[v] = toss_login(pg, progress, say)
                         continue
-                    if page_logged_in(pg):
+                    if vendor_logged_in(pg, v):           # 1.38 에이블리는 판매자 API 응답까지
                         out[v] = dict(state="ok", note="이미 로그인됨"); say(f"🔑 {v}: 이미 로그인됨"); continue
                     if v in manual:
                         out[v] = manual_login(pg, v, progress, say)
@@ -2818,15 +2873,21 @@ def run_login_job(job, cfg, say, progress, d):
                     if not use and ("채워져 있지 않음" in str(how) or "자동 로그인 실패" in str(how)):
                         out[v] = dict(state="need_password", note="저장된 비밀번호 없음 — 웹에서 아이디·비밀번호를 한 번 넣어 주세요"); continue
                     t0, told, human = time.time(), False, False
+                    wait_sec = LOGIN_WAIT_SEC_BY.get(v, LOGIN_WAIT_SEC)   # 1.38 에이블리 15분
+                    logged, checked = False, -1e9
                     remote = RemoteLogin(getattr(progress, "relay", None), v, use, progress)   # 1.19: 사람에게 넘긴 뒤엔 웹에서도
-                    while time.time() - t0 < LOGIN_WAIT_SEC:
+                    while time.time() - t0 < wait_sec:
                         pg.wait_for_timeout(2000)
-                        if page_logged_in(pg):
-                            break
+                        if page_logged_in(pg) and time.time() - checked > 45:
+                            checked = time.time()            # 1.38 API 확인은 45초에 한 번 (사람이 입력하는 중에 화면을 자꾸 옮기지 않게)
+                            if vendor_logged_in(pg, v):      # 자동 로그인은 위에서 1번만 — 여기선 확인만 (다시 누르지 않음)
+                                logged = True
+                                break
+                            human = True                    # 화면만 넘어가고 API 는 거절 → 사람이 이어서
                         if human:
                             remote.step(pg)
                         if not told and time.time() - t0 > 6:
-                            progress(f"{v}: 휴대폰 2단계 인증이면 휴대폰에서 [확인]을 눌러 주세요 (최대 {max(1, round(LOGIN_WAIT_SEC / 60))}분 기다림)"); told = True
+                            progress(f"{v}: 휴대폰 2단계 인증이면 휴대폰에서 [확인]을 눌러 주세요 (최대 {max(1, round(wait_sec / 60))}분 기다림)"); told = True
                         if not human and (time.time() - t0 > HUMAN_HINT_SEC or page_captcha(pg)):
                             # 1.8: 자동으로 안 되면 창을 그대로 두고 사람에게 넘김 (퀴즈·자동입력 방지 문자도 사람이)
                             try:
@@ -2835,12 +2896,12 @@ def run_login_job(job, cfg, say, progress, d):
                                 pass
                             progress(f"{v}: 자동 로그인이 막혔습니다 — 수집기 PC에 열린 창에서 직접 로그인해 주세요. 로그인되면 창은 자동으로 닫힙니다"); human = True
                     remote.done()
-                    if page_logged_in(pg):
+                    if logged:
                         out[v] = dict(state="ok", note="로그인됨")
                         if given:
                             save_cred(d, v, given[0], given[1]); out[v]["note"] = "로그인됨 · 비밀번호를 이 PC에 저장"
                     else:
-                        out[v] = dict(state="fail", note=f"{max(1, round(LOGIN_WAIT_SEC / 60))}분 안에 로그인되지 않음 — 아이디·비밀번호 또는 2단계 인증 확인")
+                        out[v] = dict(state="fail", note=f"{max(1, round(wait_sec / 60))}분 안에 로그인되지 않음 — 아이디·비밀번호 또는 2단계 인증 확인")
                 except Exception as e:
                     out[v] = dict(state="fail", note=f"오류: {str(e)[:150]}")
                 finally:

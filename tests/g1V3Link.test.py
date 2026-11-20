@@ -728,6 +728,29 @@ rl.done(); assert sent[-1].get("done") is True, "끝나면 그림 지우기"
 assert L.RemoteLogin(None, "x").step(rp) is None, "시트 연결 없으면 아무것도 안 함"
 def bad_relay(**kw): raise RuntimeError("알 수 없는 요청입니다.")
 assert L.RemoteLogin(bad_relay, "x", clock=lambda: 99).step(RPage()) is None, "옛 시트(v10)여도 멈추지 않음"
+# 1.37 퀴즈가 다른 창(네이버 로그인 팝업)에 뜨면 그 창 화면을 보내고, 정답도 그 창에 넣음
+class CPage(RPage):
+    def __init__(self, url, cap=True):
+        super().__init__(); self.url = url; self.has_cap = cap; self.scrolled = 0
+        self.cap.scroll_into_view_if_needed = lambda **k: setattr(self, "scrolled", self.scrolled + 1)
+    def is_closed(self): return False
+    def evaluate(self, js, *a): return None
+    def locator(self, sel):
+        if sel == L.CAPTCHA_SEL: return PLoc([self.cap] if self.has_cap else [])
+        return super().locator(sel)
+main_pg = CPage("https://accounts.commerce.naver.com/login", cap=False)
+popup = CPage("https://nid.naver.com/nidlogin.login", cap=True)
+main_pg.context = popup.context = types.SimpleNamespace(pages=[main_pg, popup])
+assert L.login_target(main_pg) is popup, "퀴즈 칸이 보이는 창"
+popup.has_cap = False
+assert L.login_target(main_pg) is popup, "퀴즈 칸 전이어도 나중에 열린 네이버 로그인 창"
+main_pg.context = types.SimpleNamespace(pages=[main_pg])
+assert L.login_target(main_pg) is main_pg
+popup.has_cap = True; main_pg.context = popup.context = types.SimpleNamespace(pages=[main_pg, popup])
+sent2, ans2 = [], [{"answer": "5678", "submit": False}]
+rl2 = L.RemoteLogin(lambda **kw: (sent2.append(kw) or {"answer": ans2.pop(0) if ans2 else None}), "스마트스토어", None, None, clock=lambda: 50)
+assert rl2.step(main_pg) == "정답 넣음" and popup.cap.v == "5678" and main_pg.cap.v == "", "정답은 퀴즈가 있는 창에"
+assert popup.shots == 1 and main_pg.shots == 0 and popup.scrolled == 1, "그 창을 찍고, 퀴즈 칸이 보이게 내림"
 nocap = RPage(); nocap.locator = lambda sel: PLoc([])
 assert "찾지 못함" in L.apply_remote(nocap, {"answer": "1"})
 L.submit_login = _sub

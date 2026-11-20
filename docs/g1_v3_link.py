@@ -172,8 +172,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.36 (2026-11-18)"
-LINK_NOTE = "게시판 수집 업체에 토스 추가 + 💬 상담톡 토스 칸 (읽기만, 키 C:\\Users\\Public\\toss_api.txt)"
+LINK_VER = "1.37 (2026-11-20)"
+LINK_NOTE = "원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -294,6 +294,49 @@ def apply_remote(pg, ans, use=None):
     return "정답 넣음"
 
 
+def _visible_captcha(p):
+    """보이는 퀴즈 정답 칸 (없으면 None)"""
+    try:
+        cands = p.locator(CAPTCHA_SEL)
+        return next((cands.nth(i) for i in range(min(cands.count(), 6)) if cands.nth(i).is_visible()), None)
+    except Exception:
+        return None
+
+
+def login_target(pg):
+    """1.37 원격 로그인으로 보여 줄 창: 퀴즈가 다른 창(네이버 로그인 팝업·새 탭)에 뜨면 그 창.
+       퀴즈 칸이 보이는 창 → 나중에 열린 네이버 로그인 창 → 원래 창 순서"""
+    try:
+        pages = [p for p in pg.context.pages if not p.is_closed()] or [pg]
+    except Exception:
+        return pg
+    for p in reversed(pages):
+        if _visible_captcha(p) is not None:
+            return p
+    for p in reversed(pages):
+        try:
+            u = (p.url or "").lower()
+        except Exception:
+            u = ""
+        if p is not pg and any(k in u for k in ("nid.naver.com", "accounts.", "login", "captcha")):
+            return p
+    return pg
+
+
+def reveal_captcha(p):
+    """1.37 퀴즈가 화면 아래에 있으면 퀴즈 그림·정답 칸이 보이게 내림 (웹에 보내는 그림은 보이는 부분만이라)"""
+    box = _visible_captcha(p)
+    if box is None:
+        return False
+    try:
+        box.scroll_into_view_if_needed(timeout=1500)
+        # 퀴즈 그림과 정답 칸이 함께 보이게: 그림이 있으면 그림을 화면 가운데 위쪽으로
+        p.evaluate("() => { const im = document.querySelector('#captchaimg, img[src*=captcha i]'); if (im) im.scrollIntoView({block: 'center'}); }")
+    except Exception:
+        pass
+    return True
+
+
 class RemoteLogin:
     """1.19 원격 로그인: 사람에게 넘긴 로그인 창 화면을 웹에 올리고(바뀌었을 때만), 웹에서 넣은 정답·클릭을 대신 넣음
        relay(**kw) = 시트 loginShot 호출 (없으면 아무것도 안 함)"""
@@ -311,6 +354,8 @@ class RemoteLogin:
         if now - self.last < self.EVERY:
             return None
         self.last = now
+        pg = login_target(pg)            # 1.37 퀴즈가 다른 창(네이버 로그인 팝업)에 뜨면 그 창을
+        reveal_captcha(pg)               # 1.37 퀴즈가 화면 아래면 보이게 내림
         img = shoot(pg)
         sig = hashlib.md5(img.encode("ascii")).hexdigest() if img else None
         send = img if img and (sig != self.sig or now - self.sent > self.RESEND) else ""

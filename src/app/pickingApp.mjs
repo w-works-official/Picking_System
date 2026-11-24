@@ -347,6 +347,7 @@ const els = {
   csPanel: document.getElementById("cs-panel"),
   customOrdersPanel: document.getElementById("custom-orders-panel"),
   completedPanel: document.getElementById("completed-panel"),
+  dataPanel: document.getElementById("data-panel"),
   shortageListCount: document.getElementById("shortage-list-count"),
   shortageBulkCompleteBtn: document.getElementById("shortage-bulk-complete-btn"),
   shortageListBody: document.getElementById("shortage-list-body"),
@@ -5484,6 +5485,7 @@ function renderShell() {
   if (els.csPanel) els.csPanel.hidden = state.activeTab !== "cs";
   if (els.customOrdersPanel) els.customOrdersPanel.hidden = state.activeTab !== "custom-orders";
   if (els.completedPanel) els.completedPanel.hidden = state.activeTab !== "completed";
+  if (els.dataPanel) els.dataPanel.hidden = state.activeTab !== "data";
   renderSideShortcuts();
 }
 
@@ -5518,7 +5520,22 @@ function renderActivePanel(options = {}) {
   }
   if (state.activeTab === "completed") {
     renderCompletedPanels();
+    return;
   }
+  if (state.activeTab === "data") {
+    openDataPanel();
+  }
+}
+
+// 11-24 사이드바 [데이터] — 처음 열 때 불러오고, 다시 열면 새로 조회
+let dataPanelApi = null;
+function openDataPanel() {
+  if (dataPanelApi?.load) { dataPanelApi.load(); return; }
+  if (dataPanelApi) return;
+  dataPanelApi = {};
+  import("./dataPanel.mjs?v=20261124-data1")
+    .then((m) => { dataPanelApi = m.mountDataPanel({ root: document.getElementById("data-panel-root"), db }) || {}; })
+    .catch((error) => { dataPanelApi = null; toast(`데이터 화면을 불러오지 못했습니다: ${error?.message || error}`); });
 }
 
 function render() {
@@ -11261,7 +11278,7 @@ function setActiveTab(tab) {
     return;
   }
   const requestedTab = tab === "gold" ? "picking" : tab;
-  const allowedTabs = new Set(["dashboard", "picking", "shortage", "inspection", "cs", "custom-orders", "completed"]);
+  const allowedTabs = new Set(["dashboard", "picking", "shortage", "inspection", "cs", "custom-orders", "completed", "data"]);
   state.activeTab = allowedTabs.has(requestedTab) ? requestedTab : "picking";
   if (tab === "gold") {
     state.filterMode = "gold";

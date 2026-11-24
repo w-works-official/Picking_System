@@ -1,0 +1,24 @@
+/* 피킹시스템 › 데이터 (2026-11-24) */
+#data-panel { padding: 0 4px 24px; }
+.dp-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; margin-top: 10px; }
+.dp-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.dp-head h3 { margin: 0; font-size: 17px; font-weight: 800; }
+.dp-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.dp-date { height: 32px; padding: 0 8px; border: 1px solid #d1d5db; border-radius: 8px; font: inherit; }
+.dp-state { color: #6b7280; font-size: 13px; }
+.dp-summary { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 12px 0; padding: 10px 12px; border-radius: 10px; background: #fff7ed; font-size: 14px; }
+.dp-summary b { font-size: 18px; color: #c2410c; }
+.dp-grid { display: grid; grid-template-columns: minmax(300px, 0.8fr) minmax(460px, 1.4fr); gap: 16px; align-items: start; }
+@media (max-width: 980px) { .dp-grid { grid-template-columns: 1fr; } }
+.dp-grid h4 { margin: 4px 0 6px; font-size: 14px; color: #374151; }
+.dp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dp-table th { text-align: right; padding: 6px 8px; background: #f9fafb; color: #6b7280; font-weight: 700; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+.dp-table td { text-align: right; padding: 5px 8px; border-bottom: 1px solid #f3f4f6; white-space: nowrap; }
+.dp-table th:first-child, .dp-table td:first-child { text-align: left; }
+.dp-hot { color: #dc2626; font-weight: 800; }
+.dp-up { color: #dc2626; } .dp-down { color: #16a34a; }
+.dp-barcell { width: 32%; min-width: 80px; text-align: left !important; }
+.dp-bar { display: inline-block; height: 10px; border-radius: 5px; background: #fb923c; vertical-align: middle; }
+.dp-today { background: #fefce8; }
+.dp-today small { color: #a16207; }
+.dp-note { margin: 10px 0 0; color: #6b7280; font-size: 12px; }

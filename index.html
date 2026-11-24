@@ -32,6 +32,7 @@
     </script>
     <link rel="stylesheet" href="src/styles/workspaceNavigation.css?v=20261118-hdr1">
     <link rel="stylesheet" href="src/styles/pickingNotice.css?v=20261118-hdr1">
+    <link rel="stylesheet" href="src/styles/dataPanel.css?v=20261124-data1">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   </head>
   <body>
@@ -100,6 +101,7 @@
             <button class="tab" data-app-tab="cs">CS</button>
             <button class="tab" data-app-tab="custom-orders">주문제작</button>
             <button class="tab" data-app-tab="completed">작업완료</button>
+            <button class="tab" data-app-tab="data">데이터</button>
           </nav>
           <div id="side-shortcuts" class="side-shortcuts"></div>
           <div class="side-section">
@@ -524,6 +526,11 @@
             </section>
           </div>
         </section>
+
+        <!-- 2026-11-24 데이터 (src/app/dataPanel.mjs) — 미송 추이 -->
+        <section id="data-panel" class="workflow-panel" hidden>
+          <div id="data-panel-root"></div>
+        </section>
       </main>
 
       <section id="bottom-tray" class="bottom-tray">
@@ -548,7 +555,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="src/auth/pickingAuth.js?v=20261007-login1"></script>
     <script type="module" src="src/app/workspaceNavigation.mjs?v=20261028-purchase1"></script>
-    <script type="module" src="src/app/pickingBootstrap.mjs?v=20261118-insp1"></script>
+    <script type="module" src="src/app/pickingBootstrap.mjs?v=20261124-data1"></script>
     <script type="module" src="src/app/pickingNoticeBoot.mjs?v=20261118-hdr1"></script>
     <script>
       if ("serviceWorker" in navigator) {

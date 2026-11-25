@@ -1,3 +1,4 @@
+// ⚠ 11-25: 💬 메신저 탭(data-left-tab="msn" · data-msn-panel="reply")을 없앰 — 이 파일의 메신저 부분은 옛 기준 (CI 에서 돌리지 않는 시험)
 // CS 자동화 화면 브라우저 시험 (게이트 밖 — CS 화면을 건드리면 따로 실행)
 // 1) 시트 연결 전: 가상셋팅·빨간 미작동 버튼·상단 버튼 위치  2) 가짜 시트 연결: 고르기·자동 저장·AI 추천·충돌
 import { noUiZoom } from "./helpers/uiZoom.mjs";

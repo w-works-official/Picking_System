@@ -72,9 +72,12 @@ assert.deepEqual(r.items.map((x) => x.day), ["2026-11-25"]);
 r = g.post({ action: "workHistory", token: TOKEN });
 assert.deepEqual(r.items.map((x) => [x.staff, x.day]), [["지영", "2026-11-25"], ["민수", "2026-11-24"]]);
 
-// 화면 연결
+// 화면 연결 (11-25 달력 옆 공지사항 = 맨 위 공지와 같은 내용)
 const html = readFileSync("task/index.html", "utf8");
+assert.match(html, /data-wk-notice-text/);
+const app = readFileSync("src/app/workApp.mjs", "utf8");
+assert.ok(app.includes("window.SystemV3Notice") && app.includes("api.saveText(text)") && !app.includes("workNotice"), "달력 옆 공지 = 맨 위 공지(noticeSave)");
 assert.match(html, /data-work-tab="log"[^>]*>업무 내역<\/button>/);
 assert.match(html, /data-work-tab="ship"[^>]*>배송 내역<\/button>/);
-assert.match(html, /workBoot\.mjs\?v=20261125-work1/);
+assert.match(html, /workBoot\.mjs\?v=20261125-work2/);
 console.log("workBoard ok");

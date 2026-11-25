@@ -144,7 +144,7 @@ export function mountDailyReport({ document, window, root, post, isLive = () => 
     try {
       let ping;
       try { ping = await helper("/ping"); }
-      catch { throw new Error("이 PC 의 창 도우미에 연결하지 못했습니다 — 카톡이 있는 PC 에서 💬 메신저 탭 [🖥 화면 연결] 후 다시 눌러 주세요"); }
+      catch { throw new Error("이 PC 의 창 도우미에 연결하지 못했습니다 — 카톡이 있는 PC 에서 📦 거래처 탭 [🖥 화면 연결] 후 다시 눌러 주세요"); }
       if (helperTooOld(ping.ver)) {
         say(`창 도우미 ${String(ping.ver || "").split(" ")[0]} → 1.30 으로 바꾸는 중…`);
         try { await helper("/update", {}, 40000); }

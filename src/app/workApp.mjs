@@ -19,6 +19,7 @@ export function mountWorkApp({ document, window, fetchImpl, storage } = {}) {
   const S = {
     day: kstDay(), month: kstDay(), staff: [], templates: {}, days: {}, calendar: {},
     slots: readSlots(store), drafts: {}, editTpl: {}, checked: {}, busy: false, loaded: false,
+    notice: { text: "", savedAt: "", editor: "" }, noticeDirty: false,
   };
 
   function creds() {
@@ -81,9 +82,9 @@ export function mountWorkApp({ document, window, fetchImpl, storage } = {}) {
   function slotHtml(name, i) {
     const options = [...new Set([...S.staff, ...S.slots.filter(Boolean)])].sort((a, b) => a.localeCompare(b, "ko"));
     const head = `<div class="wk-slot-head">
-      <select data-slot-staff aria-label="직원"><option value="">직원 고르기</option>${options.map((n) => `<option${n === name ? " selected" : ""}>${esc(n)}</option>`).join("")}<option value="__new">＋ 새 직원</option></select>
+      <select data-slot-staff aria-label="직원"><option value="">이름을 넣어주세요</option>${options.map((n) => `<option${n === name ? " selected" : ""}>${esc(n)}</option>`).join("")}<option value="__new">+ 이름 등록하기</option></select>
       <span class="wk-slot-tools">${name ? `<button type="button" data-slot-hist>내역</button>` : ""}${S.slots.length > 1 ? `<button type="button" data-slot-close title="이 슬롯 닫기">✕</button>` : ""}</span></div>`;
-    if (!name) return `<section class="wk-slot is-empty" data-slot="${i}">${head}<div class="wk-empty">직원을 고르거나 ＋ 새 직원으로 이름을 넣어 주세요</div></section>`;
+    if (!name) return `<section class="wk-slot is-empty" data-slot="${i}">${head}<div class="wk-empty">위에서 이름을 고르거나 + 이름 등록하기로 넣어 주세요</div></section>`;
     const tpl = normalizeItems(S.templates[name]);
     const editing = !!S.editTpl[name];
     const checked = S.checked[name] || new Set();
@@ -117,10 +118,37 @@ export function mountWorkApp({ document, window, fetchImpl, storage } = {}) {
     $("[data-wk-addslot]", root).disabled = S.slots.length >= WORK_SLOT_MAX;
     $("[data-wk-addslot]", root).textContent = `＋ 슬롯 (${S.slots.length}/${WORK_SLOT_MAX})`;
   }
+  // 달력 옆 공지사항 = 맨 위 공지(롤링)와 같은 내용 — pickingNoticeBoot 가 내놓은 window.SystemV3Notice 로 읽고 저장
+  const noticeApi = () => window.SystemV3Notice || null;
+  function bindNotice() {
+    const api = noticeApi();
+    if (!api || S.noticeBound) return;
+    S.noticeBound = true;
+    api.subscribe((n) => { S.notice = { text: n.text || "", savedAt: n.updatedAt || "", editor: n.editor || "" }; renderNotice(); });
+  }
+  window.addEventListener?.("system-v3-notice-ready", bindNotice);
+  function renderNotice() {
+    const ta = $("[data-wk-notice-text]", root);
+    if (ta && !S.noticeDirty && document.activeElement !== ta) ta.value = S.notice.text || "";
+    const meta = $("[data-wk-notice-meta]", root);
+    const when = (() => { const d = new Date(S.notice.savedAt); if (Number.isNaN(d.getTime())) return String(S.notice.savedAt || "").slice(5, 16); const k = new Date(d.getTime() + 9 * 3600000).toISOString(); return `${k.slice(5, 10)} ${k.slice(11, 16)}`; })();
+    if (meta) meta.textContent = S.noticeDirty ? "⚠ 저장 안 됨" : S.notice.savedAt ? `${when}${S.notice.editor ? ` · ${S.notice.editor}` : ""} · 한 줄 = 메시지 하나 (위 칸에서 3초마다 넘어감)` : "한 줄 = 메시지 하나 (위 칸에서 3초마다 넘어감)";
+  }
   function render() {
     $("[data-wk-date]", root).value = S.day;
     renderCalendar();
+    renderNotice();
     renderSlots();
+  }
+  async function saveNotice() {
+    const text = $("[data-wk-notice-text]", root)?.value || "";
+    const api = noticeApi();
+    if (!api) { say("공지 칸을 아직 불러오는 중입니다 — 잠시 뒤 다시 눌러 주세요", true); return; }
+    say("공지 저장 중…");
+    const r = await api.saveText(text);
+    if (r.ok) { S.noticeDirty = false; say("공지를 저장했습니다 — 위 칸에 바로 보입니다"); }
+    else { if (r.conflict) S.noticeDirty = false; say(r.error || "공지를 저장하지 못했습니다", true); }
+    renderNotice();
   }
 
   // ---- 불러오기·저장 ----
@@ -194,6 +222,7 @@ export function mountWorkApp({ document, window, fetchImpl, storage } = {}) {
     if (t.closest("[data-wk-day]")) { load(t.closest("[data-wk-day]").dataset.wkDay); return; }
     if (t.closest("[data-wk-today]")) { load(kstDay()); return; }
     if (t.closest("[data-wk-step]")) { load(addDays(S.day, Number(t.closest("[data-wk-step]").dataset.wkStep))); return; }
+    if (t.closest("[data-wk-notice-save]")) { saveNotice(); return; }
     if (t.closest("[data-wk-addslot]")) { if (S.slots.length < WORK_SLOT_MAX) { S.slots.push(""); writeSlots(store, S.slots); renderSlots(); } return; }
     const slot = slotOf(t); if (!slot) return;
     const idx = Number(slot.dataset.slot), name = nameOf(t);
@@ -234,7 +263,7 @@ export function mountWorkApp({ document, window, fetchImpl, storage } = {}) {
     if (t.matches("[data-slot-staff]")) {
       let v = t.value;
       if (v === "__new") {
-        v = (window.prompt?.("새 직원 이름") || "").trim().slice(0, 30);
+        v = (window.prompt?.("등록할 이름") || "").trim().slice(0, 30);
         if (!v) { renderSlots(); return; }
       }
       S.slots[idx] = v; writeSlots(store, S.slots); renderSlots(); return;
@@ -252,6 +281,7 @@ export function mountWorkApp({ document, window, fetchImpl, storage } = {}) {
   });
   root.addEventListener("input", (e) => {
     const t = e.target;
+    if (t.matches("[data-wk-notice-text]")) { S.noticeDirty = true; renderNotice(); return; }
     if (t.matches("[data-memo]")) { const name = nameOf(t); setDay(name, { ...dayOf(name), memo: t.value }); const s = $(".wk-saved", slotOf(t)); if (s) s.textContent = "⚠ 저장 안 됨"; }
   });
   root.addEventListener("keydown", (e) => {
@@ -301,6 +331,7 @@ export function mountWorkApp({ document, window, fetchImpl, storage } = {}) {
   window.setInterval?.(() => { const t = kstDay(); if (t !== lastToday) { const follow = S.day === lastToday; lastToday = t; if (follow) load(t); } }, 60000);
 
   render();
+  bindNotice();
   load();
   return { load, state: S };
 }

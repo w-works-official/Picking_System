@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-25 v39: 🗂 기록 보관함 '기록보관' 탭 — 게시판 문의·리뷰 · 상담톡 · 메신저 답장 후보 · 거래처 회신 판독을 평일 5일치만 남기고(더 오래된 줄은 쓸 때마다 지움) logSearch 로 검색 · 피킹시스템 [데이터] 탭에서 봄 · v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-25 v40: 배송기록 — 방금 올린 사진·동영상(_NAS로 칸)도 바로 목록에(⏳ NAS 로 보내는 중) · 확장자로도 영상 판단 · 게시판 AI 답변안에 우리가 실제로 보낸 비슷한 답변을 예시로 · v39: 🗂 기록 보관함 '기록보관' 탭 — 게시판 문의·리뷰 · 상담톡 · 메신저 답장 후보 · 거래처 회신 판독을 평일 5일치만 남기고(더 오래된 줄은 쓸 때마다 지움) logSearch 로 검색 · 피킹시스템 [데이터] 탭에서 봄 · v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -629,6 +629,7 @@ function suggest_(body) {
   var quota = withLock_(function () { return reserveAi_(1); });
   if (!quota.allow) return { ok: false, error: '오늘 AI 추천 한도(' + quota.limit + '회)를 다 썼습니다.' };
 
+  row._examples = examplesFor_(row, examplePool_(values_(sheet)));   // v40 우리가 실제로 보낸 비슷한 답변
   var response = UrlFetchApp.fetch('https://api.anthropic.com/v1/messages', claudeRequest_(apiKey, row));
   var texts = answersFromResponse_(response, row); // 3~7초 — 잠금 밖에서
   return withLock_(function () {
@@ -667,6 +668,13 @@ function promptFor_(row) {
     lines.push('', '이번 문의' + (inquiry.title ? ' (제목: ' + inquiry.title + ')' : '') + ':', '고객: ' + (inquiry.question || '(내용 없음)'));
   }
   if (inquiry.photos && inquiry.photos.length) lines.push('(고객이 사진 ' + inquiry.photos.length + '장을 첨부함 — 사진 내용은 직접 확인하지 못함)');
+  var ex = Array.isArray(row._examples) ? row._examples : [];
+  if (ex.length) {
+    lines.push('', '참고 — 우리가 실제로 보낸 비슷한 ' + (review ? '리뷰 답글' : '답변') + ' (말투·안내 내용은 이것을 따르고, 문장은 이번 ' + (review ? '리뷰' : '문의') + '에 맞게 새로 쓸 것):');
+    ex.forEach(function (e, k) { lines.push('[예시 ' + (k + 1) + '] 고객: ' + e.q, '          우리: ' + e.a); });
+    lines.push('- 예시에서 우리가 바로 안내한 내용(바변경 가능 여부, 출고 일정, 교환·반품 방법 등)은 같은 방식으로 바로 안내할 것.',
+      '- "확인 후 안내드리겠습니다" 같은 확인 약속 문구는 예시에도 없고 정말 알 수 없는 내용일 때만, 후보 10개 중 2개 이하로.');
+  }
   lines.push('', review ? '이 리뷰에 달 답글 후보 10개를 JSON 배열로만 출력하세요.' : '(게시판 답변이라 메신저보다 조금 길어도 됩니다: 2~5문장)', review ? '' : '이번 문의에 보낼 답변 후보 10개를 JSON 배열로만 출력하세요.');
   return lines.join('\n').replace(/\n+$/, '');
 }
@@ -751,6 +759,8 @@ function autoSuggest_(keys) {
   var quota = withLock_(function () { return reserveAi_(targets.length); });
   targets = targets.slice(0, quota.allow);
   if (!targets.length) return 0;
+  var pool = examplePool_(values_(sheet));   // v40
+  targets.forEach(function (row) { row._examples = examplesFor_(row, pool); });
   var responses = UrlFetchApp.fetchAll(targets.map(function (row) { return claudeRequest_(apiKey, row); }));
   var added = 0;
   withLock_(function () {
@@ -1754,38 +1764,48 @@ function shipTimeParts_(name, created) {
 }
 function shipTimeKey_(name, created) { return shipTimeParts_(name, created).t; }
 
-function shipFiles_() {
+// v40 (11-25): opts.pending = 방금 올린 '_NAS로' 칸 파일도 목록에 (pending: true — NAS 로 옮겨지기 전) · 종류는 확장자로도 판단(드라이브가 형식을 못 알아본 영상)
+var SHIP_PHOTO_EXT = /\.(jpe?g|png|webp|heic|heif|gif)$/i;
+var SHIP_VIDEO_EXT = /\.(mp4|mov|avi|mkv|m4v|wmv|3gp)$/i;
+function shipFiles_(opts) {
   var root = DriveApp.getFolderById(prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT);
   var out = [];
-  var add = function (folder, sub) {
+  var add = function (folder, sub, pending) {
     var it = folder.getFiles();
     while (it.hasNext() && out.length < SHIP_MAX_FILES) {
       var f = it.next();
       var mime = String(f.getMimeType() || '');
-      var kind = /^image\//.test(mime) ? 'photo' : /^video\//.test(mime) ? 'video' : '';
+      var nm = String(f.getName() || '');
+      var kind = /^image\//.test(mime) ? 'photo' : /^video\//.test(mime) ? 'video' : SHIP_PHOTO_EXT.test(nm) ? 'photo' : SHIP_VIDEO_EXT.test(nm) ? 'video' : '';
       if (!kind) continue;
       var created = f.getDateCreated();
-      var tp = shipTimeParts_(f.getName(), created);
-      out.push({ id: f.getId(), name: f.getName(), kind: kind, mime: mime, size: f.getSize(), folder: sub, t: tp.t, ms: tp.ms });
+      var tp = shipTimeParts_(nm, created);
+      var row = { id: f.getId(), name: nm, kind: kind, mime: mime, size: f.getSize(), folder: sub, t: tp.t, ms: tp.ms };
+      if (pending) row.pending = true;
+      out.push(row);
     }
   };
   add(root, '');
   var subs = root.getFolders();
-  while (subs.hasNext()) { var sf = subs.next(); if (String(sf.getName()).charAt(0) !== '_') add(sf, sf.getName()); } // '_' 로 시작하는 폴더(_NAS로 등)는 목록에서 뺌
+  while (subs.hasNext()) {
+    var sf = subs.next(), sn = String(sf.getName());
+    if (sn.charAt(0) !== '_') add(sf, sn);                                       // '_' 로 시작하는 폴더(_NAS로 등)는 목록에서 뺌
+    else if (opts && opts.pending && sn === SHIP_UPLOAD_FOLDER) add(sf, sn, true); // 단, 화면 목록에는 방금 올린 파일도 (NAS 로 보내는 중)
+  }
   // 같은 초에 찍힌 사진·동영상은 사진(송장) 먼저 — 반디캠은 캡처와 녹화가 같은 초에 시작됨
   out.sort(function (a, b) { return a.t < b.t ? -1 : a.t > b.t ? 1 : a.kind !== b.kind ? (a.kind === 'photo' ? -1 : 1) : a.ms !== b.ms ? a.ms - b.ms : (a.name < b.name ? -1 : a.name > b.name ? 1 : 0); });
   return out;
 }
 
 function shipList_() {
-  var files = shipFiles_();
+  var files = shipFiles_({ pending: true });
   var known = shipKnown_();
   var unchecked = 0;
   files.forEach(function (f) {
     var k = known[f.id];
     f.checked = !!k;
     if (k) { f.invoice = k.invoice; f.recipient = k.recipient; f.score = k.score; f.orig = k.orig; }
-    else if (f.kind === 'photo') unchecked++;
+    else if (f.kind === 'photo' && !f.pending) unchecked++;
   });
   return { ok: true, files: files, unchecked: unchecked, renamePending: shipPendingRenames_(files, known).length, folder: prop_('SHIP_FOLDER') || SHIP_FOLDER_DEFAULT };
 }
@@ -2794,4 +2814,83 @@ function logSearch_(body) {
   });
   hits.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
   return { ok: true, cutoff: cutoff.toISOString(), keepWeekdays: LOG_KEEP_WEEKDAYS, total: rows.length, matched: hits.length, counts: counts, items: hits.slice(0, LOG_SEARCH_MAX) };
+}
+
+// ---------- v40 (2026-11-25) AI 답변안: 우리가 실제로 보낸 비슷한 답변을 예시로 ----------
+//  · 예시 모음 = 'CS문의' 탭에서 실제로 보낸 답(등록 완료된 답 · 직원이 고르고 종료된 답) + '기록보관' 탭 상담톡 대화의 [고객]→[우리] 짝
+//  · 이번 글과 글자 두 개씩 겹치는 정도(+ 같은 리뷰/문의 · 같은 판매처)로 비슷한 것 몇 개만 골라 AI 에 같이 보냄
+var EXAMPLE_MAX = 6;
+var EXAMPLE_POOL_MAX = 600;
+function exampleClip_(s, n) { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n) + '…' : s; }
+// 어느 글에나 나오는 말끝·인사는 비슷함 계산에서 뺌
+var EXAMPLE_STOP = { '되나': 1, '나요': 1, '하나': 1, '해주': 1, '주세': 1, '세요': 1, '니다': 1, '습니': 1, '합니': 1, '안녕': 1, '녕하': 1, '하세': 1, '어떻': 1, '떻게': 1, '가요': 1, '인가': 1, '있나': 1, '는데': 1, '은데': 1, '감사': 1, '사합': 1, '고객': 1, '객님': 1, '했는': 1, '했어': 1, '어요': 1, '해요': 1, '되요': 1, '돼요': 1 };
+function bigrams_(s) {
+  s = String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+  var o = {}, n = 0;
+  for (var i = 0; i < s.length - 1; i++) { var g = s.substr(i, 2); if (!o[g] && !EXAMPLE_STOP[g]) { o[g] = 1; n++; } }
+  return { set: o, n: n };
+}
+function sentAnswer_(r) {
+  if (r.reg && r.reg.state === '완료' && r.reg.text) return String(r.reg.text);
+  var c = r.choice || {};
+  if (r.closed && c.pick >= 0) {
+    var e = c.edits || {};
+    if (Object.prototype.hasOwnProperty.call(e, c.pick)) return String(e[c.pick] || '');
+    return String(((r.drafts || [])[c.pick] || {}).text || '');
+  }
+  return '';
+}
+function examplePool_(rows) {
+  var pool = [];
+  (rows || []).forEach(function (v) {
+    var r = rowOut_(v);
+    var a = sentAnswer_(r);
+    var inq = r.inquiry || {};
+    var q = [inq.title, inq.question].filter(String).join(' ');
+    if (!a.trim() || !String(q).trim()) return;
+    pool.push({ review: isReview_(r.board), vendor: r.vendor, product: r.product, q: q, a: a, key: r.key, at: r.editedAt || r.collectedAt || '' });
+  });
+  try {
+    var ls = book_().getSheetByName(LOG_SHEET);
+    var n = ls ? ls.getLastRow() - 1 : 0;
+    if (n > 0) ls.getRange(2, 1, n, LOG_HEADER.length).getValues().forEach(function (r) {
+      if (String(r[2]) !== '상담톡') return;
+      var last = '';
+      String(plain_(r[5]) || '').split('\n').forEach(function (line) {
+        var m = /^\[(고객|우리)[^\]]*\]\s*(.*)$/.exec(line);
+        if (!m) return;
+        if (m[1] === '고객') last = (last ? last + ' ' : '') + m[2];
+        else if (last && m[2].trim()) { pool.push({ review: false, vendor: plain_(r[3]), product: '', q: last, a: m[2], key: String(r[0]), at: '' }); last = ''; }
+      });
+    });
+  } catch (error) { Logger.log('예시 모음(상담톡) 실패: ' + error); }
+  pool.reverse();   // 최근 것 먼저 (줄이 아래로 쌓이므로)
+  return pool.slice(0, EXAMPLE_POOL_MAX);
+}
+function examplesFor_(row, pool, max) {
+  max = max || EXAMPLE_MAX;
+  var inq = row.inquiry || {};
+  var me = bigrams_([inq.title, inq.question, inq.option, row.product].filter(String).join(' '));
+  var review = isReview_(row.board);
+  if (!me.n) return [];
+  var scored = [];
+  (pool || []).forEach(function (e, i) {
+    if (e.key === row.key) return;
+    if (e.review !== review) return;
+    var b = bigrams_(e.q + ' ' + (e.product || ''));
+    if (!b.n) return;
+    var hit = 0;
+    for (var g in b.set) if (me.set[g]) hit++;
+    var score = hit / Math.sqrt(me.n * b.n) + (e.vendor === row.vendor ? 0.05 : 0) - i * 0.00005;
+    if ((hit >= 2 && score >= 0.12) || review) scored.push({ e: e, s: score });
+  });
+  scored.sort(function (a, b) { return b.s - a.s; });
+  var seen = {}, out = [];
+  for (var k = 0; k < scored.length && out.length < max; k++) {
+    var a = exampleClip_(scored[k].e.a, 400);
+    if (seen[a]) continue;
+    seen[a] = true;
+    out.push({ q: exampleClip_(scored[k].e.q, 250), a: a });
+  }
+  return out;
 }

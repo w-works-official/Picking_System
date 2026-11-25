@@ -101,5 +101,6 @@
   "qtyMultiStyle.contract.test.mjs",
   "csDailyReport.mock.test.mjs",
   "vendorRead.mock.test.mjs",
-  "logArchive.mock.test.mjs"
+  "logArchive.mock.test.mjs",
+  "workBoard.mock.test.mjs"
 ]

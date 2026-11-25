@@ -154,6 +154,10 @@
   · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
   · 키 파일이 없으면 업체 결과 '키 없음' 으로 알림
 
+1.40 (2026-11-25) 게시판·리뷰 자동 수집 기본 켜기 — 미리 모아 두어 기다리는 시간 줄이기
+  · 이 버전으로 처음 켤 때 한 번만: 자동 수집이 꺼져 있으면 켜고(08:30부터 20분마다 · 게시판 + 리뷰), 간격이 20분보다 길면 20분으로
+  · 그 뒤 웹 CS 관리 › ⚙ 설정에서 끄거나 간격을 바꾸면 그 설정을 그대로 둠 (다시 켜지 않음)
+
 1.39 (2026-11-25) 스마트스토어 톡톡 구조 확인 — 한 번만 · 읽기만
   · 톡톡은 판매자센터 한 창 안에서 대화를 바꾸는 방식 → 대화를 글자로 읽어 상담톡 칸에 넣으려고, 먼저 화면이 주고받는 요청 모양을 확인
   · 업데이트 뒤 처음 한 번: 화면 밖 네이버 크롬으로 sell.smartstore.naver.com/#/talktalk/chat 을 열어 15초 동안 본 요청 주소 · 칸 이름만
@@ -177,8 +181,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.39 (2026-11-25)"
-LINK_NOTE = "스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
+LINK_VER = "1.40 (2026-11-25)"
+LINK_NOTE = "게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -3116,6 +3120,40 @@ def run_settings_job(job, say):
     return True, ("저장: " + ", ".join(names.get(k, k) for k in changed)) if changed else "바뀐 설정 없음", {"settings": {k: c.get(k) for k in SETTING_KEYS}}
 
 
+# 1.40 (2026-11-25) 자동 수집 기본 켜기 — 직원분 요청: 문의·리뷰가 미리 들어와 있게
+AUTO_DEFAULT = {"start": "08:30", "interval": 20}
+AUTO_DEFAULT_FLAG = "auto_default_261125"
+
+
+def apply_auto_default(G, d, say=print):
+    """이 연결 프로그램에서 한 번만: 자동 수집이 꺼져 있으면 켜고 간격을 20분 이하로. 바꿨으면 True"""
+    if d.get(AUTO_DEFAULT_FLAG):
+        return False
+    c = G.load_cfg()
+    changed = []
+    if not c.get("auto_on"):
+        c["auto_on"] = True
+        changed.append("켜짐")
+        if not c.get("auto_start") or str(c.get("auto_start")) > AUTO_DEFAULT["start"]:
+            c["auto_start"] = AUTO_DEFAULT["start"]
+    try:
+        iv = int(c.get("interval") or 60)
+    except Exception:
+        iv = 60
+    if iv > AUTO_DEFAULT["interval"]:
+        c["interval"] = AUTO_DEFAULT["interval"]
+        changed.append(f"{AUTO_DEFAULT['interval']}분마다")
+    if c.get("no_reviews"):
+        c.pop("no_reviews", None)
+        changed.append("리뷰도 같이")
+    if changed:
+        G.save_cfg(c)
+        _SETUP_CACHE["info"] = None
+        say(f"⏰ 자동 수집 기본값 적용 — {' · '.join(changed)} ({c.get('auto_start')}부터)")
+    d[AUTO_DEFAULT_FLAG] = datetime.datetime.now().isoformat(timespec="seconds")
+    return bool(changed)
+
+
 def next_auto(cfg, now=None):
     if not cfg.get("auto_on"):
         return None
@@ -4414,6 +4452,11 @@ def _loop(G, say, beat, once, bg):
             pass
     hot, fails = False, 0
     nxt = None
+    try:
+        apply_auto_default(G, d, say)              # 1.40 자동 수집 기본 켜기 (한 번만)
+        save_link(d)
+    except Exception as e:
+        say(f"⚠ 자동 수집 기본값 적용 실패: {e}"[:200])
     while True:
         if stop_requested():
             say("중지 요청(G1_weblink_stop.flag) — 끝냅니다")

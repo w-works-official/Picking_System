@@ -90,7 +90,7 @@ assert.equal(helperTooOld(""), true);
 // 화면 연결: ⚙ 설정 맨 위 한 곳 · 시트 v30 · 웹연결 1.30
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
 assert.match(html, /data-left-panel="settings" hidden>\s*<!-- 📊 오늘 CS 리포트[^>]*-->\s*<div data-report-box><\/div>/);
-assert.match(html, /csBoardApp\.mjs\?v=20261118-insp1/);
+assert.match(html, /csBoardApp\.mjs\?v=20261125-ship1/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "settings"\) openReport\(\);/);
 assert.match(app, /import\("\.\/csDailyReportPanel\.mjs\?v=20261118-rp24"\)/);
@@ -105,7 +105,7 @@ assert.match(staff, /'reportData'/, "직원 요청 목록에 없으면 '알 수 
 assert.match(staff, /'reportSummary'/);
 assert.match(gs, /it\.hold \? '답변 △\(보류\)' : it\.done \? '답변 O' : '답변 X'/);
 const py = readFileSync(new URL("../docs/g1_v3_link.py", import.meta.url), "utf8");
-assert.match(py, /LINK_VER = "1\.3\d /);
+assert.match(py, /LINK_VER = "1\.[3-9]\d /);
 assert.match(py, /if p == "\/msn\/text":/);
 const slots = readFileSync(new URL("../src/app/msnSlots.mjs", import.meta.url), "utf8");
 assert.match(slots, /MSN_HELPER_MIN = "1\.3[0-9]"/);   // 1.30 이상 (11-18 1.36)

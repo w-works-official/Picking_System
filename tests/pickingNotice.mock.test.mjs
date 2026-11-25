@@ -1,12 +1,17 @@
 // ★ 공지 메모장 (11-11) — 맨 아래 3줄 · 피킹 화면 맨 위 · 테스트 글씨 지움
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { tailLines } from "../src/app/pickingNotice.mjs";
+import { tailLines, noticeMessages, NOTICE_ROLL_MS } from "../src/app/pickingNotice.mjs";
 
 assert.deepEqual(tailLines("a\nb\nc\nd\ne"), ["c", "d", "e"], "맨 아래 3줄");
 assert.deepEqual(tailLines("a\nb\n\n\n"), ["a", "b"], "끝 빈 줄 빼고");
 assert.deepEqual(tailLines(""), []);
 assert.deepEqual(tailLines("a\r\nb"), ["a", "b"]);
+// 11-25: 위 칸은 한 줄(메시지)씩 3초마다 롤링
+assert.equal(NOTICE_ROLL_MS, 3000);
+assert.deepEqual(noticeMessages("  마감 3시 \n\n점심 12:30\r\n  \n택배 기사님 4시"), ["마감 3시", "점심 12:30", "택배 기사님 4시"], "빈 줄 빼고 한 줄 = 메시지");
+assert.deepEqual(noticeMessages(Array.from({ length: 40 }, (_, i) => `m${i}`).join("\n")).length, 30, "최근 30개까지");
+assert.deepEqual(noticeMessages(""), []);
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 assert.ok(!html.includes("피킹탭 단독 이식 테스트"), "제목 밑 테스트 글씨 지움");

@@ -154,6 +154,11 @@
   · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
   · 키 파일이 없으면 업체 결과 '키 없음' 으로 알림
 
+1.39 (2026-11-25) 스마트스토어 톡톡 구조 확인 — 한 번만 · 읽기만
+  · 톡톡은 판매자센터 한 창 안에서 대화를 바꾸는 방식 → 대화를 글자로 읽어 상담톡 칸에 넣으려고, 먼저 화면이 주고받는 요청 모양을 확인
+  · 업데이트 뒤 처음 한 번: 화면 밖 네이버 크롬으로 sell.smartstore.naver.com/#/talktalk/chat 을 열어 15초 동안 본 요청 주소 · 칸 이름만
+    이 폴더 _talk_probe.json 에 저장 (고객 이름·대화 글·번호 값은 안 남김 · 아무것도 누르지 않음 · 파일을 지우면 다시 함)
+
 1.31 (2026-11-17) 토스쇼핑 문의(채팅방) 읽기 — 조회만
   · 토스 문의는 게시판이 아니라 채팅방 → 토스쇼핑 API(상품 등록에 쓰는 키 C:\\Users\\Public\\toss_api.txt)로 3분마다 방 목록 · 대화를 읽어
     V3 CS 관리 › 💬 상담톡 의 '토스쇼핑 문의' 칸으로 (시트 chatIngest platform=toss)
@@ -172,8 +177,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.38 (2026-11-20)"
-LINK_NOTE = "에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
+LINK_VER = "1.39 (2026-11-25)"
+LINK_NOTE = "스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1613,6 +1618,170 @@ def patch_review_collectors(G):
                 return "오류", [], f"스마트스토어 리뷰 창 실행 실패: {e}"[:300]
         G._v3_orig_ss_reviews = orig_ss
         G.collect_reviews_smartstore = collect_reviews_smartstore
+
+
+# ───────── 1.39 (2026-11-25) 스마트스토어 톡톡 구조 확인 — 한 번만 · 읽기만 ─────────
+# 톡톡은 판매자센터(sell.smartstore.naver.com/#/talktalk/chat) 한 창 안에서 대화를 바꾸는 방식이라 대화창을 칸에 붙일 수 없음
+# → 수집기가 그 화면이 주고받는 데이터를 읽어 상담톡 칸으로 넣으려면, 먼저 요청 주소·칸 이름을 알아야 함
+# 여기서는 화면을 열어 15초 동안 오가는 요청의 '주소와 칸 이름(모양)'만 _talk_probe.json 에 남김
+#   · 고객 이름·대화 글·전화번호 같은 값은 남기지 않음 (글자는 길이만, 숫자는 num, 영문 대문자 코드값(상태 등)만 그대로)
+#   · 아무것도 누르지 않음 (대화를 열면 읽음 표시가 바뀔 수 있어서)
+#   · 파일이 이미 있으면 다시 안 함 — 다시 하려면 파일을 지우면 됨
+TALK_URL = "https://sell.smartstore.naver.com/#/talktalk/chat"
+TALK_PROBE_FILE = "_talk_probe.json"
+TALK_PROBE_STATE = {"next": 0.0}
+TALK_PROBE_RETRY = 3600
+TALK_PROBE_MAX = 150
+
+TALK_CLASS_JS = r"""
+() => {
+  const cls = {}, tags = {}, data = {};
+  for (const el of document.querySelectorAll('*')) {
+    tags[el.tagName] = (tags[el.tagName] || 0) + 1;
+    for (const c of el.classList || []) cls[c] = (cls[c] || 0) + 1;
+    for (const a of el.getAttributeNames()) if (a.startsWith('data-') || a === 'role') data[a] = (data[a] || 0) + 1;
+  }
+  const top = (o, n) => Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n);
+  return { title: document.title.length, tags: top(tags, 30), classes: top(cls, 80), attrs: top(data, 40) };
+}
+"""
+
+TALK_PATHS_JS = r"""
+async () => {
+  const out = new Set();
+  const srcs = [...document.scripts].map(s => s.src).filter(Boolean).slice(0, 12);
+  const re1 = /["'`](\/[A-Za-z0-9_\-]*(?:api|chat|talk|partner)[A-Za-z0-9_\-\/{}$.:]{2,120})["'`]/g;
+  const re2 = /https:\/\/[A-Za-z0-9.\-]*(?:talk|chat)[A-Za-z0-9.\-]*\.[a-z]{2,6}(?:\/[^"'`\s<>]{0,120})?/g;
+  for (const u of srcs) {
+    try {
+      const r = await fetch(u); if (!r.ok) continue;
+      const t = await r.text(); if (t.length > 8e6) continue;
+      for (const m of t.matchAll(re1)) { if (out.size < 400) out.add(m[1]); }
+      for (const m of t.matchAll(re2)) { if (out.size < 400) out.add(m[0]); }
+    } catch (e) {}
+  }
+  return { scripts: srcs.length, paths: [...out].sort() };
+}
+"""
+
+
+def talk_shape(v, depth=0):
+    """값은 빼고 모양만: 글자 → strN(길이) · 날짜꼴 → 숫자를 9로 · 영문 대문자 코드(상태값) → 그대로 · 숫자 → num"""
+    if depth > 7:
+        return "…"
+    if isinstance(v, dict):
+        return {str(k)[:60]: talk_shape(x, depth + 1) for k, x in list(v.items())[:80]}
+    if isinstance(v, list):
+        return [talk_shape(v[0], depth + 1), f"x{len(v)}"] if v else []
+    if isinstance(v, bool):
+        return "bool"
+    if isinstance(v, (int, float)):
+        return "num"
+    if v is None:
+        return None
+    s = str(v)
+    if re.fullmatch(r"[A-Z][A-Z0-9_]{1,30}", s):
+        return s
+    if re.fullmatch(r"[\d\-:T. +Z/]{8,32}", s):
+        return re.sub(r"\d", "9", s)
+    return f"str{len(s)}"
+
+
+def talk_mask_url(u):
+    """주소: 물음표 뒤는 이름만 · 긴 숫자/영숫자 아이디는 {n}/{id}"""
+    u = str(u or "")
+    u, _, frag = u.partition("#")
+    frag = ("#" + re.sub(r"\d{4,}", "{n}", frag.split("?")[0])) if frag else ""
+    base, _, q = u.partition("?")
+    parts = base.split("/")
+    for i, p in enumerate(parts):
+        if i < 3:
+            continue
+        if re.fullmatch(r"\d{4,}", p):
+            parts[i] = "{n}"
+        elif re.fullmatch(r"[A-Za-z0-9_\-]{16,}", p) and re.search(r"\d", p):
+            parts[i] = "{id}"
+    names = [kv.split("=")[0] for kv in q.split("&") if kv] if q else []
+    return "/".join(parts) + (("?" + "&".join(n + "=" for n in names[:20])) if names else "") + frag
+
+
+def talk_probe_path():
+    return os.path.join(HERE, TALK_PROBE_FILE)
+
+
+def talk_probe(G, say=print, wait_ms=15000, chrome_cls=None):
+    out = {"ver": LINK_VER, "at": datetime.datetime.now().isoformat(timespec="seconds"), "start": TALK_URL,
+           "requests": [], "ws": [], "frames": [], "notes": []}
+    Chrome = chrome_cls or NativeChrome
+    with Chrome(G, offscreen=True) as nb:
+        pg = nb.page()
+
+        def on_resp(resp):
+            try:
+                rq = resp.request
+                if rq.resource_type not in ("xhr", "fetch") or len(out["requests"]) >= TALK_PROBE_MAX:
+                    return
+                ct = str((resp.headers or {}).get("content-type", ""))[:60]
+                rec = {"m": rq.method, "u": talk_mask_url(resp.url), "s": resp.status, "ct": ct,
+                       "frame": talk_mask_url(rq.frame.url) if getattr(rq, "frame", None) else "",
+                       "reqHeaders": sorted(k for k in (rq.headers or {}) if not k.startswith(":"))[:40]}
+                pd = rq.post_data
+                if pd:
+                    try:
+                        rec["body"] = talk_shape(json.loads(pd))
+                    except Exception:
+                        rec["body"] = f"str{len(pd)}"
+                if "json" in ct:
+                    try:
+                        rec["resp"] = talk_shape(resp.json())
+                    except Exception as e:
+                        rec["resp"] = f"(읽기 실패 {str(e)[:60]})"
+                out["requests"].append(rec)
+            except Exception:
+                pass
+        pg.on("response", on_resp)
+        try:
+            pg.on("websocket", lambda ws: out["ws"].append(talk_mask_url(ws.url)))
+        except Exception:
+            pass
+        pg.goto(TALK_URL, wait_until="domcontentloaded", timeout=60000)
+        pg.wait_for_timeout(wait_ms)
+        out["url"] = talk_mask_url(pg.url)
+        out["login"] = "nid.naver.com" in (pg.url or "")
+        for fr in list(pg.frames)[:8]:
+            rec = {"url": talk_mask_url(fr.url)}
+            try:
+                rec["dom"] = fr.evaluate(TALK_CLASS_JS)
+            except Exception as e:
+                rec["dom"] = f"(읽기 실패 {str(e)[:60]})"
+            try:
+                rec["code"] = fr.evaluate(TALK_PATHS_JS)
+            except Exception as e:
+                rec["code"] = f"(읽기 실패 {str(e)[:60]})"
+            out["frames"].append(rec)
+    tmp = talk_probe_path() + ".tmp"
+    json.dump(out, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    os.replace(tmp, talk_probe_path())
+    note = "로그인 필요(네이버 로그인 화면으로 감)" if out["login"] else f"요청 {len(out['requests'])}개 · 화면 {len(out['frames'])}개"
+    say(f"🔎 톡톡 구조 확인 끝 — {note} → {TALK_PROBE_FILE}")
+    return out
+
+
+def talk_probe_tick(G, say=print, now=None):
+    """1.39 연결 루프에서: 파일이 없을 때 한 번 (실패하면 1시간 뒤 다시)"""
+    now = time.time() if now is None else now
+    if os.path.exists(talk_probe_path()) or now < TALK_PROBE_STATE["next"]:
+        return False
+    TALK_PROBE_STATE["next"] = now + TALK_PROBE_RETRY
+    if not find_chrome():
+        say("⚠ 톡톡 구조 확인: 이 PC에서 크롬을 찾지 못함")
+        return False
+    try:
+        talk_probe(G, say)
+        return True
+    except Exception as e:
+        say(f"⚠ 톡톡 구조 확인 실패 (1시간 뒤 다시): {e}"[:200])
+        return False
 
 
 def link_path():
@@ -4266,6 +4435,8 @@ def _loop(G, say, beat, once, bg):
             push_new_files(link, cfg["out_dir"], d, say)
             push_ably_chat(link, say)               # 1.29
             push_toss_chat(link, say)               # 1.31 토스 문의 (3분마다 · 읽기만)
+            if talk_probe_tick(G, say):             # 1.39 톡톡 구조 확인 (한 번만)
+                beat.set("idle", "웹 요청 기다리는 중")
             save_link(d)
             js = link.call("poll", pc=pc, version=f"{G.VER} / 연결 {LINK_VER}{' · 창 없이' if bg else ''}", busy=False,
                            setup=setup_info(cfg, bg, d, nxt))

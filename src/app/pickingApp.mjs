@@ -5533,7 +5533,7 @@ function openDataPanel() {
   if (dataPanelApi?.load) { dataPanelApi.load(); return; }
   if (dataPanelApi) return;
   dataPanelApi = {};
-  import("./dataPanel.mjs?v=20261124-data1")
+  import("./dataPanel.mjs?v=20261125-log1")
     .then((m) => { dataPanelApi = m.mountDataPanel({ root: document.getElementById("data-panel-root"), db }) || {}; })
     .catch((error) => { dataPanelApi = null; toast(`데이터 화면을 불러오지 못했습니다: ${error?.message || error}`); });
 }

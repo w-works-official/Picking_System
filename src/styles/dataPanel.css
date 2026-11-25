@@ -22,3 +22,28 @@
 .dp-today { background: #fefce8; }
 .dp-today small { color: #a16207; }
 .dp-note { margin: 10px 0 0; color: #6b7280; font-size: 12px; }
+
+/* 11-25 🗂 기록 보관함 */
+.la-sub { font-size: 12px; font-weight: 600; color: #6b7280; margin-left: 4px; }
+.la-search { display: flex; gap: 8px; margin: 12px 0 8px; }
+.la-q { flex: 1; height: 38px; padding: 0 12px; border: 1px solid #d1d5db; border-radius: 10px; font: inherit; font-size: 15px; }
+.la-q:focus { outline: 2px solid #93c5fd; border-color: #60a5fa; }
+.la-kinds { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.la-kinds b { font-weight: 800; margin-left: 2px; }
+.la-list { display: flex; flex-direction: column; gap: 6px; }
+.la-item { border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 12px; cursor: pointer; background: #fff; }
+.la-item:hover { border-color: #93c5fd; }
+.la-item.is-open { border-color: #3b82f6; background: #f8fbff; cursor: auto; }
+.la-top { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.la-top time { margin-left: auto; color: #6b7280; white-space: nowrap; }
+.la-kind { flex: none; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; background: #e5e7eb; color: #374151; }
+.la-k-0 { background: #dbeafe; color: #1d4ed8; } .la-k-1 { background: #fef3c7; color: #b45309; }
+.la-k-2 { background: #dcfce7; color: #15803d; } .la-k-3 { background: #fce7f3; color: #be185d; } .la-k-4 { background: #ede9fe; color: #6d28d9; }
+.la-plat { color: #6b7280; white-space: nowrap; }
+.la-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.la-snip { margin-top: 4px; font-size: 13px; color: #374151; }
+.la-has { font-size: 11px; color: #15803d; font-weight: 700; }
+.la-full, .la-answer { margin-top: 8px; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.la-answer { padding: 8px 10px; border-radius: 8px; background: #f0fdf4; }
+.la-answer span { display: block; font-size: 11px; font-weight: 800; color: #15803d; }
+.la-item mark { background: #fde68a; color: inherit; padding: 0 1px; border-radius: 2px; }

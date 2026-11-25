@@ -20,3 +20,11 @@
 .pk-notice-btn { min-width: 72px; height: 34px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; font: inherit; font-weight: 800; cursor: pointer; }
 .pk-notice-btn.is-primary { border-color: #2563eb; background: #2563eb; color: #fff; }
 @media (max-width: 720px) { .pk-notice { order: 5; flex-basis: 100%; max-width: none; } }
+
+/* 11-25 대표님 요청: 위 칸은 한 줄(메시지)씩 3초마다 위로 넘어감 · 마우스를 올리면 멈춤 */
+.pk-notice-lines { display: flex; align-items: center; gap: 8px; overflow: hidden; height: 30px; }
+.pk-notice-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; line-height: 30px; }
+.pk-notice-msg.is-roll { animation: pk-notice-roll .45s ease-out; }
+.pk-notice-count { flex: none; color: #94a3b8; font-size: 11px; font-weight: 700; }
+@keyframes pk-notice-roll { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .pk-notice-msg.is-roll { animation: none; } }

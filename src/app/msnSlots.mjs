@@ -1,4 +1,4 @@
-// 💬 메신저 탭 — 슬롯(빈 틀)에 메신저 창을 끌어다 놓고, 그 영역만 감지 (2026-11-03 1단계: 디자인·기본 셋팅·카톡창 시험)
+// 💬 메신저 슬롯 (11-25: 💬 메신저 탭은 없어지고 📦 거래처 탭만 이 슬롯을 씀) — 슬롯(빈 틀)에 메신저 창을 끌어다 놓고, 그 영역만 감지 (2026-11-03 1단계: 디자인·기본 셋팅·카톡창 시험)
 //  · 슬롯 위쪽 = 메신저 창을 올려놓을 틀 (네 모서리 분홍 표시) / 아래쪽 = 대답 영역(보낼 답변·복사)
 //  · [🖥 화면 연결] → 전체 화면 공유 → 슬롯 영역만 1초마다 작게 잘라 비교 → 바뀌면 "🔔 새 변화"
 //  · 화면 그림은 이 브라우저 안에서만 씀 (어디에도 보내거나 저장하지 않음). AI 읽기·추천은 다음 단계
@@ -289,7 +289,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
         else if (perm === "prompt") el.textContent = "🪄 창 도우미 ○ 눌러서 연결 (크롬이 물으면 [허용])";
         st.helper.perm = perm;
       });
-      el.title = on ? `창 도우미 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "이 PC에 창 도우미가 켜져 있어야 합니다 (처음이면 💬 메신저 탭 → 💻 이 PC 에서 메신저 쓰기). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
+      el.title = on ? `창 도우미 ${js.ver || ""} — 누르면 찾은 대화창 목록(진단) · 카톡 대화창을 슬롯 가까이 끌어다 놓으면 딱 맞춰 붙고 항상 위에 있습니다` : "이 PC에 창 도우미가 켜져 있어야 합니다 (처음이면 📦 거래처 탭 → 💻 이 PC 에서 메신저 쓰기). 크롬이 '로컬 네트워크 접근'을 물으면 [허용]";
     }
     root.querySelectorAll("[data-msn-act=arrange], [data-msn-act=release]").forEach((b) => { b.disabled = !on; });
     const cta = $("[data-msn-cta]");
@@ -489,7 +489,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
   }
   async function arrange() {
     if (!st.helper.on) await pingHelper();
-    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [🖥 화면 연결]을 누르거나, 처음이면 💬 메신저 탭 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
+    if (!st.helper.on) { say("창 도우미가 연결되지 않았습니다 — [🖥 화면 연결]을 누르거나, 처음이면 📦 거래처 탭 → 💻 이 PC 에서 메신저 쓰기.", "is-bad"); return; }
     try {
       await syncSlots(true);
       if (vendor) say("카톡에서 업체 대화방을 찾아 여는 중… (업체가 많으면 몇십 초)");

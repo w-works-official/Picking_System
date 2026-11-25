@@ -82,7 +82,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       <legend>🚚 배송기록</legend>
       <p class="cs-note">드라이브 <a data-sp-folder target="_blank" rel="noopener">'5_배송기록' 폴더</a>의 배송 중 사진·동영상을 시간 순서로 봅니다.</p>
       <ol class="cs-note cs-install-steps">
-        <li><b>[⬆ 사진·동영상 올리기]</b>: 고르거나 목록에 끌어다 놓으면 NAS 로 보낼 칸(5_배송기록\_NAS로)에 올라갑니다 → 평일 09:20 · 18:50 에 NAS [배송기록]으로 → 09:30 · 19:00 에 이 목록에 들어옵니다 (같은 파일은 건너뜀).</li>
+        <li><b>[⬆ 사진·동영상 올리기]</b>: 고르거나 목록에 끌어다 놓으면 NAS 로 보낼 칸(5_배송기록\_NAS로)에 올라가고 <b>바로 이 목록에 ⏳ 표시로</b> 보입니다 → 평일 09:20 · 18:50 에 NAS [배송기록]으로 옮겨지면 ⏳ 가 사라집니다 (같은 파일은 건너뜀).</li>
         <li><b>[▶ 파일 정리 실행]</b> (오른쪽 위): 아직 확인 안 한 사진을 AI 가 보고 <b>송장 사진</b>이면 받는 분 이름을 <b>파일명 끝</b>에 붙입니다 (예: <code>20261110_143012_홍길동.jpg</code> · 가려진 글자는 ○). 파일은 지우지 않고 순서도 그대로입니다.</li>
         <li><b>묶음</b>: 송장 사진 뒤의 동영상·사진은 다음 송장 사진 전까지 그 수신자 묶음입니다.</li>
         <li><b>검색</b>: 수신자 이름(일부도 됨)이나 메모 글자 · 날짜 · "상품코드 적힌 주문만".</li>
@@ -355,7 +355,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       doneBytes += f.size;
     }
     st.uploading = false;
-    st.note = `⬆ 올리기 끝 — ${ok}개 올림${skipped ? ` · 이미 있어서 건너뜀 ${skipped}개` : ""}${errors.length ? ` · ⚠ 실패 ${errors.length}개: ${errors[0]}` : ""}${ok ? " · 평일 09:20 · 18:50 에 NAS [배송기록]으로 보내고, 09:30 · 19:00 에 이 목록에 들어옵니다" : ""}`;
+    st.note = `⬆ 올리기 끝 — ${ok}개 올림${skipped ? ` · 이미 있어서 건너뜀 ${skipped}개` : ""}${errors.length ? ` · ⚠ 실패 ${errors.length}개: ${errors[0]}` : ""}${ok ? " · 목록에 ⏳ 로 바로 보입니다 (평일 09:20 · 18:50 에 NAS [배송기록]으로 옮겨짐)" : ""}`;
     const input = $("[data-sp-file]");
     if (input) input.value = "";
     await load();
@@ -410,7 +410,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
       <input type="checkbox" data-sp-pick="${esc(f.id)}"${st.picked.has(f.id) ? " checked" : ""} aria-label="${esc(f.name)} 선택">
       <a class="sp-thumb" href="${esc(shipViewUrl(f.id))}" target="_blank" rel="noopener" title="드라이브에서 열기"><img src="${esc(shipThumbUrl(f.id))}" alt="" loading="lazy" referrerpolicy="no-referrer">${f.kind === "video" ? '<span class="sp-play">▶</span>' : ""}${isInvoice ? '<span class="sp-badge">송장</span>' : ""}</a>
       <small class="sp-name" title="${esc(f.name)}">${esc(f.name)}</small>
-      <small class="sp-meta">${esc(shipTimeLabel(f.t))}${f.size ? ` · ${esc(shipSizeLabel(f.size))}` : ""}${f.kind === "photo" && !f.checked ? " · 미확인" : ""}</small>
+      <small class="sp-meta">${esc(shipTimeLabel(f.t))}${f.size ? ` · ${esc(shipSizeLabel(f.size))}` : ""}${f.pending ? ' · <b class="sp-pending" title="방금 올린 파일 — 평일 09:20 · 18:50 에 NAS [배송기록]으로 옮겨집니다">⏳ NAS로 보내는 중</b>' : f.kind === "photo" && !f.checked ? " · 미확인" : ""}</small>
     </label>`;
   function groupHtml(g) {
     if (g.memoOnly) {

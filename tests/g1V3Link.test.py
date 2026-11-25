@@ -370,7 +370,7 @@ G.RUN_LOCK.release()
 
 # 16) 설정 저장: 아는 칸만, 업체는 합침
 saved = {}
-G.load_cfg = lambda: json.loads(json.dumps({**cfg, "days": 7, "vendors": {"스마트스토어": True, "지그재그": True, "에이블리": True, "메이크샵": True}}))
+G.load_cfg = lambda: json.loads(json.dumps({**cfg, "days": 7, "auto_on": False, "vendors": {"스마트스토어": True, "지그재그": True, "에이블리": True, "메이크샵": True}}))
 G.save_cfg = lambda c: saved.update(c)
 ok, msg, data = L.run_settings_job({"body": {"settings": {"days": 14, "auto_on": True, "auto_start": "10:00", "interval": 30, "vendors": {"메이크샵": False, "없는업체": True}, "ss_secret_enc": "x"}}}, say)
 assert ok and saved["days"] == 14 and saved["auto_on"] is True and saved["vendors"]["메이크샵"] is False and "없는업체" not in saved["vendors"]
@@ -1679,3 +1679,17 @@ try:
 finally:
     L.talk_probe_path = _pp
 print("g1V3Link talk probe (1.39): OK")
+
+# 1.40 자동 수집 기본 켜기 — 한 번만, 그 뒤 사람이 바꾼 설정은 그대로
+assert L.LINK_VER >= "1.40"
+_cfgbox = {"c": {"auto_on": False, "auto_start": "09:30", "interval": 60, "no_reviews": True}}
+_G40 = types.SimpleNamespace(load_cfg=lambda: dict(_cfgbox["c"]), save_cfg=lambda c: _cfgbox.__setitem__("c", dict(c)))
+_d40 = {}
+assert L.apply_auto_default(_G40, _d40, print) is True
+assert _cfgbox["c"]["auto_on"] is True and _cfgbox["c"]["interval"] == 20 and _cfgbox["c"]["auto_start"] == "08:30" and "no_reviews" not in _cfgbox["c"]
+assert _d40.get(L.AUTO_DEFAULT_FLAG)
+_cfgbox["c"].update(auto_on=False, interval=60)          # 사람이 웹에서 끔
+assert L.apply_auto_default(_G40, _d40, print) is False and _cfgbox["c"]["auto_on"] is False, "한 번만"
+_cfgbox["c"] = {"auto_on": True, "auto_start": "07:00", "interval": 15}
+assert L.apply_auto_default(_G40, {}, print) is False and _cfgbox["c"] == {"auto_on": True, "auto_start": "07:00", "interval": 15}, "이미 켜져 있고 더 짧으면 그대로"
+print("g1V3Link auto default (1.40): OK")

@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-17 v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-25 v39: 🗂 기록 보관함 '기록보관' 탭 — 게시판 문의·리뷰 · 상담톡 · 메신저 답장 후보 · 거래처 회신 판독을 평일 5일치만 남기고(더 오래된 줄은 쓸 때마다 지움) logSearch 로 검색 · 피킹시스템 [데이터] 탭에서 봄 · v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -210,7 +210,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead', 'logSearch'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot', 'chatIngest'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -251,6 +251,7 @@ function route_(body) {
   if (action === 'reportData') return reportData_(body);
   if (action === 'reportSummary') return reportSummary_(body);
   if (action === 'vendorRead') return vendorRead_(body);
+  if (action === 'logSearch') return logSearch_(body);
   if (action === 'chatIngest') return withLock_(function () { return chatIngest_(body); });
   if (action === 'retSave') return withLock_(function () { return retSave_(body); });
   if (action === 'newPics') return updPics_(body);
@@ -973,6 +974,9 @@ function releaseRegister_(items, results) {
     if (state === '완료') {
       sheet.getRange(found.index, COL.closed, 1, 1).setValues([[now]]);
       sheet.getRange(found.index, COL.editedAt, 1, 1).setValues([[now]]);
+      var lb = logBoard_(row.key, row.vendor, row.board, row.product, stringify_(row.inquiry || {}), now);
+      lb.answer = body_(items[i].text, LOG_TEXT_LIMIT);
+      logPutSafe_([lb]);
     }
     sheet.getRange(found.index, COL.status, 1, 1).setValues([[statusOf_(state === '완료' || row.closed, row.drafts, row.choice, reg)]]);
   }
@@ -1042,6 +1046,8 @@ function msnSuggest_(body) {
   withLock_(function () { recordUsage_(res.usage, model, '메신저'); });
   var answers = answersFrom_(out, count).map(function (a) { return body_(a, 600).trim(); }).filter(String);
   if (!answers.length) return { ok: false, error: 'AI 가 답장을 만들지 못했습니다 — 다시 눌러 주세요.' };
+  logLocked_([{ id: 'msn|' + Date.now() + '|' + Math.random().toString(36).slice(2, 8), at: new Date(), kind: '메신저', platform: plain_(clean_(body.app, 20)) || '카톡·네이트온', name: plain_(clean_(body.name, 60)),
+    text: (body.draft ? '쓰다 만 답장: ' + body_(body.draft, 500) + '\n\n' : '') + 'AI 답장 후보:\n' + answers.map(function (a, k) { return (k + 1) + '. ' + a; }).join('\n') }]);
   return { ok: true, answers: answers };
 }
 
@@ -1214,6 +1220,7 @@ function ingest_(sheet, rows, snapshot) {
   var newKeys = [];
   var repaired = [];   // v28 글자 깨짐 고친 줄 — AI 답변안 다시
   var dirty = {};
+  var logs = [];   // v39 기록 보관함
   for (var r = 0; r < list.length; r++) {
     var row = list[r] || {};
     if (row['가상']) continue; // 테스트 수집 결과는 시트에 안 올림
@@ -1229,6 +1236,7 @@ function ingest_(sheet, rows, snapshot) {
       // v28 글자 깨짐(�) 이 있던 줄이 바르게 다시 들어오면: 상품명도 새로 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천 (채택·등록 전만)
       var wasBroken = /\uFFFD/.test(plain_(vals[COL.inquiry - 1]) + current.product) && !/\uFFFD/.test(inquiry + String(row['상품명'] || ''));
       var untouched = !(current.choice && current.choice.pick >= 0) && !current.reg;
+      if (plain_(vals[COL.inquiry - 1]) !== plain_(inquiry)) logs.push(logBoard_(key, vals[COL.vendor - 1], vals[COL.board - 1], clean_(row['상품명'], 300) || vals[COL.product - 1], inquiry, now));
       vals[COL.inquiry - 1] = inquiry;
       vals[COL.collectedAt - 1] = now;
       if (clean_(row['상품명'], 300) && (wasBroken || !current.product)) vals[COL.product - 1] = clean_(row['상품명'], 300);
@@ -1267,6 +1275,7 @@ function ingest_(sheet, rows, snapshot) {
     index[key] = existing.length - 1;
     added++;
     newKeys.push(key);
+    logs.push(logBoard_(key, row['업체'], row['게시판'], row['상품명'], inquiry, now));
   }
   writeRows_(sheet, existing, dirty);
   if (existing.length > origLen) {
@@ -1276,6 +1285,7 @@ function ingest_(sheet, rows, snapshot) {
   }
   var closed = snapshot ? autoClose_(sheet, snapshot, seen) : 0;
   if (snapshot && !snapshot.test) rememberCollect_(snapshot, list.length);
+  logPutSafe_(logs);
   return { ok: true, added: added, updated: updated, reopened: reopened, closed: closed, newKeys: newKeys.concat(repaired), repaired: repaired.length };
 }
 
@@ -1936,7 +1946,7 @@ function chatIngest_(body) {
   var rows = n > 0 ? sheet.getRange(2, 1, n, CHAT_HEADER.length).getValues() : [];
   var at = {};
   rows.forEach(function (r, i) { at[r[0] + '|' + r[1]] = i; });
-  var now = new Date(), added = 0, changed = 0;
+  var now = new Date(), added = 0, changed = 0, logs = [];
   convs.forEach(function (c) {
     var id = clean_(c && c.id, 80);
     if (!id) return;
@@ -1945,9 +1955,10 @@ function chatIngest_(body) {
     if (json.length > CELL_LIMIT) { v.messages = v.messages.slice(-20); json = JSON.stringify(v).slice(0, CELL_LIMIT); }
     var row = [platform, id, now, v.name, v.unread, json];
     var i = at[platform + '|' + id];
-    if (i == null) { rows.push(row); at[platform + '|' + id] = rows.length - 1; added++; }
-    else if (String(rows[i][5]) !== json || Number(rows[i][4]) !== v.unread) { rows[i] = row; changed++; }
+    if (i == null) { rows.push(row); at[platform + '|' + id] = rows.length - 1; added++; logs.push(logChat_(platform, id, v, now)); }
+    else if (String(rows[i][5]) !== json || Number(rows[i][4]) !== v.unread) { if (String(rows[i][5]) !== json) logs.push(logChat_(platform, id, v, now)); rows[i] = row; changed++; }
   });
+  logPutSafe_(logs);
   // 매체마다 최근 CHAT_KEEP 개만
   var keep = [];
   CHAT_PLATFORMS.forEach(function (p) {
@@ -2123,6 +2134,10 @@ function vendorRead_(body) {
     var at = it.y !== null && it.y !== undefined && isFinite(y) && y >= 0 && y <= 1 && isFinite(img) && img >= 0 && img < images.length;
     return { no: plain_(clean_(it.no, 10)), qty: isFinite(q) && q >= 0 ? q : null, sure: it.sure === true, mark: plain_(clean_(it.mark, 60)), img: at ? Math.round(img) : null, y: at ? Math.round(y * 1000) / 1000 : null };
   }).filter(function (it) { return it.no; });
+  var byNo = {}; lines.forEach(function (l) { byNo[l.no] = l; });
+  logLocked_([{ id: 'vendor|' + Date.now() + '|' + Math.random().toString(36).slice(2, 8), at: new Date(), kind: '거래처 회신', platform: '거래처', name: plain_(clean_(body.vendor, 60)),
+    text: (js.note ? '메모: ' + plain_(clean_(js.note, 400)) + '\n' : '') + (body.message ? '거래처 메시지: ' + body_(body.message, 1500) + '\n' : '') + '판독 (순번 | 옵션 | 발주 → 입고):\n' +
+      items.map(function (it) { var l = byNo[it.no] || {}; return it.no + ' | ' + (l.option || '') + ' | ' + (l.qty || '') + ' → ' + (it.qty == null ? '?' : it.qty) + (it.sure ? '' : ' (애매)') + (it.mark ? ' · ' + it.mark : ''); }).join('\n') }]);
   return { ok: true, replyFound: js.reply_found !== false, note: plain_(clean_(js.note, 400)), items: items, model: model };
 }
 
@@ -2639,4 +2654,144 @@ function xxSet_(body) {
     sheet.getRange(2, 1, rows.length, 5).setValues(rows);
   }
   return { ok: true, total: rows.length, at: stamp };
+}
+
+// ---------- v39 🗂 기록 보관함 (2026-11-25) ----------
+//  · 이 시트 '기록보관' 탭: 한 줄 = 기록 하나 (기록ID · 시각 · 종류 · 매체 · 이름 · 내용 · 답변)
+//  · 남기는 것: 게시판 문의·리뷰(새로 들어오거나 내용이 바뀔 때, 등록 완료되면 답변까지) · 상담톡(대화가 바뀔 때 전체 대화) ·
+//    메신저 답장 후보(그림은 안 남김 — 대화방 이름과 AI 답장 후보만) · 거래처 회신 판독 결과
+//  · 평일(월~금) 5일치만: 오늘 포함 평일 5일째 되는 날 0시보다 오래된 줄은 기록이 들어올 때마다 지움 (공휴일은 평일로 셈)
+//  · 'CS문의' 탭(문의·리뷰 원본)은 그대로 — 이 탭만 지움
+var LOG_SHEET = '기록보관';
+var LOG_HEADER = ['기록ID', '시각', '종류', '매체', '이름', '내용', '답변'];
+var LOG_KEEP_WEEKDAYS = 5;
+var LOG_TEXT_LIMIT = 20000;
+var LOG_SEARCH_MAX = 200;
+
+function logSheet_() {
+  var book = book_();
+  var sheet = book.getSheetByName(LOG_SHEET);
+  if (!sheet) { sheet = book.insertSheet(LOG_SHEET); sheet.appendRow(LOG_HEADER); sheet.setFrozenRows(1); }
+  return sheet;
+}
+
+// 오늘(한국 시간) 포함 평일 n일째 되는 날 0시
+function logCutoff_(now, n) {
+  n = n || LOG_KEEP_WEEKDAYS;
+  var base = now || new Date();
+  var count = 0;
+  for (var back = 0; back < 30; back++) {
+    var d = new Date(base.getTime() - back * 86400000);
+    var dow = new Date(d.getTime() + 9 * 3600000).getUTCDay();   // 한국 시간 요일 0=일 … 6=토
+    if (dow >= 1 && dow <= 5) count++;
+    if (count >= n) return new Date(Utilities.formatDate(d, 'Asia/Seoul', 'yyyy-MM-dd') + 'T00:00:00+09:00');
+  }
+  return new Date(base.getTime() - 7 * 86400000);
+}
+
+function logBoardText_(inq) {
+  var q = typeof inq === 'string' ? parse_(plain_(inq), {}) : (inq || {});
+  var parts = [];
+  if (q.title) parts.push('제목: ' + q.title);
+  if (q.type) parts.push('유형: ' + q.type);
+  if (q.option) parts.push('옵션: ' + q.option);
+  if (q.question) parts.push(q.question);
+  (Array.isArray(q.context) ? q.context : []).forEach(function (c) {
+    if (!c) return;
+    parts.push('— 이전 ' + (c.kind || '') + ' ' + (c.date || '') + ': ' + (c.question || '') + (c.answer ? '\n  ↳ 답변: ' + c.answer : ''));
+  });
+  return { kind: q.kind === '리뷰' ? '리뷰' : '문의', text: parts.join('\n') };
+}
+
+function logBoard_(key, vendor, board, product, inquiry, at) {
+  var t = logBoardText_(inquiry);
+  return { id: 'board|' + plain_(key), at: at || new Date(), kind: t.kind, platform: [plain_(vendor), plain_(board)].filter(String).join(' · '), name: plain_(product), text: t.text };
+}
+
+var LOG_CHAT_NAMES = { smart: '스마트스토어 톡톡', kakao: '카카오 해피톡', ably: '에이블리 문의', toss: '토스쇼핑 문의' };
+function logChat_(platform, id, v, at) {
+  var lines = [];
+  if (v.aux && v.aux.title) lines.push('[' + v.aux.title + ']');
+  (Array.isArray(v.aux && v.aux.items) ? v.aux.items : []).forEach(function (it) { if (it && it.name) lines.push('상품: ' + it.name + (it.option ? ' / ' + it.option : '') + (it.order ? ' / ' + it.order : '')); });
+  (Array.isArray(v.messages) ? v.messages : []).forEach(function (m) {
+    if (!m) return;
+    lines.push((m.who === 's' ? '[우리' : '[고객') + (m.time ? ' ' + m.time : '') + '] ' + (m.text || ''));
+  });
+  return { id: 'chat|' + platform + '|' + id, at: at || new Date(), kind: '상담톡', platform: LOG_CHAT_NAMES[platform] || platform, name: plain_(v.name), text: lines.join('\n') };
+}
+
+function logCell_(value, limit) {
+  var text = body_(value, limit || LOG_TEXT_LIMIT);
+  return /^[=+\-@]/.test(text) ? "'" + text : text;
+}
+
+// 기록 넣기 (같은 기록ID 는 새 값으로, 비어 있는 칸은 예전 값 유지) + 평일 5일보다 오래된 줄 지우기 — 잠금 안에서 부름
+function logPut_(entries) {
+  entries = (entries || []).filter(function (e) { return e && e.id; });
+  var sheet = logSheet_();
+  var n = sheet.getLastRow() - 1;
+  var rows = n > 0 ? sheet.getRange(2, 1, n, LOG_HEADER.length).getValues() : [];
+  var at = {};
+  rows.forEach(function (r, i) { at[String(r[0])] = i; });
+  var added = 0, dirty = {};
+  entries.forEach(function (e) {
+    var row = [String(e.id).slice(0, 200), e.at || new Date(), clean_(e.kind, 20), logCell_(e.platform, 80), logCell_(e.name, 300), logCell_(e.text), logCell_(e.answer)];
+    var i = at[row[0]];
+    if (i == null) { rows.push(row); at[row[0]] = rows.length - 1; added++; return; }
+    var old = rows[i];
+    for (var c = 2; c < row.length; c++) if (row[c] === '' || row[c] == null) row[c] = old[c];
+    rows[i] = row;
+    if (i < n) dirty[i] = true;
+  });
+  var cutoff = logCutoff_(new Date()).getTime();
+  var keep = rows.filter(function (r) { var t = r[1] instanceof Date ? r[1].getTime() : new Date(r[1]).getTime(); return isFinite(t) && t >= cutoff; });
+  var removed = rows.length - keep.length;
+  if (!removed) {
+    // 지울 줄이 없으면 바뀐 줄만 고치고 새 줄은 아래에 붙임 (잠금 시간 짧게)
+    Object.keys(dirty).forEach(function (i) { sheet.getRange(Number(i) + 2, 1, 1, LOG_HEADER.length).setValues([rows[i]]); });
+    if (rows.length > n) {
+      if (sheet.getMaxRows() < rows.length + 1) sheet.insertRowsAfter(sheet.getMaxRows(), rows.length + 1 - sheet.getMaxRows());
+      sheet.getRange(n + 2, 1, rows.length - n, LOG_HEADER.length).setValues(rows.slice(n));
+    }
+    return { added: added, removed: 0, total: rows.length };
+  }
+  if (n > 0) sheet.getRange(2, 1, n, LOG_HEADER.length).clearContent();
+  if (keep.length) {
+    if (sheet.getMaxRows() < keep.length + 1) sheet.insertRowsAfter(sheet.getMaxRows(), keep.length + 1 - sheet.getMaxRows());
+    sheet.getRange(2, 1, keep.length, LOG_HEADER.length).setValues(keep);
+  }
+  return { added: added, removed: removed, total: keep.length };
+}
+// 기록이 실패해도 원래 일은 그대로 (잠금 안에서)
+function logPutSafe_(entries) {
+  if (!entries || !entries.length) return;
+  try { logPut_(entries); } catch (error) { Logger.log('기록보관 실패: ' + error); }
+}
+// 잠금 밖에서 부를 때
+function logLocked_(entries) {
+  try { withLock_(function () { logPutSafe_(entries); }); } catch (error) { Logger.log('기록보관 실패: ' + error); }
+}
+
+// 화면: 검색 — q(띄어쓰기로 여러 낱말 = 모두 들어간 것) · kind(문의·리뷰·상담톡·메신저·거래처 회신, 비우면 전체)
+function logSearch_(body) {
+  var q = String(body && body.q || '').toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 100);
+  var words = q ? q.split(' ') : [];
+  var kind = clean_(body && body.kind, 20);
+  var sheet = logSheet_();
+  var n = sheet.getLastRow() - 1;
+  var rows = n > 0 ? sheet.getRange(2, 1, n, LOG_HEADER.length).getValues() : [];
+  var cutoff = logCutoff_(new Date());
+  var counts = {}, hits = [];
+  rows.forEach(function (r) {
+    var t = r[1] instanceof Date ? r[1] : new Date(r[1]);
+    if (!(t.getTime() >= cutoff.getTime())) return;
+    var k = String(r[2] || '');
+    var hay = [k, plain_(r[3]), plain_(r[4]), plain_(r[5]), plain_(r[6])].join('\n').toLowerCase();
+    for (var w = 0; w < words.length; w++) if (hay.indexOf(words[w]) < 0) return;
+    counts[k] = (counts[k] || 0) + 1;
+    if (kind && k !== kind) return;
+    hits.push({ id: String(r[0]), at: t.toISOString(), kind: k, platform: plain_(r[3]), name: plain_(r[4]), text: plain_(r[5]).slice(0, 6000), answer: plain_(r[6]).slice(0, 3000) });
+  });
+  hits.sort(function (a, b) { return a.at < b.at ? 1 : a.at > b.at ? -1 : 0; });
+  return { ok: true, cutoff: cutoff.toISOString(), keepWeekdays: LOG_KEEP_WEEKDAYS, total: rows.length, matched: hits.length, counts: counts, items: hits.slice(0, LOG_SEARCH_MAX) };
 }

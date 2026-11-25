@@ -154,6 +154,11 @@
   · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
   · 키 파일이 없으면 업체 결과 '키 없음' 으로 알림
 
+1.41 (2026-11-25) 지난 게시판·리뷰 답변 모으기 — AI 추천 문구를 실제 답변 말투에 맞추려고
+  · 수집 폴더에 _이력요청.json ({"days": 90}) 이 있을 때만 한 번: 업체마다 지난 문의·리뷰와 우리가 단 답변 글을 모아 수집\_이력\이력_<날짜>.json
+  · 스마트스토어(상품문의·고객문의 API, 리뷰) · 지그재그(상품문의·주문문의·리뷰) · 메이크샵(게시판·파워리뷰) · 에이블리 문의방 · 토스(Q&A·문의방)
+  · 읽기만 (아무것도 쓰거나 누르지 않음) · 사진은 안 받음 · 끝나면 요청 파일 이름을 _이력요청_완료_<날짜>.json 으로
+
 1.40 (2026-11-25) 게시판·리뷰 자동 수집 기본 켜기 — 미리 모아 두어 기다리는 시간 줄이기
   · 이 버전으로 처음 켤 때 한 번만: 자동 수집이 꺼져 있으면 켜고(08:30부터 20분마다 · 게시판 + 리뷰), 간격이 20분보다 길면 20분으로
   · 그 뒤 웹 CS 관리 › ⚙ 설정에서 끄거나 간격을 바꾸면 그 설정을 그대로 둠 (다시 켜지 않음)
@@ -181,8 +186,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.40 (2026-11-25)"
-LINK_NOTE = "게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
+LINK_VER = "1.41 (2026-11-25)"
+LINK_NOTE = "지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -556,6 +561,8 @@ def zz_reviews_core(G, br, cfg, now_ms=None):
                     dbg(cfg, "지그재그_리뷰_요청", {"url": cap.get("url"), "오류": err, "창": "보임" if getattr(br, "show", False) else "숨김"})
                 return "오류", [], "리뷰 조회 거절: " + err[:200]
             note = "기간 지정 조회 실패 → 화면 기본(최근 1주일)만"
+        if cfg.get("_raw"):                    # 1.41 지난 답변 모으기: 답글 있는 것까지 원본 그대로
+            return "ok", items, note
         return "ok", zz_review_rows(G, items, bool(cfg.get("test")), cfg.get("test_limit", 3)), note
     finally:
         try:
@@ -714,6 +721,8 @@ def ss_reviews_core(G, br, cfg, now=None):
             if not items:
                 return "오류", [], "리뷰 다시 조회 실패: " + str(res["errors"][0])[:200]
             note = "기간 지정 조회 실패 → 화면 기본(최근 1주일)만"
+        if cfg.get("_raw"):                          # 1.41 지난 답변 모으기
+            return "ok", items, note
         return "ok", ss_review_rows(G, items, cfg), note
     finally:
         try:
@@ -1786,6 +1795,360 @@ def talk_probe_tick(G, say=print, now=None):
     except Exception as e:
         say(f"⚠ 톡톡 구조 확인 실패 (1시간 뒤 다시): {e}"[:200])
         return False
+
+
+# ───────── 1.41 (2026-11-25) 지난 게시판·리뷰 답변 모으기 — 요청 파일이 있을 때 한 번 · 읽기만 ─────────
+# AI 추천 문구를 실제 답변 말투에 맞추려고, 업체마다 지난 문의·리뷰와 '우리가 단 답변' 글을 모음
+#   · 수집 폴더에 _이력요청.json ({"days": 90}) 이 있으면 실행 → 수집\_이력\이력_<날짜>.json → 요청 파일 이름을 _이력요청_완료_<날짜>.json 으로
+#   · 아무것도 쓰거나 누르지 않음 (목록·글 조회만). 사진은 안 받음 (글자만)
+#   · 수집 중이면(RUN_LOCK) 다음 차례에
+HIST_REQ = "_이력요청.json"
+HIST_DIR = "_이력"
+HIST_STATE = {"next": 0}
+HIST_MAX_DAYS = 120
+HIST_MS_MAX = 250          # 메이크샵 게시판 글 (원글+답변 2번 조회)
+HIST_ZZ_ORDER_MAX = 150    # 지그재그 주문문의 상세 조회
+HIST_ABLY_ROOMS = 200
+
+HIST_ZZ_QNA_JS = r"""
+async ({slug, days, orderMax}) => {
+  const gq = async (op, query, variables) => {
+    const r = await fetch(`/api/provider/${slug}/graphql/${op}`, {method:'POST', credentials:'include',
+      headers:{'content-type':'application/json'}, body: JSON.stringify({operationName: op, query, variables})});
+    const txt = await r.text(); let j = null; try { j = JSON.parse(txt) } catch(e) {}
+    return {status: r.status, j, txt: txt.slice(0, 300)};
+  };
+  const now = Date.now(), from = now - days * 864e5, out = {login: true, qna: [], order: [], errors: []};
+  for (let skip = 0; skip < 5000; skip += 500) {
+    const a = await gq('GetCatalogQuestionList', `query GetCatalogQuestionList($input: CatalogQuestionListInput!) { catalog_question_list(input: $input) { total_count item_list { id question_status question_type contents date_created deleted catalog_product { id name } answer { contents date_created } } } }`,
+      {input: {date_created_gte: from, date_created_lte: now, limit_count: 500, skip_count: skip}});
+    if (a.status !== 200 || !a.j || !a.j.data) { if (!skip) { out.login = false; out.detail = a.txt; return out; } out.errors.push('상품문의 ' + a.txt); break; }
+    const l = a.j.data.catalog_question_list.item_list || [];
+    for (const x of l) if (!x.deleted && x.answer && x.answer.contents) out.qna.push({id: x.id, 날짜: x.date_created, 유형: x.question_type, 상품명: x.catalog_product ? x.catalog_product.name : '', 문의: x.contents, 답변: x.answer.contents});
+    if (l.length < 500) break;
+  }
+  const b = await gq('GetOrderItemInquiryList', `query GetOrderItemInquiryList($date_from: CrTimestamp, $date_to: CrTimestamp, $has_reply: Boolean, $skip_count: Int!, $limit_count: Int!, $include_deleted: Boolean) { order_item_inquiry_list(date_from: $date_from, date_to: $date_to, has_reply: $has_reply, skip_count: $skip_count, limit_count: $limit_count, include_deleted: $include_deleted) { total_count item_list { id type date_created content order_item { product_info { name options } } } } }`,
+    {date_from: from, date_to: now, has_reply: true, skip_count: 0, limit_count: orderMax, include_deleted: false});
+  if (b.j && b.j.data) {
+    for (const q of b.j.data.order_item_inquiry_list.item_list || []) {
+      const d = await gq('GetOrderItemInquiry', `query GetOrderItemInquiry($id: ID!) { order_item_inquiry(id: $id, include_deleted: true) { id content reply_list { content } } }`, {id: q.id});
+      let rep = '';
+      try { rep = (d.j.data.order_item_inquiry.reply_list || []).map(r => r.content).join(' / '); } catch(e) {}
+      const pi = q.order_item ? q.order_item.product_info : null;
+      if (rep) out.order.push({id: q.id, 날짜: q.date_created, 유형: q.type, 상품명: pi ? pi.name : '', 옵션: pi ? (pi.options || '') : '', 문의: q.content, 답변: rep});
+    }
+  } else out.errors.push('주문문의 ' + b.txt);
+  return out;
+}
+"""
+
+HIST_MS_JS = r"""
+async ({days, max, boards}) => {
+  const dec = async u => { const b = await (await fetch(u, {credentials:'include'})).arrayBuffer(); try { return new TextDecoder('utf-8', {fatal: true}).decode(b); } catch (e) { return new TextDecoder('euc-kr').decode(b); } };
+  const P = html => { const d = new DOMParser().parseFromString(html, 'text/html'); d.querySelectorAll('script,style').forEach(e => e.remove()); return d; };
+  const ymd = x => x.toISOString().slice(0, 10);
+  const body = d => { const t = d.body.innerText; const m = t.match(/bytes \(한글 \d+자\)\s*([\s\S]*?)\n\s*수정\s*\n/); return m ? m[1].trim() : ''; };
+  const field = (d, k) => { const m = d.body.innerText.match(new RegExp(k + '\\s*\\n+\\s*(.+)')); return m ? m[1].trim() : ''; };
+  const view = (code, n1, n2) => `/makeshop/newmanager/board_boardlist.html?code=${code}&num1=${n1}&num2=${n2}&mode=VIEW&lock_ok=Y&poptype=POPUP&flag=origin`;
+  const rows = [], errors = [];
+  for (const [code, name] of Object.entries(boards)) {
+    const items = [];
+    for (let page = 1; page <= 30 && items.length < max; page++) {
+      const p = new URLSearchParams({date_start: ymd(new Date(Date.now() - days * 864e5)), hour_start:'00', date_end: ymd(new Date()), hour_end:'23',
+                                     board_code: code, orderby:'num1', board_type:'100', page: String(page)});
+      let ld;
+      try { ld = P(await dec('/makeshop/newmanager/board_all_list.html?' + p)); } catch (e) { errors.push(name + ' 목록 ' + e); break; }
+      const got = [...ld.querySelectorAll('tr')].filter(t => /boardpop\(/.test(t.innerHTML) && !/>\s*공지\s*</.test(t.innerHTML))
+        .map(t => { const a = t.querySelector('a[onclick*=boardpop]'); const m = (a.getAttribute('onclick') || '').match(/boardpop\('([^']+)',\s*'(\d+)',\s*'(\d+)'/); return m ? {code: m[1], n1: m[2], n2: m[3], title: a.innerText.trim()} : null; })
+        .filter(Boolean);
+      let fresh = 0;
+      for (const g of got) if (!items.some(x => x.n1 === g.n1 && x.n2 === g.n2)) { items.push(g); fresh++; }
+      if (!fresh) break;
+    }
+    const replied = new Set(items.filter(x => x.n2 !== '00000').map(x => x.n1));
+    for (const it of items.filter(x => x.n2 === '00000' && replied.has(x.n1)).slice(0, max)) {
+      try {
+        const q = P(await dec(view(it.code, it.n1, '00000')));
+        const a = P(await dec(view(it.code, it.n1, '10000')));
+        const ans = body(a);
+        if (ans) rows.push({게시판: name, id: it.n1, 날짜: field(q, '작성일'), 제목: it.title, 상품명: (it.title.match(/^\[(.+?)\]/) || [,''])[1], 문의: body(q), 답변: ans});
+      } catch (e) { errors.push(name + ' ' + it.n1 + ': ' + e); }
+    }
+  }
+  return {rows, errors};
+}
+"""
+
+# 파워리뷰 관리 화면의 GetRevewList 를 기간 전체로 쪽마다 → 댓글 있는 것만 (리뷰 글 + 댓글 목록)
+HIST_MS_REVIEW_JS = r"""async (a) => {
+  const $f = jQuery('#search_form');
+  const set = (n, v) => { const el = $f.find('[name="' + n + '"]'); if (el.length) el.val(v); };
+  const ymd = (t) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const months = Number($f.find('[name="power_review_search_max_num"]').val()) || 3;
+  const days = Math.min(a.days, months * 30 - 1);
+  set('date_start', ymd(Date.now() - days * 86400000)); set('date_end', ymd(Date.now()));
+  const lims = $f.find('[name="list_limit"] option').map((i, o) => Number(o.value) || 0).get();
+  const lim = lims.length ? Math.max(...lims) : 30;
+  if (lims.length) set('list_limit', String(lim));
+  set('action_type', 'GetRevewList');
+  const out = [], keys = {}; let pages = 0, seen = 0;
+  const small = (it) => { const o = {}; for (const [k, v] of Object.entries(it || {})) { if (v === null || typeof v === 'number' || typeof v === 'boolean') o[k] = v; else if (typeof v === 'string') o[k] = v.slice(0, 3000); } o.comment_list = it.comment_list || []; return o; };
+  for (let p = 1; p <= a.maxPages; p++) {
+    set('page', String(p));
+    const j = await jQuery.ajax({ url: 'power_review_list.action.html', type: 'POST', data: $f.serialize(), dataType: 'json' });
+    if (!j || j.status === false) return { error: String((j && j.msg) || '목록 조회 실패'), out, pages, seen, days };
+    const list = Array.isArray(j.data) ? j.data : [];
+    pages = p; seen += list.length;
+    for (const it of list) { Object.keys(it || {}).forEach(k => { keys[k] = 1; }); if ((Number(it.comment) || 0) > 0 || (it.comment_list || []).length) out.push(small(it)); }
+    if (list.length < lim) break;
+  }
+  return { out, pages, seen, days, keys: Object.keys(keys) };
+}"""
+
+
+def hist_req_path(cfg):
+    return os.path.join(cfg.get("out_dir") or HERE, HIST_REQ)
+
+
+def hist_part(out, name, fn, say):
+    """한 업체·게시판 묶음: 실패해도 다음으로"""
+    say(f"  📚 {name}…")
+    try:
+        st, items, memo = fn()
+    except Exception as e:
+        st, items, memo = "오류", [], f"{e}"[:300]
+    out["업체"][name] = {"상태": st, "건수": len(items or []), "메모": str(memo or "")[:300], "items": items or []}
+    say(f"     → {st} · {len(items or [])}건 {str(memo or '')[:80]}")
+
+
+def _hist_ss_api_get(G, cfg):
+    if cfg.get("ss_client_id") and cfg.get("ss_secret_enc"):
+        return G.SmartStore(cfg["ss_client_id"], G.dec_secret(cfg["ss_secret_enc"])).get
+    g = G.legacy_getter() if hasattr(G, "legacy_getter") else None
+    if g is None:
+        raise RuntimeError("스마트스토어 API 키 없음")
+    return g
+
+
+def hist_ss_api(G, cfg, days):
+    """스마트스토어 상품문의 · 고객문의 (커머스 API) — 답변된 것만, 30일씩 나눠 조회"""
+    get = _hist_ss_api_get(G, cfg)
+    today = datetime.date.today()
+    qna, inq, errs = [], [], []
+    for back in range(0, days, 30):
+        end = today - datetime.timedelta(days=back)
+        start = today - datetime.timedelta(days=min(days, back + 30) - 1)
+        page = 1
+        while page <= 30:
+            try:
+                js = get("/v1/contents/qnas", page=page, size=100, fromDate=start.strftime("%Y-%m-%dT00:00:00.000+09:00"), toDate=end.strftime("%Y-%m-%dT23:59:59.999+09:00"))
+            except Exception as e:
+                errs.append(f"상품문의 {start}: {e}"[:150]); break
+            qna += [x for x in js.get("contents", []) if x.get("answered")]
+            if js.get("last", True):
+                break
+            page += 1; time.sleep(0.4)
+        page = 1
+        while page <= 30:
+            try:
+                js = get("/v1/pay-user/inquiries", page=page, size=100, startSearchDate=start.isoformat(), endSearchDate=end.isoformat())
+            except Exception as e:
+                errs.append(f"고객문의 {start}: {e}"[:150]); break
+            inq += [x for x in js.get("content", []) if x.get("answered")]
+            if js.get("last", True):
+                break
+            page += 1; time.sleep(0.4)
+    return qna, inq, errs
+
+
+def _hist_strip(it, keep=3000):
+    """원본에서 글자·숫자만 (사진 주소 묶음 등은 버림)"""
+    if not isinstance(it, dict):
+        return it
+    o = {}
+    for k, v in it.items():
+        if isinstance(v, (int, float, bool)) or v is None:
+            o[k] = v
+        elif isinstance(v, str):
+            if not re.match(r"^https?://", v):
+                o[k] = v[:keep]
+        elif isinstance(v, dict) and any(w in k.lower() for w in ("comment", "reply", "answer")):
+            o[k] = _hist_strip(v, keep)
+        elif isinstance(v, list) and any(w in k.lower() for w in ("comment", "reply", "answer")):
+            o[k] = [_hist_strip(x, keep) for x in v[:10]]
+    return o
+
+
+def hist_ss_reply(it):
+    for k in ("reviewComment", "commentContent", "replyContent", "sellerComment", "comment", "reply"):
+        v = it.get(k)
+        if isinstance(v, dict):
+            v = v.get("commentContent") or v.get("content") or ""
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+    return ""
+
+
+def history_collect(G, cfg, days, say, d=None, parts=None):
+    days = max(1, min(int(days or 90), HIST_MAX_DAYS))
+    want = lambda k: not parts or k in parts
+    t0 = datetime.datetime.now()
+    out = {"모으기시각": t0.strftime("%Y-%m-%d %H:%M"), "PC": socket.gethostname(), "기간(일)": days, "연결": LINK_VER, "업체": {}}
+    say(f"📚 지난 답변 모으기 시작 — 최근 {days}일 (읽기만)")
+    if want("스마트스토어 문의"):
+        def ss_q():
+            qna, inq, errs = hist_ss_api(G, cfg, days)
+            items = [dict(게시판="상품문의", **_hist_strip(x)) for x in qna] + [dict(게시판="고객문의", **_hist_strip(x)) for x in inq]
+            return "ok", items, "; ".join(errs[:3])
+        hist_part(out, "스마트스토어 문의", ss_q, say)
+    with G.Browser(bool(cfg.get("show_browser"))) as br:
+        if want("지그재그 문의"):
+            def zz_q():
+                pg = br.page()
+                try:
+                    pg.goto(f"https://partners.kakaostyle.com/shop/{cfg['zz_slug']}/item_question", wait_until="domcontentloaded", timeout=60000)
+                    pg.wait_for_timeout(2500)
+                    res = pg.evaluate(HIST_ZZ_QNA_JS, {"slug": cfg["zz_slug"], "days": days, "orderMax": HIST_ZZ_ORDER_MAX})
+                finally:
+                    pg.close()
+                if not res.get("login"):
+                    return "로그인 필요", [], res.get("detail", "")
+                items = [dict(게시판="상품문의", **x) for x in res.get("qna") or []] + [dict(게시판="주문문의", **x) for x in res.get("order") or []]
+                for x in items:
+                    x["날짜"] = G.kst(x.get("날짜"))
+                return "ok", items, "; ".join(res.get("errors") or [])
+            hist_part(out, "지그재그 문의", zz_q, say)
+        if want("지그재그 리뷰"):
+            def zz_r():
+                c = dict(cfg, review_days=days, test=False, _raw=True)
+                st, items, memo = run_offscreen(br, lambda b: zz_reviews_core(G, b, c))
+                keep = []
+                for v in items or []:
+                    rep = " / ".join(x.get("contents", "") for x in (v.get("reply_list") or []) if x.get("contents"))
+                    if not rep:
+                        continue
+                    pp = v.get("purchased_product") or {}
+                    attrs = ", ".join(f"{a.get('name')}:{a.get('value')}" for a in ((pp.get("item") or {}).get("attributes") or []))
+                    keep.append(dict(게시판="리뷰", id=str(v.get("id")), 날짜=G.kst(v.get("date_created")), 상품명=pp.get("name", ""), 옵션=attrs,
+                                     별점=v.get("rating"), 문의=v.get("contents") or "", 답변=rep))
+                return st, keep, f"{memo} · 답글 있는 {len(keep)}건"
+            hist_part(out, "지그재그 리뷰", zz_r, say)
+        if want("메이크샵 게시판") or want("메이크샵 리뷰"):
+            adm = G.makeshop_admin_page(br) if hasattr(G, "makeshop_admin_page") else None
+            if adm is None:
+                for k in ("메이크샵 게시판", "메이크샵 리뷰"):
+                    if want(k):
+                        out["업체"][k] = {"상태": "로그인 필요", "건수": 0, "메모": "메이크샵 관리자 접속 안 됨", "items": []}
+            else:
+                if want("메이크샵 게시판"):
+                    def ms_b():
+                        boards = cfg.get("ms_boards") or {"curiouswiz": "Q&A", "mym2mboard": "1:1", "curiouswiz_board7": "도매문의"}
+                        res = adm.evaluate(HIST_MS_JS, {"days": days, "max": HIST_MS_MAX, "boards": boards})
+                        return "ok", res.get("rows") or [], "; ".join((res.get("errors") or [])[:3])
+                    hist_part(out, "메이크샵 게시판", ms_b, say)
+                if want("메이크샵 리뷰"):
+                    def ms_r():
+                        pg = br.page()
+                        try:
+                            host = ms_open_review_page(pg, cfg, say, d)
+                            if not host:
+                                return "오류", [], "파워리뷰 관리 화면을 못 엶"
+                            r = pg.evaluate(HIST_MS_REVIEW_JS, {"days": days, "maxPages": 60}) or {}
+                        finally:
+                            pg.close()
+                        return ("ok" if not r.get("error") else "일부"), r.get("out") or [], f"{r.get('error') or ''} 조회 {r.get('seen', 0)}건 · {r.get('pages', 0)}쪽 · {r.get('days')}일 · 칸 {','.join((r.get('keys') or [])[:40])}"
+                    hist_part(out, "메이크샵 리뷰", ms_r, say)
+                try:
+                    adm.close()
+                except Exception:
+                    pass
+        if want("에이블리 문의"):
+            def ably_q():
+                global ABLY_MAX_ROOMS
+                old, before = ABLY_MAX_ROOMS, list(ABLY_CHAT)
+                ABLY_MAX_ROOMS = HIST_ABLY_ROOMS
+                try:
+                    st, _rows, memo = ably_inquiry_core(G, br, dict(cfg, test=False))
+                    convs = list(ABLY_CHAT)
+                finally:
+                    ABLY_MAX_ROOMS = old
+                    ABLY_CHAT[:] = before            # 지난 방까지 상담톡으로 보내지 않게 그대로 되돌림
+                items = [{"id": c["id"], "날짜": c.get("time", ""), "유형": c.get("tag", ""), "상품명": ((c.get("aux") or {}).get("items") or [{}])[0].get("name", ""),
+                          "대화": [{"쪽": "고객" if m["who"] == "c" else "우리", "글": m["text"], "시각": m["time"]} for m in c.get("messages") or []]}
+                         for c in convs if any(m["who"] == "s" for m in c.get("messages") or [])]
+                return st, items, memo
+            hist_part(out, "에이블리 문의", ably_q, say)
+        if want("토스 Q&A"):
+            def toss_q():
+                r = toss_screen_core(G, br, dict(cfg, test=True, test_limit=TOSS_QNA_MAX), qna=True, reviews=False).get("qna") or ("오류", [], "")
+                items = [dict(게시판="상품 Q&A", id=x.get("id"), 날짜=x.get("날짜"), 상품명=x.get("상품명"), 문의=x.get("문의"), 맥락=x.get("맥락")) for x in r[1] if x.get("답변여부")]
+                return r[0], items, r[2]
+            hist_part(out, "토스 Q&A", toss_q, say)
+    if want("토스 문의"):
+        def toss_c():
+            keys = toss_find_keys(None, cfg)
+            if not keys:
+                return "키 없음", [], ""
+            pairs, errs = toss_collect_pairs(keys, 150)
+            items = [{"id": c["id"], "날짜": c.get("time", ""), "대화": [{"쪽": "고객" if m["who"] == "c" else "우리", "글": m["text"], "시각": m["time"]} for m in c.get("messages") or []]}
+                     for _, c in pairs if any(m["who"] == "s" for m in c.get("messages") or [])]
+            return "ok", items, "; ".join(errs[:3])
+        hist_part(out, "토스 문의", toss_c, say)
+    if want("스마트스토어 리뷰") and find_chrome():
+        def ss_r():
+            c = dict(cfg, review_days=days, test=False, _raw=True)
+            with G.Browser(bool(cfg.get("show_browser"))) as br2:
+                with NativeChrome(G, pw=br2.pw, offscreen=True) as nb:
+                    st, items, memo = ss_reviews_core(G, nb, c)
+            keep, has = [], 0
+            for it in items or []:
+                rep = hist_ss_reply(it)
+                if it.get("hasComment") or rep:
+                    has += 1
+                if not rep:
+                    continue
+                keep.append(dict(게시판="리뷰", id=str(it.get("id") or it.get("reviewId") or ""), 날짜=G.kst(it.get("createDate") or it.get("reviewCreatedDate") or it.get("createdDate") or ""),
+                                 상품명=it.get("productName") or "", 옵션=it.get("productOptionContent") or "", 별점=it.get("reviewScore") or "",
+                                 문의=it.get("reviewContent") or it.get("content") or "", 답변=rep))
+            sample = _hist_strip(next((x for x in items or [] if x.get("hasComment")), (items or [{}])[0]), 300)
+            return st, keep, f"{memo} · 답글 표시 {has}건 · 글 있는 {len(keep)}건 · 칸 {','.join(list(sample.keys())[:50])}"
+        hist_part(out, "스마트스토어 리뷰", ss_r, say)
+    n = sum(v.get("건수", 0) for v in out["업체"].values())
+    say(f"📚 지난 답변 모으기 끝 — {n}건 ({(datetime.datetime.now() - t0).seconds}초)")
+    return out
+
+
+def history_tick(G, cfg, say=print, d=None, now=None):
+    """1.41 연결 루프에서: 수집 폴더에 _이력요청.json 이 있으면 한 번 (실패·수집 중이면 10분 뒤 다시)"""
+    now = time.time() if now is None else now
+    req = hist_req_path(cfg)
+    if not os.path.exists(req) or now < HIST_STATE["next"]:
+        return False
+    HIST_STATE["next"] = now + 600
+    try:
+        ask = json.load(open(req, encoding="utf-8-sig"))
+    except Exception:
+        ask = {}
+    if not G.RUN_LOCK.acquire(blocking=False):
+        say("📚 지난 답변 모으기: 수집 중이라 10분 뒤에")
+        return False
+    try:
+        out = history_collect(G, cfg, ask.get("days") or 90, say, d, ask.get("parts"))
+        folder = os.path.join(cfg.get("out_dir") or HERE, HIST_DIR)
+        os.makedirs(folder, exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%y%m%d_%H%M")
+        fn = os.path.join(folder, f"이력_{stamp}.json")
+        tmp = fn + ".tmp"
+        json.dump(out, open(tmp, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        os.replace(tmp, fn)
+        os.replace(req, os.path.join(os.path.dirname(req), f"_이력요청_완료_{stamp}.json"))
+        say(f"📚 저장: {fn}")
+        return True
+    except Exception as e:
+        say(f"⚠ 지난 답변 모으기 실패 (10분 뒤 다시): {e}"[:300])
+        return False
+    finally:
+        G.RUN_LOCK.release()
 
 
 def link_path():
@@ -4480,6 +4843,12 @@ def _loop(G, say, beat, once, bg):
             push_toss_chat(link, say)               # 1.31 토스 문의 (3분마다 · 읽기만)
             if talk_probe_tick(G, say):             # 1.39 톡톡 구조 확인 (한 번만)
                 beat.set("idle", "웹 요청 기다리는 중")
+            if os.path.exists(hist_req_path(cfg)):  # 1.41 지난 답변 모으기 (요청 파일이 있을 때만)
+                beat.set("busy", "이력", "지난 답변 모으기")
+                try:
+                    history_tick(G, cfg, say, d)
+                finally:
+                    beat.set("idle", "웹 요청 기다리는 중")
             save_link(d)
             js = link.call("poll", pc=pc, version=f"{G.VER} / 연결 {LINK_VER}{' · 창 없이' if bg else ''}", busy=False,
                            setup=setup_info(cfg, bg, d, nxt))

@@ -12,6 +12,7 @@ assert.equal(workspaceHref("picking", "", "../"), "../");
 assert.equal(workspaceHref("cs", "?events=1", "../"), "../cs/?events=1");
 assert.equal(workspaceHref("purchase", "", "../"), "../purchase/");
 assert.equal(workspaceHref("purchase", "", "https://evil.invalid/"), "./purchase/", "base is limited to ./ or ../");
+assert.equal(workspaceHref("work", "?write=1", "../"), "../task/?write=1", "11-25 업무 관리");
 assert.throws(() => workspaceHref("hub"));
 assert.equal(safeWorkspaceSearch("?write=1&write=0&returnUrl=x"), "?write=0");
 
@@ -57,7 +58,7 @@ assert.doesNotMatch(page, /supabase|pickingAuth|pickingApp\.mjs/, "screen frame 
 const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 assert.match(index, /id="workspace-cs-link"[^\n]*\n\s*<a id="workspace-purchase-link" class="workspace-link" href="\.\/purchase\/\?write=0&amp;events=0">상품 관리<\/a>/);
 const build = await readFile(new URL("../scripts/build-pages.mjs", import.meta.url), "utf8");
-assert.match(build, /"cs","purchase"\]/);
+assert.match(build, /"cs","purchase","task"\]/);
 
 const css = await readFile(new URL("../src/styles/purchase.css", import.meta.url), "utf8");
 assert.match(css, /--purchase-bg: #fff8dc;/, "light yellow background");

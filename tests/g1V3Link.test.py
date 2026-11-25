@@ -1693,3 +1693,52 @@ assert L.apply_auto_default(_G40, _d40, print) is False and _cfgbox["c"]["auto_o
 _cfgbox["c"] = {"auto_on": True, "auto_start": "07:00", "interval": 15}
 assert L.apply_auto_default(_G40, {}, print) is False and _cfgbox["c"] == {"auto_on": True, "auto_start": "07:00", "interval": 15}, "이미 켜져 있고 더 짧으면 그대로"
 print("g1V3Link auto default (1.40): OK")
+
+# 1.41 지난 답변 모으기 — 요청 파일이 있을 때만 · 답변된 것만 · 끝나면 요청 파일 이름 바꿈
+import threading as _th
+assert L.LINK_VER >= "1.41"
+_hd = tempfile.mkdtemp()
+_hcfg = {"out_dir": _hd, "ss_client_id": "id", "ss_secret_enc": "enc:sec", "zz_slug": "x"}
+
+
+class _HSS:
+    def __init__(self, cid, sec):
+        assert cid == "id" and sec == "sec"
+
+    def get(self, path, **kw):
+        if path == "/v1/contents/qnas":
+            return {"contents": [{"questionId": 1, "question": "재고 있나요?", "answer": "네 있습니다", "answered": True, "productImageUrl": "https://img"},
+                                 {"questionId": 2, "question": "언제 와요?", "answered": False}], "last": True}
+        return {"content": [{"inquiryNo": 7, "title": "교환", "inquiryContent": "사이즈", "answered": True, "answerContent": "교환 접수했습니다"}], "last": True}
+
+
+class _HBr:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        pass
+
+
+_HG = types.SimpleNamespace(RUN_LOCK=_th.Lock(), SmartStore=_HSS, dec_secret=lambda s: s[4:], Browser=lambda show=False: _HBr(), kst=lambda x: x)
+assert L.history_tick(_HG, _hcfg, print, now=1.0) is False, "요청 파일 없으면 안 함"
+json.dump({"days": 400, "parts": ["스마트스토어 문의"]}, open(os.path.join(_hd, L.HIST_REQ), "w", encoding="utf-8"))
+L.HIST_STATE["next"] = 0
+assert L.history_tick(_HG, _hcfg, print, now=2.0) is True
+_hf = [f for f in os.listdir(os.path.join(_hd, L.HIST_DIR)) if f.startswith("이력_")]
+assert len(_hf) == 1 and not os.path.exists(os.path.join(_hd, L.HIST_REQ)) and any(f.startswith("_이력요청_완료_") for f in os.listdir(_hd))
+_ho = json.load(open(os.path.join(_hd, L.HIST_DIR, _hf[0]), encoding="utf-8"))
+_hs = _ho["업체"]["스마트스토어 문의"]
+assert _ho["기간(일)"] == L.HIST_MAX_DAYS and _hs["상태"] == "ok", _ho
+_qa = [x for x in _hs["items"] if x["게시판"] == "상품문의"]
+assert len(_qa) == L.HIST_MAX_DAYS // 30 and _qa[0]["answer"] == "네 있습니다" and "productImageUrl" not in _qa[0], "답변된 것만 · 주소 글은 버림 (30일씩 4번)"
+assert any(x.get("answerContent") == "교환 접수했습니다" for x in _hs["items"])
+assert set(_ho["업체"]) == {"스마트스토어 문의"}, "parts 로 고른 것만"
+assert not _HG.RUN_LOCK.locked()
+_HG.RUN_LOCK.acquire()
+json.dump({}, open(os.path.join(_hd, L.HIST_REQ), "w", encoding="utf-8"))
+L.HIST_STATE["next"] = 0
+assert L.history_tick(_HG, _hcfg, print, now=3.0) is False and os.path.exists(os.path.join(_hd, L.HIST_REQ)), "수집 중이면 다음에"
+_HG.RUN_LOCK.release()
+assert L.hist_ss_reply({"reviewComment": {"commentContent": " 감사합니다 "}}) == "감사합니다" and L.hist_ss_reply({"hasComment": True}) == ""
+print("g1V3Link history (1.41): OK")

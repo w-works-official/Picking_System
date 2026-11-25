@@ -902,6 +902,23 @@ console.log("csBoard.mock.test (ss board api): OK");
   console.log("csBoard.mock.test (optionPhotoAi v15): OK");
 }
 
+// v40 배송기록: 방금 올린 '_NAS로' 칸 파일도 목록에 ⏳ (정리 실행·미확인 수에는 안 넣음) · 형식을 못 알아본 영상도 확장자로
+{
+  const drive = { folderId: "1BYw0-dWxwq5zTwPot_dVS0EuDG52-_ie", files: [
+    { id: "a1", name: "20261125_101000.jpg", mime: "image/jpeg" },
+    { id: "n1", name: "20261125_101500.mp4", mime: "video/mp4", folder: "_NAS로" },
+    { id: "n2", name: "20261125_101600.MOV", mime: "application/octet-stream", folder: "_NAS로" },
+    { id: "n3", name: "20261125_101700.jpg", mime: "image/jpeg", folder: "_NAS로" },
+    { id: "z1", name: "x.jpg", mime: "image/jpeg", folder: "_보관" },
+  ] };
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, CLAUDE_KEY: "k" }, drive, claude: () => ({ status: 200, text: '{"photos":[{"n":1,"invoice":false,"name":"","score":90}]}' }) });
+  const l = g.post({ action: "shipList", token: TOKEN });
+  assert.deepEqual(l.files.map((f) => [f.id, f.kind, !!f.pending]), [["a1", "photo", false], ["n1", "video", true], ["n2", "video", true], ["n3", "photo", true]], "방금 올린 파일도 바로 · 다른 '_' 폴더는 그대로 뺌");
+  assert.equal(l.unchecked, 1, "NAS 로 가는 중인 사진은 미확인 수에 안 넣음");
+  const sc = g.post({ action: "shipScan", token: TOKEN, limit: 5 });
+  assert.deepEqual(sc.results.map((r) => r.id), ["a1"], "정리 실행은 NAS 로 간 파일만");
+}
+
 // v16 배송사진: 폴더 파일을 시간 순서로 · 송장 사진은 AI 가 읽은 수신자 이름을 파일명에 · 결과는 '배송사진' 탭
 {
   const FOLDER = "1BYw0-dWxwq5zTwPot_dVS0EuDG52-_ie";
@@ -982,7 +999,7 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.equal(call.headers["X-Upload-Content-Length"], "123456789");
   assert.deepEqual(call.payload, { name: "bandicam 2026-11-06 17-30-00-000.mp4", parents: ["folder:_NAS로"] }, "_NAS로 폴더로 (없으면 만듦)");
   drive.files.push({ id: "wait1", name: "bandicam 2026-11-06 17-40-00-000.mp4", mime: "video/mp4", size: 777, folder: "_NAS로" });
-  assert.equal(g.post({ action: "shipList", token: TOKEN }).files.some((f) => f.id === "wait1"), false, "_NAS로 는 목록에 안 나옴 (NAS 거쳐 다시 들어옴)");
+  assert.equal(g.post({ action: "shipList", token: TOKEN }).files.find((f) => f.id === "wait1")?.pending, true, "v40: _NAS로 에서 기다리는 파일도 바로 목록에 (⏳ NAS 로 보내는 중)");
   assert.equal(g.post({ action: "shipUpload", token: TOKEN, name: "bandicam 2026-11-06 17-40-00-000.mp4", mime: "video/mp4", size: 777, origin: ORIGIN }).skip, true, "_NAS로 에서 기다리는 같은 파일 → 건너뜀");
   drive.files.find((f) => f.id === "16-59-58-746jpg").size = 5000;
   const skip = g.post({ action: "shipUpload", token: TOKEN, name: "bandicam 2026-11-06 16-59-58-746.jpg", mime: "image/jpeg", size: 5000, origin: ORIGIN });

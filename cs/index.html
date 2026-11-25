@@ -57,7 +57,6 @@
           <button type="button" class="cs-left-tab tab-chat" data-left-tab="chat" role="tab" aria-selected="false">💬 상담톡</button>
           <button type="button" class="cs-left-tab tab-ship" data-left-tab="ship" role="tab" aria-selected="false">🚚 배송기록</button>
           <button type="button" class="cs-left-tab tab-vendor" data-left-tab="vendor" role="tab" aria-selected="false">📦 거래처</button>
-          <button type="button" class="cs-left-tab tab-msn" data-left-tab="msn" role="tab" aria-selected="false">💬 메신저</button>
           <button type="button" class="cs-left-tab tab-settings" data-left-tab="settings" role="tab" aria-selected="false">⚙ 설정</button>
         </nav>
         <!-- 왼쪽: 수집기 (G1 수집기 왼쪽 창과 같은 탭) -->
@@ -265,39 +264,6 @@
               </div>
             </div>
 
-            <!-- 💬 메신저 -->
-            <div class="cs-left-panel" data-left-panel="msn" hidden>
-              <fieldset class="cs-box">
-                <legend>카톡 대화창 붙이기</legend>
-                <ol class="cs-note cs-install-steps">
-                  <li>오른쪽 위 <b>🪄 창 도우미 ● 연결됨</b> 확인 — 창 도우미가 이 PC에 설치돼 있으면 저절로 연결 (처음이면 아래 <b>💻 이 PC 에서 메신저 쓰기</b> · 크롬이 '로컬 네트워크 접근'을 물으면 <b>[허용]</b>).</li>
-                  <li>카톡 대화창을 <b>슬롯 가까이 끌어다 놓기</b>만 하면 → 슬롯 크기에 <b>딱 맞춰 붙고 항상 위</b>에 있습니다 (브라우저를 눌러도 뒤로 안 숨음).</li>
-                  <li>대화창을 여러 개 열어 두고 <b>[📐 일괄 붙이기]</b> → 슬롯 1·2·3… 에 같은 크기로 한 번에.</li>
-                  <li>슬롯 밖으로 끌어내면 그 창만 떨어집니다.</li>
-                  <li>새 메시지 감지: <b>[🖥 화면 연결]</b> → <b>전체 화면</b> 공유 → 슬롯 위에 창이 없을 때 <b>[🎯 영역 맞춤]</b> 한 번 (맞춤을 하면 붙이는 위치도 더 정확해짐).</li>
-                  <li><b>[💻 AI추천]</b> = 붙은 대화창을 AI 가 읽고 답장 후보 → 눌러서 입력칸에. <b>☆</b> 를 누르면 빨강 ★ 주목 표시.</li>
-                  <li>답변은 슬롯 아래 칸에 쓰고 <b>Enter</b>(또는 [↵ 보내기]) → 붙은 대화창에 바로 입력됩니다 (커서는 이 칸에 그대로). <b>Shift+Enter</b> = 줄바꿈 · <b>Tab</b> = 다음 슬롯 · <b>Tab 누른 채 ←→ 또는 숫자</b> = 그 슬롯.</li>
-                </ol>
-                <p class="cs-note"><b>처음 한 번</b>: 창 도우미가 꺼져 있을 때 나오는 <b>[⬇ 처음 한 번: 도우미 설치 파일]</b>을 받아 더블클릭 → <code>C:\SystemV3</code> 에 설치되고 <b>검은 창 없이</b> 뒤에서 켜짐 · 컴퓨터 켤 때 자동 시작 · 꺼져 있으면 <b>[▶ 창 도우미 켜기]</b>.</p>
-                <p class="cs-note">창 도우미는 이 PC 안에서만 카톡 창 위치·크기를 바꿉니다. [💻 AI추천]을 누를 때만 그 대화창 그림을 찍어 AI 에 보냅니다 (저장 안 함).</p>
-              </fieldset>
-
-              <fieldset class="cs-box cs-other-pc">
-                <legend>💻 이 PC 에서 메신저 쓰기 <small>(카톡 창 붙이기·보내기 · 거래처 사진적용에 필요 · Windows)</small></legend>
-                <p class="cs-note">메신저 탭을 쓸 PC에 <b>한 번만</b> 설치하면 됩니다. 게시판·리뷰 답변은 설치 없이 이 화면만으로 됩니다.</p>
-                <div class="cs-row cs-row-wrap">
-                  <a class="cs-btn cs-btn-primary" href="../tools/msn_helper.bat" download="msn_helper.bat">⬇ 메신저 도우미 설치 파일 (.bat)</a>
-                  <a class="cs-btn cs-btn-purple" href="v3msn://start">▶ 창 도우미 켜기</a>
-                </div>
-                <ol class="cs-note cs-install-steps">
-                  <li>받은 <b>msn_helper.bat</b> 더블클릭 (「Windows의 PC 보호」 창 → <b>추가 정보 → 실행</b>) — 파이썬이 없으면 설치 안내가 뜸</li>
-                  <li><code>C:\SystemV3</code> 에 설치되고 <b>검은 창 없이</b> 뒤에서 켜짐 · 바탕화면 <b>V3 Messenger Helper</b> 아이콘 · 컴퓨터 켤 때 자동 시작</li>
-                  <li>💬 메신저 / 📦 거래처 탭 → <b>🪄 창 도우미 연결하기</b> → 크롬이 물으면 <b>[허용]</b> (처음 한 번)</li>
-                  <li>꺼져 있으면 <b>[▶ 창 도우미 켜기]</b> (크롬이 물으면 [열기]) · 끄기: <code>C:\SystemV3\msn_helper.bat stop</code></li>
-                </ol>
-              </fieldset>
-            </div>
-
             <!-- 설정 -->
             <!-- 📦 거래처 메신저 (2026-11-05) -->
             <div class="cs-left-panel" data-left-panel="vendor" hidden>
@@ -309,7 +275,23 @@
                   <li>P_1·P_2 <b>PT-LIST</b>(.xlsx)를 위쪽 칸에 끌어다 놓기 (또는 [📥 주문서업로드]) → 매입처별 <b>표 그림 1장</b>씩 (멘트는 그림 위쪽) · <b>업체명이 주문서 위에서부터 순서대로 슬롯 1·2·3… 메모에 자동으로</b> 들어가고 슬롯에 그림이 보임 (매일 새 리스트)<br>※ kakao_order_send 가 만든 <b>업체명_MMDD.jpg</b> 를 끌어다 놓아도 됩니다</li>
                   <li>초록 테두리 = 선택(기본 전체) · 슬롯 <b>번호</b>를 누르면 빼기/넣기 · [☑ 전체 선택] [☐ 선택 해제] → 확인 후 <b>[📨 선택 보내기]</b> · 못 찾은 업체는 노란 안내대로 카톡방 이름을 바꾸고 [📐 일괄 붙이기]를 다시 → 그 업체만 선택해서 보내기</li>
                 </ol>
-                <p class="cs-note">메신저 답변 탭 ↔ 거래처 탭을 오가면 다른 탭의 카톡 창은 내려두고(최소화), 돌아오면 다시 붙입니다. [📐 일괄 붙이기]는 메모 이름이 맞는 창만 붙입니다. 창 도우미가 필요합니다 (처음이면 💬 메신저 탭 → 💻 이 PC 에서 메신저 쓰기).</p>
+                <p class="cs-note">[📐 일괄 붙이기]는 메모 이름이 맞는 창만 붙입니다. 창 도우미가 필요합니다 (처음이면 아래 💻 이 PC 에서 메신저 쓰기).</p>
+              </fieldset>
+
+              <!-- 11-25: 💬 메신저 탭을 없애면서 창 도우미 설치 안내를 거래처 탭으로 옮김 (고객 메신저는 💬 상담톡으로) -->
+              <fieldset class="cs-box cs-other-pc">
+                <legend>💻 이 PC 에서 메신저 쓰기 <small>(카톡 창 붙이기·보내기 · 거래처 주문 · 오늘 CS 리포트 카톡 보내기에 필요 · Windows)</small></legend>
+                <p class="cs-note">거래처 카톡 주문을 보내거나 CS 리포트를 카톡으로 보낼 PC에 <b>한 번만</b> 설치하면 됩니다. 게시판·리뷰 답변은 설치 없이 이 화면만으로 됩니다.</p>
+                <div class="cs-row cs-row-wrap">
+                  <a class="cs-btn cs-btn-primary" href="../tools/msn_helper.bat" download="msn_helper.bat">⬇ 메신저 도우미 설치 파일 (.bat)</a>
+                  <a class="cs-btn cs-btn-purple" href="v3msn://start">▶ 창 도우미 켜기</a>
+                </div>
+                <ol class="cs-note cs-install-steps">
+                  <li>받은 <b>msn_helper.bat</b> 더블클릭 (「Windows의 PC 보호」 창 → <b>추가 정보 → 실행</b>) — 파이썬이 없으면 설치 안내가 뜸</li>
+                  <li><code>C:\SystemV3</code> 에 설치되고 <b>검은 창 없이</b> 뒤에서 켜짐 · 바탕화면 <b>V3 Messenger Helper</b> 아이콘 · 컴퓨터 켤 때 자동 시작</li>
+                  <li>📦 거래처 탭 → <b>🪄 창 도우미 연결하기</b> → 크롬이 물으면 <b>[허용]</b> (처음 한 번)</li>
+                  <li>꺼져 있으면 <b>[▶ 창 도우미 켜기]</b> (크롬이 물으면 [열기]) · 끄기: <code>C:\SystemV3\msn_helper.bat stop</code></li>
+                </ol>
               </fieldset>
             </div>
 
@@ -360,7 +342,7 @@
                   <summary class="cs-insp-title">🔍 오늘 검품 리포트 <small>(컴퓨터별 검품 건수 · 검색 누락 · 눌러서 열기)</small></summary>
                   <div data-insp-root></div>
                 </details>
-                <p class="cs-master-warn">수집·등록·로그인을 맡는 PC는 <b>한 대만</b> 둡니다. 두 대가 켜지면 요청을 나눠 가져가고, 메이크샵은 같은 계정 동시 로그인이 안 돼서 서로 로그아웃시킵니다. 다른 PC에서는 <b>💬 메신저 탭 → 💻 이 PC 에서 메신저 쓰기</b>만 하세요.</p>
+                <p class="cs-master-warn">수집·등록·로그인을 맡는 PC는 <b>한 대만</b> 둡니다. 두 대가 켜지면 요청을 나눠 가져가고, 메이크샵은 같은 계정 동시 로그인이 안 돼서 서로 로그아웃시킵니다. 다른 PC에서는 <b>📦 거래처 탭 → 💻 이 PC 에서 메신저 쓰기</b>만 하세요.</p>
               <div class="cs-onetouch">
                 <strong>마스터 PC(수집기 PC)를 처음 준비할 때만</strong>
                 <p>웹 연결 → 수집기 PC 준비 → 로그인 → 자동 시작까지 순서대로 안내합니다. (✅ 는 자동으로 체크됩니다)</p>
@@ -499,38 +481,7 @@
             <div id="cs-review-list" class="cs-card-list"></div>
           </div>
 
-          <!-- 💬 메신저 (2026-11-03: 슬롯에 메신저 창을 끌어다 놓고 그 영역만 감지 — src/app/msnSlots.mjs) -->
-          <div class="cs-right-panel" data-right-panel="msn" hidden>
-            <div class="msn-panel" data-msn-panel="reply">
-              <div class="cs-answer-top">
-                <button type="button" class="cs-btn cs-btn-primary" data-msn-act="connect">🖥 화면 연결</button>
-                <button type="button" class="cs-btn" data-msn-act="fit" disabled title="슬롯 위에 다른 창이 없을 때 누르기 — 화면과 슬롯 위치를 맞춤">🎯 영역 맞춤</button>
-                <button type="button" class="cs-btn cs-btn-green" data-msn-act="arrange" disabled title="열린 카톡 대화창을 슬롯 1·2·3… 에 같은 크기로 한 번에 붙임 (항상 위)">📐 일괄 붙이기</button>
-                <span class="msn-conn" data-msn-conn>○ 화면 연결 안 됨</span>
-                <button type="button" class="msn-helper" data-msn-helper data-msn-act="helper">🪄 창 도우미 ○ 확인 중</button>
-                <span class="cs-flex"></span>
-                <span class="msn-size">
-                  <label>슬롯 <select data-msn-count aria-label="슬롯 수"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></label>
-                  <label>높이 <select data-msn-height aria-label="슬롯 높이"><option value="550">1단계</option><option value="730">2단계</option><option value="910">3단계</option><option value="1090">4단계</option></select></label>
-                  <label>폭 <select data-msn-width aria-label="슬롯 폭"><option value="410">보통</option><option value="520">넓게</option></select></label>
-                </span>
-              </div>
-              <div class="msn-cta" data-msn-cta hidden>
-                <div>
-                  <strong>창 도우미가 아직 연결되지 않았습니다 — [🖥 화면 연결] 하나로 켜기 · 설치 · 업데이트 · 연결까지</strong>
-                  <div data-msn-cta-note><small>[🖥 화면 연결]을 누르면 크롬 위쪽에 승인 창이 차례로 뜹니다 — [허용] · [열기] (처음 한 번만)</small></div>
-                </div>
-                <div class="msn-cta-launch">
-                  <a href="v3msn://start" data-msn-launch hidden aria-hidden="true" tabindex="-1">창 도우미 켜기</a>
-                  <a class="cs-btn cs-btn-mini" href="../tools/msn_helper.bat" download="msn_helper.bat" title="보통은 [🖥 화면 연결]이 알아서 받습니다 — 직접 받을 때만">설치 파일 직접 받기</a>
-                  <small>C:\SystemV3 · 창 없이 뒤에서 · 컴퓨터 켤 때 자동 시작 · 새 버전은 자동</small>
-                </div>
-              </div>
-              <p class="msn-msg" data-msn-msg>메신저 창을 올려놓을 슬롯입니다. [🖥 화면 연결]부터 눌러 주세요.</p>
-              <div class="msn-slots" data-msn-slots></div>
-            </div>
-          </div>
-
+          <!-- 11-25: 💬 메신저(고객 카톡 답변) 화면 삭제 — 고객 메신저는 💬 상담톡, 카톡 창 붙이기는 📦 거래처에 남음 -->
           <!-- 📦 거래처 메신저 (2026-11-05: 슬롯 30칸 · 메모 이름으로 일괄 붙이기 · 주문서 → 업체별 그림 붙여넣기 — src/app/vendorOrder.mjs) -->
           <div class="cs-right-panel" data-right-panel="vendor" hidden>
             <div class="msn-panel" data-msn-panel="vendor">
@@ -620,9 +571,9 @@
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261125-work1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261125-ship1"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261125-nomsn1"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
-    <script type="module" src="../src/app/msnSlots.mjs?v=20261118-art1"></script>
+    <script type="module" src="../src/app/msnSlots.mjs?v=20261125-nomsn1"></script>
     <script type="module" src="../src/app/pickingNoticeBoot.mjs?v=20261125-roll1"></script>
   </body>
 </html>

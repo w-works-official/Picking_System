@@ -81,3 +81,34 @@ assert.equal(n.items.length, 1);
 assert.deepEqual(n.counts, { 문의: 1 });
 assert.equal(n.total, 9);
 console.log("logArchive ok");
+
+// v40 AI 답변안: 우리가 실제로 보낸 비슷한 답변(CS문의 등록 완료 · 상담톡 [고객]→[우리])을 예시로
+{
+  let sent = null;
+  const g2 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: (payload) => { sent = payload; return { status: 200, text: '["안녕하세요 고객님 :) 바변경 가능합니다"]' }; } });
+  g2.post({ action: "ingest", token: COLLECTOR, autoSuggest: false, rows: [
+    { 업체: "스마트스토어", 게시판: "상품문의", id: "old1", 날짜: "2026-11-20 10:00", 상품명: "14K 링 피어싱", 문의: "바 두께 변경 가능한가요? 16G 로 해주세요" },
+    { 업체: "스마트스토어", 게시판: "상품문의", id: "old2", 날짜: "2026-11-20 11:00", 상품명: "하트 귀걸이", 문의: "세트 구성이 어떻게 되나요" },
+    { 업체: "스마트스토어", 게시판: "상품문의", id: "new1", 날짜: "2026-11-25 10:00", 상품명: "14K 별 피어싱", 문의: "바 두께 16G 로 변경 되나요?" },
+  ] });
+  const rows = g2.sheet().data;
+  const at = (id) => rows.findIndex((r) => String(r[3]) === id);
+  rows[at("old1")][15] = JSON.stringify({ state: "완료", text: "안녕하세요 고객님 :) 바변경 옵션에서 16G 선택해 주시면 1~2일 더 걸려 출고됩니다." });
+  rows[at("old2")][15] = JSON.stringify({ state: "완료", text: "세트는 3종 구성입니다." });
+  g2.post({ action: "chatIngest", token: COLLECTOR, platform: "smart", convs: [{ id: "t1", name: "고객", unread: 0, messages: [{ who: "c", text: "바 두께 변경 16G 되나요" }, { who: "s", text: "네 고객님 바변경 옵션으로 16G 가능합니다" }] }] });
+  const res = g2.post({ action: "suggest", token: TOKEN, key: rows[at("new1")][0] });
+  assert.equal(res.ok, true);
+  const prompt = sent.messages[0].content;
+  assert.match(prompt, /우리가 실제로 보낸 비슷한 답변/);
+  assert.match(prompt, /\[예시 1\] 고객: .*바 두께/);
+  assert.match(prompt, /바변경 옵션에서 16G 선택해 주시면/, "게시판에서 등록 완료된 답");
+  assert.match(prompt, /바변경 옵션으로 16G 가능합니다/, "상담톡에서 우리가 보낸 답");
+  assert.doesNotMatch(prompt, /세트는 3종/, "안 비슷한 건 빼기");
+  assert.match(prompt, /후보 10개 중 2개 이하로/);
+  // 예시가 없으면 예전 그대로
+  const g3 = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN, COLLECTOR_TOKEN: COLLECTOR, CLAUDE_KEY: "k" }, claude: (payload) => { sent = payload; return { status: 200, text: '["네"]' }; } });
+  g3.post({ action: "ingest", token: COLLECTOR, autoSuggest: false, rows: [{ 업체: "스마트스토어", 게시판: "상품문의", id: "x", 날짜: "2026-11-25 10:00", 상품명: "링", 문의: "언제 와요" }] });
+  g3.post({ action: "suggest", token: TOKEN, key: g3.sheet().data[1][0] });
+  assert.doesNotMatch(sent.messages[0].content, /예시/);
+}
+console.log("logArchive examples ok");

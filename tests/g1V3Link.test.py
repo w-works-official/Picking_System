@@ -1601,3 +1601,81 @@ assert L.msn_name_slot("0-아트피어스14K", nm) == 1 and L.msn_name_slot("0-�
 assert L.msn_name_slot("0-아트피어스14K", nm, skip={1}) is None, "14K 칸이 차 있어도 일반 칸에 안 붙임"
 assert L.msn_name_slot("0-아트피어스", ["아트피어스14K"]) is None
 print("g1V3Link toss screen (1.34): OK")
+
+# 1.39 톡톡 구조 확인 — 값은 빼고 모양만, 한 번만
+assert L.LINK_VER >= "1.39"
+sh = L.talk_shape({"chatList": [{"userName": "김고객", "lastMessage": "볼 2mm 있나요?", "unreadCount": 2, "status": "WAITING", "updated": "2026-11-25T10:01:02", "read": False}], "total": 1})
+assert sh == {"chatList": [{"userName": "str3", "lastMessage": "str10", "unreadCount": "num", "status": "WAITING", "updated": "9999-99-99T99:99:99", "read": "bool"}, "x1"], "total": "num"}, sh
+assert "김고객" not in json.dumps(sh, ensure_ascii=False)
+assert L.talk_mask_url("https://partner.talk.naver.com/api/accounts/w4abcdEF12/chats/1234567?userId=abc&page=2") == "https://partner.talk.naver.com/api/accounts/w4abcdEF12/chats/{n}?userId=&page="
+assert L.talk_mask_url("https://x.com/a/AbCdEf0123456789xyz/b") == "https://x.com/a/{id}/b"
+assert L.talk_mask_url("https://sell.smartstore.naver.com/#/talktalk/chat?filter.read=unread") == "https://sell.smartstore.naver.com/#/talktalk/chat"
+
+
+class _FakeResp:
+    def __init__(self, url, js):
+        self.url, self.status, self.headers, self._js = url, 200, {"content-type": "application/json"}, js
+        self.request = types.SimpleNamespace(resource_type="xhr", method="GET", headers={"accept": "*/*"}, post_data=None, frame=types.SimpleNamespace(url="https://sell.smartstore.naver.com/"))
+
+    def json(self):
+        return self._js
+
+
+class _FakeFrame:
+    url = "https://sell.smartstore.naver.com/#/talktalk/chat"
+
+    def evaluate(self, js):
+        return {"paths": ["/api/talk/chats"]} if "matchAll" in js else {"tags": [["DIV", 3]]}
+
+
+class _FakePage:
+    def __init__(self):
+        self.h, self.url, self.frames = {}, "", [_FakeFrame()]
+
+    def on(self, ev, fn):
+        self.h[ev] = fn
+
+    def goto(self, url, **k):
+        self.url = url
+        self.h["response"](_FakeResp("https://sell.smartstore.naver.com/api/talk/chats?page=1", {"items": [{"name": "이고객", "text": "안녕하세요"}]}))
+
+    def wait_for_timeout(self, ms):
+        pass
+
+
+class _FakeChrome:
+    def __init__(self, G, offscreen=False):
+        pass
+
+    def __enter__(self):
+        return types.SimpleNamespace(page=_FakePage)
+
+    def __exit__(self, *a):
+        return False
+
+
+_pp = L.talk_probe_path
+_tmpd = tempfile.mkdtemp()
+L.talk_probe_path = lambda: os.path.join(_tmpd, "_talk_probe.json")
+try:
+    _o = L.talk_probe(types.SimpleNamespace(), print, wait_ms=0, chrome_cls=_FakeChrome)
+    _saved = open(L.talk_probe_path(), encoding="utf-8").read()
+    assert "이고객" not in _saved and "안녕하세요" not in _saved, "값은 안 남김"
+    assert _o["requests"][0]["u"] == "https://sell.smartstore.naver.com/api/talk/chats?page=" and _o["requests"][0]["resp"] == {"items": [{"name": "str3", "text": "str5"}, "x1"]}
+    assert _o["frames"][0]["code"]["paths"] == ["/api/talk/chats"] and _o["login"] is False
+    _calls = []
+    _orig = L.talk_probe
+    L.talk_probe = lambda G, say: _calls.append(1)
+    _fc = L.find_chrome
+    L.find_chrome = lambda: "chrome.exe"
+    try:
+        assert L.talk_probe_tick(None, print, now=10**10) is False, "파일이 있으면 안 함"
+        os.remove(L.talk_probe_path())
+        L.TALK_PROBE_STATE["next"] = 0.0
+        assert L.talk_probe_tick(None, print, now=100.0) is True and _calls == [1]
+        assert L.talk_probe_tick(None, print, now=200.0) is False, "1시간 안에는 다시 안 함"
+    finally:
+        L.talk_probe, L.find_chrome = _orig, _fc
+finally:
+    L.talk_probe_path = _pp
+print("g1V3Link talk probe (1.39): OK")

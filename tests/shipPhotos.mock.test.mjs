@@ -38,7 +38,7 @@ assert.equal(shipDownloadUrl("a b"), "https://drive.google.com/uc?export=downloa
 // 화면: 거래처 뒤 🚚 배송사진 탭 · 왼쪽 안내 · 오른쪽 목록 · 시트 v16
 const html = readFileSync(new URL("../cs/index.html", import.meta.url), "utf8");
 const order = [...html.matchAll(/data-left-tab="([a-z]+)"/g)].map((m) => m[1]);
-assert.deepEqual(order, ["main", "board", "review", "chat", "ship", "vendor", "msn", "settings"], "메뉴 순서 (11-11: 리뷰·상담톡·배송기록·거래처·메신저·설정 · 반품기록은 배송기록 안 메모로)");
+assert.deepEqual(order, ["main", "board", "review", "chat", "ship", "vendor", "settings"], "메뉴 순서 (11-11: 리뷰·상담톡·배송기록·거래처·설정 · 반품기록은 배송기록 안 메모로 · 11-25 💬 메신저 탭 삭제)");
 assert.match(html, /data-left-panel="ship"[^>]*><div data-ship-side><\/div><\/div>/);
 assert.match(html, /data-right-panel="ship" hidden>\s*<div class="sp" data-ship><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");

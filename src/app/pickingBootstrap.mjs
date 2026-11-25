@@ -32,7 +32,7 @@ function lock() {
 async function unlock() {
   expiryTimer = setTimeout(() => { auth.clear(); lock(); }, Math.max(0, Date.parse(auth.expiresAt) - Date.now()));
   if (form.dataset.reload) { location.reload(); return; }
-  await import("./pickingApp.mjs?v=20261124-data1");
+  await import("./pickingApp.mjs?v=20261125-log1");
   started = true;
   gate.hidden = true;
   app.hidden = false;

@@ -154,6 +154,12 @@
   · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
   · 키 파일이 없으면 업체 결과 '키 없음' 으로 알림
 
+1.42 (2026-11-26) 스마트스토어 톡톡 → 💬 상담톡 (방 목록만 · 읽기만)
+  · 5분마다 수집기 PC 의 네이버 전용 크롬(창 밖)으로 판매자센터 톡톡 화면을 열고, 화면이 스스로 받는 방 목록 응답만 읽음
+  · 방마다 고객 이름 · 마지막 메시지 · 안 읽은 수 · 상태(대기/진행/완료) → 시트 chatIngest platform=smart
+  · 방을 열지 않음 (읽음 처리 안 됨) · 대화 전체는 아직 안 읽음 · 수집 중(RUN_LOCK)이면 1분 뒤
+  · 로그인이 풀려 있으면 30분 뒤 다시 (메인보드 › 로그인 현황 › 스마트스토어 리뷰 연결로 로그인)
+
 1.41 (2026-11-25) 지난 게시판·리뷰 답변 모으기 — AI 추천 문구를 실제 답변 말투에 맞추려고
   · 수집 폴더에 _이력요청.json ({"days": 90}) 이 있을 때만 한 번: 업체마다 지난 문의·리뷰와 우리가 단 답변 글을 모아 수집\_이력\이력_<날짜>.json
   · 스마트스토어(상품문의·고객문의 API, 리뷰) · 지그재그(상품문의·주문문의·리뷰) · 메이크샵(게시판·파워리뷰) · 에이블리 문의방 · 토스(Q&A·문의방)
@@ -186,8 +192,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.41 (2026-11-25)"
-LINK_NOTE = "지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
+LINK_VER = "1.42 (2026-11-26)"
+LINK_NOTE = "스마트스토어 톡톡 방 목록 → 💬 상담톡(5분마다 · 방을 열지 않음 · 마지막 메시지만) · 지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1795,6 +1801,134 @@ def talk_probe_tick(G, say=print, now=None):
     except Exception as e:
         say(f"⚠ 톡톡 구조 확인 실패 (1시간 뒤 다시): {e}"[:200])
         return False
+
+
+# ───────── 1.42 (2026-11-26) 스마트스토어 톡톡 → 상담톡 (방 목록만 · 읽기만) ─────────
+# 1.39 구조 확인 결과: 톡톡 화면(iframe talk.sell.smartstore.naver.com/chat/ct/<파트너>) 이
+#   POST /chatapi/ct/partner/<파트너>/list 로 방 목록을 받음 → htReturnValue.chatList[{chatId, name, text, date, count, counselStatus, dialogCode …}]
+# 그 응답만 읽음 (다시 보내지 않음 · 방을 열지 않음 → 읽음 처리 안 됨)
+SMART_TALK_EVERY = 300
+SMART_TALK_RETRY = 1800
+SMART_TALK_WAIT_MS = 15000
+SMART_TALK_MAX = 60
+SMART_TALK_STATE = {"next": 0.0, "note": ""}
+SMART_TALK_LIST_RE = re.compile(r"talk\.sell\.smartstore\.naver\.com/chatapi/ct/partner/[^/?#]+/list(\?|$)")
+SMART_TALK_STATUS = {"WAIT": "대기", "PROGRESS": "진행", "END": "완료", "HOLDBACK": "보류", "BLOCK": "차단", "SPAM": "스팸"}
+SMART_TALK_DIALOG = {"PAY": "결제/주문", "PRODUCT": "상품", "STORE": "스토어"}
+
+
+def _smart_talk_time(ms):
+    try:
+        d = datetime.datetime.fromtimestamp(int(ms) / 1000, datetime.timezone(datetime.timedelta(hours=9)))
+        return d.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return ""
+
+
+def smart_talk_conv(c):
+    """톡톡 방 목록 한 줄 → 상담톡 대화 (마지막 메시지만 · 안 읽은 게 있으면 고객 말로)"""
+    c = c or {}
+    cid = str(c.get("chatId") or c.get("no") or "").strip()
+    text = str(c.get("text") or "").strip()
+    unread = max(0, int(c.get("count") or 0))
+    status = SMART_TALK_STATUS.get(str(c.get("counselStatus") or "").upper(), str(c.get("counselStatus") or ""))
+    dialog = SMART_TALK_DIALOG.get(str(c.get("dialogCode") or "").upper(), str(c.get("dialogCode") or ""))
+    t = _smart_talk_time(c.get("date"))
+    msgs = [{"who": "c", "text": text[:2000], "time": t}] if text and unread else []
+    lines = [x for x in (status and f"상태: {status}", dialog and f"문의 경로: {dialog}", "마지막 메시지만 보입니다 — 대화 전체는 스마트스토어 톡톡에서") if x]
+    return {"id": cid, "name": str(c.get("name") or "고객")[:60], "tag": status[:30], "time": t, "preview": text[:200],
+            "unread": unread, "messages": msgs, "aux": {"title": f"스마트스토어 톡톡 · {status}" if status else "스마트스토어 톡톡", "lines": lines, "items": []}}
+
+
+def smart_talk_rooms(lists):
+    """list 응답 여러 개 → 방 (chatId 겹치면 앞 것) · 차단·스팸·안 보임 제외"""
+    seen, out = set(), []
+    for js in lists or []:
+        rv = (js or {}).get("htReturnValue") or {}
+        for c in rv.get("chatList") or []:
+            cid = str((c or {}).get("chatId") or (c or {}).get("no") or "")
+            if not cid or cid in seen or c.get("spam") or c.get("block") or c.get("display") is False:
+                continue
+            seen.add(cid)
+            out.append(c)
+    return out
+
+
+def smart_talk_collect(G, chrome_cls=None, wait_ms=SMART_TALK_WAIT_MS):
+    """네이버 전용 크롬(창 밖)으로 톡톡 화면을 열어 방 목록 응답만 받음 → (convs, login_needed)"""
+    lists = []
+    Chrome = chrome_cls or NativeChrome
+    with Chrome(G, offscreen=True) as nb:
+        pg = nb.page()
+
+        def on_resp(resp):
+            try:
+                if SMART_TALK_LIST_RE.search(resp.url or "") and resp.status == 200:
+                    lists.append(resp.json())
+            except Exception:
+                pass
+        pg.on("response", on_resp)
+        pg.goto(TALK_URL, wait_until="domcontentloaded", timeout=60000)
+        waited = 0
+        while waited < wait_ms and not lists:
+            pg.wait_for_timeout(500)
+            waited += 500
+        if lists:
+            pg.wait_for_timeout(1500)                 # 첫 목록 뒤 이어지는 쪽까지 잠깐
+        url = pg.url or ""
+    login = bool(re.search(r"nid\.naver\.com|accounts\.commerce\.naver\.com|/login", url)) and not lists
+    rooms = smart_talk_rooms(lists)
+    rooms.sort(key=lambda c: int(c.get("date") or 0), reverse=True)
+    return [smart_talk_conv(c) for c in rooms[:SMART_TALK_MAX]], login
+
+
+def push_smart_talk(G, link, say=print, now=None, chrome_cls=None):
+    """1.42: 5분마다 톡톡 방 목록 → 시트 상담톡 (platform=smart)"""
+    now = time.time() if now is None else now
+    if now < SMART_TALK_STATE["next"]:
+        return 0
+    if not chrome_cls and not find_chrome():
+        SMART_TALK_STATE["next"] = now + SMART_TALK_RETRY
+        return 0
+    lock = getattr(G, "RUN_LOCK", None)
+    if lock is None:
+        SMART_TALK_STATE["next"] = now + SMART_TALK_RETRY
+        return 0
+    if not lock.acquire(blocking=False):
+        SMART_TALK_STATE["next"] = now + 60
+        return 0
+    try:
+        convs, login = smart_talk_collect(G, chrome_cls)
+    except Exception as e:
+        SMART_TALK_STATE["next"] = now + SMART_TALK_RETRY
+        note = f"{e}"[:200]
+        if SMART_TALK_STATE["note"] != note:
+            SMART_TALK_STATE["note"] = note
+            say(f"⚠ 스마트스토어 톡톡 읽기 실패 (30분 뒤 다시): {note}")
+        return 0
+    finally:
+        lock.release()
+    if login:
+        SMART_TALK_STATE["next"] = now + SMART_TALK_RETRY
+        if SMART_TALK_STATE["note"] != "login":
+            SMART_TALK_STATE["note"] = "login"
+            say("스마트스토어 톡톡: 판매자센터 로그인이 필요합니다 (메인보드 › 로그인 현황 › 스마트스토어 ⭐ 리뷰 연결) — 30분 뒤 다시")
+        return 0
+    SMART_TALK_STATE["next"] = now + SMART_TALK_EVERY
+    if SMART_TALK_STATE["note"] != "ok":
+        SMART_TALK_STATE["note"] = "ok"
+        say(f"💬 스마트스토어 톡톡 읽기 됨 — 방 {len(convs)}개 (목록만)")
+    if not convs:
+        return 0
+    try:
+        js = link.call("chatIngest", platform="smart", convs=convs)
+        if js.get("added") or js.get("changed"):
+            say(f"💬 톡톡 상담톡 {len(convs)}개 보냄 (새 {js.get('added', 0)} · 바뀜 {js.get('changed', 0)})")
+        return len(convs)
+    except Exception as e:
+        SMART_TALK_STATE["next"] = now + 60
+        say(f"⚠ 톡톡 상담톡 보내기 실패 (1분 뒤 다시): {e}"[:200])
+        return 0
 
 
 # ───────── 1.41 (2026-11-25) 지난 게시판·리뷰 답변 모으기 — 요청 파일이 있을 때 한 번 · 읽기만 ─────────
@@ -4841,6 +4975,7 @@ def _loop(G, say, beat, once, bg):
             push_new_files(link, cfg["out_dir"], d, say)
             push_ably_chat(link, say)               # 1.29
             push_toss_chat(link, say)               # 1.31 토스 문의 (3분마다 · 읽기만)
+            push_smart_talk(G, link, say)           # 1.42 스마트스토어 톡톡 방 목록 (5분마다 · 읽기만)
             if talk_probe_tick(G, say):             # 1.39 톡톡 구조 확인 (한 번만)
                 beat.set("idle", "웹 요청 기다리는 중")
             if os.path.exists(hist_req_path(cfg)):  # 1.41 지난 답변 모으기 (요청 파일이 있을 때만)

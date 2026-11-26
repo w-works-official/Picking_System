@@ -636,7 +636,28 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     };
   }
   // 11-04 밤: 카드 자체가 [전체연결] (부분 버튼 밖을 누르면) — 상태는 부분 버튼(게시판·리뷰)에만 표시
+  // 11-26 ✨ 로그인이 풀린 곳(✕로 확인된 것만, 연결중 제외)은 반짝이 — 메인보드 탭 · 업체 카드 · 그 버튼
+  function loginNeeds() {
+    const out = {};
+    if (!live()) return out;
+    for (const vendor of new Set([...document.querySelectorAll("[data-login-grid] [data-conn-vendor]")].map((el) => el.dataset.connVendor))) {
+      if (activeJob("login", vendor)) continue;
+      const st = csLoginBoth(vendor, { jobs: state.jobs, last: state.collector?.last, reviewLast: state.collector?.reviewLast });
+      const parts = [st.board === false && vendor !== "스마트스토어" ? "board" : "", st.review === false ? "review" : ""].filter(Boolean);
+      if (parts.length) out[vendor] = parts;
+    }
+    return out;
+  }
+  function renderLoginSparkle() {
+    const need = loginNeeds();
+    const names = Object.keys(need);
+    document.querySelectorAll('[data-login-grid] [data-conn="all"]').forEach((card) => card.classList.toggle("cs-sparkle", !!need[card.dataset.connVendor]));
+    document.querySelectorAll('[data-login-grid] button[data-conn]').forEach((btn) => btn.classList.toggle("cs-sparkle", !!need[btn.dataset.connVendor]?.includes(btn.dataset.conn)));
+    const tab = document.querySelector('[data-left-tab="main"]');
+    if (tab) { tab.classList.toggle("cs-sparkle", names.length > 0); tab.title = names.length ? `로그인 필요: ${names.join(" · ")}` : ""; }
+  }
   function renderConnectButtons() {
+    renderLoginSparkle();
     document.querySelectorAll('[data-login-grid] [data-conn="all"]').forEach((card) => card.classList.toggle("is-clickable", live() && !state.requesting));
     document.querySelectorAll('[data-login-grid] button[data-conn]').forEach((btn) => {
       const mode = live() ? connView(btn.dataset.connVendor)[btn.dataset.conn] : "req";

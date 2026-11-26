@@ -154,6 +154,7 @@
   · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
   · 키 파일이 없으면 업체 결과 '키 없음' 으로 알림
 
+1.43 (2026-11-26) 지난 답변 모으기 최대 180일 · 한도 늘림 · 요청 파일 _이력요청_6개월.json (1.41·1.42 는 이 파일을 모름)
 1.42 (2026-11-26) 스마트스토어 톡톡 → 💬 상담톡 (방 목록만 · 읽기만)
   · 5분마다 수집기 PC 의 네이버 전용 크롬(창 밖)으로 판매자센터 톡톡 화면을 열고, 화면이 스스로 받는 방 목록 응답만 읽음
   · 방마다 고객 이름 · 마지막 메시지 · 안 읽은 수 · 상태(대기/진행/완료) → 시트 chatIngest platform=smart
@@ -192,8 +193,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.42 (2026-11-26)"
-LINK_NOTE = "스마트스토어 톡톡 방 목록 → 💬 상담톡(5분마다 · 방을 열지 않음 · 마지막 메시지만) · 지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
+LINK_VER = "1.43 (2026-11-26)"
+LINK_NOTE = "지난 답변 모으기 6개월까지(메이크샵 글 700 · 리뷰 150쪽 · 지그재그 주문문의 400 · 에이블리 방 400) · 스마트스토어 톡톡 방 목록 → 💬 상담톡(5분마다 · 방을 열지 않음 · 마지막 메시지만) · 지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1937,12 +1938,13 @@ def push_smart_talk(G, link, say=print, now=None, chrome_cls=None):
 #   · 아무것도 쓰거나 누르지 않음 (목록·글 조회만). 사진은 안 받음 (글자만)
 #   · 수집 중이면(RUN_LOCK) 다음 차례에
 HIST_REQ = "_이력요청.json"
+HIST_REQ2 = "_이력요청_6개월.json"   # 1.43: 옛 버전이 120일로 잘라 먼저 처리하지 않게 따로
 HIST_DIR = "_이력"
 HIST_STATE = {"next": 0}
-HIST_MAX_DAYS = 120
-HIST_MS_MAX = 250          # 메이크샵 게시판 글 (원글+답변 2번 조회)
-HIST_ZZ_ORDER_MAX = 150    # 지그재그 주문문의 상세 조회
-HIST_ABLY_ROOMS = 200
+HIST_MAX_DAYS = 180
+HIST_MS_MAX = 700          # 메이크샵 게시판 글 (원글+답변 2번 조회)
+HIST_ZZ_ORDER_MAX = 400    # 지그재그 주문문의 상세 조회
+HIST_ABLY_ROOMS = 400
 
 HIST_ZZ_QNA_JS = r"""
 async ({slug, days, orderMax}) => {
@@ -2041,7 +2043,9 @@ HIST_MS_REVIEW_JS = r"""async (a) => {
 
 
 def hist_req_path(cfg):
-    return os.path.join(cfg.get("out_dir") or HERE, HIST_REQ)
+    base = cfg.get("out_dir") or HERE
+    two = os.path.join(base, HIST_REQ2)
+    return two if os.path.exists(two) else os.path.join(base, HIST_REQ)
 
 
 def hist_part(out, name, fn, say):
@@ -2187,7 +2191,7 @@ def history_collect(G, cfg, days, say, d=None, parts=None):
                             host = ms_open_review_page(pg, cfg, say, d)
                             if not host:
                                 return "오류", [], "파워리뷰 관리 화면을 못 엶"
-                            r = pg.evaluate(HIST_MS_REVIEW_JS, {"days": days, "maxPages": 60}) or {}
+                            r = pg.evaluate(HIST_MS_REVIEW_JS, {"days": days, "maxPages": 150}) or {}
                         finally:
                             pg.close()
                         return ("ok" if not r.get("error") else "일부"), r.get("out") or [], f"{r.get('error') or ''} 조회 {r.get('seen', 0)}건 · {r.get('pages', 0)}쪽 · {r.get('days')}일 · 칸 {','.join((r.get('keys') or [])[:40])}"

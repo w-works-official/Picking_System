@@ -1742,3 +1742,78 @@ assert L.history_tick(_HG, _hcfg, print, now=3.0) is False and os.path.exists(os
 _HG.RUN_LOCK.release()
 assert L.hist_ss_reply({"reviewComment": {"commentContent": " 감사합니다 "}}) == "감사합니다" and L.hist_ss_reply({"hasComment": True}) == ""
 print("g1V3Link history (1.41): OK")
+
+# 1.42 스마트스토어 톡톡 방 목록 → 상담톡 (읽기만 · 방을 열지 않음)
+assert L.LINK_VER >= "1.42"
+_tl = [{"htReturnValue": {"chatList": [
+    {"chatId": "c1", "name": "고객A", "text": "2mm 있나요?", "date": 1795660000000, "count": 2, "counselStatus": "WAIT", "dialogCode": "PRODUCT"},
+    {"chatId": "c2", "name": "고객B", "text": "감사합니다", "date": 1795670000000, "count": 0, "counselStatus": "END", "dialogCode": "PAY"},
+    {"chatId": "c3", "name": "스팸", "text": "광고", "date": 1, "count": 1, "spam": True},
+    {"chatId": "c1", "name": "중복", "text": "x", "date": 2, "count": 0}]}}]
+_rooms = L.smart_talk_rooms(_tl)
+assert [r["chatId"] for r in _rooms] == ["c1", "c2"], "스팸·중복 제외"
+_ca = L.smart_talk_conv(_rooms[0])
+assert _ca["unread"] == 2 and _ca["tag"] == "대기" and _ca["messages"] == [{"who": "c", "text": "2mm 있나요?", "time": _ca["time"]}] and _ca["time"].startswith("2026-")
+_cb = L.smart_talk_conv(_rooms[1])
+assert _cb["messages"] == [] and _cb["preview"] == "감사합니다" and _cb["tag"] == "완료", "안 읽은 게 없으면 보낸 사람을 모르니 미리보기만"
+assert L.SMART_TALK_LIST_RE.search("https://talk.sell.smartstore.naver.com/chatapi/ct/partner/wcf8yp/list")
+assert not L.SMART_TALK_LIST_RE.search("https://talk.sell.smartstore.naver.com/chatapi/ct/partner/wcf8yp/listConnect")
+
+
+class _TPage:
+    def __init__(self):
+        self.h = None
+        self.url = "https://sell.smartstore.naver.com/#/talktalk/chat"
+
+    def on(self, ev, fn):
+        if ev == "response":
+            self.h = fn
+
+    def goto(self, url, **kw):
+        class R:
+            url = "https://talk.sell.smartstore.naver.com/chatapi/ct/partner/x/list"
+            status = 200
+
+            def json(self_):
+                return _tl[0]
+        self.h(R())
+
+    def wait_for_timeout(self, ms):
+        pass
+
+
+class _TChrome:
+    def __init__(self, G, offscreen=False):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        pass
+
+    def page(self):
+        return _TPage()
+
+
+class _TLink:
+    def __init__(self):
+        self.calls = []
+
+    def call(self, action, **kw):
+        self.calls.append((action, kw))
+        return {"ok": True, "added": len(kw.get("convs") or [])}
+
+
+_tg = types.SimpleNamespace(RUN_LOCK=_th.Lock())
+_tk = _TLink()
+L.SMART_TALK_STATE.update(next=0.0, note="")
+assert L.push_smart_talk(_tg, _tk, print, now=10.0, chrome_cls=_TChrome) == 2
+assert _tk.calls[0][0] == "chatIngest" and _tk.calls[0][1]["platform"] == "smart" and len(_tk.calls[0][1]["convs"]) == 2
+assert L.push_smart_talk(_tg, _tk, print, now=20.0, chrome_cls=_TChrome) == 0, "5분 안에는 다시 안 함"
+assert not _tg.RUN_LOCK.locked()
+_tg.RUN_LOCK.acquire()
+L.SMART_TALK_STATE["next"] = 0
+assert L.push_smart_talk(_tg, _tk, print, now=30.0, chrome_cls=_TChrome) == 0 and L.SMART_TALK_STATE["next"] == 90.0, "수집 중이면 1분 뒤"
+_tg.RUN_LOCK.release()
+print("g1V3Link smart talk (1.42): OK")

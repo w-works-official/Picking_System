@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-26 v43: 📦 거래처 등록 — '거래처' 탭(업체명 · 직원별 카톡방 이름 4칸) · '거래처사용' 탭(주문서 올린 날 업체명, 60일치) vendorBook·vendorUse·vendorEdit · 2026-11-25 v42: 🧪 말투 실험 styleLab — 지난 문의·리뷰 글을 지금 AI 규칙(또는 시험 규칙)으로 답변안 만들어 실제 답변과 비교용으로 돌려줌 (시트에 안 씀 · 하루 추천 한도와 따로) · v41: 📋 업무 관리 › 업무 내역 — '업무내역' 탭(자주 하는 업무 + 날짜별 오전·오후 업무·메모) workLoad·workSave·workTemplate·workHistory · v40: 배송기록 — 방금 올린 사진·동영상(_NAS로 칸)도 바로 목록에(⏳ NAS 로 보내는 중) · 확장자로도 영상 판단 · 게시판 AI 답변안에 우리가 실제로 보낸 비슷한 답변을 예시로 · v39: 🗂 기록 보관함 '기록보관' 탭 — 게시판 문의·리뷰 · 상담톡 · 메신저 답장 후보 · 거래처 회신 판독을 평일 5일치만 남기고(더 오래된 줄은 쓸 때마다 지움) logSearch 로 검색 · 피킹시스템 [데이터] 탭에서 봄 · v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-26 v44: ✍ AI 답변 형식을 실제 답변처럼 — 게시판 BOARD_STYLE · 리뷰 REVIEW_RULES 를 지난 실제 답변 631건 형식으로 · '답변예시' 탭(지난 실제 답변)을 비슷한 예시 모음에 더함(exampleImport 로 채움) · v43: 📦 거래처 등록 — '거래처' 탭(업체명 · 직원별 카톡방 이름 4칸) · '거래처사용' 탭(주문서 올린 날 업체명, 60일치) vendorBook·vendorUse·vendorEdit · 2026-11-25 v42: 🧪 말투 실험 styleLab — 지난 문의·리뷰 글을 지금 AI 규칙(또는 시험 규칙)으로 답변안 만들어 실제 답변과 비교용으로 돌려줌 (시트에 안 씀 · 하루 추천 한도와 따로) · v41: 📋 업무 관리 › 업무 내역 — '업무내역' 탭(자주 하는 업무 + 날짜별 오전·오후 업무·메모) workLoad·workSave·workTemplate·workHistory · v40: 배송기록 — 방금 올린 사진·동영상(_NAS로 칸)도 바로 목록에(⏳ NAS 로 보내는 중) · 확장자로도 영상 판단 · 게시판 AI 답변안에 우리가 실제로 보낸 비슷한 답변을 예시로 · v39: 🗂 기록 보관함 '기록보관' 탭 — 게시판 문의·리뷰 · 상담톡 · 메신저 답장 후보 · 거래처 회신 판독을 평일 5일치만 남기고(더 오래된 줄은 쓸 때마다 지움) logSearch 로 검색 · 피킹시스템 [데이터] 탭에서 봄 · v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -105,9 +105,51 @@ var SHOP_RULES =
   '- 같은 문장을 반복하지 말 것.\n' +
   '- 출력은 JSON 문자열 배열 하나만. 다른 설명 없이: ["답변1", "답변2", ...]';
 
-var REVIEW_RULES = '\n\n리뷰 답글일 때\n' +
-  '- 고객이 남긴 상품 후기에 다는 답글입니다. 감사 인사 위주로 1~3문장.\n' +
-  '- 별점이 낮거나 불만이면 사과하고 개선·확인을 약속하되, 보상·환불은 약속하지 말 것.';
+// v44 (2026-11-26) 실제 담당자 답변 631건(스마트스토어·메이크샵·지그재그, 지난 90일)에서 뽑은 형식 — 게시판 답변에만 (상담톡·메신저는 그대로)
+var BOARD_STYLE =
+  '\n' +
+  '\n' +
+  '게시판 문의 답변일 때 (실제 담당자 답변 600여 건에서 뽑은 형식 — 위 \'말투\'보다 이것이 먼저)\n' +
+  '- 틀 (첫 두 줄과 끝 두 줄은 글자·띄어쓰기·줄바꿈까지 그대로):\n' +
+  '안녕하세요 고객님,\n' +
+  '문의남겨주셔서 감사합니다.\n' +
+  '\n' +
+  '(본문 1~3줄)\n' +
+  '\n' +
+  '다른 문의사항 있으시면 언제든지 말씀해주세요:)\n' +
+  '이용해주셔서 감사합니다, 좋은 하루 되세요 ♥\n' +
+  '- 본문은 결론부터 짧게. 되면 "네 ~ 가능합니다 / 확인됩니다 / 전달 드리겠습니다", 안 되면 이유 한 줄 + "양해 부탁드립니다".\n' +
+  '- 상품명·옵션·문의 글로 알 수 있는 것은 직접 답한다 (소재, 바 두께·길이, 바변경 가능 여부, 착용 부위 등).\n' +
+  '  "확인 후 안내드리겠습니다"는 정말 알 수 없을 때만 — 10개 후보 중 2개 이하.\n' +
+  '- 실제로 쓰는 처리 문장 (상황이 맞으면 그대로 씀):\n' +
+  '  · 주문 뒤 바·길이 변경 요청: "네 고객님 바변경 요청사항 검수팀에 내용 전달 드리겠습니다 !" (길이면 "바길이 변경 요청사항")\n' +
+  '  · 주문 전 바변경 가능 문의: "네 문의주신 제품 바변경 가능한 제품으로 확인됩니다.\\n바변경 원하신다면 주문 후 문의 남겨주시면 검수팀 전달 드리겠습니다!"\n' +
+  '  · 0.8mm 얇은 바 변경: 추가금 개당 천원 · 옵션을 안 고르셨으면 따로 입금 → "입금 안내는 채팅으로 드리겠습니다"\n' +
+  '  · 925 실버 제품: 바분리 불가 일체형이라 바변경 불가 ("바변경 가능 여부는 상세페이지 참고 부탁드립니다")\n' +
+  '  · 14K 제품: 주문제작, 영업일 기준 약 1~2주 소요 ("제작까지 시간 양해 부탁드립니다")\n' +
+  '  · 재입고: 단종이 아니면 "단종제품은 아닌 것으로 확인되며 해당 제품 저희 쪽에서 거래처에 입고 신청은 하였으나, 거래처 사정으로 입고가 지연되고 있는 것으로 확인되고 있습니다." + 재고 입고는 오후 7시경 / 단종이면 "제조사 사정에 의해 단종 된 제품으로 확인됩니다 양해 부탁드립니다."\n' +
+  '  · 출고·배송 문의: "고객님 주문건 오늘 출고 예상됩니다~" 처럼 한 줄 (출고 전이면 "준비 중 상태에서는 포장 완료 시 취소 불가할 수 있는 점 양해 부탁드립니다")\n' +
+  '  · 불량·교환: "네 고객님 불편드려 죄송합니다." + "교환 접수 도와드리겠습니다 제품은 포장하여 문앞에 두어주시면 회수 진행 될 예정이며\\n입고되면 제품 확인하여 처리 도와드리겠습니다."\n' +
+  '  · 처리 끝난 요청(취소 승인·수량 수정 등): "네 승인 드렸습니다~", "네 수정 도와드렸습니다."\n' +
+  '- 계좌번호·전화번호는 쓰지 않는다 (입금 안내는 "채팅으로 드리겠습니다").\n' +
+  '- 후보 10개: 틀은 모두 같게, 본문만 방향을 다르게 (바로 답 / 검수팀 전달 / 대안 / 사과 / 확인 후 안내 등).\n';
+
+// v44: 실제 리뷰 답글 형식으로 (예전: 감사 인사 위주 1~3문장)
+var REVIEW_RULES =
+  '\n' +
+  '\n' +
+  '리뷰 답글일 때 (실제 답글 형식 — 위 \'말투\'보다 이것이 먼저)\n' +
+  '- 별점 좋은 후기는 이 틀을 그대로 (글자·줄바꿈까지):\n' +
+  '안녕하세요 고객님!\n' +
+  '소중한 후기 너무 감사드립니다:)\n' +
+  '\n' +
+  '계속 마음에 드실 수 있도록 노력하는 핑크로켓 되도록 하겠습니다!\n' +
+  '앞으로도 좋은 후기 부탁드려요!♥\n' +
+  '\n' +
+  '감사합니다 좋은 하루 보내세요 :)\n' +
+  '- 후기 내용을 짚는 한 줄(예: "블랙 색상도 마음에 드셨다니 다행입니다!")을 둘째 줄 뒤에 넣은 후보도 몇 개 만든다.\n' +
+  '- 별점이 낮거나 불만이면 "불편드려 죄송합니다" + 확인·개선 약속 (보상·환불은 약속하지 않음), 끝 인사는 같게.\n' +
+  '- 후보 10개는 위 틀을 기본으로 한 줄만 바꿔 가며.\n';
 
 // ---------- 처음설정 (Apps Script 편집기에서 한 번 실행) ----------
 function 처음설정() {
@@ -210,7 +252,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead', 'logSearch', 'workLoad', 'workSave', 'workTemplate', 'workHistory', 'styleLab', 'vendorBook', 'vendorUse', 'vendorEdit'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead', 'logSearch', 'workLoad', 'workSave', 'workTemplate', 'workHistory', 'styleLab', 'vendorBook', 'vendorUse', 'vendorEdit', 'exampleImport'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot', 'chatIngest'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -260,6 +302,7 @@ function route_(body) {
   if (action === 'vendorBook') return vendorBook_();
   if (action === 'vendorUse') return vendorUse_(body);
   if (action === 'vendorEdit') return vendorEdit_(body);
+  if (action === 'exampleImport') return withLock_(function () { return exampleImport_(body); });
   if (action === 'chatIngest') return withLock_(function () { return chatIngest_(body); });
   if (action === 'retSave') return withLock_(function () { return retSave_(body); });
   if (action === 'newPics') return updPics_(body);
@@ -691,7 +734,7 @@ function claudeRequest_(apiKey, row) {
   var payload = {
     model: prop_('CLAUDE_MODEL') || DEFAULT_MODEL,
     max_tokens: 2500,
-    system: [{ type: 'text', text: SHOP_RULES + (isReview_(row.board) ? REVIEW_RULES : ''), cache_control: { type: 'ephemeral' } }],
+    system: [{ type: 'text', text: SHOP_RULES + (isReview_(row.board) ? REVIEW_RULES : BOARD_STYLE), cache_control: { type: 'ephemeral' } }],   // v44 게시판 = 실제 답변 형식
     messages: [{ role: 'user', content: promptFor_(row) }],
   };
   return {
@@ -2829,6 +2872,8 @@ function logSearch_(body) {
 //  · 이번 글과 글자 두 개씩 겹치는 정도(+ 같은 리뷰/문의 · 같은 판매처)로 비슷한 것 몇 개만 골라 AI 에 같이 보냄
 var EXAMPLE_MAX = 6;
 var EXAMPLE_POOL_MAX = 600;
+var EXAMPLE_SHEET = '답변예시';                                // v44 지난 실제 답변 (업체 | 게시판 | 상품 | 옵션 | 문의 | 답변 | 날짜)
+var EXAMPLE_HEADER = ['업체', '게시판', '상품', '옵션', '문의', '답변', '날짜'];
 function exampleClip_(s, n) { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n) + '…' : s; }
 // 어느 글에나 나오는 말끝·인사는 비슷함 계산에서 뺌
 var EXAMPLE_STOP = { '되나': 1, '나요': 1, '하나': 1, '해주': 1, '주세': 1, '세요': 1, '니다': 1, '습니': 1, '합니': 1, '안녕': 1, '녕하': 1, '하세': 1, '어떻': 1, '떻게': 1, '가요': 1, '인가': 1, '있나': 1, '는데': 1, '은데': 1, '감사': 1, '사합': 1, '고객': 1, '객님': 1, '했는': 1, '했어': 1, '어요': 1, '해요': 1, '되요': 1, '돼요': 1 };
@@ -2873,7 +2918,18 @@ function examplePool_(rows) {
     });
   } catch (error) { Logger.log('예시 모음(상담톡) 실패: ' + error); }
   pool.reverse();   // 최근 것 먼저 (줄이 아래로 쌓이므로)
-  return pool.slice(0, EXAMPLE_POOL_MAX);
+  pool = pool.slice(0, EXAMPLE_POOL_MAX);
+  // v44: '답변예시' 탭 = 지난 실제 답변 (수집기 1.41 지난 답변 모으기) — 시트에서 보낸 답변 뒤에 붙임
+  try {
+    var es = book_().getSheetByName(EXAMPLE_SHEET);
+    var en = es ? es.getLastRow() - 1 : 0;
+    if (en > 0) es.getRange(2, 1, en, EXAMPLE_HEADER.length).getValues().forEach(function (r, i) {
+      var q = plain_(r[4]), a = plain_(r[5]);
+      if (!q.trim() || !a.trim()) return;
+      pool.push({ review: isReview_(plain_(r[1])), vendor: plain_(r[0]), product: plain_(r[2]), q: q, a: a, key: 'ex' + i, at: plain_(r[6]) });
+    });
+  } catch (error) { Logger.log('예시 모음(답변예시) 실패: ' + error); }
+  return pool;
 }
 function examplesFor_(row, pool, max) {
   max = max || EXAMPLE_MAX;
@@ -3125,6 +3181,22 @@ function vendorUse_(body) {
   return vendorBook_();
 }
 // 화면에서 고친 것만: add(업체 추가) · del(업체 지우기) · room(방 이름 한 칸) · users(사용자 이름 4개)
+// v44 '답변예시' 탭 채우기 {rows:[[업체,게시판,상품,옵션,문의,답변,날짜]], replace?} — replace 면 기존 줄을 비우고 새로 씀
+function exampleImport_(body) {
+  var rows = (Array.isArray(body.rows) ? body.rows : []).slice(0, 2000).map(function (r) {
+    r = Array.isArray(r) ? r : [];
+    return EXAMPLE_HEADER.map(function (h, i) { return plain_(clean_(r[i], i === 4 || i === 5 ? 2000 : 200)); });
+  }).filter(function (r) { return r[4].trim() && r[5].trim(); });
+  var sheet = vendorTab_(EXAMPLE_SHEET, EXAMPLE_HEADER);
+  var last = sheet.getLastRow();
+  if (body.replace && last > 1) sheet.getRange(2, 1, last - 1, EXAMPLE_HEADER.length).clearContent();
+  var start = body.replace ? 2 : sheet.getLastRow() + 1;
+  if (rows.length) {
+    sheet.getRange(start, 1, rows.length, EXAMPLE_HEADER.length).setNumberFormat('@');
+    sheet.getRange(start, 1, rows.length, EXAMPLE_HEADER.length).setValues(rows);
+  }
+  return { ok: true, written: rows.length, total: sheet.getLastRow() - 1 };
+}
 function vendorEdit_(body) {
   var ops = Array.isArray(body.ops) ? body.ops.slice(0, 300) : [];
   var done = 0, errors = [];

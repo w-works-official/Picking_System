@@ -1817,3 +1817,11 @@ L.SMART_TALK_STATE["next"] = 0
 assert L.push_smart_talk(_tg, _tk, print, now=30.0, chrome_cls=_TChrome) == 0 and L.SMART_TALK_STATE["next"] == 90.0, "수집 중이면 1분 뒤"
 _tg.RUN_LOCK.release()
 print("g1V3Link smart talk (1.42): OK")
+# 1.43 지난 답변 6개월
+assert L.LINK_VER >= "1.43" and L.HIST_MAX_DAYS == 180 and L.HIST_MS_MAX >= 700
+_hc2 = {"out_dir": _hd}
+open(os.path.join(_hd, L.HIST_REQ2), "w", encoding="utf-8").write("{}")
+assert L.hist_req_path(_hc2).endswith(L.HIST_REQ2), "6개월 요청 파일이 먼저"
+os.remove(os.path.join(_hd, L.HIST_REQ2))
+assert L.hist_req_path(_hc2).endswith(L.HIST_REQ)
+print("g1V3Link history 6 months (1.43): OK")

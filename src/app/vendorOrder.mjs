@@ -269,6 +269,8 @@ export function mountVendorOrder({ document, window, storage, panel }) {
         byName.get(who.vendor).blobs.push(f);
       }
       vendors.push(...byName.values());
+      // 11-26 📦 거래처 등록: 올린 업체 = 오늘 사용 (새 업체는 자동 추가) — vendorBook.mjs 가 받음
+      try { window.dispatchEvent(new window.CustomEvent("system-v3-vendor-used", { detail: { names: [...new Set(vendors.map((v) => v.vendor).filter((n) => n && n !== "(매입처 없음)"))] } })); } catch { /* 등록 목록만 못 늘림 */ }
       if (!vendors.length) { say("읽을 주문서·사진이 없습니다 — PT-LIST(.xlsx) 또는 업체명_MMDD.jpg 를 넣어 주세요.", "is-bad"); return; }
       // 11-06: 주문서(.xlsx)가 있으면 업체명을 주문서 위에서부터 순서대로 슬롯 1·2·3… 메모에 (매일 새 리스트 — 예전 메모는 바뀜)
       const fromSheet = vendors.filter((v) => v.lines && v.vendor !== "(매입처 없음)");

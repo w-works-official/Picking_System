@@ -1413,8 +1413,8 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
   function openVendorBook() {
     if (vendorBook) { if (!vendorBook.state?.loaded) vendorBook.load?.(); return; }
     vendorBook = { state: { loaded: false }, load() {} };
-    import("./vendorBook.mjs?v=20261126-vb1")
-      .then((m) => { vendorBook = m.mountVendorBook({ document, window, root: $("[data-vendor-book]"), post: postRaw, isLive: () => state.connected && !state.sample }) || null; vendorBook?.load(); })
+    import("./vendorBook.mjs?v=20261126-vb2")
+      .then((m) => { vendorBook = m.mountVendorBook({ document, window, root: $("[data-vendor-book]"), post: postRaw, isLive: () => state.connected && !state.sample, storage: (() => { try { return window.localStorage; } catch { return null; } })() }) || null; vendorBook?.load(); })
       .catch((error) => { vendorBook = null; toast(`거래처 등록을 불러오지 못했습니다: ${error?.message || error}`); });
   }
   function openShip() {

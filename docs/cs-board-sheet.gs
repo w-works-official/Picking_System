@@ -1,7 +1,7 @@
 /**
  * (v17 부터 'OnlyCurrentDoc' 표시 없음 — 신상품 등록이 '업데이트 list' 시트를 읽고 쓰기 때문. 다른 시트는 정해진 ID 하나만 엽니다)
  *
- * System V3 CS 게시판 답변 시트 (2026-11-25 v41: 📋 업무 관리 › 업무 내역 — '업무내역' 탭(자주 하는 업무 + 날짜별 오전·오후 업무·메모) workLoad·workSave·workTemplate·workHistory · v40: 배송기록 — 방금 올린 사진·동영상(_NAS로 칸)도 바로 목록에(⏳ NAS 로 보내는 중) · 확장자로도 영상 판단 · 게시판 AI 답변안에 우리가 실제로 보낸 비슷한 답변을 예시로 · v39: 🗂 기록 보관함 '기록보관' 탭 — 게시판 문의·리뷰 · 상담톡 · 메신저 답장 후보 · 거래처 회신 판독을 평일 5일치만 남기고(더 오래된 줄은 쓸 때마다 지움) logSearch 로 검색 · 피킹시스템 [데이터] 탭에서 봄 · v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
+ * System V3 CS 게시판 답변 시트 (2026-11-26 v43: 📦 거래처 등록 — '거래처' 탭(업체명 · 직원별 카톡방 이름 4칸) · '거래처사용' 탭(주문서 올린 날 업체명, 60일치) vendorBook·vendorUse·vendorEdit · 2026-11-25 v42: 🧪 말투 실험 styleLab — 지난 문의·리뷰 글을 지금 AI 규칙(또는 시험 규칙)으로 답변안 만들어 실제 답변과 비교용으로 돌려줌 (시트에 안 씀 · 하루 추천 한도와 따로) · v41: 📋 업무 관리 › 업무 내역 — '업무내역' 탭(자주 하는 업무 + 날짜별 오전·오후 업무·메모) workLoad·workSave·workTemplate·workHistory · v40: 배송기록 — 방금 올린 사진·동영상(_NAS로 칸)도 바로 목록에(⏳ NAS 로 보내는 중) · 확장자로도 영상 판단 · 게시판 AI 답변안에 우리가 실제로 보낸 비슷한 답변을 예시로 · v39: 🗂 기록 보관함 '기록보관' 탭 — 게시판 문의·리뷰 · 상담톡 · 메신저 답장 후보 · 거래처 회신 판독을 평일 5일치만 남기고(더 오래된 줄은 쓸 때마다 지움) logSearch 로 검색 · 피킹시스템 [데이터] 탭에서 봄 · v38: 토스 API 키 요청(tossKey — 수집기 PC 공개키로 잠근 값만, 가져가면 지움) · 수집기 토스 상태(toss · tossOk · tossNote) · v37: 자동 종료 — 글 날짜가 없는 줄(글자 깨짐으로 날짜를 못 읽은 메이크샵 글 등)은 수집 시각으로 판단해, 다시 수집에 안 나오면 종료 · v36: 게시판 수집 업체에 토스 (BOARD_VENDORS · 수집 요청 업체 6곳까지) · v35: 💬 상담톡에 토스쇼핑 문의(채팅방) — chatIngest · chatList platform toss (수집기 PC 웹연결 1.31 이 토스 API 로 읽어 넣음, 읽기만) · v34: 회신 읽기 — 순번 줄마다 그림 속 위치(img · y)도 돌려줌 → 화면이 사진 옆에 판독 숫자를 붙여 보여줌 · v33: 📥 거래처 회신 읽기 — vendorRead(업체가 표시한 주문서 사진 · 메시지 → 순번별 입고 수량, 애매하면 sure:false) · v32: 리포트 요약 결과 표시 = 답변 O · 답변 X · 답변 △(보류) · v31: 리포트 요청 2개를 직원 요청 목록에 넣음(v30 은 '알 수 없는 요청'으로 막힘) · v30: 📊 오늘 CS 리포트 — reportData(오늘 리뷰·문의, 답변 끝난 것까지 + 상담톡) · reportSummary(문의 & 결과를 N줄 제목처럼, AI) · v29 2026-11-13: 💬 상담톡에 에이블리 문의(채팅방) — chatIngest · chatList platform ably · v28 2026-11-12: 메이크샵 글자 깨짐 정리 — 다시 수집되면 상품명도 갱신 · 깨진 글로 만든 AI 답변안은 비우고 다시 추천(채택·등록 전만) · AI 답이 잘려 와도 답변 하나하나로 나눔 · v27: 피킹시스템 맨 위 ★ 공지 메모장(noticeGet · noticeSave — '공지' 탭 한 칸, 먼저 고친 것은 덮어쓰지 않음) · v26: 배송기록 빈 메모 슬롯 선택 지우기(shipMemoDelete — '배송기록 메모_지움' 탭으로 옮김, 되살릴 수 있음) · v25: 메이크샵 Q&A 등 게시판 답변도 자동 등록 요청 받음(웹연결 1.26) · 반품기록 ID 겹침 막음 · v24: 배송기록 메모 칸 늘림(전화번호·매입처 · 상품명·옵션명·자사코드) · 빈 메모 슬롯 · 주문서 찾기용 송장 글자 힌트(shipHints) · v23: 배송기록 메모 기타를 줄마다 · v22: 배송기록 주문별 메모 — 송장 묶음마다 이름·상품코드·수량·기타 ('배송기록 메모' 탭, shipMemoList · shipMemoSave) · v21: 상담톡 보조내용에 상담 상품 카드(사진 주소 · 상품명 · 옵션 · 주문) · v20: 💬 상담톡 — 스마트스토어 톡톡 · 카카오 해피톡 대화를 수집기 PC 가 넣고(chatIngest) 화면이 읽음(chatList), 답변 후보 5개(chatSuggest) · 2026-11-10 v19: 반품기록 메모 — '반품기록' 탭에 카드 메모(retList · retSave, 먼저 고친 것은 덮어쓰지 않음, 삭제는 표시만) · 2026-11-10 v18: 배송기록 업로드 — 화면에서 송장 사진·동영상을 5_배송기록\_NAS로 폴더로 올림 → 사무실 PC 가 NAS [배송기록]으로 옮김(shipUpload: 시트는 드라이브 이어올리기 주소만 만들고 파일은 브라우저가 직접) · 신상품 등록 C열 사진 · 2026-11-10 v17: 신상품 등록 — '업데이트 list' 시트 '업데이트 순서' 탭 읽기·칸 수정·새 줄 추가(newList · newSave · newAdd, 스프레드시트 권한 필요) · 2026-11-10 v16: 배송사진 — 드라이브 '배송사진' 폴더의 송장 사진에서 수신자 이름을 읽어 파일명에 붙임(shipList · shipScan, 드라이브 권한 필요) · 2026-11-10 v15: 옵션 사진 짝짓기 — optionPhotoAi: 자사몰 사진 + 옵션 목록 → AI 가 옵션마다 사진·자리 · 2026-11-09 v14: XX 표시 · v13: 사진 색인 · 2026-11-06 v12: 상품 현황 단종 표시 — '단종' 탭에 셀피아 코드(옵션) 목록 · discList/discSet · 2026-11-06 v11: 원격 로그인 — 수집기 PC 로그인 창 화면을 웹에 보여 주고 웹에서 넣은 퀴즈 정답·클릭을 수집기 PC가 대신 넣음(화면은 10분 임시 보관, 시트에 안 남김) · 2026-11-05 v10: 메이크샵 리뷰 답글 자동 등록 + 리뷰 적립금(실구매금액 × %, 설정은 스크립트 속성 MS_POINT_PCT·MS_POINT_MSG) · 2026-11-05 v9: 메신저 대화창 그림을 AI 가 읽고 답변 후보 (msnSuggest — 그림은 저장 안 함) · 2026-11-04 v8: CS 화면이 열려 있으면 수집기 PC가 3초마다 요청 확인(평소 15초) · 2026-11-03 v7: 수집 결과 넣기를 몰아서 써서 빠르게(잠금 막힘 해소) · 2026-11-02 v6: 간단 비밀번호로 열기 · 2026-10-29 v5: 웹연결 업데이트 요청·상품명 요청 · v4: 로그인·설정·자동 수집·API·IP·파일 목록을 웹에서 · v3: 수집기 PC 처음 설정 상태 표시 · v2: 수집기 PC 연결 — 수집·등록 요청, 리뷰, AI 사용량)
  * G1 CS 수집기가 모은 문의·리뷰를 이 시트에 모으고, System V3 CS 관리 화면(브라우저)에서
  * 답변안 A~J 중에서 고르고·고치고·보류합니다. AI 추천(답변 후보 10개)도 여기서 대신 부릅니다.
  * 수집기 PC의 연결 프로그램(g1_v3_link.py)이 여기서 요청을 가져가 수집·등록하고 결과를 돌려줍니다.
@@ -210,7 +210,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead', 'logSearch', 'workLoad', 'workSave', 'workTemplate', 'workHistory'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead', 'logSearch', 'workLoad', 'workSave', 'workTemplate', 'workHistory', 'styleLab', 'vendorBook', 'vendorUse', 'vendorEdit'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot', 'chatIngest'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -256,6 +256,10 @@ function route_(body) {
   if (action === 'workSave') return workSave_(body);
   if (action === 'workTemplate') return workTemplate_(body);
   if (action === 'workHistory') return workHistory_(body);
+  if (action === 'styleLab') return styleLab_(body);
+  if (action === 'vendorBook') return vendorBook_();
+  if (action === 'vendorUse') return vendorUse_(body);
+  if (action === 'vendorEdit') return vendorEdit_(body);
   if (action === 'chatIngest') return withLock_(function () { return chatIngest_(body); });
   if (action === 'retSave') return withLock_(function () { return retSave_(body); });
   if (action === 'newPics') return updPics_(body);
@@ -2991,3 +2995,168 @@ function workHistory_(body) {
   list.sort(function (a, b) { return a.day < b.day ? 1 : a.day > b.day ? -1 : 0; });
   return { ok: true, staff: staff, items: list.slice(0, max) };
 }
+
+
+// ---------- v42 (2026-11-25) 🧪 말투 실험 ----------
+//  · 지난 문의·리뷰(실제 답변이 있는 글)를 AI 에 넣어 답변안을 받아 실제 답변과 견줘 봄 — 시트에는 아무것도 안 씀
+//  · rules: 'now' = 지금 쓰는 규칙(SHOP_RULES + REVIEW_RULES) · system 을 주면 그 규칙으로 (시험용, 8000자까지)
+//  · 한 번에 25건까지 · 하루 AI 추천 한도(AI_DAILY_LIMIT)와 따로 · 사용량은 '말투실험'으로 기록
+var STYLE_LAB_MAX = 25;
+function styleLab_(body) {
+  var apiKey = prop_('CLAUDE_KEY');
+  if (!apiKey) return { ok: false, error: 'AI 키 없음' };
+  var items = Array.isArray(body.items) ? body.items.slice(0, STYLE_LAB_MAX) : [];
+  if (!items.length) return { ok: false, error: '글이 없습니다' };
+  var custom = body.system ? body_(body.system, 8000) : '';
+  var model = plain_(clean_(body.model, 60)) || prop_('CLAUDE_MODEL') || DEFAULT_MODEL;
+  var reqs = items.map(function (it) {
+    var row = { vendor: plain_(clean_(it.vendor, 40)), board: plain_(clean_(it.board, 40)), product: body_(it.product, 200),
+      inquiry: { question: body_(it.q, 2000), option: body_(it.option, 200), title: body_(it.title, 200), type: body_(it.type, 40) } };
+    var ex = Array.isArray(it.examples) ? it.examples.slice(0, 5).map(function (e) { return { q: body_(e.q, 300), a: body_(e.a, 400) }; }) : [];
+    if (ex.length) row._examples = ex;
+    var req = claudeRequest_(apiKey, row);
+    var payload = JSON.parse(req.payload);
+    payload.model = model;
+    if (custom) payload.system = [{ type: 'text', text: custom + (isReview_(row.board) && body.reviewSystem ? body_(body.reviewSystem, 4000) : ''), cache_control: { type: 'ephemeral' } }];
+    req.payload = JSON.stringify(payload);
+    return { req: req, row: row };
+  });
+  var res = UrlFetchApp.fetchAll(reqs.map(function (x) { return x.req; }));
+  var out = res.map(function (r, i) {
+    try {
+      var data = parse_(r.getContentText(), {});
+      if (r.getResponseCode() !== 200) return { ok: false, error: 'AI ' + r.getResponseCode() + ' ' + String((data.error || {}).message || '').slice(0, 120) };
+      var text = '';
+      (data.content || []).forEach(function (c) { if (c && c.type === 'text') text += c.text; });
+      recordUsage_(data.usage, model, '말투실험');
+      return { ok: true, answers: answersFrom_(text, 10) };
+    } catch (error) {
+      return { ok: false, error: String(error && error.message || error).slice(0, 200) };
+    }
+  });
+  return { ok: true, model: model, results: out };
+}
+
+
+// ---------- v43 (2026-11-26) 📦 거래처 등록 ----------
+//  · '거래처' 탭: 업체명 | 방1~방4 (직원마다 쓰는 카톡방 이름) | 추가(자동·직접) | 추가일
+//  · '거래처사용' 탭: 날짜 | 업체명 — 주문서를 올린 날마다 한 줄 (같은 날 같은 업체는 한 번) · 60일 지난 줄은 쓸 때 지움
+//  · 최근 30일 사용 = 사용한 날 수 · 새 업체는 쓰면 자동으로 추가 · 지우기는 화면에서 직접만
+//  · 방 칸 위 사용자 이름 4개 = 스크립트 속성 VENDOR_USERS
+var VENDOR_SHEET = '거래처';
+var VENDOR_HEADER = ['업체명', '방1', '방2', '방3', '방4', '추가', '추가일'];
+var VENDOR_USE_SHEET = '거래처사용';
+var VENDOR_USE_HEADER = ['날짜', '업체명'];
+var VENDOR_SLOTS = 4;
+var VENDOR_USE_DAYS = 30;
+var VENDOR_KEEP_DAYS = 60;
+
+function vendorTab_(name, header) {
+  var book = book_();
+  var sheet = book.getSheetByName(name);
+  if (!sheet) { sheet = book.insertSheet(name); sheet.appendRow(header); sheet.setFrozenRows(1); sheet.getRange(1, 1, sheet.getMaxRows(), header.length).setNumberFormat('@'); }
+  return sheet;
+}
+function vendorName_(v) { return plain_(clean_(v, 40)).replace(/\s+/g, ' ').trim(); }
+function vendorKey_(v) { return vendorName_(v).replace(/\s+/g, '').toLowerCase(); }
+function vendorDay_(d) { return Utilities.formatDate(d || new Date(), 'Asia/Seoul', 'yyyy-MM-dd'); }
+function vendorRows_(sheet) {
+  var n = sheet.getLastRow() - 1;
+  return n > 0 ? sheet.getRange(2, 1, n, VENDOR_HEADER.length).getValues() : [];
+}
+function vendorUsers_() {
+  var u = parse_(prop_('VENDOR_USERS') || '[]', []);
+  var out = [];
+  for (var i = 0; i < VENDOR_SLOTS; i++) out.push(plain_(clean_(u[i], 20)).trim());
+  return out;
+}
+function vendorBook_() {
+  var rows = vendorRows_(vendorTab_(VENDOR_SHEET, VENDOR_HEADER));
+  var use = vendorTab_(VENDOR_USE_SHEET, VENDOR_USE_HEADER);
+  var n = use.getLastRow() - 1;
+  var since = vendorDay_(new Date(Date.now() - (VENDOR_USE_DAYS - 1) * 864e5));
+  var count = {};
+  (n > 0 ? use.getRange(2, 1, n, 2).getValues() : []).forEach(function (r) {
+    var day = r[0] instanceof Date ? vendorDay_(r[0]) : String(r[0]);
+    if (day >= since) { var k = vendorKey_(r[1]); count[k] = (count[k] || 0) + 1; }
+  });
+  var vendors = rows.filter(function (r) { return vendorName_(r[0]); }).map(function (r) {
+    var rooms = [];
+    for (var i = 0; i < VENDOR_SLOTS; i++) rooms.push(plain_(r[1 + i]));
+    return { name: vendorName_(r[0]), rooms: rooms, uses: count[vendorKey_(r[0])] || 0, auto: plain_(r[5]) === '자동', added: r[6] instanceof Date ? vendorDay_(r[6]) : plain_(r[6]) };
+  });
+  return { ok: true, users: vendorUsers_(), vendors: vendors, days: VENDOR_USE_DAYS };
+}
+function vendorFind_(rows, name) {
+  var k = vendorKey_(name);
+  for (var i = 0; i < rows.length; i++) if (vendorKey_(rows[i][0]) === k) return i;
+  return -1;
+}
+function vendorAppend_(sheet, rows, name, how) {
+  var row = [name, name, '', '', '', how, vendorDay_()];      // 방1 = 업체명 (지금까지 쓰던 이름)
+  sheet.appendRow(row);
+  rows.push(row);
+}
+// 주문서를 올린 업체들 → 오늘 사용 기록 + 없는 업체는 자동 추가
+function vendorUse_(body) {
+  var names = (Array.isArray(body.names) ? body.names : []).map(vendorName_).filter(function (x) { return x && x !== '(매입처 없음)'; }).slice(0, 80);
+  if (!names.length) return vendorBook_();
+  withLock_(function () {
+    var sheet = vendorTab_(VENDOR_SHEET, VENDOR_HEADER);
+    var rows = vendorRows_(sheet);
+    var use = vendorTab_(VENDOR_USE_SHEET, VENDOR_USE_HEADER);
+    var today = vendorDay_();
+    var n = use.getLastRow() - 1;
+    var all = n > 0 ? use.getRange(2, 1, n, 2).getValues() : [];
+    var cut = vendorDay_(new Date(Date.now() - VENDOR_KEEP_DAYS * 864e5));
+    var old = 0;
+    while (old < all.length && (all[old][0] instanceof Date ? vendorDay_(all[old][0]) : String(all[old][0])) < cut) old++;
+    if (old) { use.deleteRows(2, old); all = all.slice(old); }
+    var seen = {};
+    all.forEach(function (r) { if ((r[0] instanceof Date ? vendorDay_(r[0]) : String(r[0])) === today) seen[vendorKey_(r[1])] = true; });
+    var add = [];
+    names.forEach(function (name) {
+      var k = vendorKey_(name);
+      if (!seen[k]) { seen[k] = true; add.push([today, name]); }
+      if (vendorFind_(rows, name) < 0) vendorAppend_(sheet, rows, name, '자동');
+    });
+    if (add.length) use.getRange(use.getLastRow() + 1, 1, add.length, 2).setValues(add);
+  });
+  return vendorBook_();
+}
+// 화면에서 고친 것만: add(업체 추가) · del(업체 지우기) · room(방 이름 한 칸) · users(사용자 이름 4개)
+function vendorEdit_(body) {
+  var ops = Array.isArray(body.ops) ? body.ops.slice(0, 300) : [];
+  var done = 0, errors = [];
+  withLock_(function () {
+    var sheet = vendorTab_(VENDOR_SHEET, VENDOR_HEADER);
+    var rows = vendorRows_(sheet);
+    ops.forEach(function (op) {
+      op = op || {};
+      var name = vendorName_(op.name);
+      if (op.op === 'users') {
+        var u = (Array.isArray(op.users) ? op.users : []).slice(0, VENDOR_SLOTS).map(function (x) { return plain_(clean_(x, 20)).trim(); });
+        setProp_('VENDOR_USERS', JSON.stringify(u)); done++; return;
+      }
+      if (!name) { errors.push('업체명 없음'); return; }
+      var at = vendorFind_(rows, name);
+      if (op.op === 'add') {
+        if (at >= 0) { errors.push(name + ': 이미 있음'); return; }
+        vendorAppend_(sheet, rows, name, '직접'); done++; return;
+      }
+      if (at < 0) { errors.push(name + ': 목록에 없음'); return; }
+      if (op.op === 'del') { sheet.deleteRow(at + 2); rows.splice(at, 1); done++; return; }
+      if (op.op === 'room') {
+        var i = Math.trunc(Number(op.i));
+        if (!(i >= 0 && i < VENDOR_SLOTS)) { errors.push(name + ': 칸 번호'); return; }
+        var room = plain_(clean_(op.room, 60)).trim();
+        sheet.getRange(at + 2, 2 + i).setValue(room); rows[at][1 + i] = room; done++; return;
+      }
+      errors.push('알 수 없는 작업');
+    });
+  });
+  var out = vendorBook_();
+  out.done = done; out.errors = errors;
+  return out;
+}
+

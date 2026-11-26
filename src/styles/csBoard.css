@@ -2629,3 +2629,24 @@ body.cs-board-workspace { font-weight: 500; -webkit-font-smoothing: antialiased;
 .cs-insp-sum .is-bad b { color: #dc2626; }
 .cs-insp-sum .is-ok b { color: #16a34a; }
 .cs-insp-miss { margin: 6px 0; padding-left: 22px; max-height: 240px; overflow: auto; font-size: 13px; }
+
+/* 📦 거래처 등록 (2026-11-26 — vendorBook.mjs) */
+.vb-box { display: block; }
+.vb-head { display: flex; gap: 6px; align-items: center; position: sticky; top: 0; z-index: 1; background: #fff; padding-bottom: 6px; }
+.vb-users, .vb-rooms { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; flex: 1; }
+.vb-user { min-width: 0; padding: 5px 6px; border: 1px solid #a5b4fc; border-radius: 6px; background: #eef2ff; font-weight: 800; font-size: 13px; text-align: center; }
+.vb-save { padding: 5px 12px; }
+.vb-add { display: flex; gap: 6px; margin: 0 0 8px; }
+.vb-add input { flex: 1; min-width: 0; padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+.vb-list { display: flex; flex-direction: column; gap: 6px; max-height: calc(62vh / var(--uiz, 1)); overflow: auto; }
+.vb-item { padding: 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+.vb-line { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.vb-name { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vb-uses { font-size: 12px; color: #64748b; }
+.vb-del { border: 1px solid #fecaca; background: #fff; color: #dc2626; border-radius: 6px; font-size: 12px; padding: 2px 8px; cursor: pointer; }
+.vb-del.is-armed { background: #dc2626; color: #fff; }
+.vb-room { min-width: 0; padding: 4px 5px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 12px; background: #fff; }
+.vb-room.is-dirty { border-color: #f59e0b; background: #fffbeb; }
+.vb-say { min-height: 1em; margin: 6px 0 0; }
+.vb-say[data-tone="bad"] { color: #dc2626; }
+.vb-say[data-tone="ok"] { color: #16a34a; }

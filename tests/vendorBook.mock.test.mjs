@@ -52,3 +52,12 @@ const slots = readFileSync(new URL("../src/app/msnSlots.mjs", import.meta.url), 
 assert.match(slots, /const names = Array\.from\(\{ length: prefs\.count \}, \(_, i\) => roomOf\(prefs\.names\[i\]\)\);/);
 assert.match(slots, /window\.SystemV3VendorRoom\?\.\(n\)/);
 console.log("vendorBook mock: OK");
+
+// 11-26 ✨ 로그인 필요 반짝이
+const css = readFileSync(new URL("../src/styles/csBoard.css", import.meta.url), "utf8");
+assert.match(css, /\.cs-sparkle \{ position: relative; animation: cs-sparkle-glow/);
+assert.match(css, /prefers-reduced-motion: reduce\) \{ \.cs-sparkle/);
+assert.match(app, /function renderLoginSparkle\(\)/);
+assert.match(app, /renderConnectButtons\(\) \{\n    renderLoginSparkle\(\);/);
+assert.match(app, /tab\.classList\.toggle\("cs-sparkle", names\.length > 0\)/);
+console.log("login sparkle: OK");

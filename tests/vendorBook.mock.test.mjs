@@ -37,6 +37,11 @@ for (const a of ["vendorBook", "vendorUse", "vendorEdit"]) {
   assert.match(gs, new RegExp(`'${a}'[,\\]]`), `${a} 직원 요청 목록`);
   assert.match(gs, new RegExp(`if \\(action === '${a}'\\) return ${a}_\\(`));
 }
+// 11-26 v44 답변예시 탭 채우기 + 직원 말투 규칙
+assert.match(gs, /'exampleImport'\]/);
+assert.match(gs, /if \(action === 'exampleImport'\) return withLock_\(function \(\) \{ return exampleImport_\(body\); \}\);/);
+assert.match(gs, /var EXAMPLE_HEADER = \['업체', '게시판', '상품', '옵션', '문의', '답변', '날짜'\];/);
+assert.match(gs, /isReview_\(row\.board\) \? REVIEW_RULES : BOARD_STYLE/);
 assert.match(gs, /var VENDOR_HEADER = \['업체명', '방1', '방2', '방3', '방4', '추가', '추가일'\];/);
 // 11-26 이 PC 사용자 칸 → 일괄 붙이기 카톡방 이름
 const bk = { vendors: [{ name: "세븐피어싱", rooms: ["세븐피어싱", "세븐 주문방", "", ""] }] };

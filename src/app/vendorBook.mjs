@@ -4,6 +4,14 @@
 //  · 방 칸 4개 = 직원마다 쓰는 카톡방 이름, 위쪽 사용자 이름 4개 · [저장]은 고친 칸만 보냄
 export const VENDOR_SLOTS = 4;
 export const VENDOR_USED_EVENT = "system-v3-vendor-used";
+export const VENDOR_ME_KEY = "system_v3_cs_vendor_me";      // 이 PC 사용자 칸 (0~3, 없으면 -1)
+
+// 이 PC 사용자 칸의 카톡방 이름 (없으면 "")
+export function roomFor(book, me, name) {
+  if (!(me >= 0 && me < VENDOR_SLOTS)) return "";
+  const v = (book?.vendors || []).find((x) => vendorKey(x.name) === vendorKey(name));
+  return String(v?.rooms?.[me] || "").trim();
+}
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -14,15 +22,16 @@ export function sortVendors(list) {
   return [...(list || [])].sort((a, b) => (b.uses || 0) - (a.uses || 0) || String(a.name).localeCompare(String(b.name), "ko"));
 }
 
-export function vendorBookHtml(book, { dirty = new Map(), pendingDel = "" } = {}) {
+export function vendorBookHtml(book, { dirty = new Map(), pendingDel = "", me = -1 } = {}) {
   const users = Array.from({ length: VENDOR_SLOTS }, (_, i) => (dirty.has(`u${i}`) ? dirty.get(`u${i}`) : book.users?.[i] || ""));
-  const head = users.map((u, i) => `<input class="vb-user" data-vb-user="${i}" value="${esc(u)}" placeholder="사용자 ${i + 1}" maxlength="20">`).join("");
+  const head = users.map((u, i) => `<input class="vb-user${i === me ? " is-me" : ""}" data-vb-user="${i}" value="${esc(u)}" placeholder="사용자 ${i + 1}" maxlength="20">`).join("");
+  const mine = `<label class="vb-me">이 PC <select data-vb-me><option value="-1">선택</option>${users.map((u, i) => `<option value="${i}"${i === me ? " selected" : ""}>${esc(u || `사용자 ${i + 1}`)}</option>`).join("")}</select></label>`;
   const rows = sortVendors(book.vendors).map((v) => {
     const k = vendorKey(v.name);
     const rooms = Array.from({ length: VENDOR_SLOTS }, (_, i) => {
       const id = `r${i}:${k}`;
       const val = dirty.has(id) ? dirty.get(id) : v.rooms?.[i] || "";
-      return `<input class="vb-room${dirty.has(id) ? " is-dirty" : ""}" data-vb-room="${i}" data-vb-name="${esc(v.name)}" value="${esc(val)}" maxlength="60" aria-label="${esc(`${v.name} 카톡방 ${i + 1}`)}">`;
+      return `<input class="vb-room${dirty.has(id) ? " is-dirty" : ""}${i === me ? " is-me" : ""}" data-vb-room="${i}" data-vb-name="${esc(v.name)}" value="${esc(val)}" maxlength="60" aria-label="${esc(`${v.name} 카톡방 ${i + 1}`)}">`;
     }).join("");
     const del = pendingDel === k;
     return `<div class="vb-item" data-vb-key="${esc(k)}">
@@ -31,15 +40,17 @@ export function vendorBookHtml(book, { dirty = new Map(), pendingDel = "" } = {}
       <div class="vb-rooms">${rooms}</div>
     </div>`;
   }).join("");
-  return `<div class="vb-head"><div class="vb-users">${head}</div>
+  return `${mine}<div class="vb-head"><div class="vb-users">${head}</div>
       <button type="button" class="cs-btn cs-btn-primary vb-save" data-vb-act="save"${dirty.size ? "" : " disabled"}>저장</button></div>
     <div class="vb-add"><input data-vb-new placeholder="업체명" maxlength="40"><button type="button" class="cs-btn" data-vb-act="add">추가</button></div>
     <div class="vb-list">${rows || '<p class="cs-note">등록된 업체 없음</p>'}</div>`;
 }
 
-export function mountVendorBook({ document, window, root, post, isLive = () => true }) {
+export function mountVendorBook({ document, window, root, post, isLive = () => true, storage = null }) {
   if (!root) return null;
-  const st = { book: { users: [], vendors: [] }, dirty: new Map(), pendingDel: "", loaded: false, busy: false, timer: 0, retry: 0, msg: "" };
+  const readMe = () => { try { const v = storage?.getItem(VENDOR_ME_KEY); if (v == null || v === "") return -1; const n = Number(v); return Number.isInteger(n) && n >= 0 && n < VENDOR_SLOTS ? n : -1; } catch { return -1; } };
+  const st = { book: { users: [], vendors: [] }, dirty: new Map(), pendingDel: "", loaded: false, busy: false, timer: 0, retry: 0, msg: "", me: readMe() };
+  window.SystemV3VendorRoom = (name) => roomFor(st.book, st.me, name);   // msnSlots 일괄 붙이기가 씀
   const box = document.createElement("div");
   const say = document.createElement("p");
   say.className = "cs-note vb-say";
@@ -50,7 +61,7 @@ export function mountVendorBook({ document, window, root, post, isLive = () => t
     const focus = document.activeElement;
     const keep = focus && box.contains(focus) ? { sel: focus.dataset.vbRoom != null ? `[data-vb-room="${focus.dataset.vbRoom}"][data-vb-name="${CSS.escape(focus.dataset.vbName)}"]` : focus.dataset.vbUser != null ? `[data-vb-user="${focus.dataset.vbUser}"]` : focus.hasAttribute("data-vb-new") ? "[data-vb-new]" : "", pos: focus.selectionStart, val: focus.value } : null;
     const draft = box.querySelector("[data-vb-new]")?.value || "";
-    box.innerHTML = vendorBookHtml(st.book, { dirty: st.dirty, pendingDel: st.pendingDel });
+    box.innerHTML = vendorBookHtml(st.book, { dirty: st.dirty, pendingDel: st.pendingDel, me: st.me });
     box.querySelector("[data-vb-new]").value = draft;
     if (keep?.sel) { const el = box.querySelector(keep.sel); if (el) { if (keep.sel === "[data-vb-new]") el.value = keep.val; el.focus(); try { el.setSelectionRange(keep.pos, keep.pos); } catch { /* */ } } }
   }
@@ -103,6 +114,12 @@ export function mountVendorBook({ document, window, root, post, isLive = () => t
     else return;
     const b = box.querySelector('[data-vb-act="save"]');
     if (b) b.disabled = false;
+  });
+  box.addEventListener("change", (e) => {
+    if (!e.target.hasAttribute("data-vb-me")) return;
+    st.me = Number(e.target.value);
+    try { if (st.me >= 0) storage?.setItem(VENDOR_ME_KEY, String(st.me)); else storage?.removeItem(VENDOR_ME_KEY); } catch { /* 이번 화면만 */ }
+    render();
   });
   box.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;

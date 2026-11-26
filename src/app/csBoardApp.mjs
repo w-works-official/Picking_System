@@ -438,6 +438,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     if (RIGHT_TITLES[tab]) showRight(tab);
     if (tab === "settings" && state.connected && !state.sample) loadUsage();
     if (tab === "ship") openShip();
+    if (tab === "vendor") openVendorBook();
     if (tab === "chat") openChat(); else chat?.stop?.();
     if (tab === "settings" && !state.update) checkUpdate({ quiet: true });
     if (tab === "settings") openReport();
@@ -1407,6 +1408,14 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const json = await response.json();
     if (!json?.ok) { const error = new Error(String(json?.error || "CS 시트가 요청을 거절했습니다.")); if (json?.denied) error.denied = true; throw error; }
     return json;
+  }
+  let vendorBook = null;
+  function openVendorBook() {
+    if (vendorBook) { if (!vendorBook.state?.loaded) vendorBook.load?.(); return; }
+    vendorBook = { state: { loaded: false }, load() {} };
+    import("./vendorBook.mjs?v=20261126-vb1")
+      .then((m) => { vendorBook = m.mountVendorBook({ document, window, root: $("[data-vendor-book]"), post: postRaw, isLive: () => state.connected && !state.sample }) || null; vendorBook?.load(); })
+      .catch((error) => { vendorBook = null; toast(`거래처 등록을 불러오지 못했습니다: ${error?.message || error}`); });
   }
   function openShip() {
     if (ship) { if (!ship.state.loaded && !ship.state.loading) ship.load(); return; }

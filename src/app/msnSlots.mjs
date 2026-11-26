@@ -85,8 +85,16 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (el) { el.textContent = text; el.className = `msn-msg ${tone}`; }
   }
   // 1.20 거래처: 일괄 붙이기 결과를 업체(슬롯)별 안내로 — 대화방 이름을 업체명으로 바꾸도록
+  // 11-26 📦 거래처 등록: 이 PC 사용자 칸의 카톡방 이름 (비어 있으면 업체명 그대로) — vendorBook.mjs 가 window.SystemV3VendorRoom 을 둠
+  function roomOf(name) {
+    const n = String(name || "").trim();
+    if (!vendor || !n) return n;
+    try { return String(window.SystemV3VendorRoom?.(n) || "").trim() || n; } catch { return n; }
+  }
   function noteText(name, n) {
-    const q = `'${name}'`;
+    const room = roomOf(name);
+    const q = `'${room}'`;
+    if (room !== String(name || "").trim() && n.state === "missing") return `카톡에서 ${q} 대화방을 못 찾았습니다\n→ 거래처 등록의 카톡방 이름을 확인해 주세요`;
     if (n.state === "missing") return `카톡에서 ${q} 대화방을 못 찾았습니다\n→ 이 업체 카톡방 이름을 ${q}(으)로 바꿔 주세요\n(대화방 ≡ 메뉴 → 채팅방 설정 → 채팅방 이름)`;
     if (n.state === "dup") return `${q}이(가) 들어간 대화방이 ${n.titles?.length || 2}개입니다 (${(n.titles || []).join(" · ")})\n→ 이 업체 방만 이름에 ${q}이 들어가게 바꿔 주세요`;
     if (n.state === "similar") return `열린 방: '${n.title}'\n→ 이 업체가 맞으면 그대로, 아니면 카톡방 이름을 ${q}(으)로 바꿔 주세요`;
@@ -304,7 +312,7 @@ export function mountMsnSlots({ document, window, storage, navigator = window?.n
     if (!st.helper.on || !panelShown()) return;
     const rects = slotScreenRects();
     if (!rects.length) return;
-    const names = Array.from({ length: prefs.count }, (_, i) => String(prefs.names[i] || "").trim());
+    const names = Array.from({ length: prefs.count }, (_, i) => roomOf(prefs.names[i]));
     const key = JSON.stringify([group, rects, names]);
     if (!force && key === st.helper.sent) return;
     try { const r = await helperCall("/slots", { slots: rects, group, names }); st.helper.sent = key; if (Array.isArray(r?.used)) autoStarOff(r.used); } catch { setHelper(false); }

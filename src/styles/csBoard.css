@@ -2656,16 +2656,10 @@ body.cs-board-workspace { font-weight: 500; -webkit-font-smoothing: antialiased;
 .vb-room.is-me { border-color: #6366f1; box-shadow: inset 0 0 0 1px #6366f1; }
 .vb-user.is-me::placeholder { color: #e0e7ff; }
 
-/* ✨ 로그인 필요 반짝이 (2026-11-26 — csBoardApp renderLoginSparkle) */
+/* 로그인 필요 반짝이 — 노란 빛만 (2026-11-26 — csBoardApp renderLoginSparkle) */
 @keyframes cs-sparkle-glow {
   0%, 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
   50% { box-shadow: 0 0 0 3px rgba(250, 204, 21, .95), 0 0 14px 4px rgba(251, 191, 36, .75); }
 }
-@keyframes cs-sparkle-star {
-  0%, 100% { opacity: .15; transform: scale(.6) rotate(0deg); }
-  50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
-}
 .cs-sparkle { position: relative; animation: cs-sparkle-glow 1.2s ease-in-out infinite; }
-.cs-sparkle::after { content: "✨"; position: absolute; top: -9px; right: -7px; font-size: 15px; line-height: 1; pointer-events: none; animation: cs-sparkle-star 1.2s ease-in-out infinite; z-index: 2; }
-@media (prefers-reduced-motion: reduce) { .cs-sparkle, .cs-sparkle::after { animation: none; } .cs-sparkle { box-shadow: 0 0 0 3px rgba(250, 204, 21, .95); } }
-.cs-left-tab.cs-sparkle::after { top: 2px; right: 3px; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .cs-sparkle { animation: none; } .cs-sparkle { box-shadow: 0 0 0 3px rgba(250, 204, 21, .95); } }

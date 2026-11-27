@@ -6,11 +6,12 @@ const clean = (v) => String(v ?? "").replace(/\s+/g, "").trim();
 
 // 11-27: 아직 이름을 안 읽은 사진(방금 올려 NAS 로 보내는 중 · 미확인)도 새 묶음의 시작 — 앞 송장 묶음에 줄줄이 붙지 않게
 //        (이름은 파일 이름이 '김미영.jpg' 처럼 사람 이름이면 그것, bandicam… 이면 빈칸 → 화면에 '송장 확인 전')
+//        단, 묶음 첫 사진과 3초 안에 찍힌 사진은 같은 묶음 (bandicam 은 한 번에 사진 2장 + 동영상)
 //        앞 파일과 30분 넘게 떨어진 파일도 새 묶음 ('송장 없는 파일')
-const GAP_MIN = 30;
-const minutesOf = (t) => {
-  const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/.exec(String(t || ""));
-  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 60000 : NaN;
+const GAP_MIN = 30, SAME_SEC = 3;
+const secondsOf = (t) => {
+  const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})?/.exec(String(t || ""));
+  return m ? Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)) / 1000 : NaN;
 };
 export function nameFromFile(name) {
   const base = String(name || "").replace(/\.[^.]+$/, "").trim();
@@ -18,18 +19,19 @@ export function nameFromFile(name) {
 }
 export function groupShipFiles(files = []) {
   const groups = [];
-  let cur = null, last = NaN;
+  let cur = null, last = NaN, start = NaN;
   for (const f of files) {
-    const t = minutesOf(f?.t);
+    const t = secondsOf(f?.t);
     const unread = f?.kind === "photo" && (f.pending || !f.checked) && !(f.invoice && clean(f.recipient));
-    if (f?.kind === "photo" && ((f.invoice && clean(f.recipient)) || unread)) {
+    const sameShot = unread && cur?.invoice && Number.isFinite(t) && Number.isFinite(start) && t - start <= SAME_SEC;
+    if (f?.kind === "photo" && ((f.invoice && clean(f.recipient)) || unread) && !sameShot) {
       cur = { key: f.id, recipient: unread ? clean(nameFromFile(f.name)) : clean(f.recipient), invoice: f, items: [], ...(unread ? { unread: true } : {}) };
       groups.push(cur);
-      last = t;
+      last = start = t;
       continue;
     }
-    if (cur && Number.isFinite(t) && Number.isFinite(last) && t - last > GAP_MIN) cur = null;
-    if (!cur) { cur = { key: groups.length ? `gap-${f.id}` : "before", recipient: "", invoice: null, items: [] }; groups.push(cur); }
+    if (cur && Number.isFinite(t) && Number.isFinite(last) && t - last > GAP_MIN * 60) cur = null;
+    if (!cur) { cur = { key: groups.length ? `gap-${f.id}` : "before", recipient: "", invoice: null, items: [] }; groups.push(cur); start = NaN; }
     cur.items.push(f);
     if (Number.isFinite(t)) last = t;
   }

@@ -1,4 +1,4 @@
-import { isVirtualStock, realStock } from "./virtualStock.mjs?v=20261127-vs1";
+import { isVirtualStock, realStock } from "./virtualStock.mjs?v=20261127-vs2";
 // 📦 상품 현황 (2026-11-06) — 셀피아 코드(옵션) 단위로 사진 · 옵션명 · 최근 재고 · 기간별 출고 수량
 //  · 상품 = 셀피아 상품코드(대표코드, 예: 1000) · 옵션 = 셀피아 코드(예: 1000-1)
 //  · 사진 규칙 (대표님 11-06)

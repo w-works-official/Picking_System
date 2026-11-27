@@ -160,7 +160,7 @@ console.log("freeSlots ok");
 {
   const { readFileSync } = await import("node:fs");
   const page = readFileSync(new URL("../purchase/index.html", import.meta.url), "utf8");
-  if (!/data-purchase-tab="naming">신상품 등록<\/button>\s*<button class="purchase-tab" type="button" data-purchase-tab="slots">자사코드 자리<\/button>/.test(page)) throw new Error("자사코드 자리 메뉴");
+  if (!/<h3 class="purchase-tab-group">영수증<\/h3>[\s\S]*?<h3 class="purchase-tab-group">자사코드<\/h3>\s*<button class="purchase-tab" type="button" data-purchase-tab="slots">자사코드 자리<\/button>/.test(page)) throw new Error("메뉴: 영수증 밑 자사코드 묶음");
   if (!/data-purchase-panel="slots"[\s\S]*?<div data-fs-root><\/div>/.test(page)) throw new Error("자사코드 자리 패널");
   if (!/freeSlotsBoot\.mjs\?v=20261127-slots4/.test(page)) throw new Error("boot 스크립트");
   const boot = readFileSync(new URL("../src/app/freeSlotsBoot.mjs", import.meta.url), "utf8");

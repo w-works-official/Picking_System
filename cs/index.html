@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pretendard/1.3.9/static/pretendard.css">
     <link rel="stylesheet" href="../src/styles/workspaceNavigation.css?v=20261125-work1">
-    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261126-spk2">
+    <link rel="stylesheet" href="../src/styles/csBoard.css?v=20261127-pt2">
     <link rel="stylesheet" href="../src/styles/pickingNotice.css?v=20261125-roll1">
   </head>
   <body class="cs-board-workspace">
@@ -248,6 +248,12 @@
               <fieldset class="cs-box cs-point-box">
                 <legend>💰 메이크샵 리뷰 적립금 <small>(📤 등록 때 답글과 같이 지급)</small></legend>
                 <div class="cs-point-row">
+                  <b class="cs-point-kind">📷 사진 리뷰</b>
+                  <label>실구매금액의 <input id="cs-point-pct-photo" type="number" min="0" max="30" step="0.1" value="0" class="cs-input-num is-pending" disabled data-live data-pending="시트 연결 후 작동"> %</label>
+                  <label class="cs-point-msg">사유 <input id="cs-point-msg-photo" type="text" maxlength="50" value="[PRODUCT_NAME] 포토리뷰 적립금" class="is-pending" disabled data-live data-pending="시트 연결 후 작동"></label>
+                </div>
+                <div class="cs-point-row">
+                  <b class="cs-point-kind">✏ 글 리뷰</b>
                   <label>실구매금액의 <input id="cs-point-pct" type="number" min="0" max="30" step="0.1" value="0" class="cs-input-num is-pending" disabled data-live data-pending="시트 연결 후 작동"> %</label>
                   <label class="cs-point-msg">사유 <input id="cs-point-msg" type="text" maxlength="50" value="[PRODUCT_NAME] 리뷰 적립금" class="is-pending" disabled data-live data-pending="시트 연결 후 작동"></label>
                   <button type="button" id="cs-point-save" class="cs-btn cs-btn-green is-pending" disabled data-live data-pending="시트 연결 후 작동">저장</button>
@@ -576,7 +582,7 @@
     <input type="file" id="cs-excel-file" accept=".xlsx,.xls,.csv" hidden>
     <div id="cs-toast" class="cs-toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="../src/app/workspaceNavigation.mjs?v=20261125-work1"></script>
-    <script type="module" src="../src/app/csBoardApp.mjs?v=20261127-why1"></script>
+    <script type="module" src="../src/app/csBoardApp.mjs?v=20261127-pt2"></script>
     <script type="module" src="../src/app/workspaceStatus.mjs?v=20261105-point1"></script>
     <script type="module" src="../src/app/msnSlots.mjs?v=20261126-vb2"></script>
     <script type="module" src="../src/app/pickingNoticeBoot.mjs?v=20261125-roll1"></script>

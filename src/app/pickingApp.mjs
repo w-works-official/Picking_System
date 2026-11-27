@@ -2103,6 +2103,8 @@ function sortInvoices(invoices) {
 // 바길이 변경 옵션: "바변경" · "바 변경" · "바 길이 변경(주문제작/취소불가): 10mm바" — "변경 없음/안함" 은 아님
 // 11-09: 고른 값에 "(기본)" 표시가 있으면 그게 기본 바길이 → 변경 아님 (예: 바변경:일반바6mm(기본) · 바변경:8mm(기본))
 function barChangeInfo(item) {
+  const ably = ablyBarOption(item);                       // 11-27 에이블리 "10,일반" 꼴
+  if (ably) return ably;
   const raw = `${item?.optionName || ""} ${item?.raw?.p_option || ""} ${item?.raw?.option_name || ""}`;
   const m = /바\s*(?:길이\s*)?변경([^,;|\r\n]{0,48})/i.exec(raw);
   if (!m) return null;
@@ -2114,6 +2116,25 @@ function barChangeInfo(item) {
 
 function optionHasBarChange(item) {
   return Boolean(barChangeInfo(item));
+}
+
+// 11-27 에이블리 주문: 옵션이 "10,일반" 처럼 [바 길이 숫자],[일반 · ○○바 · 롱 · 숏] 으로 오면 바길이 변경 주문 (사장님 11-27)
+//  · 에이블리 주문번호는 주문을 읽을 때 setAblyBarOrders 로 모아 둠 (상품 줄에는 판매처가 없어서)
+const ABLY_BAR_ORDERS = new Set();
+function setAblyBarOrders(orders = [], { keep = false } = {}) {
+  if (!keep) ABLY_BAR_ORDERS.clear();
+  for (const o of orders || []) {
+    const seller = String(o?.seller || o?.provider_name || o?.seller_id || "").toLowerCase();
+    if (/에이블리|ably|a-bly/.test(seller)) ABLY_BAR_ORDERS.add(String(o?.ord_no || "").trim());
+  }
+}
+function ablyBarOption(item) {
+  const ord = String(item?.orderGroupNo || item?.raw?.ord_no || "").trim();
+  if (!item?.ably && !(ord && ABLY_BAR_ORDERS.has(ord))) return null;
+  const m = /^\s*(\d{1,2}(?:\.\d)?)\s*(?:mm)?\s*,\s*([^,]{1,12}?)\s*$/i.exec(String(item?.optionName || item?.raw?.p_option || ""));
+  if (!m || !/일반|바|롱|숏/.test(m[2])) return null;
+  const n = Number(m[1]);
+  return n >= 4 && n <= 20 ? { length: `${m[1]}mm` } : null;
 }
 
 // 11-09 옵션과 상관없이 늘 바변경 확인이 필요한 상품 (상품명에 이 글자가 들어 있으면 — 띄어쓰기 무시)
@@ -7382,6 +7403,7 @@ async function loadCsCaseData() {
     ]);
     state.csCases = cases;
     state.csManualCandidates = candidates;
+    setAblyBarOrders(candidates.map((c) => c?.order), { keep: true });   // 11-27 CS 주문창도 에이블리 "10,일반" 바변경 표시
     state.orderItemOperations = operations;
     state.orderItemOperationsLoaded = true;
     state.customOrders.skuSchedules = schedules;
@@ -7428,6 +7450,7 @@ async function loadManualCsCandidates() {
         : skuInboundSchedules.loadAllSchedules(),
     ]);
     state.csManualCandidates = candidates;
+    setAblyBarOrders(candidates.map((c) => c?.order), { keep: true });
     state.orderItemOperations = operations;
     state.orderItemOperationsLoaded = true;
     state.customOrders.skuSchedules = schedules;
@@ -11211,6 +11234,7 @@ async function loadPickingData() {
   const inspectionRows = orderNos.length ? await loadInspectionMemoRows(orderNos) : [];
   const itemsWithInspectionMemos = applyInspectionMemos(items, inspectionRows);
 
+  setAblyBarOrders(orders);                                  // 11-27 에이블리 "10,일반" 바변경 표시용
   state.viewModel = buildPickingViewModel({
     orders,
     orderItems: itemsWithInspectionMemos,

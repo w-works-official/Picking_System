@@ -54,7 +54,7 @@ import {
   csPointPayload,
   CS_POINT_DEFAULT,
   csShotPoint,
-} from "../domain/csBoard.mjs?v=20261117-toss7";
+} from "../domain/csBoard.mjs?v=20261127-pt2";
 import { CS_SAMPLE_BOARD_ROWS, CS_SAMPLE_MESSENGER, CS_SAMPLE_REVIEW_ROWS } from "../domain/csBoardSamples.mjs?v=20261029-cs-board1";
 import { collectorSettingsView, guideStepsHtml, setupProgress, setupSteps } from "./csSetupGuide.mjs?v=20261111-nosample1";
 import { lockForPc } from "./csPcLock.mjs?v=20261029-cs-update1";
@@ -1592,13 +1592,19 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
 
   // ---------- 💰 메이크샵 리뷰 적립금 설정 (시트 v10) ----------
   function pointLine(p = state.point) {
-    return p.pct > 0 ? `실구매금액 × ${p.pct}% (${p.unit}원 미만 버림) · 사유 "${p.msg}"` : "0% — 답글만 (적립금 안 줌)";
+    const one = (pct, msg) => pct > 0 ? `${pct}% · "${msg}"` : "0% (답글만)";
+    const photo = p.pctPhoto ?? p.pct;
+    return `📷 사진 리뷰 ${one(photo, p.msgPhoto || p.msg)} / ✏ 글 리뷰 ${one(p.pct, p.msg)} · 실구매금액 기준 ${p.unit}원 미만 버림`;
   }
   function renderPoint() {
     const pct = $("#cs-point-pct"), msg = $("#cs-point-msg"), st = $("#cs-point-state");
-    if (pct && msg && !state.pointDirty && document.activeElement !== pct && document.activeElement !== msg) {
+    const pctP = $("#cs-point-pct-photo"), msgP = $("#cs-point-msg-photo");
+    const typing = [pct, msg, pctP, msgP].includes(document.activeElement);
+    if (pct && msg && !state.pointDirty && !typing) {
       pct.value = String(state.point.pct);
       msg.value = state.point.msg;
+      if (pctP) pctP.value = String(state.point.pctPhoto ?? state.point.pct);
+      if (msgP) msgP.value = state.point.msgPhoto || CS_POINT_DEFAULT.msgPhoto;
     }
     if (st) st.textContent = `지금: ${pointLine()}${state.point.at ? ` · ${state.point.by || ""} ${state.point.at.slice(5, 16).replace("T", " ")} 저장` : ""}`;
     renderPointExample();
@@ -1607,12 +1613,14 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     const el = $("#cs-point-example");
     if (!el) return;
     const pct = Number($("#cs-point-pct")?.value ?? state.point.pct) || 0;
-    el.textContent = pct > 0 ? `예) 실구매 4,277원 × ${pct}% = ${csPointAmount(4277, pct, state.point.unit).toLocaleString("ko-KR")}원 · 15,000원 × ${pct}% = ${csPointAmount(15000, pct, state.point.unit).toLocaleString("ko-KR")}원` : "0% 면 답글만 등록합니다.";
+    const pctP = Number($("#cs-point-pct-photo")?.value ?? state.point.pctPhoto ?? pct) || 0;
+    const ex = (p) => p > 0 ? `${csPointAmount(15000, p, state.point.unit).toLocaleString("ko-KR")}원` : "답글만";
+    el.textContent = `예) 실구매 15,000원 → 📷 사진 리뷰 ${ex(pctP)} · ✏ 글 리뷰 ${ex(pct)}`;
   }
   async function savePoint() {
     if (!live()) return;
     let body;
-    try { body = csPointPayload({ pct: $("#cs-point-pct")?.value, msg: $("#cs-point-msg")?.value }, state.editor); } catch (error) { toast(error.message); return; }
+    try { body = csPointPayload({ pct: $("#cs-point-pct")?.value, msg: $("#cs-point-msg")?.value, pctPhoto: $("#cs-point-pct-photo")?.value, msgPhoto: $("#cs-point-msg-photo")?.value }, state.editor); } catch (error) { toast(error.message); return; }
     try {
       const result = await post(body);
       if (result.point) state.point = result.point;
@@ -1915,7 +1923,7 @@ export function createCsBoardApp({ document, window, endpoint = CS_BOARD_ENDPOIN
     $("#cs-register-open")?.addEventListener("click", () => openRegister("문의"));
     $("#cs-review-register-open")?.addEventListener("click", () => openRegister("리뷰"));
     $("#cs-point-save")?.addEventListener("click", savePoint);
-    ["#cs-point-pct", "#cs-point-msg"].forEach((sel) => $(sel)?.addEventListener("input", () => { state.pointDirty = true; renderPointExample(); }));
+    ["#cs-point-pct", "#cs-point-msg", "#cs-point-pct-photo", "#cs-point-msg-photo"].forEach((sel) => $(sel)?.addEventListener("input", () => { state.pointDirty = true; renderPointExample(); }));
     $("#cs-modal-cancel")?.addEventListener("click", closeModal);
     $("#cs-modal")?.addEventListener("click", (e) => { if (e.target.id === "cs-modal") closeModal(); });
     document.addEventListener("keydown", (e) => {

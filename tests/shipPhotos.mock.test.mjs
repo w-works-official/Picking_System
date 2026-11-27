@@ -28,14 +28,17 @@ const g2 = groupShipFiles([
   f("kv", "video", { name: "김미영.mp4", pending: true, t: "20261112150559" }),
   f("bv", "video", { name: "bandicam 2026-11-12 16-23.mp4", pending: true, t: "20261112162304" }),
   f("b", "photo", { name: "bandicam 2026-11-18 13-31.jpg", pending: true, t: "20261118133141" }),
+  f("b2", "photo", { pending: true, t: "20261118133142" }),
   f("bv2", "video", { pending: true, t: "20261118133145" }),
+  f("c", "photo", { pending: true, t: "20261118133150" }),
 ]);
 assert.deepEqual(g2.map((x) => [x.key, x.recipient, !!x.unread, x.items.map((i) => i.id)]), [
   ["a", "의성단북우세국", false, ["av"]],
   ["k", "김미영", true, ["kv"]],
   ["gap-bv", "", false, ["bv"]],
-  ["b", "", true, ["bv2"]],
-]);
+  ["b", "", true, ["b2", "bv2"]],
+  ["c", "", true, []],
+], "3초 안 사진 2장 + 동영상 = 한 묶음");
 assert.equal(nameFromFile("김미영.jpg"), "김미영");
 assert.equal(nameFromFile("bandicam 2026-11-18 13-31-41-123.jpg"), "");
 assert.ok(nameMatches("홍길동", "홍*동"), "가려진 글자는 아무 글자");
@@ -61,7 +64,7 @@ assert.match(html, /data-left-panel="ship"[^>]*><div data-ship-side><\/div><\/di
 assert.match(html, /data-right-panel="ship" hidden>\s*<div class="sp" data-ship><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "ship"\) openShip\(\);/);
-assert.match(app, /import\("\.\/shipPhotosPanel\.mjs\?v=20261127-ship2"\)/);
+assert.match(app, /import\("\.\/shipPhotosPanel\.mjs\?v=20261127-ship3"\)/);
 const panel = readFileSync(new URL("../src/app/shipPhotosPanel.mjs", import.meta.url), "utf8");
 for (const t of ["▶ 파일 정리 실행", "📋 전체 리스트", "🔎 파일 찾기", "⬇ 사진/영상", 'action: "shipScan"', 'action: "shipList"']) assert.ok(panel.includes(t), t);
 const gs = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");

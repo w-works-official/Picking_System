@@ -1,3 +1,4 @@
+import { isVirtualStock, realStock } from "./virtualStock.mjs?v=20261127-vs1";
 // 📦 상품 현황 (2026-11-06) — 셀피아 코드(옵션) 단위로 사진 · 옵션명 · 최근 재고 · 기간별 출고 수량
 //  · 상품 = 셀피아 상품코드(대표코드, 예: 1000) · 옵션 = 셀피아 코드(예: 1000-1)
 //  · 사진 규칙 (대표님 11-06)
@@ -158,7 +159,8 @@ export function buildProducts(skuRows = [], index = photoIndex([])) {
     }
     products.get(code).options.push({
       sku, option: String(r.sellpia_option_name || "").trim(), ownSku: String(r.own_sku || "").trim(), xx: xxMark(r.own_sku),
-      stock: num(r.stock), available: num(r.available_stock), photo: photoFor(sku, code, index), subs: index.subs?.get(sku) || [],
+      stock: realStock(num(r.stock)), available: realStock(num(r.available_stock)), virtual: isVirtualStock(num(r.stock)),   // 11-27 가상재고 1000 단위 뺌
+      photo: photoFor(sku, code, index), subs: index.subs?.get(sku) || [],
       buy: num(r.buy ?? r.raw_payload?.purchase_price), sell: num(r.sell ?? r.raw_payload?.sell_price),   // 11-06: 매입가 · 출고가(판매가)
       s7: 0, s30: 0, s90: 0, sAll: 0,
     });

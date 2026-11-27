@@ -1,5 +1,6 @@
 // 🗄 상품 관리 › 자사코드 자리 (2026-11-27) — 피어싱 매대(A~T) 정리 · 신상품 자리 추천
-//  · ① 뺄 상품 찾기: 단종·삭제(임의필드 XXX) · 판매부진(기간 × 출고 개수) → 아랫칸(B·D·F…) 30열 서랍 자리로 옮길 목록
+//  · ① 뺄 상품 찾기: 단종·삭제(임의필드 XXX) · 판매부진(기간 × 출고 개수) → 상품마다 박스(20개 미만 1 · 20개 이상 2 …)에 담아
+//    아랫칸(B·D·F…) 30열 서랍 자리(1자리 = 1박스)로 옮길 목록
 //  · ② 신상품 자리: 옵션 개수 → 비운 칸 + 원래 빈 칸에서 최대한 붙은 자사코드 추천
 //  · 데이터: 운영 허브 sellpia_stock_latest(자사코드 · 재고) · CS 시트 'XX표시' 탭(xxList) · 피킹 주문(출고)
 //    또는 [📥 셀피아 엑셀] (상품코드 · 자사코드 · 재고 · 임의필드 칸) 한 파일로
@@ -61,7 +62,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
   if (!root) return null;
   const st = {
     options: [], source: "", loading: false, note: "", xxNote: "", salesNote: "", sales: null,
-    xxx: true, slowOn: false, days: 90, maxQ: 0, only: "", cols29: false,
+    xxx: true, slowOn: false, days: 90, maxQ: 0, only: "",
     n: 3, shelf: "", onlyFreed: false, plan: null, free: [], copied: "",
   };
   if (!document.getElementById("fs-style")) { const s = document.createElement("style"); s.id = "fs-style"; s.textContent = CSS; document.head.appendChild(s); }
@@ -117,9 +118,6 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
         <div class="fs-row"><span class="fs-lab">매대</span>
           <span class="fs-seg"><button type="button" data-fs-only="">전체</button>${LOWER.map((s) => `<button type="button" data-fs-only="${s}">${FS_SHELVES[FS_SHELVES.indexOf(s) - 1]}·${s}</button>`).join("")}</span>
         </div>
-        <div class="fs-row"><span class="fs-lab">서랍</span>
-          <span class="fs-seg"><button type="button" data-fs-cols29>30열 다 차면 29열도</button></span>
-        </div>
         <div data-fs-plan></div>
       </div>
       <div class="fs-box">
@@ -143,8 +141,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
 
   function compute() {
     const slow = st.slowOn && st.sales ? { days: st.days, max: st.maxQ } : null;
-    const drawer = { ...FS_DRAWER, cols: st.cols29 ? [30, 29] : [30] };
-    st.plan = (st.xxx || slow) ? planRetire(st.options, { xxx: st.xxx, slow }, { salesOf, drawer, only: st.only }) : null;
+    st.plan = (st.xxx || slow) ? planRetire(st.options, { xxx: st.xxx, slow }, { salesOf, drawer: FS_DRAWER, only: st.only }) : null;
     st.free = freeCells(st.options, { vacated: st.plan?.vacated || new Set() });
   }
 
@@ -154,18 +151,18 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     const p = st.plan;
     if (!p) { box.innerHTML = `<p class="fs-status">기준을 하나 이상 고르세요</p>`; return; }
     const rows = Object.entries(p.byShelf).sort(([a], [b]) => a.localeCompare(b));
-    const tot = rows.reduce((a, [, b]) => ({ cells: a.cells + b.cells, options: a.options + b.options, overflow: a.overflow + b.overflow }), { cells: 0, options: 0, overflow: 0 });
+    const tot = rows.reduce((a, [, b]) => ({ cells: a.cells + b.cells, products: a.products + b.products, boxes: a.boxes + b.boxes, options: a.options + b.options, overflow: a.overflow + b.overflow }), { cells: 0, products: 0, boxes: 0, options: 0, overflow: 0 });
     const list = [...p.moves, ...p.overflow].slice(0, LIST_MAX);
     box.innerHTML = `
       <div class="fs-row">
-        <span>비울 칸 <b>${fmt(tot.cells)}</b> · 옮길 옵션 <b>${fmt(tot.options)}</b>${tot.overflow ? ` · <span class="fs-bad">자리 없음 ${fmt(tot.overflow)}</span>` : ""}${p.partial.length ? ` · 일부만 해당(그대로 둠) ${fmt(p.partial.length)}칸` : ""}</span>
+        <span>비울 칸 <b>${fmt(tot.cells)}</b> · 옮길 상품 <b>${fmt(tot.products)}</b> (옵션 ${fmt(tot.options)}) → 박스 <b>${fmt(tot.boxes)}</b>${tot.overflow ? ` · <span class="fs-bad">자리 없음 옵션 ${fmt(tot.overflow)}</span>` : ""}${p.partial.length ? ` · 일부만 해당(그대로 둠) ${fmt(p.partial.length)}칸` : ""}</span>
         <button type="button" class="fs-btn" data-fs-excel ${p.moves.length + p.overflow.length ? "" : "disabled"}>📄 옮길 목록 엑셀</button>
       </div>
-      ${rows.length ? `<table class="fs-tbl is-sum"><thead><tr><th>서랍</th><th>비울 칸</th><th>옮길 옵션</th><th>남는 자리</th><th>자리 없음</th></tr></thead><tbody>
-        ${rows.map(([s, b]) => `<tr><td>${s} ${st.cols29 ? "30·29열" : "30열"}</td><td class="n">${fmt(b.cells)}</td><td class="n">${fmt(b.options)}</td><td class="n">${fmt(b.left)}</td><td class="n ${b.overflow ? "fs-bad" : ""}">${b.overflow ? fmt(b.overflow) : ""}</td></tr>`).join("")}
+      ${rows.length ? `<table class="fs-tbl is-sum"><thead><tr><th>30열</th><th>비울 칸</th><th>상품</th><th>옵션</th><th>박스</th><th>남는 자리</th><th>자리 없음</th></tr></thead><tbody>
+        ${rows.map(([s, b]) => `<tr><td>${s}-30</td><td class="n">${fmt(b.cells)}</td><td class="n">${fmt(b.products)}</td><td class="n">${fmt(b.options)}</td><td class="n">${fmt(b.boxes)}</td><td class="n">${fmt(b.left)}</td><td class="n ${b.overflow ? "fs-bad" : ""}">${b.overflow ? fmt(b.overflow) : ""}</td></tr>`).join("")}
       </tbody></table>` : `<p class="fs-status">해당 상품 없음</p>`}
-      ${list.length ? `<div class="fs-scroll" style="margin-top:8px"><table class="fs-tbl"><thead><tr><th>셀피아 코드</th><th>상품명</th><th>옵션</th><th>재고</th><th>지금</th><th>→ 옮길 자리</th><th>이유</th></tr></thead><tbody>
-        ${list.map((m) => `<tr><td>${esc(m.sku)}</td><td>${esc(m.product)}</td><td>${esc(m.option)}</td><td class="n">${fmt(m.stock)}</td><td>${esc(m.from)}</td><td>${m.to ? esc(m.to) : '<span class="fs-bad">자리 없음</span>'}</td><td>${esc(m.reason)}</td></tr>`).join("")}
+      ${list.length ? `<div class="fs-scroll" style="margin-top:8px"><table class="fs-tbl"><thead><tr><th>셀피아 코드</th><th>상품명</th><th>옵션</th><th>재고</th><th>지금</th><th>→ 옮길 자리</th><th>박스</th><th>이유</th></tr></thead><tbody>
+        ${list.map((m) => `<tr><td>${esc(m.sku)}</td><td>${esc(m.product)}</td><td>${esc(m.option)}</td><td class="n">${fmt(m.stock)}</td><td>${esc(m.from)}</td><td>${m.to ? esc(m.to) : '<span class="fs-bad">자리 없음</span>'}</td><td>${esc(m.box)}</td><td>${esc(m.reason)}</td></tr>`).join("")}
       </tbody></table></div>${p.moves.length + p.overflow.length > LIST_MAX ? `<p class="fs-status">앞 ${LIST_MAX}줄만 보임 — 전체는 엑셀로</p>` : ""}` : ""}`;
   }
 
@@ -196,7 +193,6 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     for (const b of root.querySelectorAll("[data-fs-freed]")) b.classList.toggle("is-on", (b.dataset.fsFreed === "1") === st.onlyFreed);
     $("[data-fs-xxx]").classList.toggle("is-on", st.xxx);
     $("[data-fs-slow]").classList.toggle("is-on", st.slowOn);
-    $("[data-fs-cols29]").classList.toggle("is-on", st.cols29);
     $("[data-fs-slowrow]").hidden = !st.slowOn;
     $("[data-fs-load]").disabled = st.loading;
     renderPlan();
@@ -231,7 +227,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     try {
       status("셀피아 재고 불러오는 중…");
       const hub = { apikey: HUB_KEY, Authorization: `Bearer ${HUB_KEY}` };
-      const rows = await pagedRest(HUB_URL, "sellpia_stock_latest?select=sellpia_sku_code,sellpia_product_name,sellpia_option_name,own_sku,stock&order=sellpia_sku_code.asc", hub, (n) => status(`셀피아 재고 불러오는 중… ${fmt(n)}줄`));
+      const rows = await pagedRest(HUB_URL, "sellpia_stock_latest?select=sellpia_sku_code,sellpia_product_code,sellpia_product_name,sellpia_option_name,own_sku,stock&order=sellpia_sku_code.asc", hub, (n) => status(`셀피아 재고 불러오는 중… ${fmt(n)}줄`));
       let xxx = new Set();
       if (csToken()) {
         try {
@@ -242,7 +238,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
         } catch (error) { st.xxNote = `못 읽음 (${error.message})`; }
       } else st.xxNote = "CS 시트 연결 필요 (또는 📥 셀피아 엑셀)";
       st.options = rows.filter((r) => String(r.own_sku || "").trim()).map((r) => ({
-        sku: String(r.sellpia_sku_code || ""), product: String(r.sellpia_product_name || ""), option: String(r.sellpia_option_name || ""),
+        sku: String(r.sellpia_sku_code || ""), productCode: String(r.sellpia_product_code || ""), product: String(r.sellpia_product_name || ""), option: String(r.sellpia_option_name || ""),
         ownSku: String(r.own_sku || "").trim(), stock: Number(r.stock) || 0, xxx: xxx.has(String(r.sellpia_sku_code || "")),
       }));
       st.source = "운영 허브";
@@ -284,7 +280,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
   function exportExcel() {
     const p = st.plan;
     if (!p) return;
-    const bytes = buildXlsx({ sheetName: "옮길 목록", columns: FS_MOVE_COLUMNS.map((title, i) => ({ title, width: [12, 30, 22, 6, 20, 20, 18][i] })), rows: moveRows(p) });
+    const bytes = buildXlsx({ sheetName: "옮길 목록", columns: FS_MOVE_COLUMNS.map((title, i) => ({ title, width: [12, 30, 22, 6, 20, 20, 6, 18][i] })), rows: moveRows(p) });
     const stamp = new Date(Date.now() + 9 * 3600000).toISOString().slice(2, 16).replace(/[-T:]/g, "").replace(/^(\d{6})(\d{4})$/, "$1_$2");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
@@ -310,7 +306,6 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     else if (d.fsDays) { st.days = Number(d.fsDays); refresh(); }
     else if (d.fsMaxq !== undefined) { st.maxQ = Number(d.fsMaxq); refresh(); }
     else if (d.fsOnly !== undefined) { st.only = d.fsOnly; refresh(); }
-    else if (d.fsCols29 !== undefined) { st.cols29 = !st.cols29; refresh(); }
     else if (d.fsN) { st.n = Math.max(1, Math.min(60, st.n + Number(d.fsN))); st.copied = ""; render(); }
     else if (d.fsNset) { st.n = Number(d.fsNset); st.copied = ""; render(); }
     else if (d.fsShelf !== undefined) { st.shelf = d.fsShelf; st.copied = ""; render(); }

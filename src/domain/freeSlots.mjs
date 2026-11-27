@@ -2,7 +2,8 @@
 //  · 대표님 11-27: 피어싱 매대(A~T)에서 단종·삭제(임의필드 XXX) · 판매부진 상품을 빼서
 //    그 코드의 아랫칸(짝수 알파벳 B·D·F…) 30열 서랍으로 옮기고, 비운 위 칸에 신상품을 최대한 붙여서 배치
 //  · 자사코드 = 매대-행-열 (예: [P] A-04-13 ]). 1~25행 = 위 칸. 26~30열(가운데 번호) = 짝수 알파벳의 서랍
-//  · 서랍 열 하나 = 서랍 10개 × 서랍당 10자리(5칸 × 2케이스) = 100자리 → [P] B-30-01_1 ] ~ [P] B-30-10_10 ]
+//  · 서랍 열 하나 = 서랍 10개 × 서랍당 10케이스(5칸 × 2케이스) = 100자리 → [P] B-30-01_1 ] ~ [P] B-30-10_10 ] (모든 아랫칸 매대에 30열)
+//  · 1자리 = 1케이스(박스) = 뺄 상품 1개 (옵션 20개 이상이면 2박스, 20개마다 1박스 추가) — 옵션과 1:1 이 아님
 //  · 한 칸(매대-행-열)에 옵션이 여러 개면, 그 칸 옵션이 모두 뺄 대상일 때만 칸을 비운 것으로 봄
 
 const RX_OWN = /([A-Z]{1,3})\s*-\s*(\d{1,2})\s*-\s*(\d{1,2})(?:\s*[_-]\s*(\d{1,2}))?/;
@@ -69,52 +70,83 @@ export function retireReason(o, rule = {}, salesOf = () => 0) {
   return out.join(" · ");
 }
 
-// 정리 계획: 비울 칸 · 옮길 옵션 → 아랫칸 서랍 자리
-//  반환 { moves: [{ sku, product, option, from, to, toKey, reason, cell, lower }], vacated: Set(cellKey),
-//         partial: [{ key, shelf, row, col, hit, total }], overflow: [...moves without to], byShelf: { B: { cells, options, overflow, left } } }
-export function planRetire(options = [], rule = {}, { salesOf = () => 0, shelves = FS_SHELVES, maxRow = FS_UPPER_MAX_ROW, drawer = FS_DRAWER, prefix = FS_PREFIX, only = "" } = {}) {
+// 정리 계획 (11-27 대표님): 뺄 옵션을 "상품" 단위로 모아 박스에 넣고, 박스 하나 = 30열 서랍 1자리(1케이스)
+//  · 박스 수 = 옵션 20개 미만 1박스 · 20개 이상 2박스 · 40개 이상 3박스 … (20개당 1박스 추가) · 박스가 여럿이면 옵션을 고르게 나눔 (코드 순서대로)
+//  · 같은 박스의 옵션은 모두 같은 자사코드 ([P] B-30-01_1 ])
+//  · 옮길 매대 = 그 상품이 있던 매대의 아랫칸. 여러 매대에 흩어진 상품은 30열이 덜 찬 아랫칸
+//  · 위 칸은 칸 안 옵션이 모두 뺄 대상일 때만 비움 (일부만 해당하는 칸의 옵션은 그대로 둠)
+//  반환 { moves: [{ sku, productCode, product, option, stock, from, to, toKey, box, reason, cell, lower }], vacated: Set(cellKey),
+//         partial: [{ key, shelf, row, col, hit, total }], overflow: [...to 없는 moves], byShelf: { B: { cells, products, boxes, options, overflow, left } } }
+export const FS_BOX_MAX = 20;
+export const productOf = (o) => String(o.productCode || String(o.sku || "").replace(/-\d+$/, ""));
+export function splitEven(list = [], boxes = 1) {
+  const out = [];
+  const base = Math.floor(list.length / boxes), extra = list.length % boxes;
+  let at = 0;
+  for (let i = 0; i < boxes; i++) { const n = base + (i < extra ? 1 : 0); out.push(list.slice(at, at + n)); at += n; }
+  return out;
+}
+export function planRetire(options = [], rule = {}, { salesOf = () => 0, shelves = FS_SHELVES, maxRow = FS_UPPER_MAX_ROW, drawer = FS_DRAWER, prefix = FS_PREFIX, only = "", boxMax = FS_BOX_MAX } = {}) {
   const idx = indexOptions(options, { shelves, maxRow, drawer });
   const used = new Set(idx.drawerUsed);
-  const sorted = [...idx.cells.values()].sort((a, b) => shelfOrder(a.shelf) - shelfOrder(b.shelf) || a.row - b.row || a.col - b.col);
-  const moves = [], partial = [], overflow = [], vacated = new Set(), byShelf = {};
-  const nextSlot = new Map();   // 아랫칸 매대 → 다음에 볼 자리 번호(0부터)
   const total = drawer.cols.length * drawer.drawers * drawer.slots;
+  const slotKey = (lower, i) => {
+    const c = drawer.cols[Math.floor(i / (drawer.drawers * drawer.slots))];
+    const rest = i % (drawer.drawers * drawer.slots);
+    return { c, d: Math.floor(rest / drawer.slots) + 1, s: (rest % drawer.slots) + 1, key: "" };
+  };
+  const keyOf = (lower, x) => `${lower}-${x.c}-${x.d}-${x.s}`;
+  const usedCount = (lower) => { let n = 0; for (let i = 0; i < total; i++) if (used.has(keyOf(lower, slotKey(lower, i)))) n++; return n; };
+  const fill = {};                                     // 아랫칸 매대 → 쓴 자리 수 (덜 찬 매대 고르기)
+  for (const s of shelves) { const l = lowerShelf(s); if (l && fill[l] == null) fill[l] = usedCount(l); }
   function takeSlot(lower) {
-    for (let i = nextSlot.get(lower) || 0; i < total; i++) {
-      const c = drawer.cols[Math.floor(i / (drawer.drawers * drawer.slots))];
-      const rest = i % (drawer.drawers * drawer.slots);
-      const d = Math.floor(rest / drawer.slots) + 1, s = (rest % drawer.slots) + 1;
-      const key = `${lower}-${c}-${d}-${s}`;
+    for (let i = 0; i < total; i++) {
+      const x = slotKey(lower, i); const key = keyOf(lower, x);
       if (used.has(key)) continue;
-      used.add(key); nextSlot.set(lower, i + 1);
-      return { code: drawerCode(lower, c, d, s, prefix), key };
+      used.add(key); fill[lower] = (fill[lower] || 0) + 1;
+      return { code: drawerCode(lower, x.c, x.d, x.s, prefix), key };
     }
-    nextSlot.set(lower, total);
     return null;
   }
+  const sorted = [...idx.cells.values()].sort((a, b) => shelfOrder(a.shelf) - shelfOrder(b.shelf) || a.row - b.row || a.col - b.col);
+  const partial = [], vacated = new Set(), byShelf = {};
+  const prods = new Map();                             // 상품코드 → { items: [{ o, reason, cell }], first }
   for (const cell of sorted) {
     if (only && cell.shelf !== only && lowerShelf(cell.shelf) !== only) continue;
     const reasons = cell.options.map((o) => retireReason(o, rule, salesOf));
     const hit = reasons.filter(Boolean).length;
     if (!hit) continue;
     if (hit < cell.options.length) { partial.push({ key: cell.key, shelf: cell.shelf, row: cell.row, col: cell.col, hit, total: cell.options.length }); continue; }
-    const lower = lowerShelf(cell.shelf);
-    const b = (byShelf[lower] ||= { cells: 0, options: 0, overflow: 0, left: 0 });
-    b.cells++;
     vacated.add(cell.key);
-    const opts = [...cell.options].sort((a, z) => String(a.sku).localeCompare(String(z.sku), "en", { numeric: true }));
-    opts.forEach((o, i) => {
-      const slot = takeSlot(lower);
-      const mv = { sku: o.sku, product: o.product || "", option: o.option || "", stock: num(o.stock), from: o.ownSku, to: slot?.code || "", toKey: slot?.key || "", reason: reasons[cell.options.indexOf(o)] || reasons[i], cell: cell.key, lower };
-      b.options++;
-      if (slot) moves.push(mv); else { overflow.push(mv); b.overflow++; }
+    const b = (byShelf[lowerShelf(cell.shelf)] ||= { cells: 0, products: 0, boxes: 0, options: 0, overflow: 0, left: 0 });
+    b.cells++;
+    cell.options.forEach((o, i) => {
+      const pc = productOf(o);
+      if (!prods.has(pc)) prods.set(pc, { items: [] });
+      prods.get(pc).items.push({ o, reason: reasons[i], cell });
     });
   }
-  for (const [lower, b] of Object.entries(byShelf)) {
-    let free = 0;
-    for (const c of drawer.cols) for (let d = 1; d <= drawer.drawers; d++) for (let s = 1; s <= drawer.slots; s++) if (!used.has(`${lower}-${c}-${d}-${s}`)) free++;
-    b.left = free;
+  const moves = [], overflow = [];
+  for (const [pc, g] of prods) {
+    const count = {};
+    for (const it of g.items) { const l = lowerShelf(it.cell.shelf); count[l] = (count[l] || 0) + 1; }
+    const cands = Object.keys(count);
+    const lower = cands.length === 1 ? cands[0] : cands.sort((a, z) => (fill[a] || 0) - (fill[z] || 0) || count[z] - count[a] || a.localeCompare(z))[0];
+    const items = [...g.items].sort((a, z) => String(a.o.sku).localeCompare(String(z.o.sku), "en", { numeric: true }));
+    const nBox = Math.floor(items.length / boxMax) + 1;          // 20개 미만 1박스 · 20개 이상 2박스 · 40개 이상 3박스 …
+    const b = (byShelf[lower] ||= { cells: 0, products: 0, boxes: 0, options: 0, overflow: 0, left: 0 });
+    b.products++;
+    splitEven(items, nBox).forEach((part, bi) => {
+      const slot = takeSlot(lower);
+      if (slot) b.boxes++;
+      for (const it of part) {
+        const mv = { sku: it.o.sku, productCode: pc, product: it.o.product || "", option: it.o.option || "", stock: num(it.o.stock), from: it.o.ownSku, to: slot?.code || "", toKey: slot?.key || "", box: `${bi + 1}/${nBox}`, reason: it.reason, cell: it.cell.key, lower };
+        b.options++;
+        if (slot) moves.push(mv); else { overflow.push(mv); b.overflow++; }
+      }
+    });
   }
+  for (const [lower, b] of Object.entries(byShelf)) b.left = total - (fill[lower] || 0);
   return { moves, vacated, partial, overflow, byShelf };
 }
 
@@ -209,7 +241,7 @@ export function shelfSummary(free = [], options = [], { shelves = FS_SHELVES, ma
 }
 
 // 엑셀용 줄: 옮길 옵션 목록
-export const FS_MOVE_COLUMNS = ["셀피아 코드", "상품명", "옵션명", "재고", "지금 자사코드", "옮길 자사코드", "이유"];
+export const FS_MOVE_COLUMNS = ["셀피아 코드", "상품명", "옵션명", "재고", "지금 자사코드", "옮길 자사코드", "박스", "이유"];
 export function moveRows(plan) {
-  return [...plan.moves, ...plan.overflow].map((m) => [m.sku, m.product, m.option, m.stock, m.from, m.to || "자리 없음", m.reason]);
+  return [...plan.moves, ...plan.overflow].map((m) => [m.sku, m.product, m.option, m.stock, m.from, m.to || "자리 없음", m.box, m.reason]);
 }

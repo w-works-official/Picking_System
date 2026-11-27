@@ -1825,3 +1825,9 @@ assert L.hist_req_path(_hc2).endswith(L.HIST_REQ2), "6개월 요청 파일이 �
 os.remove(os.path.join(_hd, L.HIST_REQ2))
 assert L.hist_req_path(_hc2).endswith(L.HIST_REQ)
 print("g1V3Link history 6 months (1.43): OK")
+# 1.44 톡톡 읽기 상태 → 웹
+assert L.LINK_VER >= "1.44"
+L.SMART_TALK_STATE.update(note="login", rooms=0, at="11-27 13:00")
+_si = L.setup_info({}, False, {}, None)
+assert _si["smart_talk"] == "login" and _si["smart_at"] == "11-27 13:00" and _si["smart_rooms"] == 0, _si
+print("g1V3Link smart talk status (1.44): OK")

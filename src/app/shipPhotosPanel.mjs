@@ -10,7 +10,7 @@
 //    [주문 찾기] (이름 왼쪽 정사각 버튼): 이름칸의 받는 분 이름과 똑같은 피킹 주문만 (동명이인은 여러 개 · 최근 위 · 일치율 없음 — 11-11 저녁) → 고르면 채움
 //    (피킹 DB 는 피킹 로그인 세션이 있어야 읽힘 — 피킹시스템에서 로그인한 탭에서 CS 관리로)
 //  · [👤＋ 슬롯 추가]: 사진·영상 없이 반품 메모만 쓰는 빈 슬롯 (맨 위)
-import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261110-ship6";
+import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261127-ship7";
 import { itemsToLines, nameFilter, nameUsable, phoneTail, sameNameOrders, vendorsOf } from "../domain/shipOrderMatch.mjs?v=20261111-name5";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -425,7 +425,7 @@ export function mountShipPhotos({ document, window, root, side, post, isLive = (
     const videos = g.items.filter((f) => f.kind === "video").length, photos = g.items.filter((f) => f.kind === "photo").length;
     return `<section class="sp-group${g.invoice ? "" : " is-before"}">
       <header><input type="checkbox" data-sp-gpick="${esc(g.key)}"${all ? " checked" : ""} aria-label="묶음 전체 선택">
-        <b>${g.invoice ? `👤 ${esc(g.recipient)}` : "송장 전 파일"}</b>
+        <b>${g.invoice ? `👤 ${esc(g.recipient || "송장 확인 전")}` : g.key === "before" ? "송장 전 파일" : "송장 없는 파일"}</b>${g.unread ? ' <small class="sp-unread">이름 읽기 전</small>' : ""}
         <small>${g.invoice ? esc(shipTimeLabel(g.invoice.t)) + " · " : ""}동영상 ${videos} · 사진 ${photos}</small></header>
       <div class="sp-body"><div class="sp-files">${files.map((f) => tile(f, f === g.invoice)).join("")}</div>${g.invoice ? memoHtml(g) : ""}</div>
     </section>`;

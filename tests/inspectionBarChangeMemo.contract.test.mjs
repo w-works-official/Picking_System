@@ -9,7 +9,7 @@ const start = app.indexOf("function barChangeInfo");
 const end = app.indexOf("function optionClass", start);
 const BAR_CHECK = "써지컬피어싱 미니 볼 피어싱 바벨 얇은 0.8mm";
 const escapeHtml = (v) => String(v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const { barChangeInfo, optionHasBarChange, barChangeMemoHtml } = new Function("escapeHtml", `${app.slice(start, end)}; return { barChangeInfo, optionHasBarChange, barChangeMemoHtml };`)(escapeHtml);
+const { barChangeInfo, optionHasBarChange, barChangeMemoHtml, setAblyBarOrders } = new Function("escapeHtml", `${app.slice(start, end)}; return { barChangeInfo, optionHasBarChange, barChangeMemoHtml, setAblyBarOrders };`)(escapeHtml);
 
 const opt = (optionName) => ({ optionName });
 assert.deepEqual(barChangeInfo(opt("골드 / 바 길이 변경(주문제작/취소불가): 10mm바")), { length: "10mm" });
@@ -47,4 +47,14 @@ assert.equal((app.match(/<span class="workflow-seq-cell">\$\{itemSequenceNo\(ite
 assert.match(css, /\.inspection-item-table\.is-code-stacked \.workflow-item-row \{ grid-template-columns: 84px /);
 assert.match(css, /\.inspection-item-table \.workflow-item-header > span:first-child \{ white-space: nowrap; \}/);
 assert.match(css, /\.bar-change-memo \{[^}]*background: #fff1f2[^}]*color: #dc2626/);
+// 11-27 에이블리 "10,일반" 꼴 = 바변경
+setAblyBarOrders([{ ord_no: "A1", seller: "에이블리" }, { ord_no: "Z1", seller: "지그재그" }]);
+assert.deepEqual(barChangeInfo({ orderGroupNo: "A1", optionName: "10,일반" }), { length: "10mm" });
+assert.deepEqual(barChangeInfo({ orderGroupNo: "A1", optionName: " 8 , 롱바 " }), { length: "8mm" });
+assert.match(barChangeMemoHtml({ orderGroupNo: "A1", optionName: "10,일반" }), /바변경<b>확인<\/b>/);
+assert.equal(barChangeInfo({ orderGroupNo: "Z1", optionName: "10,일반" }), null, "에이블리가 아니면 아님");
+assert.equal(barChangeInfo({ orderGroupNo: "A1", optionName: "골드,일반" }), null);
+assert.equal(barChangeInfo({ orderGroupNo: "A1", optionName: "1,골드" }), null, "숫자 뒤가 바 종류가 아니면 아님");
+assert.equal(barChangeInfo({ orderGroupNo: "A1", optionName: "100,일반" }), null, "바 길이가 아닌 숫자");
+assert.equal(optionHasBarChange({ ably: true, optionName: "12,일반" }), true);
 console.log("inspectionBarChangeMemo.contract.test: OK");

@@ -154,6 +154,7 @@
   · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
   · 키 파일이 없으면 업체 결과 '키 없음' 으로 알림
 
+1.46 (2026-11-27) 톡톡 방 목록을 못 받을 때 '정상 · 방 0개' 로 보이던 것 → 이유(톡톡 요청 수 · 마지막 주소 · 화면 주소)를 상담톡에 표시 · 기다리는 시간 15초 → 30초
 1.45 (2026-11-27) 메이크샵 리뷰 적립금 — 리뷰마다 시트가 정한 % (사진 리뷰 · 글 리뷰 따로, 시트 v46)
 1.44 (2026-11-27) 톡톡 읽기 상태를 웹(상담톡)에 표시 — 로그인 필요 · 방 개수 · 마지막 시각
 1.43 (2026-11-26) 지난 답변 모으기 최대 180일 · 한도 늘림 · 요청 파일 _이력요청_6개월.json (1.41·1.42 는 이 파일을 모름)
@@ -195,8 +196,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.45 (2026-11-27)"
-LINK_NOTE = "메이크샵 리뷰 적립금을 리뷰마다 (사진 리뷰 · 글 리뷰 % 따로) · 상담톡에 스마트스토어 톡톡 읽기 상태(로그인 필요 · 방 개수 · 시각)를 웹으로 보냄 · 지난 답변 모으기 6개월까지(메이크샵 글 700 · 리뷰 150쪽 · 지그재그 주문문의 400 · 에이블리 방 400) · 스마트스토어 톡톡 방 목록 → 💬 상담톡(5분마다 · 방을 열지 않음 · 마지막 메시지만) · 지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
+LINK_VER = "1.46 (2026-11-27)"
+LINK_NOTE = "톡톡 방 목록을 못 받으면 '정상 · 0개' 대신 이유(톡톡 요청 수 · 마지막 주소 · 화면)를 웹에 표시 · 기다리는 시간 30초 · 메이크샵 리뷰 적립금을 리뷰마다 (사진 리뷰 · 글 리뷰 % 따로) · 상담톡에 스마트스토어 톡톡 읽기 상태(로그인 필요 · 방 개수 · 시각)를 웹으로 보냄 · 지난 답변 모으기 6개월까지(메이크샵 글 700 · 리뷰 150쪽 · 지그재그 주문문의 400 · 에이블리 방 400) · 스마트스토어 톡톡 방 목록 → 💬 상담톡(5분마다 · 방을 열지 않음 · 마지막 메시지만) · 지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1812,9 +1813,9 @@ def talk_probe_tick(G, say=print, now=None):
 # 그 응답만 읽음 (다시 보내지 않음 · 방을 열지 않음 → 읽음 처리 안 됨)
 SMART_TALK_EVERY = 300
 SMART_TALK_RETRY = 1800
-SMART_TALK_WAIT_MS = 15000
+SMART_TALK_WAIT_MS = 30000                  # 1.46: 15초 → 30초 (판매자센터가 늦게 뜨는 경우)
 SMART_TALK_MAX = 60
-SMART_TALK_STATE = {"next": 0.0, "note": "", "rooms": 0, "at": ""}
+SMART_TALK_STATE = {"next": 0.0, "note": "", "rooms": 0, "at": "", "diag": {}}
 SMART_TALK_LIST_RE = re.compile(r"talk\.sell\.smartstore\.naver\.com/chatapi/ct/partner/[^/?#]+/list(\?|$)")
 SMART_TALK_STATUS = {"WAIT": "대기", "PROGRESS": "진행", "END": "완료", "HOLDBACK": "보류", "BLOCK": "차단", "SPAM": "스팸"}
 SMART_TALK_DIALOG = {"PAY": "결제/주문", "PRODUCT": "상품", "STORE": "스토어"}
@@ -1860,14 +1861,26 @@ def smart_talk_rooms(lists):
 def smart_talk_collect(G, chrome_cls=None, wait_ms=SMART_TALK_WAIT_MS):
     """네이버 전용 크롬(창 밖)으로 톡톡 화면을 열어 방 목록 응답만 받음 → (convs, login_needed)"""
     lists = []
+    diag = {"talk": 0, "last": "", "keys": "", "url": ""}   # 1.46: 목록을 못 받았을 때 왜인지 (주소 모양만 · 값은 안 남김)
     Chrome = chrome_cls or NativeChrome
     with Chrome(G, offscreen=True) as nb:
         pg = nb.page()
 
         def on_resp(resp):
             try:
+                u = resp.url or ""
+                if "talk" in u and "talk" in u.split("/")[2]:
+                    diag["talk"] += 1
+                    diag["last"] = f"{talk_mask_url(u).split('://')[-1][:60]} {resp.status}"
+            except Exception:
+                pass
+            try:
                 if SMART_TALK_LIST_RE.search(resp.url or "") and resp.status == 200:
-                    lists.append(resp.json())
+                    js = resp.json()
+                    lists.append(js)
+                    if isinstance(js, dict):
+                        rv = js.get("htReturnValue")
+                        diag["keys"] = ",".join(list((rv if isinstance(rv, dict) else js).keys())[:6])
             except Exception:
                 pass
         pg.on("response", on_resp)
@@ -1880,6 +1893,9 @@ def smart_talk_collect(G, chrome_cls=None, wait_ms=SMART_TALK_WAIT_MS):
             pg.wait_for_timeout(1500)                 # 첫 목록 뒤 이어지는 쪽까지 잠깐
         url = pg.url or ""
     login = bool(re.search(r"nid\.naver\.com|accounts\.commerce\.naver\.com|/login", url)) and not lists
+    diag["url"] = talk_mask_url(url).split("://")[-1][:50]
+    diag["lists"] = len(lists)
+    SMART_TALK_STATE["diag"] = diag
     rooms = smart_talk_rooms(lists)
     rooms.sort(key=lambda c: int(c.get("date") or 0), reverse=True)
     return [smart_talk_conv(c) for c in rooms[:SMART_TALK_MAX]], login
@@ -1920,6 +1936,19 @@ def push_smart_talk(G, link, say=print, now=None, chrome_cls=None):
         return 0
     SMART_TALK_STATE["next"] = now + SMART_TALK_EVERY
     SMART_TALK_STATE["rooms"] = len(convs)
+    dg = SMART_TALK_STATE.get("diag") or {}
+    if not dg.get("lists") and "lists" in dg:        # 1.46: 방 목록 응답을 못 받음 → 'ok · 0개' 로 착각하지 않게
+        note = (f"목록 응답 없음 · 톡톡 요청 {dg.get('talk', 0)}개 · 마지막 {dg.get('last') or '-'} · 화면 {dg.get('url') or '-'}")[:120]
+        if SMART_TALK_STATE["note"] != note:
+            SMART_TALK_STATE["note"] = note
+            say(f"⚠ 스마트스토어 톡톡: {note}")
+        return 0
+    if not convs and dg.get("keys") and "chatList" not in dg.get("keys", ""):
+        note = f"목록 모양 다름: {dg['keys']}"[:120]
+        if SMART_TALK_STATE["note"] != note:
+            SMART_TALK_STATE["note"] = note
+            say(f"⚠ 스마트스토어 톡톡: {note}")
+        return 0
     if SMART_TALK_STATE["note"] != "ok":
         SMART_TALK_STATE["note"] = "ok"
         say(f"💬 스마트스토어 톡톡 읽기 됨 — 방 {len(convs)}개 (목록만)")

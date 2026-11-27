@@ -181,3 +181,61 @@ console.log("freeSlots ok");
   const o = optionsFromRows(rows);
   if (o[0].stock !== 3 || !o[0].virtual || o[1].stock !== 3 || o[1].virtual) throw new Error("엑셀 가상재고 적용");
 }
+
+// 11-27 3차: 매대 여러 개 · 화면 표 그대로 엑셀(빈 줄) · 완료 체크 · 저장 기록 · 매칭 CSV
+{
+  const fs = await import("../src/domain/freeSlots.mjs");
+  const o3 = [
+    { sku: "1-1", ownSku: "[P] A-01-01 ]", memo: "[xxx]", note: "ㅁ[xxx]" }, { sku: "1-2", ownSku: "[P] A-01-02 ]", memo: "[xxx]", note: "[xxx]" },
+    { sku: "2-1", ownSku: "[P] C-01-01 ]", memo: "[xxx]", note: "[xxx]" },
+    { sku: "3-1", ownSku: "[P] E-01-01 ]", memo: "[xxx]", note: "[xxx]" },
+  ];
+  const two = fs.planRetire(o3, { xxx: true }, { only: ["B", "D"] });
+  assert.deepEqual([...new Set(two.moves.map((m) => m.productCode))], ["1", "2"], "매대 여러 개 (A·B + C·D)");
+  assert.equal(fs.planRetire(o3, { xxx: true }, { only: [] }).moves.length, 4, "비우면 전체");
+  assert.equal(two.moves[0].note, "ㅁ[xxx]", "전달사항 · 임의필드 함께");
+  const lines = fs.sheetLines(two.moves);
+  assert.deepEqual(lines.map((m) => (m ? m.sku : "-")), ["1-1", "1-2", "-", "2-1"], "상품 사이 빈 줄");
+  const rows = fs.sheetRows(two.moves, new Set(["2-1"]));
+  assert.equal(rows.length, 4); assert.deepEqual(rows[2], fs.FS_SHEET_COLUMNS.map(() => ""));
+  assert.deepEqual(rows[0].slice(6), ["[P] A-01-01 ]", "[P] B-30-01_1 ]", "☐"]);
+  assert.equal(rows[3][8], "☑");
+  assert.equal(fs.FS_SHEET_COLUMNS.length, rows[0].length);
+  for (const v of ["☑", "✓", "O", "o", "v", "1", "TRUE", " 완료 "]) assert.equal(fs.isDoneMark(v), true, v);
+  for (const v of ["☐", "", "x", "0", "아니오"]) assert.equal(fs.isDoneMark(v), false, v);
+  const up = [["제목 줄"], fs.FS_SHEET_COLUMNS, ...rows.map((r, i) => (i === 0 ? [...r.slice(0, 8), "☑"] : r)), ["9-9", "", "", "", "", "", "", "자리 없음", "☑"], ["9-8", "", "", "", "", "", "", "주문제작", "☑"]];
+  assert.deepEqual(fs.doneFromRows(up).map((x) => [x.sku, x.to, x.from]), [["1-1", "[P] B-30-01_1 ]", "[P] A-01-01 ]"], ["2-1", "[P] D-30-01_1 ]", "[P] C-01-01 ]"]], "완료(☑) 줄만 · 빈 줄 · 자리 없음 · 이상한 코드 뺌");
+  assert.deepEqual(fs.doneFromRows([["셀피아 코드", "지금"]]), [], "머리줄 없으면 빈 목록");
+  const latest = fs.latestBySku([{ sku: "1-1", to: "[P] B-30-01_1 ]", at: "2026-11-27 10:00:00" }, { sku: "1-1", to: "[P] B-30-02_3 ]", at: "2026-11-27 11:00:00" }, { sku: "2-1", to: "[P] D-30-01_1 ]", at: "2026-11-27 09:00:00" }, { sku: "", to: "x" }]);
+  assert.equal(latest.get("1-1").to, "[P] B-30-02_3 ]", "옵션마다 최신");
+  assert.equal(fs.matchingCsv(latest), "1-1,[P] B-30-02_3 ]\r\n2-1,[P] D-30-01_1 ]\r\n", "상품코드,자사코드 · 머리줄 없음");
+  assert.equal(fs.matchingCsv(new Map()), "");
+  assert.equal(fs.matchingCsv(new Map([["5-1", { sku: "5-1", to: 'a,"b' }]])), '5-1,"a,""b"\r\n', "쉼표 · 따옴표 감싸기");
+  const ap = fs.applySaved(o3, latest);
+  assert.equal(ap.applied, 2); assert.equal(ap.options[0].ownSku, "[P] B-30-02_3 ]"); assert.equal(ap.options[0].savedFrom, "[P] A-01-01 ]");
+  const after = fs.planRetire(ap.options, { xxx: true });
+  assert.deepEqual(after.moves.map((m) => [m.sku, m.to]), [["3-1", "[P] F-30-01_1 ]"]], "저장한 이동은 옮긴 것으로 (1-2 는 상품 1의 남은 옵션 — 다른 자리라 그대로)");
+  // 엑셀 고르기 목록(☐/☑)
+  const { buildXlsx } = await import("../src/domain/xlsxWriter.mjs");
+  const bytes = buildXlsx({ columns: fs.FS_SHEET_COLUMNS.map((title) => ({ title })), rows, validations: [{ col: 8, rows: [0, 1, 3], values: ["☐", "☑"] }] });
+  const text = new TextDecoder().decode(bytes);
+  assert.match(text, /<dataValidations count="1"><dataValidation type="list" allowBlank="1" showErrorMessage="1" sqref="I2 I3 I5"><formula1>"☐,☑"<\/formula1><\/dataValidation><\/dataValidations><pageMargins/);
+  assert.doesNotMatch(new TextDecoder().decode(buildXlsx({ columns: [{ title: "a" }], rows: [["1"]] })), /dataValidation/, "안 주면 예전과 같음");
+  // CS 시트 slotSave · slotList
+  const { loadCsBoardScript } = await import("./helpers/csBoardFakeSheet.mjs");
+  const TOKEN = "slot-token-1234";
+  const g = await loadCsBoardScript({ props: { BOARD_TOKEN: TOKEN } });
+  assert.equal(g.post({ action: "slotList", token: "bad" }).denied, true);
+  assert.deepEqual(g.post({ action: "slotList", token: TOKEN }).items, []);
+  let r = g.post({ action: "slotSave", token: TOKEN, editor: "지영", items: [{ sku: "1-1", from: "XX[P] A-01-01 ]", to: "[P] B-30-01_1 ]", product: "링", option: "골드" }, { sku: "1-1", to: "[P] B-30-01_2 ]" }, { sku: "bad sku!", to: "[P] B-30-01_3 ]" }, { sku: "2-1", to: "엉뚱" }] });
+  assert.equal(r.ok, true); assert.equal(r.saved, 1, "같은 옵션 두 번 · 이상한 코드 · 자사코드 아닌 것 뺌");
+  assert.equal(g.post({ action: "slotSave", token: TOKEN, items: [] }).ok, false);
+  g.post({ action: "slotSave", token: TOKEN, items: [{ sku: "1-1", to: "[P] B-30-02_1 ]" }, { sku: "2-1", to: "=[P] D-30-01_1 ]" }] });
+  const items = g.post({ action: "slotList", token: TOKEN }).items;
+  assert.equal(items.length, 3);
+  assert.deepEqual(items.map((x) => [x.sku, x.to]), [["1-1", "[P] B-30-01_1 ]"], ["1-1", "[P] B-30-02_1 ]"], ["2-1", "=[P] D-30-01_1 ]"]], "수식 글자도 글자로 저장 · 그대로 돌려줌");
+  assert.equal(items[0].from, "XX[P] A-01-01 ]"); assert.equal(items[0].editor, "지영");
+  const tab = g.sheets.find((s) => s.getName() === "자사코드이동");
+  assert.deepEqual(tab.data[0], ["셀피아코드", "지금 자사코드", "새 자사코드", "상품명", "옵션명", "저장 시각", "저장한 사람"]);
+  console.log("freeSlots 3차: OK");
+}

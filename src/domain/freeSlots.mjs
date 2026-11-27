@@ -104,6 +104,7 @@ export function splitEven(list = [], boxes = 1) {
 }
 export function planRetire(options = [], rule = {}, { salesOf = () => 0, shelves = FS_SHELVES, maxRow = FS_UPPER_MAX_ROW, drawer = FS_DRAWER, prefix = FS_PREFIX, only = "", boxMax = FS_BOX_MAX, limit = 0 } = {}) {
   const idx = indexOptions(options, { shelves, maxRow, drawer });
+  const onlySet = new Set((Array.isArray(only) || only instanceof Set ? [...only] : [only]).filter(Boolean));   // 11-27 매대 여러 개 고르기
   const used = new Set(idx.drawerUsed);
   const total = drawer.cols.length * drawer.drawers * drawer.slots;
   const slotAt = (i) => {
@@ -146,7 +147,7 @@ export function planRetire(options = [], rule = {}, { salesOf = () => 0, shelves
   const elsewhere = [], picked = [];
   for (const [pc, g] of [...prods].sort((a, b) => a[1].first - b[1].first)) {
     if (!g.cells.length) continue;
-    if (only && !g.cells.some((x) => x.cell.shelf === only || lowerShelf(x.cell.shelf) === only)) continue;
+    if (onlySet.size && !g.cells.some((x) => onlySet.has(x.cell.shelf) || onlySet.has(lowerShelf(x.cell.shelf)))) continue;
     const reason = productReason(g.opts, rule, salesOf);
     if (!reason) continue;
     if (g.outside) { elsewhere.push(pc); continue; }
@@ -176,7 +177,7 @@ export function planRetire(options = [], rule = {}, { salesOf = () => 0, shelves
       const slot = takeSlot(lower);
       if (slot) b.boxes++;
       for (const it of part) {
-        const mv = { sku: it.o.sku, productCode: pc, product: it.o.product || "", option: it.o.option || "", stock: num(it.o.stock), from: it.o.ownSku, to: slot?.code || "", toKey: slot?.key || "", box: `${bi + 1}/${nBox}`, reason, cell: it.cell.key, lower };
+        const mv = { sku: it.o.sku, productCode: pc, product: it.o.product || "", option: it.o.option || "", stock: num(it.o.stock), note: it.o.note ?? "", memo: it.o.memo ?? "", from: it.o.ownSku, to: slot?.code || "", toKey: slot?.key || "", box: `${bi + 1}/${nBox}`, reason, cell: it.cell.key, lower };
         b.options++;
         if (slot) moves.push(mv); else { overflow.push(mv); b.overflow++; }
       }
@@ -280,4 +281,71 @@ export function shelfSummary(free = [], options = [], { shelves = FS_SHELVES, ma
 export const FS_MOVE_COLUMNS = ["셀피아 코드", "상품명", "옵션명", "재고", "지금 자사코드", "옮길 자사코드", "박스", "이유"];
 export function moveRows(plan) {
   return [...plan.moves, ...plan.overflow].map((m) => [m.sku, m.product, m.option, m.stock, m.from, m.to || "자리 없음", m.box, m.reason]);
+}
+
+// ---------- 11-27 3차: 화면 표 그대로 엑셀 · 완료 체크 · 저장 기록 · 셀피아 매칭 CSV ----------
+//  · 화면 표/엑셀 칸: 셀피아 코드 · 상품명 · 옵션 · 재고 · 전달사항 · 임의필드 · 지금 · 옮길 자리 · 완료 — 상품 사이 빈 줄
+export const FS_SHEET_COLUMNS = ["셀피아 코드", "상품명", "옵션", "재고", "전달사항", "임의필드", "지금", "옮길 자리", "완료"];
+export const FS_DONE = "☑", FS_TODO = "☐";
+// moves → 줄 목록 (상품이 바뀔 때 빈 줄 null)
+export function sheetLines(moves = []) {
+  const out = [];
+  let last = null;
+  for (const m of moves) {
+    if (last !== null && m.productCode !== last) out.push(null);
+    out.push(m); last = m.productCode;
+  }
+  return out;
+}
+export function sheetRows(moves = [], done = new Set()) {
+  return sheetLines(moves).map((m) => (m ? [m.sku, m.product, m.option, m.stock, m.note || "", m.memo || "", m.from, m.to || "자리 없음", done.has(m.sku) ? FS_DONE : FS_TODO] : FS_SHEET_COLUMNS.map(() => "")));
+}
+// 완료 표시로 보는 글: ☑ · ✓ · ✔ · O · V · Y · 1 · TRUE · 완료
+export const isDoneMark = (v) => /^\s*(☑|✓|✔|✅|[OoVvYy]|1|true|TRUE|완료)\s*$/.test(String(v ?? ""));
+// 올린 엑셀 표(행 배열) → 완료한 옵션 [{ sku, from, to, product, option }] — 머리줄(앞 6줄 안)의 셀피아 코드 · 지금 · 옮길 자리 · 완료 칸
+export function doneFromRows(rows = []) {
+  const norm = (c) => String(c ?? "").replace(/\s+/g, "");
+  const headAt = rows.slice(0, 6).findIndex((r) => (r || []).some((c) => norm(c) === "옮길자리"));
+  if (headAt < 0) return [];
+  const head = rows[headAt].map(norm);
+  const at = (n) => head.indexOf(n);
+  const c = { sku: at("셀피아코드"), to: at("옮길자리"), from: at("지금"), done: at("완료"), product: at("상품명"), option: at("옵션") };
+  if (c.sku < 0 || c.to < 0 || c.done < 0) return [];
+  const out = [], seen = new Set();
+  for (const r of rows.slice(headAt + 1)) {
+    const sku = String(r?.[c.sku] ?? "").trim(), to = String(r?.[c.to] ?? "").trim();
+    if (!sku || !to || to === "자리 없음" || !isDoneMark(r?.[c.done]) || seen.has(sku)) continue;
+    if (!parseOwn(to)) continue;
+    seen.add(sku);
+    out.push({ sku, to, from: c.from >= 0 ? String(r[c.from] ?? "").trim() : "", product: c.product >= 0 ? String(r[c.product] ?? "") : "", option: c.option >= 0 ? String(r[c.option] ?? "") : "" });
+  }
+  return out;
+}
+// 저장 기록 [{ sku, to, at }] → 옵션마다 가장 최신 것 (Map sku → 기록) — at 이 같으면 뒤에 있는 것
+export function latestBySku(records = []) {
+  const out = new Map();
+  for (const r of records) {
+    const sku = String(r?.sku ?? "").trim();
+    if (!sku || !String(r?.to ?? "").trim()) continue;
+    const prev = out.get(sku);
+    if (!prev || String(r.at ?? "") >= String(prev.at ?? "")) out.set(sku, r);
+  }
+  return out;
+}
+// 셀피아 일괄 적용 CSV: 상품코드,자사코드 두 칸 · 머리줄 없음 (예: 1232-1,[P] B-30-01_1 ])
+export function matchingCsv(latest = new Map()) {
+  const q = (v) => (/[",\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+  return [...latest.values()].sort((a, b) => String(a.sku).localeCompare(String(b.sku), "en", { numeric: true }))
+    .map((r) => `${q(String(r.sku).trim())},${q(String(r.to).trim())}`).join("\r\n") + (latest.size ? "\r\n" : "");
+}
+// 저장된 이동을 옵션에 반영 (셀피아에 아직 안 올렸어도 서랍 자리를 쓴 것으로 계산)
+export function applySaved(options = [], latest = new Map()) {
+  let n = 0;
+  const out = options.map((o) => {
+    const r = latest.get(String(o.sku));
+    if (!r || String(o.ownSku).trim() === String(r.to).trim()) return o;
+    n++;
+    return { ...o, ownSku: r.to, savedFrom: o.ownSku };
+  });
+  return { options: out, applied: n };
 }

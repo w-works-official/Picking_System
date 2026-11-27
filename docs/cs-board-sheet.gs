@@ -253,7 +253,7 @@ function unlock_(body) {
 function route_(body) {
   var action = String(body.action || '');
   if (action === 'unlock') return withLock_(function () { return unlock_(body); });
-  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead', 'logSearch', 'workLoad', 'workSave', 'workTemplate', 'workHistory', 'styleLab', 'vendorBook', 'vendorUse', 'vendorEdit', 'exampleImport'];
+  var staff = ['list', 'save', 'suggest', 'request', 'cancel', 'usage', 'name', 'msnSuggest', 'point', 'loginShotGet', 'loginAnswer', 'discList', 'discSet', 'photoIndexBegin', 'photoIndexPut', 'photoIndexCommit', 'photoAi', 'xxList', 'xxSet', 'optionPhotoAi', 'shipList', 'shipScan', 'shipUpload', 'newList', 'newPics', 'newSave', 'newAdd', 'retList', 'retSave', 'chatList', 'chatSuggest', 'shipMemoList', 'shipMemoSave', 'shipHints', 'shipMemoDelete', 'noticeGet', 'noticeSave', 'reportData', 'reportSummary', 'vendorRead', 'logSearch', 'workLoad', 'workSave', 'workTemplate', 'workHistory', 'styleLab', 'vendorBook', 'vendorUse', 'vendorEdit', 'slotList', 'slotSave', 'exampleImport'];
   var collector = ['ingest', 'close', 'poll', 'finish', 'progress', 'selfJob', 'loginShot', 'chatIngest'];
   if (staff.indexOf(action) >= 0) {
     if (!sameToken_(body.token, prop_('BOARD_TOKEN'))) return { ok: false, denied: true, error: '비밀번호가 맞지 않습니다.' };
@@ -311,6 +311,8 @@ function route_(body) {
   if (action === 'newAdd') return withLock_(function () { return updAdd_(body); });
   if (action === 'xxList') return xxList_();
   if (action === 'xxSet') return withLock_(function () { return xxSet_(body); });
+  if (action === 'slotList') return slotList_();                                            // 11-27 자사코드 자리 — 완료한 이동 기록
+  if (action === 'slotSave') return withLock_(function () { return slotSave_(body); });
   if (action === 'loginShotGet') return loginShotGet_(body);
   if (action === 'loginAnswer') return loginAnswer_(body);
   if (action === 'loginShot') return loginShot_(body);
@@ -2758,6 +2760,54 @@ function xxSet_(body) {
     sheet.getRange(2, 1, rows.length, 5).setValues(rows);
   }
   return { ok: true, total: rows.length, at: stamp };
+}
+
+// ---------- 11-27 🗄 자사코드 자리 — 완료한 이동 기록 ----------
+//  · 상품 관리 › 자사코드 자리에서 완료 체크(화면 [✓ 완료 저장] 또는 엑셀 업로드)한 옵션을 '자사코드이동' 탭에 한 줄씩 더함 (지우지 않음)
+//  · slotList: 전체 기록 → 화면이 옵션마다 가장 최신 것을 골라 셀피아 매칭 CSV(상품코드,자사코드)를 만듦
+var SLOT_SHEET = '자사코드이동';
+var SLOT_HEADER = ['셀피아코드', '지금 자사코드', '새 자사코드', '상품명', '옵션명', '저장 시각', '저장한 사람'];
+function slotSheet_() {
+  var book = book_();
+  var sheet = book.getSheetByName(SLOT_SHEET);
+  if (!sheet) sheet = book.insertSheet(SLOT_SHEET);
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, SLOT_HEADER.length).setValues([SLOT_HEADER]);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+function slotList_() {
+  var sheet = slotSheet_();
+  var n = sheet.getLastRow() - 1;
+  if (n <= 0) return { ok: true, items: [] };
+  var rows = sheet.getRange(2, 1, n, SLOT_HEADER.length).getDisplayValues();
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var sku = discSku_(rows[i][0]);
+    if (sku && rows[i][2]) out.push({ sku: sku, from: plain_(rows[i][1]), to: plain_(rows[i][2]), product: plain_(rows[i][3]), option: plain_(rows[i][4]), at: String(rows[i][5] || ''), editor: plain_(rows[i][6]) });
+  }
+  return { ok: true, items: out };
+}
+function slotSave_(body) {
+  var list = Array.isArray(body.items) ? body.items : [];
+  if (list.length > 5000) return { ok: false, error: '한 번에 5,000줄까지입니다' };
+  var stamp = Utilities.formatDate(new Date(), 'Asia/Seoul', 'yyyy-MM-dd HH:mm:ss');
+  var who = plain_(clean_(body.editor, 40)), seen = {}, rows = [];
+  for (var i = 0; i < list.length; i++) {
+    var it = list[i] || {};
+    var sku = discSku_(it.sku);
+    var to = String(it.to == null ? '' : it.to).trim().slice(0, 40);
+    if (!sku || seen[sku] || !/[A-Z]{1,3}\s*-\s*\d{1,2}\s*-\s*\d{1,2}/.test(to)) continue;
+    seen[sku] = true;
+    rows.push([sku, clean_(it.from, 40), clean_(to, 40), clean_(it.product, 80), clean_(it.option, 60), stamp, who]);
+  }
+  if (!rows.length) return { ok: false, error: '저장할 완료 줄이 없습니다' };
+  var sheet = slotSheet_();
+  var at = sheet.getLastRow() + 1;
+  sheet.getRange(at, 1, rows.length, 1).setNumberFormat('@');
+  sheet.getRange(at, 1, rows.length, SLOT_HEADER.length).setValues(rows);
+  return { ok: true, saved: rows.length, at: stamp };
 }
 
 // ---------- v39 🗂 기록 보관함 (2026-11-25) ----------

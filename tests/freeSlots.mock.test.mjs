@@ -1,6 +1,6 @@
 // 🗄 자사코드 자리 정리 · 신상품 자리 추천 (2026-11-27) — 계산 시험 (견본 데이터)
 import assert from "node:assert/strict";
-import { splitEven, parseOwn, lowerShelf, hasXxx, upperCode, drawerCode, retireReason, planRetire, freeCells, suggestSlots, slotLabel, shelfSummary, moveRows, FS_MOVE_COLUMNS } from "../src/domain/freeSlots.mjs";
+import { splitEven, parseOwn, lowerShelf, hasXxx, upperCode, drawerCode, retireReason, productReason, optionXxx, planRetire, freeCells, suggestSlots, slotLabel, shelfSummary, moveRows, FS_MOVE_COLUMNS } from "../src/domain/freeSlots.mjs";
 
 // 자사코드 읽기 — 섞인 모양 · 앞뒤 표시 무시 · 행열 정수
 assert.deepEqual(parseOwn("[P] A-04-13 ]"), { shelf: "A", row: 4, col: 13, sub: 0 });
@@ -24,42 +24,63 @@ assert.equal(hasXxx("xx 미송"), false, "XX 두 개는 아님"); assert.equal(h
 // 뺄 이유: XXX · 판매부진(기간 · 출고 이하)
 const sales = { "1-1": 0, "1-2": 5, "2-1": 1 };
 const salesOf = (sku) => sales[sku] ?? 0;
+// XXX: 전달사항 · 임의필드 둘 다(기본) / 둘 중 하나 · 칸 글이 없으면 o.xxx
+assert.equal(optionXxx({ note: "[xxx]", memo: "ㅁ[xxx]" }), true);
+assert.equal(optionXxx({ note: "", memo: "ㅁ[xxx]" }), false, "둘 다여야 함");
+assert.equal(optionXxx({ note: "", memo: "ㅁ[xxx]" }, "either"), true);
+assert.equal(optionXxx({ memo: "ㅁ[xxx]" }), true, "전달사항 칸이 없으면 임의필드만");
+assert.equal(optionXxx({ xxx: true }), true, "허브 + XX표시 탭");
 assert.equal(retireReason({ sku: "1-1", memo: "ㅁ[xxx]" }, { xxx: true }), "단종·삭제");
 assert.equal(retireReason({ sku: "1-1", memo: "" }, { xxx: true }), "");
-assert.equal(retireReason({ sku: "2-1", memo: "" }, { slow: { days: 90, max: 1 } }, salesOf), "판매부진 90일 1개");
-assert.equal(retireReason({ sku: "1-2", memo: "" }, { slow: { days: 90, max: 1 } }, salesOf), "", "5개 팔린 건 아님");
+// 상품 단위: 모든 옵션이 XXX · 판매부진은 상품 출고 합계
+assert.equal(productReason([{ sku: "1-1", memo: "[xxx]" }, { sku: "1-2", memo: "" }], { xxx: true }), "", "옵션 하나라도 XXX 아니면 아님");
+assert.equal(productReason([{ sku: "1-1" }, { sku: "1-2" }], { slow: { days: 90, max: 5 } }, salesOf), "판매부진 90일 5개", "0 + 5 = 5개");
+assert.equal(productReason([{ sku: "1-1" }, { sku: "1-2" }], { slow: { days: 90, max: 4 } }, salesOf), "");
 assert.equal(retireReason({ sku: "1-1", memo: "[xxx]" }, { xxx: true, slow: { days: 30, max: 0 } }, salesOf), "단종·삭제 · 판매부진 30일 0개");
 
 // 견본 매대: A 위 칸 · B 위 칸 · B 서랍(30열 일부 사용 중)
 const opts = [
   { sku: "10-1", ownSku: "[P] A-01-01 ]", memo: "ㅁ[xxx]", product: "링", option: "1", stock: 2 },
-  { sku: "10-2", ownSku: "[P] A-01-02 ]", memo: "" },
+  { sku: "10-2", ownSku: "[P] A-01-02 ]", memo: "" },                // 상품 10: 옵션 하나가 XXX 아님 → 상품 통째로 그대로
   { sku: "10-3", ownSku: "[P] A-01-03 ]", memo: "[xxx]" },
-  { sku: "11-1", ownSku: "[P] A-02-01 ]", memo: "[xxx]" },          // A-2-1 칸: 둘 다 XXX → 비움
+  { sku: "11-1", ownSku: "[P] A-02-01 ]", memo: "[xxx]" },          // 상품 11 → 옮김, A-2-1 칸 비움
   { sku: "11-2", ownSku: "[P] A-02-01 ]", memo: "[xxx]" },
-  { sku: "12-1", ownSku: "[P] A-02-02 ]", memo: "[xxx]" },          // A-2-2 칸: 하나만 XXX → 그대로 (일부)
-  { sku: "12-2", ownSku: "[P] A-02-02 ]", memo: "" },
+  { sku: "12-1", ownSku: "[P] A-02-02 ]", memo: "[xxx]" },          // 상품 12 → 옮김, 칸엔 상품 14 가 남음
+  { sku: "14-1", ownSku: "[P] A-02-02 ]", memo: "" },
   { sku: "13-1", ownSku: "[P] A-02-04 ]", memo: "" },
   { sku: "20-1", ownSku: "[P] B-01-01 ]", memo: "[xxx]" },
+  { sku: "21-1", ownSku: "[P] B-01-02 ]", memo: "[xxx]" },          // 상품 21: 다른 매대(EA)에도 있음 → 그대로
+  { sku: "21-2", ownSku: "[EA-01-17]", memo: "[xxx]" },
   { sku: "30-1", ownSku: "###[P] B-30-01_1 ]", memo: "" },          // 서랍 자리 이미 씀
   { sku: "30-2", ownSku: "###[P] B-30-01_3 ]", memo: "" },
-  { sku: "40-1", ownSku: "[EA-01-17]", memo: "[xxx]" },              // 피어싱 매대 아님 → 안 봄
+  { sku: "40-1", ownSku: "[EA-01-18]", memo: "[xxx]" },              // 피어싱 매대 아님 → 안 봄
 ];
 const plan = planRetire(opts, { xxx: true });
-assert.deepEqual([...plan.vacated].sort(), ["A-1-1", "A-1-3", "A-2-1", "B-1-1"]);
-assert.deepEqual(plan.partial.map((p) => [p.key, p.hit, p.total]), [["A-2-2", 1, 2]], "옵션 일부만 뺄 대상인 칸은 비우지 않음");
+assert.equal(plan.found, 3);
+assert.deepEqual([...plan.vacated].sort(), ["A-2-1", "B-1-1"]);
+assert.deepEqual(plan.shared, ["A-2-2"], "다른 상품이 남는 칸은 비우지 않음 (상품 12 는 옮김)");
+assert.deepEqual(plan.elsewhere, ["21"]);
 assert.deepEqual(plan.moves.map((m) => [m.sku, m.to, m.box]), [
-  ["10-1", "[P] B-30-01_2 ]", "1/1"],   // 상품 10 (옵션 2개) → 박스 하나 · 01_1 은 이미 씀
-  ["10-3", "[P] B-30-01_2 ]", "1/1"],
-  ["11-1", "[P] B-30-01_4 ]", "1/1"],   // 상품 11 → 다음 박스 (01_3 은 씀)
-  ["11-2", "[P] B-30-01_4 ]", "1/1"],
+  ["11-1", "[P] B-30-01_2 ]", "1/1"],   // 상품 11 (옵션 2개) → 박스 하나 · 01_1 은 이미 씀
+  ["11-2", "[P] B-30-01_2 ]", "1/1"],
+  ["12-1", "[P] B-30-01_4 ]", "1/1"],   // 01_3 은 씀
   ["20-1", "[P] B-30-01_5 ]", "1/1"],
 ], "상품 단위로 한 박스(같은 자사코드) · 쓰는 자리 건너뜀");
-assert.equal(plan.moves[0].from, "[P] A-01-01 ]");
-assert.deepEqual(plan.byShelf.B, { cells: 4, products: 3, boxes: 3, options: 5, overflow: 0, left: 100 - 2 - 3 });
+assert.ok(!plan.moves.some((m) => m.productCode === "10"), "옵션 단위로 빠지지 않음");
+assert.equal(plan.moves[0].from, "[P] A-02-01 ]");
+assert.deepEqual(plan.byShelf.B, { cells: 2, products: 3, boxes: 3, options: 4, overflow: 0, left: 100 - 2 - 3 });
 assert.equal(plan.overflow.length, 0);
+assert.equal(planRetire(opts, { xxx: true, xxxMode: "either" }).found, 3, "임의필드만 있는 견본은 같음");
+const opts2 = opts.map((o) => ({ ...o, note: o.sku === "11-1" || !hasXxx(o.memo) ? "" : "[xxx]" }));
+assert.deepEqual(planRetire(opts2, { xxx: true }).moves.map((m) => m.productCode), ["12", "20"], "둘 다: 11-1 전달사항에 XXX 없음 → 상품 11 그대로");
+assert.deepEqual([...new Set(planRetire(opts2, { xxx: true, xxxMode: "either" }).moves.map((m) => m.productCode))], ["11", "12", "20"]);
 
-// 박스 나누기: 20개당 1박스 · 고르게
+// 한 번에 찾을 상품 수
+const lim = planRetire(opts, { xxx: true }, { limit: 2 });
+assert.equal(lim.found, 3); assert.deepEqual([...new Set(lim.moves.map((m) => m.productCode))], ["11", "12"]);
+assert.deepEqual([...lim.vacated], ["A-2-1"]);
+
+// 박스 나누기: 20개 미만 1 · 20개 이상 2 · 고르게
 assert.deepEqual(splitEven([1, 2, 3, 4, 5], 2).map((x) => x.length), [3, 2]);
 assert.deepEqual(splitEven(Array(69).fill(0), 4).map((x) => x.length), [18, 17, 17, 17]);
 const big = (n, shelf = "C", pc = "77") => Array.from({ length: n }, (_, i) => ({ sku: `${pc}-${i + 1}`, ownSku: `[P] ${shelf}-${String(Math.floor(i / 21) + 1).padStart(2, "0")}-${String((i % 21) + 1).padStart(2, "0")} ]`, memo: "[xxx]" }));
@@ -91,13 +112,14 @@ assert.equal(sp.byShelf.D.products, 1); assert.equal(sp.byShelf.B.cells, 2, "비
 const slow = planRetire(opts, { slow: { days: 30, max: 0 } }, { salesOf: (sku) => (sku === "13-1" ? 0 : 9) });
 assert.deepEqual([...slow.vacated], ["A-2-4"]);
 assert.match(slow.moves[0].reason, /^판매부진 30일 0개$/);
-assert.deepEqual([...planRetire(opts, { xxx: true }, { only: "B" }).vacated].sort(), ["A-1-1", "A-1-3", "A-2-1", "B-1-1"], "B 고르면 위 짝 A 도 같이");
+assert.deepEqual([...planRetire(opts, { xxx: true }, { only: "B" }).vacated].sort(), ["A-2-1", "B-1-1"], "B 고르면 위 짝 A 도 같이");
 assert.equal(planRetire(opts, { xxx: true }, { only: "D" }).moves.length, 0);
+
 
 // 빈자리: A 는 1~2행 × 1~4열 (쓰인 최대) · B 는 1행 × 1열
 const free = freeCells(opts, { vacated: plan.vacated });
 const keysA = free.filter((f) => f.shelf === "A").map((f) => `${f.key}${f.freed ? "*" : ""}`);
-assert.deepEqual(keysA, ["A-1-1*", "A-1-3*", "A-1-4", "A-2-1*", "A-2-3"], "원래 빈 칸 + 정리로 비운 칸(*)");
+assert.deepEqual(keysA, ["A-1-4", "A-2-1*", "A-2-3"], "원래 빈 칸 + 정리로 비운 칸(*)");
 assert.deepEqual(free.filter((f) => f.shelf === "B").map((f) => f.key), ["B-1-1"]);
 assert.equal(freeCells(opts).filter((f) => f.shelf === "A").length, 2, "정리 전엔 원래 빈 칸만");
 assert.equal(freeCells(opts, { size: { A: { rows: 3, cols: 4 } } }).filter((f) => f.shelf === "A").length, 2 + 4, "매대 크기 직접 정하면 3행도");
@@ -119,7 +141,7 @@ assert.equal(slotLabel([]), "");
 
 // 매대 요약 · 엑셀 줄
 const sum = shelfSummary(free, opts).find((x) => x.shelf === "A");
-assert.deepEqual(sum, { shelf: "A", used: 6, empty: 2, freed: 3, rows: 2, cols: 4 });
+assert.deepEqual(sum, { shelf: "A", used: 6, empty: 2, freed: 1, rows: 2, cols: 4 });
 assert.equal(FS_MOVE_COLUMNS.length, moveRows(plan)[0].length);
 assert.deepEqual(moveRows(small).at(-1).slice(4, 7), ["[P] C-01-12 ]", "자리 없음", "1/1"]);
 // 셀피아 엑셀 → 옵션 (화면 파일의 순수 함수)

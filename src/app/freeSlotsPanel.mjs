@@ -1,5 +1,6 @@
 // 🗄 상품 관리 › 자사코드 자리 (2026-11-27) — 피어싱 매대(A~T) 정리 · 신상품 자리 추천
-//  · ① 뺄 상품 찾기: 단종·삭제(임의필드 XXX) · 판매부진(기간 × 출고 개수) → 상품마다 박스(20개 미만 1 · 20개 이상 2 …)에 담아
+//  · 11-27 2차: 대표코드가 같은 상품은 옵션 전부 같이 움직임 · 한 번에 찾을 상품 수(기본 5) · 간격(좁게·보통·넓게)
+//  · ① 뺄 상품 찾기: 단종·삭제(전달사항 · 임의필드 XXX) · 판매부진(기간 × 출고 개수) → 상품마다 박스(20개 미만 1 · 20개 이상 2 …)에 담아
 //    아랫칸(B·D·F…) 30열 서랍 자리(1자리 = 1박스)로 옮길 목록
 //  · ② 신상품 자리: 옵션 개수 → 비운 칸 + 원래 빈 칸에서 최대한 붙은 자사코드 추천
 //  · 데이터: 운영 허브 sellpia_stock_latest(자사코드 · 재고) · CS 시트 'XX표시' 탭(xxList) · 피킹 주문(출고)
@@ -19,6 +20,8 @@ const PAGE = 1000;
 const DAYS = [30, 60, 90, 180];
 const MAXQ = [0, 1, 2, 3, 5];
 const LIST_MAX = 300;
+const LIMITS = [5, 10, 20, 50, 0];           // 한 번에 찾을 상품 수 (0 = 전체) — 11-27 대표님: 기본 5상품
+const DENSITY_KEY = "system_v3_fs_density";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
@@ -56,15 +59,20 @@ const CSS = `
 .fs-tag.is-near{background:#fff4e5;color:#b26a00}
 .fs-num{display:inline-flex;align-items:center;gap:4px}
 .fs-num b{min-width:28px;text-align:center;font-size:16px}
+.fs-wrap.is-tight{gap:6px}.fs-wrap.is-tight .fs-box{padding:6px 10px}.fs-wrap.is-tight .fs-row{margin:2px 0;gap:3px 6px}.fs-wrap.is-tight .fs-box h3{margin:0 0 4px}
+.fs-wrap.is-tight .fs-tbl th,.fs-wrap.is-tight .fs-tbl td{padding:2px 5px}.fs-wrap.is-tight .fs-seg button{padding:3px 8px}
+.fs-wrap.is-wide{gap:24px}.fs-wrap.is-wide .fs-box{padding:16px 18px}.fs-wrap.is-wide .fs-row{margin:12px 0;gap:10px 14px}
+.fs-wrap.is-wide .fs-tbl th,.fs-wrap.is-wide .fs-tbl td{padding:7px 8px}.fs-wrap.is-wide .fs-seg button{padding:7px 12px}
 `;
 
 export function mountFreeSlots({ document, window, root, storages = [], fetchImpl = (...a) => window.fetch(...a), today = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10) } = {}) {
   if (!root) return null;
   const st = {
     options: [], source: "", loading: false, note: "", xxNote: "", salesNote: "", sales: null,
-    xxx: true, slowOn: false, days: 90, maxQ: 0, only: "",
+    xxx: true, xxxMode: "both", slowOn: false, days: 90, maxQ: 0, only: "", limit: 5, density: "normal",
     n: 3, shelf: "", onlyFreed: false, plan: null, free: [], copied: "",
   };
+  for (const s of storages) { try { const v = s?.getItem?.(DENSITY_KEY); if (v) { st.density = v; break; } } catch { /* 없음 */ } }
   if (!document.getElementById("fs-style")) { const s = document.createElement("style"); s.id = "fs-style"; s.textContent = CSS; document.head.appendChild(s); }
   const $ = (q) => root.querySelector(q);
 
@@ -103,6 +111,9 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
         <button type="button" class="fs-btn fs-btn-main" data-fs-load>⟳ 불러오기</button>
         <label class="fs-btn" title="상품코드 · 자사코드 · 재고 · 임의필드 칸이 있는 셀피아 엑셀">📥 셀피아 엑셀<input type="file" accept=".xlsx,.xlsm,.xls" data-fs-file hidden></label>
         <span class="fs-status" data-fs-status></span>
+        <span style="flex:1"></span>
+        <span class="fs-lab">간격</span>
+        <span class="fs-seg"><button type="button" data-fs-density="tight">좁게</button><button type="button" data-fs-density="normal">보통</button><button type="button" data-fs-density="wide">넓게</button></span>
       </div>
       <div class="fs-box">
         <h3>① 뺄 상품 → 아랫칸 서랍</h3>
@@ -110,10 +121,16 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
           <span class="fs-seg"><button type="button" data-fs-xxx>단종·삭제 (XXX)</button></span>
           <span class="fs-seg"><button type="button" data-fs-slow>판매부진</button></span>
         </div>
+        <div class="fs-row" data-fs-xxxrow><span class="fs-lab">XXX</span>
+          <span class="fs-seg"><button type="button" data-fs-xmode="both">전달사항 · 임의필드 둘 다</button><button type="button" data-fs-xmode="either">둘 중 하나</button></span>
+        </div>
         <div class="fs-row" data-fs-slowrow><span class="fs-lab">기간</span>
           <span class="fs-seg">${DAYS.map((d) => `<button type="button" data-fs-days="${d}">${d}일</button>`).join("")}</span>
           <span class="fs-lab">출고</span>
           <span class="fs-seg">${MAXQ.map((q) => `<button type="button" data-fs-maxq="${q}">${q ? `${q}개 이하` : "0개"}</button>`).join("")}</span>
+        </div>
+        <div class="fs-row"><span class="fs-lab">상품 수</span>
+          <span class="fs-seg">${LIMITS.map((n) => `<button type="button" data-fs-limit="${n}">${n ? `${n}상품` : "전체"}</button>`).join("")}</span>
         </div>
         <div class="fs-row"><span class="fs-lab">매대</span>
           <span class="fs-seg"><button type="button" data-fs-only="">전체</button>${LOWER.map((s) => `<button type="button" data-fs-only="${s}">${FS_SHELVES[FS_SHELVES.indexOf(s) - 1]}·${s}</button>`).join("")}</span>
@@ -141,7 +158,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
 
   function compute() {
     const slow = st.slowOn && st.sales ? { days: st.days, max: st.maxQ } : null;
-    st.plan = (st.xxx || slow) ? planRetire(st.options, { xxx: st.xxx, slow }, { salesOf, drawer: FS_DRAWER, only: st.only }) : null;
+    st.plan = (st.xxx || slow) ? planRetire(st.options, { xxx: st.xxx, xxxMode: st.xxxMode, slow }, { salesOf, drawer: FS_DRAWER, only: st.only, limit: st.limit }) : null;
     st.free = freeCells(st.options, { vacated: st.plan?.vacated || new Set() });
   }
 
@@ -155,7 +172,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     const list = [...p.moves, ...p.overflow].slice(0, LIST_MAX);
     box.innerHTML = `
       <div class="fs-row">
-        <span>비울 칸 <b>${fmt(tot.cells)}</b> · 옮길 상품 <b>${fmt(tot.products)}</b> (옵션 ${fmt(tot.options)}) → 박스 <b>${fmt(tot.boxes)}</b>${tot.overflow ? ` · <span class="fs-bad">자리 없음 옵션 ${fmt(tot.overflow)}</span>` : ""}${p.partial.length ? ` · 일부만 해당(그대로 둠) ${fmt(p.partial.length)}칸` : ""}</span>
+        <span>찾은 상품 ${fmt(p.found)}개${st.limit && p.found > st.limit ? ` 중 앞 ${fmt(st.limit)}개` : ""} · 옮길 상품 <b>${fmt(tot.products)}</b> (옵션 ${fmt(tot.options)}) → 박스 <b>${fmt(tot.boxes)}</b> · 비울 칸 <b>${fmt(tot.cells)}</b>${p.shared.length ? ` · 다른 상품이 남는 칸 ${fmt(p.shared.length)}` : ""}${tot.overflow ? ` · <span class="fs-bad">자리 없음 옵션 ${fmt(tot.overflow)}</span>` : ""}${p.elsewhere.length ? ` · 다른 자리에도 있어 뺌 ${fmt(p.elsewhere.length)}상품` : ""}</span>
         <button type="button" class="fs-btn" data-fs-excel ${p.moves.length + p.overflow.length ? "" : "disabled"}>📄 옮길 목록 엑셀</button>
       </div>
       ${rows.length ? `<table class="fs-tbl is-sum"><thead><tr><th>30열</th><th>비울 칸</th><th>상품</th><th>옵션</th><th>박스</th><th>남는 자리</th><th>자리 없음</th></tr></thead><tbody>
@@ -192,6 +209,12 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     for (const b of root.querySelectorAll("[data-fs-nset]")) b.classList.toggle("is-on", Number(b.dataset.fsNset) === st.n);
     for (const b of root.querySelectorAll("[data-fs-freed]")) b.classList.toggle("is-on", (b.dataset.fsFreed === "1") === st.onlyFreed);
     $("[data-fs-xxx]").classList.toggle("is-on", st.xxx);
+    for (const b of root.querySelectorAll("[data-fs-xmode]")) b.classList.toggle("is-on", b.dataset.fsXmode === st.xxxMode);
+    for (const b of root.querySelectorAll("[data-fs-limit]")) b.classList.toggle("is-on", Number(b.dataset.fsLimit) === st.limit);
+    for (const b of root.querySelectorAll("[data-fs-density]")) b.classList.toggle("is-on", b.dataset.fsDensity === st.density);
+    $(".fs-wrap").classList.toggle("is-tight", st.density === "tight");
+    $(".fs-wrap").classList.toggle("is-wide", st.density === "wide");
+    $("[data-fs-xxxrow]").hidden = !st.xxx;
     $("[data-fs-slow]").classList.toggle("is-on", st.slowOn);
     $("[data-fs-slowrow]").hidden = !st.slowOn;
     $("[data-fs-load]").disabled = st.loading;
@@ -269,7 +292,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
       if (!opts.length) throw new Error("머리줄에 상품코드 · 자사코드 칸이 있어야 합니다");
       st.options = opts;
       st.source = file.name;
-      st.xxNote = `${fmt(opts.filter((o) => o.xxx).length)}옵션 (엑셀 임의필드)`;
+      st.xxNote = `엑셀 ${c2(opts)}`;
       if (!st.sales) await loadSales();
       compute();
     } catch (error) {
@@ -303,6 +326,9 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     if (d.fsLoad !== undefined) load();
     else if (d.fsXxx !== undefined) { st.xxx = !st.xxx; refresh(); }
     else if (d.fsSlow !== undefined) { st.slowOn = !st.slowOn; refresh(); }
+    else if (d.fsXmode) { st.xxxMode = d.fsXmode; refresh(); }
+    else if (d.fsLimit !== undefined) { st.limit = Number(d.fsLimit); refresh(); }
+    else if (d.fsDensity) { st.density = d.fsDensity; for (const s of storages) { try { s?.setItem?.(DENSITY_KEY, st.density); } catch { /* 없음 */ } } render(); }
     else if (d.fsDays) { st.days = Number(d.fsDays); refresh(); }
     else if (d.fsMaxq !== undefined) { st.maxQ = Number(d.fsMaxq); refresh(); }
     else if (d.fsOnly !== undefined) { st.only = d.fsOnly; refresh(); }
@@ -321,20 +347,22 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
 }
 
 // 셀피아 엑셀 표(행 배열) → 옵션 목록 — 머리줄(앞 6줄 안)의 상품코드 · 자사코드 · 재고 · 임의필드 · 상품명 · 옵션명 칸
+const c2 = (opts) => `전달사항·임의필드 둘 다 ${fmt(opts.filter((o) => hasXxx(o.note) && hasXxx(o.memo)).length)}옵션 · 둘 중 하나 ${fmt(opts.filter((o) => hasXxx(o.note) || hasXxx(o.memo)).length)}옵션`;
 export function optionsFromRows(rows = []) {
   const headAt = rows.slice(0, 6).findIndex((r) => (r || []).some((c) => String(c ?? "").replace(/\s+/g, "") === "자사코드"));
   if (headAt < 0) return [];
   const head = rows[headAt].map((c) => String(c ?? "").replace(/\s+/g, ""));
   const at = (name) => head.indexOf(name);
-  const c = { sku: at("상품코드"), own: at("자사코드"), stock: at("재고"), memo: at("임의필드"), product: at("상품명"), option: at("옵션명") };
+  const c = { sku: at("상품코드"), own: at("자사코드"), stock: at("재고"), memo: at("임의필드"), note: at("전달사항"), product: at("상품명"), option: at("옵션명") };
   if (c.sku < 0 || c.own < 0) return [];
   const out = [];
   for (const r of rows.slice(headAt + 1)) {
     const own = String(r?.[c.own] ?? "").trim();
     const sku = String(r?.[c.sku] ?? "").trim();
     if (!own || !sku) continue;
-    const memo = c.memo >= 0 ? String(r[c.memo] ?? "") : "";
-    out.push({ sku, ownSku: own, stock: Number(String(r?.[c.stock] ?? "").replace(/[^\d.-]/g, "")) || 0, memo, xxx: hasXxx(memo), product: c.product >= 0 ? String(r[c.product] ?? "") : "", option: c.option >= 0 ? String(r[c.option] ?? "") : "" });
+    const memo = c.memo >= 0 ? String(r[c.memo] ?? "") : undefined;
+    const note = c.note >= 0 ? String(r[c.note] ?? "") : undefined;
+    out.push({ sku, ownSku: own, stock: Number(String(r?.[c.stock] ?? "").replace(/[^\d.-]/g, "")) || 0, memo, note, xxx: hasXxx(memo) && (note === undefined || hasXxx(note)), product: c.product >= 0 ? String(r[c.product] ?? "") : "", option: c.option >= 0 ? String(r[c.option] ?? "") : "" });
   }
   return out;
 }

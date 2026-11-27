@@ -58,6 +58,7 @@ const SP_ACTIVE = ["대기", "실행중", "중지요청"];        // 11-27 3차:
 const COL_W = [90, 220, 150, 52, 120, 110, 130, 130, 66];   // FS_SHEET_COLUMNS 기본 너비(px)
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const loose = (s) => esc(s).replace(/낱/g, '<mark class="fs-loose">낱</mark>');   // 11-27 자사코드 '낱' 글자만 밝은 노랑
 const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
 const LOWER = FS_SHELVES.filter((s) => lowerShelf(s) === s);   // B D F … T
 
@@ -76,6 +77,7 @@ const CSS = `
 .fs-btn:disabled{opacity:.5;cursor:default}
 .fs-btn-main{background:#2f6fde;border-color:#2f6fde;color:#fff}
 .fs-status{color:#556;font-size:13px}
+.fs-loose{background:#ffeb3b;color:inherit;padding:0 2px;border-radius:3px;font-weight:800}
 .fs-status.is-bad{color:#c0392b}
 .fs-tbl{border-collapse:collapse;width:100%;font-size:13px}
 .fs-tbl th,.fs-tbl td{border-bottom:1px solid #eef0f3;padding:4px 6px;text-align:left;white-space:nowrap}
@@ -226,7 +228,7 @@ export function mountFreeSlots({ document, window, root, storages = [], autoLoad
     const lines = sheetLines(all.slice(0, LIST_MAX));
     const nCheck = st.checked.size;
     const head = FS_SHEET_COLUMNS.map((t, i) => `<th class="${i === 7 ? "to" : i === 3 || i === 8 ? "c" : ""}">${i === 8 ? `<input type="checkbox" data-fs-checkall title="모두 체크" ${all.length && all.every((m) => !m.to || st.checked.has(m.sku)) ? "checked" : ""}> 완료` : esc(t)}<span class="fs-rz" data-fs-rz="${i}"></span></th>`).join("");
-    const row = (m) => m ? `<tr><td>${esc(m.sku)}</td><td title="${esc(m.product)}">${esc(m.product)}</td><td title="${esc(m.option)}">${esc(m.option)}</td><td class="c">${fmt(m.stock)}</td><td title="${esc(m.note)}">${esc(m.note)}</td><td title="${esc(m.memo)}">${esc(m.memo)}</td><td>${esc(m.from)}</td><td class="to">${m.to ? esc(m.to) : '<span class="fs-bad">자리 없음</span>'}</td><td class="c">${m.to ? `<input type="checkbox" data-fs-check="${esc(m.productCode)}" ${st.checked.has(m.sku) ? "checked" : ""}>` : ""}</td></tr>`
+    const row = (m) => m ? `<tr><td>${esc(m.sku)}</td><td title="${esc(m.product)}">${esc(m.product)}</td><td title="${esc(m.option)}">${esc(m.option)}</td><td class="c">${fmt(m.stock)}</td><td title="${esc(m.note)}">${esc(m.note)}</td><td title="${esc(m.memo)}">${esc(m.memo)}</td><td>${loose(m.from)}</td><td class="to">${m.to ? loose(m.to) : '<span class="fs-bad">자리 없음</span>'}</td><td class="c">${m.to ? `<input type="checkbox" data-fs-check="${esc(m.productCode)}" ${st.checked.has(m.sku) ? "checked" : ""}>` : ""}</td></tr>`
       : `<tr class="fs-blank"><td colspan="${FS_SHEET_COLUMNS.length}"></td></tr>`;
     box.innerHTML = `
       <div class="fs-row">
@@ -326,7 +328,7 @@ export function mountFreeSlots({ document, window, root, storages = [], autoLoad
       <p class="fs-status">빈 칸 ${fmt(nFree)}개 (비운 칸 ${fmt(sum.reduce((a, x) => a + x.freed, 0))} · 원래 빈 칸 ${fmt(sum.reduce((a, x) => a + x.empty, 0))})</p>
       ${list.length ? `<div class="fs-cards">${list.map((s, i) => `
         <div class="fs-card"><b>${esc(s.label)}</b><span class="fs-tag ${s.kind === "near" ? "is-near" : ""}">${s.kind === "line" ? "한 줄" : "가까이"}</span>${s.freed ? `<span class="fs-tag">비운 칸 ${s.freed}</span>` : ""}
-          <div class="fs-codes">${s.codes.map(esc).join("\n")}</div>
+          <div class="fs-codes">${s.codes.map(loose).join("\n")}</div>
           <button type="button" class="fs-btn" data-fs-copy="${i}">${st.copied === s.label ? "✓ 복사됨" : "📋 복사"}</button></div>`).join("")}</div>`
         : `<p class="fs-status">${fmt(st.n)}칸을 둘 자리가 없습니다 — 매대를 넓히거나 정리 기준을 바꿔 보세요</p>`}`;
     box._list = list;

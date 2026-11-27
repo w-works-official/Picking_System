@@ -349,3 +349,23 @@ export function applySaved(options = [], latest = new Map()) {
   });
   return { options: out, applied: n };
 }
+
+// 셀피아에 올릴 것만: 최신 기록 중 지금 셀피아 자사코드(raw)와 다른 것 (raw 가 비면 전부)
+export function changedLatest(latest = new Map(), raw = []) {
+  if (!raw.length) return new Map(latest);
+  const cur = new Map(raw.map((o) => [String(o.sku), String(o.ownSku ?? "").trim()]));
+  return new Map([...latest].filter(([sku, r]) => cur.get(sku) !== String(r.to).trim()));
+}
+// 원격 실행 보드로 보낼 CSV 조각: UTF-8 → base64, 조각마다 max 글자 이하 (줄 단위로 자름 — PC 명령줄 길이 한도)
+export function csvChunks(csv = "", max = 6000) {
+  const b64 = (t) => { const bytes = new TextEncoder().encode(t); let bin = ""; for (const b of bytes) bin += String.fromCharCode(b); return btoa(bin); };
+  const lines = String(csv).split(/\r?\n/).filter((l) => l.trim());
+  const out = [];
+  let cur = [];
+  for (const l of lines) {
+    if (cur.length && b64([...cur, l].join("\r\n") + "\r\n").length > max) { out.push(b64(cur.join("\r\n") + "\r\n")); cur = []; }
+    cur.push(l);
+  }
+  if (cur.length) out.push(b64(cur.join("\r\n") + "\r\n"));
+  return out;
+}

@@ -1,5 +1,5 @@
 // 🗄 상품 관리 › 자사코드 자리 (2026-11-27) — 피어싱 매대(A~T) 정리 · 신상품 자리 추천
-//  · 11-27 2차: 대표코드가 같은 상품은 옵션 전부 같이 움직임 · 한 번에 찾을 상품 수(기본 5) · 간격(좁게·보통·넓게)
+//  · 11-27 2차: 대표코드가 같은 상품은 옵션 전부 같이 움직임 · 한 번에 찾을 상품 수(기본 5) · 간격·목록 높이(끌어서 조절)
 //  · ① 뺄 상품 찾기: 단종·삭제(전달사항 · 임의필드 XXX) · 판매부진(기간 × 출고 개수) → 상품마다 박스(20개 미만 1 · 20개 이상 2 …)에 담아
 //    아랫칸(B·D·F…) 30열 서랍 자리(1자리 = 1박스)로 옮길 목록
 //  · ② 신상품 자리: 옵션 개수 → 비운 칸 + 원래 빈 칸에서 최대한 붙은 자사코드 추천
@@ -21,7 +21,8 @@ const DAYS = [30, 60, 90, 180];
 const MAXQ = [0, 1, 2, 3, 5];
 const LIST_MAX = 300;
 const LIMITS = [5, 10, 20, 50, 0];           // 한 번에 찾을 상품 수 (0 = 전체) — 11-27 대표님: 기본 5상품
-const DENSITY_KEY = "system_v3_fs_density";
+const GAP_KEY = "system_v3_fs_gap";          // 11-27: 간격 · 목록 높이 — 끌어서 조절, 이 브라우저에 기억
+const LIST_KEY = "system_v3_fs_list";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmt = (n) => Number(n || 0).toLocaleString("ko-KR");
@@ -50,7 +51,7 @@ const CSS = `
 .fs-tbl.is-sum{width:auto}
 .fs-tbl.is-sum td,.fs-tbl.is-sum th{min-width:70px}
 .fs-bad{color:#c0392b;font-weight:600}
-.fs-scroll{max-height:320px;overflow:auto;border:1px solid #eef0f3;border-radius:8px}
+.fs-scroll{height:var(--fs-list,320px);overflow:auto;border:1px solid #eef0f3;border-radius:8px}
 .fs-cards{display:flex;flex-wrap:wrap;gap:10px}
 .fs-card{border:1px solid #d9dee5;border-radius:10px;padding:10px 12px;min-width:220px;background:#fbfcfe}
 .fs-card b{font-size:15px}
@@ -59,20 +60,24 @@ const CSS = `
 .fs-tag.is-near{background:#fff4e5;color:#b26a00}
 .fs-num{display:inline-flex;align-items:center;gap:4px}
 .fs-num b{min-width:28px;text-align:center;font-size:16px}
-.fs-wrap.is-tight{gap:6px}.fs-wrap.is-tight .fs-box{padding:6px 10px}.fs-wrap.is-tight .fs-row{margin:2px 0;gap:3px 6px}.fs-wrap.is-tight .fs-box h3{margin:0 0 4px}
-.fs-wrap.is-tight .fs-tbl th,.fs-wrap.is-tight .fs-tbl td{padding:2px 5px}.fs-wrap.is-tight .fs-seg button{padding:3px 8px}
-.fs-wrap.is-wide{gap:24px}.fs-wrap.is-wide .fs-box{padding:16px 18px}.fs-wrap.is-wide .fs-row{margin:12px 0;gap:10px 14px}
-.fs-wrap.is-wide .fs-tbl th,.fs-wrap.is-wide .fs-tbl td{padding:7px 8px}.fs-wrap.is-wide .fs-seg button{padding:7px 12px}
+.fs-wrap{--g:14px;gap:var(--g)}.fs-wrap .fs-box{padding:calc(var(--g)*.85) calc(var(--g)*1)}.fs-wrap .fs-row{margin:calc(var(--g)*.4) 0;gap:calc(var(--g)*.4) calc(var(--g)*.7)}
+.fs-wrap .fs-box h3{margin:0 0 calc(var(--g)*.7)}.fs-wrap .fs-tbl th,.fs-wrap .fs-tbl td{padding:calc(2px + var(--g)*.15) 6px}.fs-wrap .fs-seg button{padding:calc(2px + var(--g)*.2) 10px}
+.fs-gap{display:inline-flex;align-items:center;gap:6px;color:#556}.fs-gap input{width:140px;cursor:ew-resize}
+.fs-grip{height:10px;margin-top:2px;border-radius:5px;background:repeating-linear-gradient(90deg,#d9dee5 0 6px,transparent 6px 10px);cursor:ns-resize;touch-action:none}
+.fs-grip:hover{background:repeating-linear-gradient(90deg,#2f6fde 0 6px,transparent 6px 10px)}
 `;
 
 export function mountFreeSlots({ document, window, root, storages = [], fetchImpl = (...a) => window.fetch(...a), today = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10) } = {}) {
   if (!root) return null;
   const st = {
     options: [], source: "", loading: false, note: "", xxNote: "", salesNote: "", sales: null,
-    xxx: true, xxxMode: "both", slowOn: false, days: 90, maxQ: 0, only: "", limit: 5, density: "normal",
+    xxx: true, xxxMode: "both", slowOn: false, days: 90, maxQ: 0, only: "", limit: 5, gap: 14, listH: 320,
     n: 3, shelf: "", onlyFreed: false, plan: null, free: [], copied: "",
   };
-  for (const s of storages) { try { const v = s?.getItem?.(DENSITY_KEY); if (v) { st.density = v; break; } } catch { /* 없음 */ } }
+  const getNum = (k) => { for (const s of storages) { try { const v = Number(s?.getItem?.(k)); if (v) return v; } catch { /* 없음 */ } } return 0; };
+  const setNum = (k, v) => { for (const s of storages) { try { s?.setItem?.(k, String(Math.round(v))); } catch { /* 없음 */ } } };
+  st.gap = Math.min(30, Math.max(2, getNum(GAP_KEY) || st.gap));
+  st.listH = Math.min(1200, Math.max(120, getNum(LIST_KEY) || st.listH));
   if (!document.getElementById("fs-style")) { const s = document.createElement("style"); s.id = "fs-style"; s.textContent = CSS; document.head.appendChild(s); }
   const $ = (q) => root.querySelector(q);
 
@@ -112,8 +117,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
         <label class="fs-btn" title="상품코드 · 자사코드 · 재고 · 임의필드 칸이 있는 셀피아 엑셀">📥 셀피아 엑셀<input type="file" accept=".xlsx,.xlsm,.xls" data-fs-file hidden></label>
         <span class="fs-status" data-fs-status></span>
         <span style="flex:1"></span>
-        <span class="fs-lab">간격</span>
-        <span class="fs-seg"><button type="button" data-fs-density="tight">좁게</button><button type="button" data-fs-density="normal">보통</button><button type="button" data-fs-density="wide">넓게</button></span>
+        <label class="fs-gap">간격 <input type="range" min="2" max="30" step="1" data-fs-gap aria-label="간격 (끌어서 조절)"></label>
       </div>
       <div class="fs-box">
         <h3>① 뺄 상품 → 아랫칸 서랍</h3>
@@ -180,7 +184,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
       </tbody></table>` : `<p class="fs-status">해당 상품 없음</p>`}
       ${list.length ? `<div class="fs-scroll" style="margin-top:8px"><table class="fs-tbl"><thead><tr><th>셀피아 코드</th><th>상품명</th><th>옵션</th><th>재고</th><th>지금</th><th>→ 옮길 자리</th><th>박스</th><th>이유</th></tr></thead><tbody>
         ${list.map((m) => `<tr><td>${esc(m.sku)}</td><td>${esc(m.product)}</td><td>${esc(m.option)}</td><td class="n">${fmt(m.stock)}</td><td>${esc(m.from)}</td><td>${m.to ? esc(m.to) : '<span class="fs-bad">자리 없음</span>'}</td><td>${esc(m.box)}</td><td>${esc(m.reason)}</td></tr>`).join("")}
-      </tbody></table></div>${p.moves.length + p.overflow.length > LIST_MAX ? `<p class="fs-status">앞 ${LIST_MAX}줄만 보임 — 전체는 엑셀로</p>` : ""}` : ""}`;
+      </tbody></table></div><div class="fs-grip" data-fs-grip title="끌어서 목록 높이 조절"></div>${p.moves.length + p.overflow.length > LIST_MAX ? `<p class="fs-status">앞 ${LIST_MAX}줄만 보임 — 전체는 엑셀로</p>` : ""}` : ""}`;
   }
 
   function renderSuggest() {
@@ -211,9 +215,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     $("[data-fs-xxx]").classList.toggle("is-on", st.xxx);
     for (const b of root.querySelectorAll("[data-fs-xmode]")) b.classList.toggle("is-on", b.dataset.fsXmode === st.xxxMode);
     for (const b of root.querySelectorAll("[data-fs-limit]")) b.classList.toggle("is-on", Number(b.dataset.fsLimit) === st.limit);
-    for (const b of root.querySelectorAll("[data-fs-density]")) b.classList.toggle("is-on", b.dataset.fsDensity === st.density);
-    $(".fs-wrap").classList.toggle("is-tight", st.density === "tight");
-    $(".fs-wrap").classList.toggle("is-wide", st.density === "wide");
+    applySize();
     $("[data-fs-xxxrow]").hidden = !st.xxx;
     $("[data-fs-slow]").classList.toggle("is-on", st.slowOn);
     $("[data-fs-slowrow]").hidden = !st.slowOn;
@@ -328,7 +330,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     else if (d.fsSlow !== undefined) { st.slowOn = !st.slowOn; refresh(); }
     else if (d.fsXmode) { st.xxxMode = d.fsXmode; refresh(); }
     else if (d.fsLimit !== undefined) { st.limit = Number(d.fsLimit); refresh(); }
-    else if (d.fsDensity) { st.density = d.fsDensity; for (const s of storages) { try { s?.setItem?.(DENSITY_KEY, st.density); } catch { /* 없음 */ } } render(); }
+
     else if (d.fsDays) { st.days = Number(d.fsDays); refresh(); }
     else if (d.fsMaxq !== undefined) { st.maxQ = Number(d.fsMaxq); refresh(); }
     else if (d.fsOnly !== undefined) { st.only = d.fsOnly; refresh(); }
@@ -338,6 +340,25 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     else if (d.fsFreed !== undefined) { st.onlyFreed = d.fsFreed === "1"; st.copied = ""; render(); }
     else if (d.fsExcel !== undefined) exportExcel();
     else if (d.fsCopy !== undefined) copy(Number(d.fsCopy));
+  });
+  function applySize() {
+    const w = $(".fs-wrap");
+    w.style.setProperty("--g", `${st.gap}px`);
+    w.style.setProperty("--fs-list", `${st.listH}px`);
+    const r = $("[data-fs-gap]"); if (r && Number(r.value) !== st.gap) r.value = String(st.gap);
+  }
+  // 간격: 막대를 끌어서 (2~30px)
+  root.querySelector("[data-fs-gap]").addEventListener("input", (e) => { st.gap = Number(e.target.value) || 14; applySize(); });
+  root.querySelector("[data-fs-gap]").addEventListener("change", () => setNum(GAP_KEY, st.gap));
+  // 목록 높이: 목록 아래 줄무늬를 위아래로 끌어서
+  root.addEventListener("pointerdown", (e) => {
+    const g = e.target.closest?.("[data-fs-grip]");
+    if (!g) return;
+    e.preventDefault();
+    const y0 = e.clientY, h0 = st.listH;
+    const move = (ev) => { st.listH = Math.min(1200, Math.max(120, h0 + ev.clientY - y0)); applySize(); };
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); setNum(LIST_KEY, st.listH); };
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
   });
   root.querySelector("[data-fs-file]").addEventListener("change", (e) => { loadFile(e.target.files?.[0]); e.target.value = ""; });
 

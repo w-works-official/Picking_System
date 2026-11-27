@@ -4,7 +4,7 @@
 //  · 1열 · 한 쪽에 상품 100개 · 검색 기준(재고 · 사진 · 출고 기간 × 수량) · 옵션 단위 / 상품 단위 · 선택 · 선택 모아보기 · 사진 포함 엑셀
 //  · 읽기 전용: 어디에도 쓰지 않음
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261111-msqa1";
-import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, applyXx, xxFromRows, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261110-subs1";
+import { PB_CATEGORIES, PB_EXCEL_COLUMNS, applyDisc, applyXx, xxFromRows, attachSales, boardView, buildProducts, buildSales, categoryCounts, excelRows, pageOf, photoIndex, pickState, salesKey, sortView } from "../domain/productBoard.mjs?v=20261127-vs1";
 import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
 
 const HUB_URL = "https://bpgvqmtsjgegnrdzmpep.supabase.co";

@@ -65,7 +65,8 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="맑은 고딕"/></font><font><b/><sz val="11"/><name val="맑은 고딕"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFDE68A"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right><top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
 
 // columns: [{ title, width(글자 수) }] · rows: [[값…]] · images: [{ row(0부터, 데이터 줄), col, data: Uint8Array, ext: "jpeg"|"png", w, h (px) }]
-export function buildXlsx({ sheetName = "Sheet1", columns = [], rows = [], images = [], rowHeightPx = 0 } = {}) {
+//  validations (11-27 추가, 없으면 예전과 같음): [{ col(0부터), rows: [데이터 줄 번호(0부터)…], values: ["☐", "☑"] }] → 그 칸에 고르기 목록(마우스로 선택)
+export function buildXlsx({ sheetName = "Sheet1", columns = [], rows = [], images = [], rowHeightPx = 0, validations = [] } = {}) {
   const cols = columns.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${Number(c.width) || 10}" customWidth="1"/>`).join("");
   const cell = (v, r, c, style) => {
     const ref = `${colName(c)}${r}`;
@@ -77,8 +78,13 @@ export function buildXlsx({ sheetName = "Sheet1", columns = [], rows = [], image
   const head = `<row r="1" ht="20" customHeight="1">${columns.map((c, i) => cell(String(c.title ?? ""), 1, i, 1)).join("")}</row>`;
   const body = rows.map((row, ri) => `<row r="${ri + 2}"${ht}>${row.map((v, ci) => cell(v, ri + 2, ci, 2)).join("")}</row>`).join("");
   const hasImg = images.length > 0;
+  const dv = validations.filter((v) => v && v.values?.length && v.rows?.length).map((v) => {
+    const refs = v.rows.map((r) => `${colName(v.col)}${r + 2}`).join(" ");
+    return `<dataValidation type="list" allowBlank="1" showErrorMessage="1" sqref="${refs}"><formula1>"${xml(v.values.join(","))}"</formula1></dataValidation>`;
+  });
+  const dvXml = dv.length ? `<dataValidations count="${dv.length}">${dv.join("")}</dataValidations>` : "";
   const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${cols}</cols><sheetData>${head}${body}</sheetData><pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>${hasImg ? '<drawing r:id="rId1"/>' : ""}</worksheet>`;
+<worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${cols}</cols><sheetData>${head}${body}</sheetData>${dvXml}<pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>${hasImg ? '<drawing r:id="rId1"/>' : ""}</worksheet>`;
   const files = [];
   const exts = new Set(images.map((im) => (im.ext === "png" ? "png" : "jpeg")));
   files.push({ name: "[Content_Types].xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>

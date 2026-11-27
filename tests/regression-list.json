@@ -103,5 +103,6 @@
   "vendorRead.mock.test.mjs",
   "logArchive.mock.test.mjs",
   "workBoard.mock.test.mjs",
-  "vendorBook.mock.test.mjs"
+  "vendorBook.mock.test.mjs",
+  "freeSlots.mock.test.mjs"
 ]

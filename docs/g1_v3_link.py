@@ -154,6 +154,7 @@
   · 수집기 본체 파일은 그대로 — 수집이 끝난 결과 파일에 토스 줄을 덧붙임 (자동 수집도 같음) · 읽기(GET)만
   · 키 파일이 없으면 업체 결과 '키 없음' 으로 알림
 
+1.44 (2026-11-27) 톡톡 읽기 상태를 웹(상담톡)에 표시 — 로그인 필요 · 방 개수 · 마지막 시각
 1.43 (2026-11-26) 지난 답변 모으기 최대 180일 · 한도 늘림 · 요청 파일 _이력요청_6개월.json (1.41·1.42 는 이 파일을 모름)
 1.42 (2026-11-26) 스마트스토어 톡톡 → 💬 상담톡 (방 목록만 · 읽기만)
   · 5분마다 수집기 PC 의 네이버 전용 크롬(창 밖)으로 판매자센터 톡톡 화면을 열고, 화면이 스스로 받는 방 목록 응답만 읽음
@@ -193,8 +194,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-LINK_VER = "1.43 (2026-11-26)"
-LINK_NOTE = "지난 답변 모으기 6개월까지(메이크샵 글 700 · 리뷰 150쪽 · 지그재그 주문문의 400 · 에이블리 방 400) · 스마트스토어 톡톡 방 목록 → 💬 상담톡(5분마다 · 방을 열지 않음 · 마지막 메시지만) · 지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
+LINK_VER = "1.44 (2026-11-27)"
+LINK_NOTE = "상담톡에 스마트스토어 톡톡 읽기 상태(로그인 필요 · 방 개수 · 시각)를 웹으로 보냄 · 지난 답변 모으기 6개월까지(메이크샵 글 700 · 리뷰 150쪽 · 지그재그 주문문의 400 · 에이블리 방 400) · 스마트스토어 톡톡 방 목록 → 💬 상담톡(5분마다 · 방을 열지 않음 · 마지막 메시지만) · 지난 게시판·리뷰 답변 모으기(요청 파일이 있을 때 한 번 · 읽기만 · 수집\\_이력\\ 에 글만) · 게시판·리뷰 자동 수집 기본 켜짐(20분마다 · 08:30부터, 한 번만 켜 둠 — 웹 설정에서 끄거나 간격 바꾸면 그대로) · 스마트스토어 톡톡 구조 확인(한 번만 · 읽기만 · 요청 주소와 칸 이름만 _talk_probe.json 에, 고객 이름·대화 글은 안 남김) · 에이블리 로그인 판정을 실제 판매자 API 응답으로 (풀린 세션을 로그인됨으로 착각하던 것) · 사람 로그인 15분 · 원격 로그인: 퀴즈가 네이버 로그인 창(팝업)이나 화면 아래에 떠도 그 화면을 보여 줌 · 아트피어스/14K 구분 · 리포트 입력칸 비우기"
 POLL_SEC = 15
 HOT_POLL_SEC = 3          # 1.9: CS 화면이 열려 있으면(시트 v8 이 hot 으로 알려 줌) 3초마다 — 요청한 창이 빨리 뜨게
 CHUNK = 150
@@ -1812,7 +1813,7 @@ SMART_TALK_EVERY = 300
 SMART_TALK_RETRY = 1800
 SMART_TALK_WAIT_MS = 15000
 SMART_TALK_MAX = 60
-SMART_TALK_STATE = {"next": 0.0, "note": ""}
+SMART_TALK_STATE = {"next": 0.0, "note": "", "rooms": 0, "at": ""}
 SMART_TALK_LIST_RE = re.compile(r"talk\.sell\.smartstore\.naver\.com/chatapi/ct/partner/[^/?#]+/list(\?|$)")
 SMART_TALK_STATUS = {"WAIT": "대기", "PROGRESS": "진행", "END": "완료", "HOLDBACK": "보류", "BLOCK": "차단", "SPAM": "스팸"}
 SMART_TALK_DIALOG = {"PAY": "결제/주문", "PRODUCT": "상품", "STORE": "스토어"}
@@ -1909,6 +1910,7 @@ def push_smart_talk(G, link, say=print, now=None, chrome_cls=None):
         return 0
     finally:
         lock.release()
+    SMART_TALK_STATE["at"] = f"{datetime.datetime.now():%m-%d %H:%M}"
     if login:
         SMART_TALK_STATE["next"] = now + SMART_TALK_RETRY
         if SMART_TALK_STATE["note"] != "login":
@@ -1916,6 +1918,7 @@ def push_smart_talk(G, link, say=print, now=None, chrome_cls=None):
             say("스마트스토어 톡톡: 판매자센터 로그인이 필요합니다 (메인보드 › 로그인 현황 › 스마트스토어 ⭐ 리뷰 연결) — 30분 뒤 다시")
         return 0
     SMART_TALK_STATE["next"] = now + SMART_TALK_EVERY
+    SMART_TALK_STATE["rooms"] = len(convs)
     if SMART_TALK_STATE["note"] != "ok":
         SMART_TALK_STATE["note"] = "ok"
         say(f"💬 스마트스토어 톡톡 읽기 됨 — 방 {len(convs)}개 (목록만)")
@@ -3846,7 +3849,9 @@ def setup_info(cfg, bg=False, d=None, nxt=None):
     extra = dict(bg=bool(bg), auto_on=bool(cfg.get("auto_on")), next_auto=(f"{nxt:%m-%d %H:%M}" if nxt else ""),
                  saved_logins=saved_logins(d or {}), pub_key=(rsa_public(_RSA["key"]) if _RSA.get("key") else ""),
                  toss=toss_source(cfg=cfg), toss_note=("" if TOSS_STATE["note"] in ("", "ok", "nokey") else TOSS_STATE["note"])[:200],
-                 toss_ok=TOSS_STATE["note"] == "ok")
+                 toss_ok=TOSS_STATE["note"] == "ok",
+                 smart_talk=str(SMART_TALK_STATE.get("note") or "")[:120], smart_rooms=int(SMART_TALK_STATE.get("rooms") or 0),
+                 smart_at=str(SMART_TALK_STATE.get("at") or ""))
     if _SETUP_CACHE["info"] is not None and time.time() - _SETUP_CACHE["at"] < 60:
         return dict(_SETUP_CACHE["info"], **extra)
     G = _G()

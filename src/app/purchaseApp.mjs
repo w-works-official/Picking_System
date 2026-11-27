@@ -1,6 +1,6 @@
 // 상품 관리 (2026-10-28, 이름 2026-10-29): 피킹시스템과 같은 화면 틀, 사이드 메뉴 발주 · 입고 · 상품명 요청.
 // 아직 데이터는 읽거나 쓰지 않습니다(화면 틀만).
-export const PURCHASE_TABS = ["order", "receiving", "naming", "finder", "products", "price", "receipt"]; // products = 📦 상품 현황 (2026-11-06) · finder = 🔎 상품찾기 (2026-11-07) · price · receipt = 목업 (11-10)
+export const PURCHASE_TABS = ["order", "receiving", "naming", "slots", "finder", "products", "price", "receipt"]; // products = 📦 상품 현황 (2026-11-06) · finder = 🔎 상품찾기 (2026-11-07) · price · receipt = 목업 (11-10) · slots = 자사코드 자리 (11-27)
 
 export function purchaseTabFromHash(hash = "") {
   const value = String(hash || "").replace(/^#/, "");

@@ -162,9 +162,9 @@ console.log("freeSlots ok");
   const page = readFileSync(new URL("../purchase/index.html", import.meta.url), "utf8");
   if (!/<h3 class="purchase-tab-group">영수증<\/h3>[\s\S]*?<h3 class="purchase-tab-group">자사코드<\/h3>\s*<button class="purchase-tab" type="button" data-purchase-tab="slots">자사코드 자리<\/button>/.test(page)) throw new Error("메뉴: 영수증 밑 자사코드 묶음");
   if (!/data-purchase-panel="slots"[\s\S]*?<div data-fs-root><\/div>/.test(page)) throw new Error("자사코드 자리 패널");
-  if (!/freeSlotsBoot\.mjs\?v=20261127-slots6/.test(page)) throw new Error("boot 스크립트");
+  if (!/freeSlotsBoot\.mjs\?v=20261127-slots7/.test(page)) throw new Error("boot 스크립트");
   const boot = readFileSync(new URL("../src/app/freeSlotsBoot.mjs", import.meta.url), "utf8");
-  if (!/freeSlotsPanel\.mjs\?v=20261127-slots6/.test(boot)) throw new Error("패널 버전");
+  if (!/freeSlotsPanel\.mjs\?v=20261127-slots7/.test(boot)) throw new Error("패널 버전");
   console.log("freeSlots V3 연결: OK");
 }
 
@@ -254,4 +254,16 @@ console.log("freeSlots ok");
   assert.equal(back, csv, "조각을 이으면 원래 CSV");
   assert.deepEqual(fs.csvChunks(""), []);
   console.log("freeSlots 셀피아 업데이트: OK");
+}
+
+// 11-27 마지막 정보 — 저장소가 없는 곳(시험)에서도 오류 없이 · autoLoad 는 boot 에서만
+{
+  const { lastGet, lastPut } = await import("../src/app/freeSlotsPanel.mjs");
+  if ((await lastGet({})) !== null || (await lastPut({}, { raw: [] })) !== false) throw new Error("저장소 없으면 조용히");
+  const fs = await import("node:fs/promises");
+  const boot = await fs.readFile(new URL("../src/app/freeSlotsBoot.mjs", import.meta.url), "utf8");
+  if (!/autoLoad: true/.test(boot)) throw new Error("boot 에서 마지막 정보 자동 열기");
+  const panel = await fs.readFile(new URL("../src/app/freeSlotsPanel.mjs", import.meta.url), "utf8");
+  if ((panel.match(/remember\(\);/g) || []).length < 2) throw new Error("허브 · 엑셀 읽은 뒤 마지막 정보 저장");
+  console.log("freeSlots 마지막 정보: OK");
 }

@@ -448,6 +448,11 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+// 11-27 자사코드의 '낱' 글자만 밝은 노랑 배경 (예: 낱[EA-11-01_3]) — 화면 글자용, 속성(title·aria)에는 escapeHtml 그대로
+function ownCodeHtml(value) {
+  return escapeHtml(value).replace(/낱/g, '<mark class="own-code-loose">낱</mark>');
+}
+
 // 상품명의 "(사은품)"을 괄호 포함 빨간 글씨로 (2026-10-26 대표님 요청). 나머지는 그대로 escape.
 function productNameHtml(value) {
   return escapeHtml(value).replace(/\(사은품\)/g, '<span class="gift-label">(사은품)</span>');
@@ -3663,7 +3668,7 @@ function renderTray() {
                 <span class="tray-item-check" data-tray-toggle>${isPicked(item) ? "✓" : ""}</span>
                 <span class="tray-item-main">
                   <span class="tray-item-seq">${escapeHtml(invoiceSequenceWithGroupLabel(invoice))}</span>
-                  <strong>${escapeHtml(item.ownCode || "-")}</strong>
+                  <strong>${ownCodeHtml(item.ownCode || "-")}</strong>
                   <small>${escapeHtml(cleanOptionName(item.optionName, item.ownCode) || item.productName || "-")}</small>
                 </span>
                 <span class="tray-item-qty${qtyMultiClass(item)}">${Number(item.quantity) || 1}개</span>
@@ -3951,7 +3956,7 @@ function renderGoldInvoiceItem(invoice, item, invoiceIndex = 0, itemIndex = 0) {
     <div class="gold-item-main">
       <span class="workflow-row-order">상품순서 ${itemOrderNo(item, itemIndex)}번</span>
       ${renderPickingOptionHeading(item, option, { gold: true })}
-      <small>${escapeHtml(item.ownCode || "-")} · ${productNameHtml(item.productName || "")}</small>
+      <small>${ownCodeHtml(item.ownCode || "-")} · ${productNameHtml(item.productName || "")}</small>
       ${renderPickingCustomOrderControls(invoice, item, { compact: true })}
     </div>
     <span class="gold-item-qty${qtyMultiClass(item)}">${Number(item.quantity) || 1}개</span>
@@ -4343,7 +4348,7 @@ function renderShortageRow({ invoice, item, state: itemState, completed, cancell
     </label>
     <button class="workflow-row shortage-workflow-row ${key === state.selectedShortageKey ? "selected" : ""} ${completed ? "is-completed" : ""} ${cancelled ? "is-cancelled" : ""} ${receiving ? "has-receiving" : ""}" data-shortage-key="${escapeHtml(key)}" data-visible-sequence="${visibleSequenceNo}" type="button">
       <span class="workflow-row-sequence" aria-label="현재 정렬 순번">${visibleSequenceNo || "-"}</span>
-      <span class="workflow-row-code">${escapeHtml(item.ownCode || "-")}</span>
+      <span class="workflow-row-code">${ownCodeHtml(item.ownCode || "-")}</span>
       <span class="workflow-row-main">
         <strong>${escapeHtml(cleanOptionName(item.optionName, item.ownCode) || item.productName || "-")}</strong>
         <span class="workflow-row-order" title="서랍번호-상품순서">${escapeHtml(drawerOrderLabel)}</span>
@@ -4403,7 +4408,7 @@ function renderShortageInvoiceItems(invoice) {
         return `<div class="workflow-item-row ${shortage > 0 ? "repicked" : ""} ${itemCancelled ? "is-cancelled" : ""}">
           <span>${itemSequenceNo(item, index)}</span>
           <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "?ъ쭊"}</div>
-          <strong>${escapeHtml(item.ownCode || "-")}</strong>
+          <strong>${ownCodeHtml(item.ownCode || "-")}</strong>
           <em class="${optionHasBarChange(item) ? "option-change" : ""}">${escapeHtml(cleanOptionName(item.optionName, item.ownCode) || item.productName || "-")}</em>
           <b class="${qtyMultiClass(item).trim()}">${Number(item.quantity) || 1}개</b>
           <small>${itemCancelled ? "취소" : shortage > 0 ? `미송 ${shortage}` : "정상"}</small>
@@ -4494,7 +4499,7 @@ function renderShortagePanels() {
   els.shortageDetail.innerHTML = `<div class="workflow-detail-card ${selectedCancelled ? "is-cancelled" : ""}">
     <div class="workflow-detail-head">
       <div>
-        <strong>${escapeHtml(selected.item.ownCode || "-")}</strong>
+        <strong>${ownCodeHtml(selected.item.ownCode || "-")}</strong>
         <span>${escapeHtml(selected.invoice.displayName || selected.invoice.csDisplayName || "-")}</span>
       </div>
       <div class="workflow-detail-actions">
@@ -4804,7 +4809,7 @@ function renderInspectionPanels(options = {}) {
             <strong class="workflow-product-cell">${productNameHtml(product)}</strong>
             <span class="workflow-amount-cell">${escapeHtml(formatAmount(item.itemSalesAmount))}</span>
             <div class="workflow-code-stack">
-              <strong class="workflow-code-cell">${escapeHtml(item.ownCode || "-")}</strong>
+              <strong class="workflow-code-cell">${ownCodeHtml(item.ownCode || "-")}</strong>
               <span class="workflow-sellpia-cell">${escapeHtml(item.sellpiaProductCode || "-")}</span>
             </div>
             <div class="shortage-stack">
@@ -5101,7 +5106,7 @@ function legacyRenderCsPanels() {
         </span>
         <span class="workflow-row-main">
           <strong>${escapeHtml(row.invoice.displayName || row.invoice.csDisplayName || "-")}</strong>
-          <small>${escapeHtml(row.item.ownCode || "-")} · ${escapeHtml(option)} · 미송 ${row.shortageQty}</small>
+          <small>${ownCodeHtml(row.item.ownCode || "-")} · ${escapeHtml(option)} · 미송 ${row.shortageQty}</small>
           <small>${escapeHtml(row.shortageDate)} · ${row.elapsedDays}일 경과 · 서랍 ${escapeHtml(invoiceDrawerValue(row.invoice) || "-")}</small>
         </span>
         <span class="workflow-row-badges">
@@ -5129,7 +5134,7 @@ function legacyRenderCsPanels() {
       </div>
     </div>
     <div class="cs-product-line">
-      <strong>${escapeHtml(selected.item.ownCode || "-")}</strong>
+      <strong>${ownCodeHtml(selected.item.ownCode || "-")}</strong>
       <span class="${optionHasBarChange(selected.item) ? "option-change" : ""}">${escapeHtml(option)}</span>
       <small>송장 ${escapeHtml(selected.invoice.invoiceNo || "-")} · ${escapeHtml(invoiceSequenceWithGroupLabel(selected.invoice))}</small>
     </div>
@@ -5283,7 +5288,7 @@ function renderLegacyCsInvoicePanels() {
             <b class="${qtyMultiClass(item).trim()}">${Number(item.quantity) || 1}</b>
             <strong class="workflow-product-cell">${productNameHtml(product)}</strong>
             <span class="workflow-amount-cell">${escapeHtml(formatAmount(item.itemSalesAmount))}</span>
-            <strong class="workflow-code-cell">${escapeHtml(item.ownCode || "-")}</strong>
+            <strong class="workflow-code-cell">${ownCodeHtml(item.ownCode || "-")}</strong>
             <span class="workflow-sellpia-cell">${escapeHtml(item.sellpiaProductCode || "-")}</span>
             ${shortageQtyInput(invoice, item, shortage, "workflow-shortage-cell compact")}
             <label class="inspection-memo-cell ${sellpiaOrderMemo ? "has-value" : ""}">
@@ -5383,7 +5388,7 @@ function renderCompletedPanels() {
           return `<div class="workflow-item-row ${rowClass}">
             <span>${index + 1}</span>
             <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, photoTitleForItem(item), productImageFallbackUrls(item.sellpiaProductCode))} alt="" loading="lazy">` : "사진"}</div>
-            <strong>${escapeHtml(item.ownCode || "-")}</strong>
+            <strong>${ownCodeHtml(item.ownCode || "-")}</strong>
             <em class="${optionHasBarChange(item) ? "option-change" : ""}">${escapeHtml(cleanOptionName(item.optionName, item.ownCode) || item.productName || "-")}</em>
             <b class="${qtyMultiClass(item).trim()}">${Number(item.quantity) || 1}개</b>
             ${rowClass ? '<small>미송피킹 완료</small>' : "<small>전체상품</small>"}
@@ -5457,7 +5462,7 @@ function renderPickingRow(invoice, item, invoiceIndex = 0, itemIndex = 0) {
     <div class="picking-body">
       <div class="picking-main">
         <div class="picking-title-line">
-          <span class="work-no own-code-display">${escapeHtml(item.ownCode || "-")}</span>
+          <span class="work-no own-code-display">${ownCodeHtml(item.ownCode || "-")}</span>
           ${goldItem ? '<span class="gold-badge">골드</span>' : goldInvoice ? '<span class="gold-badge soft">골드송장</span>' : ""}
           ${item.sellpiaLocation ? `<span class="small-badge">${escapeHtml(item.sellpiaLocation)}</span>` : ""}
           ${itemIsEffectivelyCancelled(invoice, item) ? '<span class="workflow-row-badge cancelled">취소</span>' : ""}
@@ -6272,7 +6277,7 @@ function renderCsCaseItemEditor(row, itemNumber = 0) {
     <section class="cs-item-overview">
       <span class="cs-item-line-number" title="상품행번호 ${escapeHtml(String(itemNumber || "-"))}">${escapeHtml(String(itemNumber || "-"))}</span>
       <div class="workflow-item-photo">${imageUrl ? `<img src="${imageUrl}" ${photoImgAttrs(imageUrl, `${row.ownCode || ""} · ${item.p_name || ""}`, productImageFallbackUrls(imageCode))} alt="" loading="lazy">` : "사진"}</div>
-      <div class="cs-item-product"><strong>${escapeHtml(item.p_name || "상품 정보 없음")}</strong><em>${escapeHtml(item.p_option || "옵션 없음")}</em><div class="cs-item-facts"><span>수량 <b>${escapeHtml(String(item.qty ?? item.o_amount ?? "-"))}</b></span><span>자사코드 <b>${escapeHtml(row.ownCode || "-")}</b></span></div></div>
+      <div class="cs-item-product"><strong>${escapeHtml(item.p_name || "상품 정보 없음")}</strong><em>${escapeHtml(item.p_option || "옵션 없음")}</em><div class="cs-item-facts"><span>수량 <b>${escapeHtml(String(item.qty ?? item.o_amount ?? "-"))}</b></span><span>자사코드 <b>${ownCodeHtml(row.ownCode || "-")}</b></span></div></div>
       <div class="workflow-row-badges cs-item-status">${caseBadge}${partialHoldBadge}${csInboundExpectedBadges(row)}${row.isGold ? '<span class="workflow-row-badge gold">14K</span>' : '<span class="workflow-row-badge">일반</span>'}</div>
     </section>
     <section class="cs-item-section cs-item-case-classification">
@@ -6543,7 +6548,7 @@ function renderCustomOrderRow(row) {
         </div>
       </div>
       <details class="custom-order-slip-source">
-        <summary>원천 정보 · SKU ${escapeHtml(display.sellpiaProductCode || "-")} · 자사 ${escapeHtml(display.ownCode || "-")}</summary>
+        <summary>원천 정보 · SKU ${escapeHtml(display.sellpiaProductCode || "-")} · 자사 ${ownCodeHtml(display.ownCode || "-")}</summary>
         <div class="custom-order-identity">
           <span>주문 ${escapeHtml(operation.ord_no || "-")} · 상품행 ${escapeHtml(operation.sellpia_order_item_no || operation.item_no || "-")}</span>
           <span>원본 옵션 ${escapeHtml(display.productOption || "없음")}</span>
@@ -6823,7 +6828,7 @@ function renderInboundExpectedRow(row) {
       </div>
       <div class="custom-order-codes">
         <span>SKU ${escapeHtml(display.sellpiaProductCode || "-")}</span>
-        <span>자사 ${escapeHtml(display.ownCode || "-")}</span>
+        <span>자사 ${ownCodeHtml(display.ownCode || "-")}</span>
       </div>
       <div class="custom-order-identity">
         <span>주문 ${escapeHtml(identity.ordNo || "-")}</span>

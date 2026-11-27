@@ -1831,3 +1831,8 @@ L.SMART_TALK_STATE.update(note="login", rooms=0, at="11-27 13:00")
 _si = L.setup_info({}, False, {}, None)
 assert _si["smart_talk"] == "login" and _si["smart_at"] == "11-27 13:00" and _si["smart_rooms"] == 0, _si
 print("g1V3Link smart talk status (1.44): OK")
+# 1.45 메이크샵 리뷰 적립금 리뷰마다 (사진 리뷰 · 글 리뷰)
+assert L.LINK_VER >= "1.45"
+_src = open(L.__file__, encoding="utf-8").read()
+assert 'x.get("point") or point' in _src
+print("g1V3Link review point per item (1.45): OK")

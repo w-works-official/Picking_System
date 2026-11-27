@@ -29,6 +29,30 @@ const LIMITS = [5, 10, 20, 50, 0];           // 한 번에 찾을 상품 수 (0 
 const GAP_KEY = "system_v3_fs_gap";          // 11-27: 간격 · 목록 높이 — 끌어서 조절, 이 브라우저에 기억
 const LIST_KEY = "system_v3_fs_list";
 const COLS_KEY = "system_v3_fs_cols";
+// 11-27 마지막 정보 기억 — 셀피아 엑셀(DB1 · DB2)이나 허브로 읽은 옵션을 이 브라우저(IndexedDB)에 두고, 다음에 열면 바로 그것으로 조회
+const LAST_DB = "system_v3_fs", LAST_STORE = "kv", LAST_KEY = "last";
+function lastDb(window) {
+  return new Promise((ok, bad) => {
+    const idb = window?.indexedDB;
+    if (!idb) return bad(new Error("이 브라우저는 저장소가 없습니다"));
+    const rq = idb.open(LAST_DB, 1);
+    rq.onupgradeneeded = () => { try { rq.result.createObjectStore(LAST_STORE); } catch { /* 있음 */ } };
+    rq.onsuccess = () => ok(rq.result);
+    rq.onerror = () => bad(rq.error || new Error("저장소를 열지 못했습니다"));
+  });
+}
+export async function lastGet(window) {
+  try {
+    const db = await lastDb(window);
+    return await new Promise((ok) => { const rq = db.transaction(LAST_STORE, "readonly").objectStore(LAST_STORE).get(LAST_KEY); rq.onsuccess = () => ok(rq.result || null); rq.onerror = () => ok(null); });
+  } catch { return null; }
+}
+export async function lastPut(window, value) {
+  try {
+    const db = await lastDb(window);
+    return await new Promise((ok) => { const tx = db.transaction(LAST_STORE, "readwrite"); tx.objectStore(LAST_STORE).put(value, LAST_KEY); tx.oncomplete = () => ok(true); tx.onerror = () => ok(false); });
+  } catch { return false; }
+}
 const SP_CHECK = "SELLPIA_DPCODE_CHECK", SP_APPLY = "SELLPIA_DPCODE_APPLY";   // 11-27 원격 실행 보드 작업코드 (PC: 원격실행_러너\셀피아_자사코드_V3적용.py → 셀피아 세션 sellpia_dpcode_apply.py)
 const SP_ACTIVE = ["대기", "실행중", "중지요청"];        // 11-27 3차: 표 칸 너비 (머리줄 경계선을 끌어서)
 const COL_W = [90, 220, 150, 52, 120, 110, 130, 130, 66];   // FS_SHEET_COLUMNS 기본 너비(px)
@@ -89,7 +113,7 @@ const CSS = `
 .fs-grip:hover{background:repeating-linear-gradient(90deg,#2f6fde 0 6px,transparent 6px 10px)}
 `;
 
-export function mountFreeSlots({ document, window, root, storages = [], fetchImpl = (...a) => window.fetch(...a), today = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10) } = {}) {
+export function mountFreeSlots({ document, window, root, storages = [], autoLoad = false, fetchImpl = (...a) => window.fetch(...a), today = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10) } = {}) {
   if (!root) return null;
   const st = {
     options: [], source: "", loading: false, note: "", xxNote: "", salesNote: "", sales: null,
@@ -372,6 +396,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
       st.source = "운영 허브";
       await Promise.all([loadSales(), loadSaved()]);
       compute();
+      remember();
     } catch (error) {
       status(`불러오지 못했습니다: ${error.message}`, "is-bad");
     } finally { st.loading = false; render(); }
@@ -411,6 +436,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
       st.xxNote = `엑셀 ${c2(opts)} · 가상재고 ${fmt(opts.filter((o) => o.virtual).length)}옵션 (1000 단위 뺌)`;
       if (!st.sales) await loadSales();
       compute();
+      remember();
     } catch (error) {
       status(`엑셀을 읽지 못했습니다: ${error.message}`, "is-bad");
     } finally { st.loading = false; render(); }
@@ -435,6 +461,27 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     download(bytes, `자사코드_옮길목록_${stamp()}.xlsx`, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   }
   // 완료 기록 (CS 시트 '자사코드이동' 탭)
+  const kst = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(5, 16).replace("T", " ");
+  function remember() {                                   // 11-27 마지막 정보 — 다음에 열 때 DB 를 다시 안 넣어도 되게
+    if (!st.raw?.length) return;
+    lastPut(window, { raw: st.raw, source: st.source.replace(/ · 마지막 정보 .*$/, ""), xxNote: st.xxNote, at: kst() });
+  }
+  async function restore() {
+    const c = await lastGet(window);
+    if (!c?.raw?.length || st.raw?.length || st.loading) return false;
+    st.loading = true; render();
+    try {
+      st.raw = c.raw;
+      st.source = `${c.source} · 마지막 정보 ${c.at}`;
+      st.xxNote = c.xxNote || "";
+      await Promise.all([loadSales(), loadSaved()]);
+      compute();
+    } catch (error) {
+      status(`마지막 정보를 열지 못했습니다: ${error.message}`, "is-bad");
+    } finally { st.loading = false; render(); }
+    return true;
+  }
+
   async function loadSaved() {
     if (!csToken()) { st.savedNote = "완료 기록: CS 시트 연결 필요"; return; }
     try {
@@ -564,7 +611,12 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
 
   render();
   status("[⟳ 불러오기] 를 누르세요");
-  return { state: st, load, loadFile, render, setOptions: (opts, source = "견본") => { st.raw = opts; st.options = opts; st.source = source; st.xxNote = `${fmt(opts.filter((o) => o.xxx).length)}옵션`; compute(); render(); } };
+  if (autoLoad) {                                       // 11-27 자사코드 자리 화면이 처음 보일 때 마지막 정보로 바로 (다른 메뉴에 있을 땐 안 읽음)
+    const go = () => restore().then((ok) => { if (!ok && !st.raw?.length) status("[⟳ 불러오기] (운영 허브) 또는 [📥 셀피아 엑셀] — 한 번 읽으면 다음부터는 마지막 정보로 바로 열립니다"); });
+    const IO = window?.IntersectionObserver;
+    if (IO) { const io = new IO((es) => { if (es.some((e) => e.isIntersecting)) { io.disconnect(); go(); } }); io.observe(root); } else go();
+  }
+  return { state: st, load, loadFile, render, restore, remember, setOptions: (opts, source = "견본") => { st.raw = opts; st.options = opts; st.source = source; st.xxNote = `${fmt(opts.filter((o) => o.xxx).length)}옵션`; compute(); render(); } };
 }
 
 // 셀피아 엑셀 표(행 배열) → 옵션 목록 — 머리줄(앞 6줄 안)의 상품코드 · 자사코드 · 재고 · 임의필드 · 상품명 · 옵션명 칸

@@ -7052,3 +7052,6 @@ button.photo-viewer-star:hover { background: rgba(15, 23, 42, .85); color: #facc
 /* 2026-11-13 대표님 요청: 수량 2개 이상 강조 — 핑크 바탕 · 빨강 굵은 글씨 (피킹 · 검품 · 트레이 · 골드) */
 .qty-multi { color: #e11d48 !important; font-weight: 1000 !important; background: #ffe4e6; border-radius: 6px; box-shadow: inset 0 0 0 1.5px #fda4af; padding: 0 5px; }
 .qty-tile.qty-multi { background: #e11d48; color: #ffffff !important; border-color: #be123c; box-shadow: 0 0 0 3px #fecdd3; padding: 0; }
+
+/* 11-27 자사코드 '낱' 글자 강조 (밝은 노랑) */
+.own-code-loose { background: #ffeb3b; color: inherit; padding: 0 2px; border-radius: 3px; font-weight: 800; }

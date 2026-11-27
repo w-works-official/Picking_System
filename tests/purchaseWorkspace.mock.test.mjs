@@ -16,7 +16,7 @@ assert.equal(workspaceHref("work", "?write=1", "../"), "../task/?write=1", "11-2
 assert.throws(() => workspaceHref("hub"));
 assert.equal(safeWorkspaceSearch("?write=1&write=0&returnUrl=x"), "?write=0");
 
-assert.deepEqual(PURCHASE_TABS, ["order", "receiving", "naming", "finder", "products", "price", "receipt"]);
+assert.deepEqual(PURCHASE_TABS, ["order", "receiving", "naming", "slots", "finder", "products", "price", "receipt"]);
 assert.equal(purchaseTabFromHash("#price"), "price");
 assert.equal(purchaseTabFromHash("#receipt"), "receipt");
 assert.equal(purchaseTabFromHash("#finder"), "finder");
@@ -49,7 +49,7 @@ assert.match(page, /data-purchase-tab="receiving">입고</);
 assert.match(page, /data-purchase-tab="naming">신상품 등록</, "11-10 상품명 요청 → 신상품 등록");
 assert.match(page, /data-purchase-tab="products">상품 현황</);
 assert.match(page, /data-purchase-panel="products"[\s\S]*data-product-board/);
-assert.match(page, /상품주문<\/h3>\s*<button[^>]*data-purchase-tab="order"[^>]*>발주<\/button>\s*<button[^>]*data-purchase-tab="receiving">입고<\/button>\s*<h3[^>]*>상품<\/h3>\s*<button[^>]*data-purchase-tab="products">상품 현황<\/button>\s*<button[^>]*data-purchase-tab="naming">신상품 등록<\/button>\s*<button[^>]*data-purchase-tab="finder">상품찾기<\/button>\s*<h3[^>]*>상품가격<\/h3>\s*<button[^>]*is-mock[^>]*data-purchase-tab="price">상품 가격 수정<\/button>\s*<h3[^>]*>영수증<\/h3>\s*<button[^>]*is-mock[^>]*data-purchase-tab="receipt">영수증 정리</, "11-10 메뉴 묶음 (목업 2개)");
+assert.match(page, /상품주문<\/h3>\s*<button[^>]*data-purchase-tab="order"[^>]*>발주<\/button>\s*<button[^>]*data-purchase-tab="receiving">입고<\/button>\s*<h3[^>]*>상품<\/h3>\s*<button[^>]*data-purchase-tab="products">상품 현황<\/button>\s*<button[^>]*data-purchase-tab="naming">신상품 등록<\/button>\s*<button[^>]*data-purchase-tab="slots">자사코드 자리<\/button>\s*<button[^>]*data-purchase-tab="finder">상품찾기<\/button>\s*<h3[^>]*>상품가격<\/h3>\s*<button[^>]*is-mock[^>]*data-purchase-tab="price">상품 가격 수정<\/button>\s*<h3[^>]*>영수증<\/h3>\s*<button[^>]*is-mock[^>]*data-purchase-tab="receipt">영수증 정리</, "11-10 메뉴 묶음 (목업 2개)");
 assert.match(page, /data-purchase-panel="price"[\s\S]*purchase-mock[\s\S]*data-purchase-panel="receipt"[\s\S]*purchase-mock/);
 assert.match(page, /data-purchase-panel="finder"[\s\S]*data-product-finder/);
 assert.match(page, /<\/nav>\s*<!--[^>]*-->\s*<a class="purchase-hub-link"[^>]*href="https:\/\/w-works-official\.github\.io\/Operation_Hub\/mockups\/operations-hub\/"[^>]*target="_blank"/, "사이드바 맨 아래 운영 허브 바로가기 (새 탭)");

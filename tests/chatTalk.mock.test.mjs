@@ -1,7 +1,7 @@
 // 💬 CS 관리 › 상담톡 (11-11) — 슬롯 채우기 · 후보 앞뒤 · 화면 계약
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { fillSlots, stepIndex, CHAT_SAMPLE, CHAT_SLOT_CHOICES, CHAT_ZONES, zoneOrder, moveZone } from "../src/app/chatTalkPanel.mjs";
+import { fillSlots, stepIndex, CHAT_SAMPLE, CHAT_SLOT_CHOICES, CHAT_ZONES, zoneOrder, moveZone, zoneStatusText } from "../src/app/chatTalkPanel.mjs";
 
 const convs = [{ id: "a", unread: 0 }, { id: "b", unread: 2 }, { id: "c", unread: 0 }, { id: "d", unread: 1 }];
 assert.deepEqual(fillSlots([], convs, 4), ["b", "d", "a", "c"], "안 읽음 먼저");
@@ -17,7 +17,7 @@ assert.match(html, /data-left-tab="review"[^>]*>⭐ 리뷰<\/button>\s*<button[^
 assert.match(html, /data-right-panel="chat" hidden>\s*<div class="ct" data-chat><\/div>/);
 const app = readFileSync(new URL("../src/app/csBoardApp.mjs", import.meta.url), "utf8");
 assert.match(app, /if \(tab === "chat"\) openChat\(\); else chat\?\.stop\?\.\(\);/);
-assert.match(app, /import\("\.\/chatTalkPanel\.mjs\?v=20261117-toss2"\)/);
+assert.match(app, /import\("\.\/chatTalkPanel\.mjs\?v=20261127-why1"\)/);
 assert.ok(app.indexOf("let chat = null") < app.indexOf("function showLeft") || app.indexOf("let chat = null") < app.indexOf('if (tab === "chat")'), "chat 은 쓰기 전에 선언");
 const panel = readFileSync(new URL("../src/app/chatTalkPanel.mjs", import.meta.url), "utf8");
 for (const t of ['action: "chatList"', 'action: "chatSuggest"', "avoid: ai.list", "count: 5", "&lt;&lt;", "&gt;&gt;", "data-ct-copy"]) assert.ok(panel.includes(t), t);
@@ -43,3 +43,14 @@ assert.match(css, /\.ct-zone\.ct-ably \{/);
 assert.match(css, /\.ct-zone\.ct-toss \{/);
 assert.match(css, /\.ct \{[^}]*grid-auto-rows: minmax\(0, 1fr\)/, "구역 수만큼 줄");
 console.log("chatTalk.mock.test: OK");
+
+// 11-27 대화가 없을 때 이유 (시트 v45 chatList.status · 수집기 1.44)
+assert.match(zoneStatusText("smart", { smart: { note: "login" } }), /로그인이 필요/);
+assert.match(zoneStatusText("smart", { smart: { note: "ok", rooms: 3, at: "11-27 13:05" } }), /방 3개 · 11-27 13:05/);
+assert.match(zoneStatusText("smart", {}), /1\.44 업데이트/);
+assert.match(zoneStatusText("kakao", {}), /API 키/);
+assert.match(zoneStatusText("toss", { toss: { ok: true } }), /진행 중인 문의방이 없습니다/);
+const gs45 = readFileSync(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");
+assert.match(gs45, /status: chatStatus_\(\)/);
+assert.match(gs45, /smartTalk: t\(raw\.smart_talk, 120\)/);
+console.log("chatTalk status: OK");

@@ -10,7 +10,7 @@
 //    [주문 찾기] (이름 왼쪽 정사각 버튼): 이름칸의 받는 분 이름과 똑같은 피킹 주문만 (동명이인은 여러 개 · 최근 위 · 일치율 없음 — 11-11 저녁) → 고르면 채움
 //    (피킹 DB 는 피킹 로그인 세션이 있어야 읽힘 — 피킹시스템에서 로그인한 탭에서 CS 관리로)
 //  · [👤＋ 슬롯 추가]: 사진·영상 없이 반품 메모만 쓰는 빈 슬롯 (맨 위)
-import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261127-ship7";
+import { groupShipFiles, searchShipGroups, shipDownloadUrl, shipSizeLabel, shipThumbUrl, shipTimeLabel, shipViewUrl } from "../domain/shipPhotos.mjs?v=20261127-ship8";
 import { itemsToLines, nameFilter, nameUsable, phoneTail, sameNameOrders, vendorsOf } from "../domain/shipOrderMatch.mjs?v=20261111-name5";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

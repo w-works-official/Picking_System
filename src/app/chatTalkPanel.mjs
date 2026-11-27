@@ -9,6 +9,20 @@
 //  · 11-11 보조내용에 상담 상품 카드 (사진 · 상품명 · 옵션 · 주문) — 톡톡 오른쪽 상품 정보를 수집기가 읽어 옴 (시트 v21)
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 export const CHAT_SLOT_CHOICES = [4, 6, 8, 10];
+// 11-27 대화가 없을 때 왜 없는지 (수집기 PC 상태 — 시트 v45 chatList.status)
+export function zoneStatusText(zone, status = {}) {
+  const s = (status || {})[zone] || {};
+  if (zone === "kakao") return "준비 중 — 해피톡 공식 API 키를 받으면 연결합니다";
+  if (zone === "smart") {
+    if (!s.note) return "수집기 PC 가 아직 톡톡을 읽지 않았습니다 (수집기 1.44 업데이트 필요)";
+    if (s.note === "login") return "수집기 PC 의 스마트스토어 로그인이 필요합니다 — 메인보드 › 로그인 현황 › 스마트스토어 [⭐ 리뷰 연결]";
+    if (s.note === "ok") return `톡톡 읽기 정상 · 방 ${s.rooms ?? 0}개${s.at ? ` · ${s.at}` : ""}`;
+    return `톡톡 읽기 실패: ${s.note}`;
+  }
+  if (zone === "toss") return s.ok ? "토스 연결 정상 — 진행 중인 문의방이 없습니다" : s.note ? `토스 연결 확인 필요: ${s.note}` : "";
+  return "";
+}
+const zoneStatus = (zone, status) => { const t = zoneStatusText(zone, status); return t ? `<p class="ct-none ct-why">${esc(t)}</p>` : ""; };
 export const CHAT_ZONES = [
   { key: "smart", title: "스마트스토어 톡톡", icon: "N", auxTitle: "스마트요약 · 구매이력" },
   { key: "kakao", title: "카카오 해피톡", icon: "K", auxTitle: "고객정보" },
@@ -89,7 +103,7 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
   if (!root) return null;
   const saved = readStore(window);
   const st = {
-    data: perZone(() => []), sample: true, loaded: false, loading: false, error: "",
+    data: perZone(() => []), status: {}, sample: true, loaded: false, loading: false, error: "",
     counts: perZone((k) => (CHAT_SLOT_CHOICES.includes(saved.counts?.[k]) ? saved.counts[k] : 4)),
     slots: perZone((k) => saved.slots?.[k] || []),
     selected: perZone(() => ""),
@@ -146,6 +160,7 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
     st.loading = true;
     try {
       const js = await post({ action: "chatList" });
+      st.status = js.status && typeof js.status === "object" ? js.status : {};
       const has = ZONE_KEYS.some((k) => js[k]?.length);
       if (has) { st.data = perZone((k) => js[k] || []); st.sample = false; }
       else useSample(false);
@@ -277,7 +292,7 @@ export function mountChatTalk({ document, window, root, side, post, isLive = () 
         <span class="ct-ava">${esc((c.name || "?").slice(0, 1))}</span>
         <span class="ct-item-main"><b>${esc(c.name || "(이름 없음)")}</b><small>${esc(c.preview || c.messages?.[c.messages.length - 1]?.text || "")}</small></span>
         <span class="ct-item-side"><small>${esc(c.time || "")}</small>${c.unread ? `<i>${c.unread}</i>` : ""}</span>
-      </button>`).join("") : `<p class="ct-none">대화가 없습니다</p>`;
+      </button>`).join("") : `<p class="ct-none">대화가 없습니다</p>${zoneStatus(zone, st.status)}`;
     const slots = $(`[data-ct-slots="${zone}"]`);
     slots.style.setProperty("--ct-cols", String(n / 2));
     slots.innerHTML = st.slots[zone].map((id, i) => slotHtml(zone, id, i)).join("");

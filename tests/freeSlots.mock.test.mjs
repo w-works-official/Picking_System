@@ -162,16 +162,16 @@ console.log("freeSlots ok");
   const page = readFileSync(new URL("../purchase/index.html", import.meta.url), "utf8");
   if (!/data-purchase-tab="naming">신상품 등록<\/button>\s*<button class="purchase-tab" type="button" data-purchase-tab="slots">자사코드 자리<\/button>/.test(page)) throw new Error("자사코드 자리 메뉴");
   if (!/data-purchase-panel="slots"[\s\S]*?<div data-fs-root><\/div>/.test(page)) throw new Error("자사코드 자리 패널");
-  if (!/freeSlotsBoot\.mjs\?v=20261127-slots3/.test(page)) throw new Error("boot 스크립트");
+  if (!/freeSlotsBoot\.mjs\?v=20261127-slots4/.test(page)) throw new Error("boot 스크립트");
   const boot = readFileSync(new URL("../src/app/freeSlotsBoot.mjs", import.meta.url), "utf8");
-  if (!/freeSlotsPanel\.mjs\?v=20261127-slots3/.test(boot)) throw new Error("패널 버전");
+  if (!/freeSlotsPanel\.mjs\?v=20261127-slots4/.test(boot)) throw new Error("패널 버전");
   console.log("freeSlots V3 연결: OK");
 }
 
-// 11-27 가상재고 1000 단위 — 900 이상만 1000 단위를 뺌 · 작은 재고(1~5 · 50 · 100)는 그대로
+// 11-27 가상재고 1000 단위 — 500 이상만 1000 단위를 뺌 · 작은 재고(1~5 · 50 · 100)는 그대로
 {
   const { realStock, isVirtualStock } = await import("../src/domain/virtualStock.mjs");
-  const cases = [[0, 0], [1, 1], [5, 5], [50, 50], [100, 100], [899, 899], [900, -100], [981, -19], [1000, 0], [1003, 3], [1175, 175], [2003, 3], [6500, 500], [9104, 104], [9900, -100], [10000, 0], [-2, -2]];
+  const cases = [[0, 0], [1, 1], [5, 5], [50, 50], [100, 100], [300, 300], [499, 499], [500, -500], [600, -400], [899, -101], [900, -100], [981, -19], [1499, 499], [1500, -500], [1000, 0], [1003, 3], [1175, 175], [2003, 3], [6500, -500], [6499, 499], [9104, 104], [9900, -100], [10000, 0], [-2, -2]];
   for (const [n, want] of cases) if (realStock(n) !== want) throw new Error(`realStock(${n}) = ${realStock(n)} (기대 ${want})`);
   if (!isVirtualStock(1003) || isVirtualStock(100)) throw new Error("가상재고 판별");
   const { optionsFromRows } = await import("../src/app/freeSlotsPanel.mjs");

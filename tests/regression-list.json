@@ -88,6 +88,7 @@
   "productFinder.mock.test.mjs",
   "photoSearch.mock.test.mjs",
   "inspectionBarChangeMemo.contract.test.mjs",
+  "ownCodeLoose.contract.test.mjs",
   "vendorOrderCols.contract.test.mjs",
   "photoUpload.mock.test.mjs",
   "shipPhotos.mock.test.mjs",

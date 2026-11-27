@@ -7,9 +7,9 @@
 //    또는 [📥 셀피아 엑셀] (상품코드 · 자사코드 · 재고 · 임의필드 칸) 한 파일로
 //  · 읽기 전용: 셀피아·시트 어디에도 쓰지 않음 — 옮길 목록은 엑셀로 받아 사람이 반영
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261111-msqa1";
-import { buildSales, salesSum } from "../domain/productBoard.mjs?v=20261127-vs1";
+import { buildSales, salesSum } from "../domain/productBoard.mjs?v=20261127-vs2";
 import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
-import { isVirtualStock, realStock } from "../domain/virtualStock.mjs?v=20261127-vs1";
+import { isVirtualStock, realStock } from "../domain/virtualStock.mjs?v=20261127-vs2";
 import { FS_DRAWER, FS_MOVE_COLUMNS, FS_SHELVES, freeCells, hasXxx, lowerShelf, moveRows, planRetire, shelfSummary, suggestSlots } from "../domain/freeSlots.mjs?v=20261127-slots2";
 
 const HUB_URL = "https://bpgvqmtsjgegnrdzmpep.supabase.co";
@@ -394,7 +394,7 @@ export function optionsFromRows(rows = []) {
     if (!own || !sku) continue;
     const memo = c.memo >= 0 ? String(r[c.memo] ?? "") : undefined;
     const note = c.note >= 0 ? String(r[c.note] ?? "") : undefined;
-    const raw = Number(String(r?.[c.stock] ?? "").replace(/[^\d.-]/g, "")) || 0;   // 11-27 가상재고(900 이상)는 1000 단위를 빼고
+    const raw = Number(String(r?.[c.stock] ?? "").replace(/[^\d.-]/g, "")) || 0;   // 11-27 가상재고(500 이상)는 1000 단위를 빼고
     out.push({ sku, ownSku: own, stock: realStock(raw), virtual: isVirtualStock(raw), memo, note, xxx: hasXxx(memo) && (note === undefined || hasXxx(note)), product: c.product >= 0 ? String(r[c.product] ?? "") : "", option: c.option >= 0 ? String(r[c.option] ?? "") : "" });
   }
   return out;

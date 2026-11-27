@@ -239,3 +239,19 @@ console.log("freeSlots ok");
   assert.deepEqual(tab.data[0], ["셀피아코드", "지금 자사코드", "새 자사코드", "상품명", "옵션명", "저장 시각", "저장한 사람"]);
   console.log("freeSlots 3차: OK");
 }
+
+// 11-27 [셀피아 업데이트]: 바뀐 것만 · base64 조각
+{
+  const fs = await import("../src/domain/freeSlots.mjs");
+  const latest = new Map([["1-1", { sku: "1-1", to: "[P] B-30-01_1 ]" }], ["2-1", { sku: "2-1", to: "[P] D-30-01_1 ]" }]]);
+  const raw = [{ sku: "1-1", ownSku: "[P] B-30-01_1 ]" }, { sku: "2-1", ownSku: "XX[P] C-01-01 ]" }];
+  assert.deepEqual([...fs.changedLatest(latest, raw).keys()], ["2-1"], "셀피아와 이미 같으면 뺌");
+  assert.equal(fs.changedLatest(latest, []).size, 2, "셀피아 자료 없으면 전부");
+  const csv = fs.matchingCsv(new Map(Array.from({ length: 400 }, (_, i) => [`${1000 + i}-1`, { sku: `${1000 + i}-1`, to: `[P] B-30-${String((i % 10) + 1).padStart(2, "0")}_${(i % 10) + 1} ]` }])));
+  const parts = fs.csvChunks(csv, 6000);
+  assert.ok(parts.length >= 2 && parts.every((p) => p.length <= 6000 && /^[A-Za-z0-9+/=]+$/.test(p)), "조각마다 6000자 이하 · base64 글자만");
+  const back = parts.map((p) => Buffer.from(p, "base64").toString("utf8")).join("");
+  assert.equal(back, csv, "조각을 이으면 원래 CSV");
+  assert.deepEqual(fs.csvChunks(""), []);
+  console.log("freeSlots 셀피아 업데이트: OK");
+}

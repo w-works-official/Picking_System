@@ -12,8 +12,9 @@
 import { CS_BOARD_ENDPOINT, CS_BOARD_STORAGE_KEY, isCsBoardTokenValid } from "../domain/csBoard.mjs?v=20261111-msqa1";
 import { buildSales, salesSum } from "../domain/productBoard.mjs?v=20261127-vs2";
 import { buildXlsx } from "../domain/xlsxWriter.mjs?v=20261106-board2";
+import { REMOTE_BOARD_STORAGE_KEY, REMOTE_BOARD_URL, isRemoteBoardTokenValid } from "../domain/remoteBoard.mjs?v=20261103-autohide2";
 import { isVirtualStock, realStock } from "../domain/virtualStock.mjs?v=20261127-vs2";
-import { FS_DONE, FS_DRAWER, FS_SHEET_COLUMNS, FS_SHELVES, FS_TODO, applySaved, doneFromRows, freeCells, hasXxx, latestBySku, lowerShelf, matchingCsv, planRetire, sheetLines, sheetRows, shelfSummary, suggestSlots } from "../domain/freeSlots.mjs?v=20261127-slots2";
+import { FS_DONE, FS_DRAWER, csvChunks, changedLatest, FS_SHEET_COLUMNS, FS_SHELVES, FS_TODO, applySaved, doneFromRows, freeCells, hasXxx, latestBySku, lowerShelf, matchingCsv, planRetire, sheetLines, sheetRows, shelfSummary, suggestSlots } from "../domain/freeSlots.mjs?v=20261127-slots2";
 
 const HUB_URL = "https://bpgvqmtsjgegnrdzmpep.supabase.co";
 const HUB_KEY = "sb_publishable__NVp6Ra227_e1TQqQE40oA_O2PVwv5C";
@@ -27,7 +28,9 @@ const LIST_MAX = 300;
 const LIMITS = [5, 10, 20, 50, 0];           // 한 번에 찾을 상품 수 (0 = 전체) — 11-27 대표님: 기본 5상품
 const GAP_KEY = "system_v3_fs_gap";          // 11-27: 간격 · 목록 높이 — 끌어서 조절, 이 브라우저에 기억
 const LIST_KEY = "system_v3_fs_list";
-const COLS_KEY = "system_v3_fs_cols";        // 11-27 3차: 표 칸 너비 (머리줄 경계선을 끌어서)
+const COLS_KEY = "system_v3_fs_cols";
+const SP_CHECK = "SELLPIA_DPCODE_CHECK", SP_APPLY = "SELLPIA_DPCODE_APPLY";   // 11-27 원격 실행 보드 작업코드 (PC: 원격실행_러너\셀피아_자사코드_V3적용.py → 셀피아 세션 sellpia_dpcode_apply.py)
+const SP_ACTIVE = ["대기", "실행중", "중지요청"];        // 11-27 3차: 표 칸 너비 (머리줄 경계선을 끌어서)
 const COL_W = [90, 220, 150, 52, 120, 110, 130, 130, 66];   // FS_SHEET_COLUMNS 기본 너비(px)
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -79,6 +82,9 @@ const CSS = `
 .fs-rz{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:1;touch-action:none}
 .fs-rz:hover,.fs-rz.is-drag{background:#2f6fde55}
 .fs-drop{display:inline-flex;align-items:center;gap:6px;border:2px dashed #9fb3d1;border-radius:8px;padding:5px 14px;color:#2f6fde;cursor:pointer;background:#f7faff}
+.fs-sp{border:1px solid #d9dee5;border-radius:8px;padding:8px 10px;background:#fbfcfe;margin:6px 0}
+.fs-sp pre{max-height:220px;overflow:auto;background:#f6f8fa;border-radius:6px;padding:6px 8px;font-size:12px;white-space:pre-wrap;margin:6px 0 0}
+.fs-btn-go{background:#1f9d55;border-color:#1f9d55;color:#fff}
 .fs-drop.is-over{background:#e3edff;border-color:#2f6fde}
 .fs-grip:hover{background:repeating-linear-gradient(90deg,#2f6fde 0 6px,transparent 6px 10px)}
 `;
@@ -87,7 +93,7 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
   if (!root) return null;
   const st = {
     options: [], source: "", loading: false, note: "", xxNote: "", salesNote: "", sales: null,
-    xxx: true, xxxMode: "both", slowOn: false, days: 90, maxQ: 0, only: new Set(), limit: 5, raw: [], saved: new Map(), savedNote: "", checked: new Set(), colW: COL_W.slice(), gap: 14, listH: 320,
+    xxx: true, xxxMode: "both", slowOn: false, days: 90, maxQ: 0, only: new Set(), limit: 5, raw: [], sp: { step: "", ids: [], rows: {}, chunks: [], lines: 0, error: "" }, saved: new Map(), savedNote: "", checked: new Set(), colW: COL_W.slice(), gap: 14, listH: 320,
     n: 3, shelf: "", onlyFreed: false, plan: null, free: [], copied: "",
   };
   const getNum = (k) => { for (const s of storages) { try { const v = Number(s?.getItem?.(k)); if (v) return v; } catch { /* 없음 */ } } return 0; };
@@ -204,12 +210,84 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
         <label class="fs-drop" data-fs-drop title="완료(☑)를 고른 엑셀을 여기에 끌어다 놓거나 눌러서 고르기">📤 엑셀 업로드 <small>(끌어다 놓기)</small><input type="file" accept=".xlsx,.xlsm,.xls" data-fs-up hidden></label>
         <button type="button" class="fs-btn fs-btn-main" data-fs-save ${nCheck ? "" : "disabled"}>✓ 완료 저장${nCheck ? ` (${fmt(nCheck)})` : ""}</button>
         <span style="flex:1"></span>
-        <button type="button" class="fs-btn" data-fs-csv title="V3에 저장된 완료 기록 중 옵션마다 최신 자사코드 → 셀피아 상품통합관리 자사코드 일괄 CSV (상품코드,자사코드 · 머리줄 없음)">⬇ 매칭엑셀다운로드 (CSV)</button>
+        <button type="button" class="fs-btn" data-fs-csv title="V3에 저장된 완료 기록 중 바뀐 것 → 셀피아 자사코드 일괄 CSV (옵션코드,자사코드 · 머리줄 없음)">⬇ 매칭엑셀다운로드 (CSV)</button>
+        <button type="button" class="fs-btn fs-btn-main" data-fs-sp-check ${spBusy() ? "disabled" : ""} title="완료 저장한 자사코드를 사무실 PC 가 셀피아와 비교 (업로드 안 함) → 확인 뒤 [셀피아에 적용]">🔄 셀피아 업데이트</button>
         <span class="fs-status">${esc(st.savedNote)}</span>
       </div>
+      ${spHtml()}
       ${lines.length ? `<div class="fs-scroll"><table class="fs-tbl is-list" style="width:${st.colW.reduce((a, x) => a + x, 0)}px"><colgroup>${st.colW.map((w) => `<col style="width:${w}px">`).join("")}</colgroup><thead><tr>${head}</tr></thead><tbody>
         ${lines.map(row).join("")}
       </tbody></table></div><div class="fs-grip" data-fs-grip title="끌어서 목록 높이 조절"></div>${all.length > LIST_MAX ? `<p class="fs-status">앞 ${LIST_MAX}줄만 보임 — 전체는 엑셀로</p>` : ""}` : `<p class="fs-status">해당 상품 없음</p>`}`;
+  }
+
+  // ---------- 11-27 [셀피아 업데이트]: CSV 만들기 + 원격 실행 보드로 PC 배치 (① 점검 → ② 적용) ----------
+  const spBusy = () => st.sp.step === "checking" || st.sp.step === "applying";
+  function spHtml() {
+    const sp = st.sp;
+    if (!sp.step) return "";
+    const rows = sp.ids.map((id) => sp.rows[id]).filter(Boolean);
+    const stat = rows.map((r) => r["상태"]).join(" · ") || "요청 중";
+    const log = rows.map((r) => String(r["로그"] || "").split("\n").filter((l) => l.trim()).slice(-14).join("\n")).join("\n—\n");
+    const title = { checking: `① 셀피아 점검 중 (${sp.lines}옵션) — 사무실 PC`, checked: `① 점검 끝 (${sp.lines}옵션) — 아래 목록을 보고 적용하세요`, applying: `② 셀피아에 적용 중 (${sp.lines}옵션)`, applied: `② 적용 끝 (${sp.lines}옵션) — 결과는 아래와 진행중 파일 보관\\셀피아_자사코드_결과_*.csv`, error: "셀피아 업데이트 실패" }[sp.step] || "";
+    const okCheck = sp.step === "checked" && rows.length && rows.every((r) => r["상태"] === "완료");
+    return `<div class="fs-sp"><b>${esc(title)}</b> <span class="fs-status">${esc(stat)}</span>${sp.error ? ` <span class="fs-bad">${esc(sp.error)}</span>` : ""}
+      ${okCheck ? ` <button type="button" class="fs-btn fs-btn-go" data-fs-sp-apply>✅ 셀피아에 적용</button>` : ""} <button type="button" class="fs-btn" data-fs-sp-close>닫기</button>
+      ${log ? `<pre>${esc(log)}</pre>` : ""}</div>`;
+  }
+  const boardToken = () => {
+    for (const s of storages) { try { const v = JSON.parse(s?.getItem?.(REMOTE_BOARD_STORAGE_KEY) || "null"); if (isRemoteBoardTokenValid(v?.token)) return String(v.token).trim(); } catch { /* 다음 */ } }
+    return "";
+  };
+  async function boardApi(query = {}, body = null) {
+    const token = boardToken();
+    if (!token) throw new Error("원격 실행 보드 연결 필요 — 상품 관리 › 발주 화면에서 보드 토큰을 한 번 넣어 주세요");
+    const url = new URL(REMOTE_BOARD_URL);
+    Object.entries(query).forEach(([k, v]) => url.searchParams.set(k, v));
+    url.searchParams.set("token", token);
+    const res = await fetchImpl(url.toString(), body ? { method: "POST", body: JSON.stringify({ token, ...body }), headers: { "Content-Type": "text/plain;charset=utf-8" } } : {});
+    if (!res.ok) throw new Error(`보드 응답 오류 (${res.status})`);
+    return res.json();
+  }
+  async function spRun(code, stepRun, stepDone) {
+    const sp = st.sp;
+    sp.step = stepRun; sp.ids = []; sp.rows = {}; sp.error = ""; renderPlan();
+    try {
+      for (const part of sp.chunks) {
+        const r = await boardApi({}, { action: "enqueue", code, params: { csv64: part } });
+        if (!r?.ok) throw new Error(r?.error || "요청 등록 실패");
+        sp.ids.push(String(r.id));
+      }
+      status(`작업센터(원격 실행 보드)에 올렸습니다 — 사무실 PC 가 곧 시작합니다 (1~3분)`);
+      for (let t = 0; t < 120; t++) {            // 5초마다, 최대 10분
+        await new Promise((ok) => window.setTimeout(ok, 5000));
+        const q = await boardApi({ action: "queue", n: 50 });
+        for (const row of q?.queue || []) if (sp.ids.includes(String(row.ID))) sp.rows[String(row.ID)] = row;
+        renderPlan();
+        const rows = sp.ids.map((id) => sp.rows[id]);
+        if (rows.every((r) => r && !SP_ACTIVE.includes(r["상태"]))) break;
+      }
+      const rows = sp.ids.map((id) => sp.rows[id]);
+      if (!rows.every((r) => r && !SP_ACTIVE.includes(r["상태"]))) throw new Error("10분 안에 끝나지 않았습니다 — 원격 실행 보드에서 상태를 확인해 주세요");
+      sp.step = stepDone;
+      if (!rows.every((r) => r["상태"] === "완료")) sp.error = "PC 배치가 실패했습니다 — 아래 로그 확인";
+      status(sp.error ? sp.error : stepDone === "checked" ? "셀피아 점검 끝 — 목록을 보고 [✅ 셀피아에 적용]" : "✓ 셀피아에 적용 끝", sp.error ? "is-bad" : "");
+    } catch (error) {
+      sp.step = "error"; sp.error = error.message; status(`셀피아 업데이트: ${error.message}`, "is-bad");
+    }
+    renderPlan();
+  }
+  async function spCheck() {
+    if (spBusy()) return;
+    await loadSaved();
+    const latest = changedLatest(st.saved, st.raw);
+    if (!latest.size) { status(st.saved.size ? "셀피아에 올릴 바뀐 자사코드가 없습니다 (완료 저장한 것이 이미 같음)" : "완료 저장한 기록이 없습니다", "is-bad"); render(); return; }
+    st.sp.lines = latest.size;
+    st.sp.chunks = csvChunks(matchingCsv(latest));
+    await spRun(SP_CHECK, "checking", "checked");
+  }
+  async function spApply() {
+    if (st.sp.step !== "checked" || !st.sp.chunks.length) return;
+    await spRun(SP_APPLY, "applying", "applied");
   }
 
   function renderSuggest() {
@@ -400,8 +478,10 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
   async function exportCsv() {
     await loadSaved();
     if (!st.saved.size) { status(st.savedNote.includes("못") || st.savedNote.includes("필요") ? st.savedNote : "완료 저장한 기록이 없습니다", "is-bad"); render(); return; }
-    download(matchingCsv(st.saved), `셀피아_자사코드_일괄_${stamp()}.csv`, "text/csv");
-    status(`⬇ 매칭 CSV ${fmt(st.saved.size)}옵션 — 셀피아 상품통합관리 › 자사코드 일괄(CSV)에 올리세요`);
+    const latest = changedLatest(st.saved, st.raw);
+    if (!latest.size) { status("셀피아에 올릴 바뀐 자사코드가 없습니다", "is-bad"); render(); return; }
+    download(matchingCsv(latest), `자사코드매칭_${stamp()}.csv`, "text/csv");   // 셀피아 세션 규격: 이름에 「자사코드」·「매칭」 · 옵션코드,자사코드 · 머리줄 없음
+    status(`⬇ 매칭 CSV ${fmt(latest.size)}옵션 — 다운로드 폴더 · 작업센터 「셀피아_자사코드적용_점검」으로 확인 가능`);
     render();
   }
 
@@ -432,6 +512,9 @@ export function mountFreeSlots({ document, window, root, storages = [], fetchImp
     else if (d.fsExcel !== undefined) exportExcel();
     else if (d.fsSave !== undefined) saveChecked();
     else if (d.fsCsv !== undefined) exportCsv();
+    else if (d.fsSpCheck !== undefined) spCheck();
+    else if (d.fsSpApply !== undefined) spApply();
+    else if (d.fsSpClose !== undefined) { if (!spBusy()) st.sp.step = ""; renderPlan(); }
     else if (d.fsCopy !== undefined) copy(Number(d.fsCopy));
   });
   function applySize() {

@@ -1836,3 +1836,28 @@ assert L.LINK_VER >= "1.45"
 _src = open(L.__file__, encoding="utf-8").read()
 assert 'x.get("point") or point' in _src
 print("g1V3Link review point per item (1.45): OK")
+# 1.46 톡톡 목록 응답이 없으면 이유를 남김
+assert L.LINK_VER >= "1.46"
+
+
+class _TPage0(_TPage):
+    def goto(self, url, **kw):
+        class R:
+            url = "https://talk.sell.smartstore.naver.com/chatapi/ct/partner/x/listConnect"
+            status = 200
+        self.h(R())
+
+
+class _TChrome0(_TChrome):
+    def page(self):
+        return _TPage0()
+
+
+L.SMART_TALK_STATE.update(next=0.0, note="ok", rooms=0)
+assert L.push_smart_talk(_tg, _tk, print, now=1000.0, chrome_cls=_TChrome0) == 0
+assert L.SMART_TALK_STATE["note"].startswith("목록 응답 없음 · 톡톡 요청 1개"), L.SMART_TALK_STATE["note"]
+assert len(L.SMART_TALK_STATE["note"]) <= 120 and L.SMART_TALK_STATE["next"] == 1000.0 + L.SMART_TALK_EVERY
+L.SMART_TALK_STATE.update(next=0.0, note="")
+assert L.push_smart_talk(_tg, _tk, print, now=2000.0, chrome_cls=_TChrome) == 0 or L.SMART_TALK_STATE["note"] == "ok"
+assert L.SMART_TALK_STATE["note"] == "ok" and L.SMART_TALK_STATE["diag"]["lists"] == 1
+print("g1V3Link smart talk diag (1.46): OK")

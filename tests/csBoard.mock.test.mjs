@@ -1274,3 +1274,21 @@ console.log("csBoard.mock.test (ss board api): OK");
   assert.equal(JSON.stringify(keyOf("m1").drafts), before);
   console.log("csBoard.mock.test (v28 makeshop mojibake): OK");
 }
+
+// 11-27 메이크샵 리뷰 적립금 사진 리뷰 · 글 리뷰 따로 (시트 v46 · 수집기 1.45)
+{
+  const { csPointPayload: pay, CS_POINT_DEFAULT: def } = await import("../src/domain/csBoard.mjs");
+  const { readFileSync: rf } = await import("node:fs");
+  const b = pay({ pct: "1", msg: "글", pctPhoto: "3", msgPhoto: "사진" }, "민지");
+  if (b.set.pct !== 1 || b.set.pctPhoto !== 3 || b.set.msgPhoto !== "사진") throw new Error("사진·글 적립률");
+  let bad = false; try { pay({ pct: 1, pctPhoto: 31 }); } catch { bad = true; }
+  if (!bad) throw new Error("사진 리뷰 31% 거절");
+  if (def.msgPhoto !== "[PRODUCT_NAME] 포토리뷰 적립금") throw new Error("사진 리뷰 기본 사유");
+  const gs = rf(new URL("../docs/cs-board-sheet.gs", import.meta.url), "utf8");
+  if (!/item\.point = pointFor_\(row\)/.test(gs) || !/photo \? p\.pctPhoto : p\.pct/.test(gs)) throw new Error("시트: 리뷰마다 사진/글");
+  const py = rf(new URL("../docs/g1_v3_link.py", import.meta.url), "utf8");
+  if (!/x\.get\("point"\) or point/.test(py)) throw new Error("수집기: 리뷰마다 적립금");
+  const html = rf(new URL("../cs/index.html", import.meta.url), "utf8");
+  if (!/id="cs-point-pct-photo"/.test(html) || !/📷 사진 리뷰[\s\S]*✏ 글 리뷰/.test(html)) throw new Error("화면: 사진 리뷰 · 글 리뷰 두 줄");
+  console.log("csBoard point photo/text: OK");
+}
